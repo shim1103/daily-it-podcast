@@ -99,6 +99,7 @@
 - 本番反映用ブランチへの push を禁止する。
 - deploy を禁止する。
 - 統合用ブランチを持ち、一定の粒度で commit する。
+- ブランチ戦略: `feature/*` → `develop`（agent が PR） → `master`（shim が merge）。
 
 ### 7.2 TDD
 
