@@ -1,0 +1,18 @@
+{
+  "name": "daily-it-podcast",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test --force",
+    "typecheck": "turbo run typecheck",
+    "lint": "node -e \"console.log('Linting is not configured yet. Add an eslint.config.js before re-enabling workspace linting.')\"",
+    "orchestrate": "pnpm --filter @daily-it-podcast/orchestrator run start"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3",
+    "prettier": "^3.5.3",
+    "eslint": "^9.28.0"
+  }
+}

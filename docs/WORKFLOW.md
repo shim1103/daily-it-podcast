@@ -99,12 +99,17 @@
 - 本番反映用ブランチへの push を禁止する。
 - deploy を禁止する。
 - 統合用ブランチを持ち、一定の粒度で commit する。
+- ブランチ戦略: `feature/*` → `develop`（agent が PR） → `master`（shim が merge）。
 
 ### 7.2 TDD
 
 - 実装前に plan し、その後 TDD で進める。
 - テストは Given-When-Then 記法で観点を明示する。
 - カバレッジ数値目標は設けず、テスト観点の網羅を優先する。
+- TDD サイクルを git history に残す:
+  1. `test: [機能名] — failing tests` を先に commit する（テストが red であること）。
+  2. `feat: [機能名] — implementation` で実装して green にしてから commit する。
+  3. テストと実装を同一 commit に混在させない。
 
 ### 7.3 設計品質
 
