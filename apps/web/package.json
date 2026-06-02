@@ -13,6 +13,7 @@
   "dependencies": {
     "@daily-it-podcast/core": "workspace:*",
     "@daily-it-podcast/drive": "workspace:*",
+    "@google/genai": "^2.7.0",
     "next": "^15.3.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
