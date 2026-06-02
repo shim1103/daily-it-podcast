@@ -6,12 +6,12 @@ interface Props {
 
 export function AudioPlayer({ audioUrl }: Props) {
   return (
-    <div style={{ margin: '16px 0' }}>
+    <div className="my-4">
       {/* MVPではモックURLのためaudioは再生不可。将来は実音声URLに差し替える。 */}
       <audio
         controls
         src={audioUrl}
-        style={{ width: '100%' }}
+        className="w-full rounded-xl"
       >
         お使いのブラウザはaudio要素をサポートしていません。
       </audio>

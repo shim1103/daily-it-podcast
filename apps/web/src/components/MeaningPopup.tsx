@@ -39,42 +39,28 @@ export function MeaningPopup({ word, position, onClose }: Props) {
     };
   }, [word]);
 
+  // position は動的値のため inline style で座標のみ指定する
+  const popupStyle = {
+    top: position.y,
+    left: Math.min(position.x, window.innerWidth - 260),
+  } as React.CSSProperties;
+
   return (
     <div
       role="dialog"
       aria-label={`${word} の意味`}
-      style={{
-        position: 'fixed',
-        top: position.y,
-        left: Math.min(position.x, window.innerWidth - 260),
-        background: '#fff',
-        border: '1px solid #ddd',
-        borderRadius: 8,
-        padding: '12px 16px',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-        zIndex: 1000,
-        maxWidth: 240,
-        fontSize: 14,
-      }}
+      style={popupStyle}
+      className="fixed z-50 max-w-xs w-60 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-lg text-sm"
     >
       <button
         onClick={onClose}
         aria-label="閉じる"
-        style={{
-          position: 'absolute',
-          top: 6,
-          right: 8,
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          fontSize: 16,
-          color: '#999',
-        }}
+        className="absolute top-1.5 right-2 bg-transparent border-none cursor-pointer text-base text-gray-400 hover:text-gray-600"
       >
         ×
       </button>
-      <p style={{ margin: '0 0 4px', fontWeight: 'bold' }}>{word}</p>
-      <p style={{ margin: 0, color: '#555' }}>
+      <p className="mb-1 font-bold text-gray-900">{word}</p>
+      <p className="text-gray-500">
         {loading ? '検索中...' : meaning}
       </p>
     </div>

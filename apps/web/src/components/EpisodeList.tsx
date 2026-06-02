@@ -9,29 +9,23 @@ interface Props {
 
 export function EpisodeList({ episodes }: Props) {
   if (episodes.length === 0) {
-    return <p style={{ color: '#666' }}>エピソードがありません</p>;
+    return <p className="text-gray-500">エピソードがありません</p>;
   }
 
   return (
-    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+    <ul className="list-none m-0 p-0 space-y-3">
       {episodes.map((ep) => (
         <li
           key={ep.id}
-          style={{
-            background: '#fff',
-            borderRadius: 8,
-            padding: '14px 16px',
-            marginBottom: 10,
-            boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-          }}
+          className="bg-white rounded-xl px-4 py-3 shadow-sm border border-gray-100"
         >
           <Link
             href={`/episode/${ep.id}`}
-            style={{ color: '#0070f3', textDecoration: 'none', fontWeight: 500 }}
+            className="font-medium text-indigo-600 hover:text-indigo-800 no-underline"
           >
             {ep.title}
           </Link>
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#999' }}>
+          <p className="mt-1 text-xs text-gray-400">
             {new Date(ep.timestamp).toLocaleString('ja-JP')}
           </p>
         </li>
