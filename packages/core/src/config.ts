@@ -16,6 +16,7 @@ export interface PodcastConfig {
   };
   templateKey: string;
   apiProvider: {
+    infoFetcher?: 'mock' | 'hackernews';
     scriptGenerator: ApiProviderKey;
     tts: ApiProviderKey;
     drive?: 'mock' | 'google';
