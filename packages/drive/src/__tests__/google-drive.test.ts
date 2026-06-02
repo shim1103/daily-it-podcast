@@ -4,7 +4,7 @@ import type { Manuscript } from '@daily-it-podcast/core';
 const mockFilesCreate = vi.fn();
 const mockFilesList = vi.fn();
 const mockFilesGet = vi.fn();
-const mockFilesGetMedia = vi.fn();
+const mockFilesUpdate = vi.fn();
 
 vi.mock('googleapis', () => ({
   google: {
@@ -18,6 +18,7 @@ vi.mock('googleapis', () => ({
         create: mockFilesCreate,
         list: mockFilesList,
         get: mockFilesGet,
+        update: mockFilesUpdate,
       },
     }),
   },
@@ -48,18 +49,21 @@ describe('GoogleDriveService', () => {
     expect(() => new GoogleDriveService()).toThrow(DriveError);
   });
 
-  it('Given Buffer + Manuscript When save() 実行 Then episode ID が返る', async () => {
+  it('Given Buffer + Manuscript When save() 実行 Then episode ID が返り files.create が2回・files.update が1回呼ばれる', async () => {
     mockFilesCreate
       .mockResolvedValueOnce({ data: { id: 'audio-file-id' } })
-      .mockResolvedValueOnce({ data: { id: 'meta-file-id' } });
+      .mockResolvedValueOnce({ data: { id: 'json-file-id' } });
+    mockFilesUpdate.mockResolvedValueOnce({ data: {} });
 
     const { GoogleDriveService } = await import('../google-drive.js');
     const service = new GoogleDriveService();
     const id = await service.save(Buffer.alloc(16), sampleManuscript);
 
-    expect(typeof id).toBe('string');
     expect(id).toBe('audio-file-id');
     expect(mockFilesCreate).toHaveBeenCalledTimes(2);
+    expect(mockFilesUpdate).toHaveBeenCalledTimes(1);
+    const updateCall = mockFilesUpdate.mock.calls[0]?.[0];
+    expect(updateCall?.requestBody?.appProperties?.jsonFileId).toBe('json-file-id');
   });
 
   it('Given フォルダに音声ファイル When listEpisodes() 実行 Then EpisodeMetadata[] が返る', async () => {
@@ -79,24 +83,25 @@ describe('GoogleDriveService', () => {
     const service = new GoogleDriveService();
     const list = await service.listEpisodes();
 
-    expect(Array.isArray(list)).toBe(true);
     expect(list).toHaveLength(1);
     expect(list[0]!.id).toBe('file-1');
     expect(list[0]!.timestamp).toBe('2026-01-01T09:00:00.000Z');
   });
 
   it('Given 存在するファイルID When getEpisode() 実行 Then Episode が返る', async () => {
-    mockFilesGet.mockResolvedValueOnce({
-      data: {
-        id: 'file-1',
-        name: '2026-01-01T09:00:00.000Z.mp3',
-        description: '2026年1月1日のITニュース',
-        webContentLink: 'https://drive.google.com/uc?id=file-1',
-        appProperties: {
-          manuscript: JSON.stringify(sampleManuscript),
+    mockFilesGet
+      .mockResolvedValueOnce({
+        data: {
+          id: 'file-1',
+          name: '2026-01-01T09:00:00.000Z.mp3',
+          description: '2026年1月1日のITニュース',
+          webContentLink: 'https://drive.google.com/uc?id=file-1',
+          appProperties: { jsonFileId: 'json-file-1' },
         },
-      },
-    });
+      })
+      .mockResolvedValueOnce({
+        data: JSON.stringify(sampleManuscript),
+      });
 
     const { GoogleDriveService } = await import('../google-drive.js');
     const service = new GoogleDriveService();
@@ -105,6 +110,7 @@ describe('GoogleDriveService', () => {
     expect(episode.metadata.id).toBe('file-1');
     expect(episode.audioUrl).toBe('https://drive.google.com/uc?id=file-1');
     expect(episode.manuscript).toEqual(sampleManuscript);
+    expect(mockFilesGet).toHaveBeenCalledTimes(2);
   });
 
   it('Given 存在しないID When getEpisode() 実行 Then DriveError が throw される', async () => {
