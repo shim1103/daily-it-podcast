@@ -42,9 +42,6 @@ export class GoogleDriveService implements DriveService {
           description: title,
           parents: [this.folderId],
           mimeType: 'audio/mpeg',
-          appProperties: {
-            manuscript: JSON.stringify(manuscript),
-          },
         },
         media: {
           mimeType: 'audio/mpeg',
@@ -61,14 +58,14 @@ export class GoogleDriveService implements DriveService {
       throw new DriveError('Drive からファイル ID が返りませんでした');
     }
 
+    let jsonRes;
     try {
-      await this.drive.files.create({
+      jsonRes = await this.drive.files.create({
         requestBody: {
           name: `${manuscript.timestamp}.json`,
           description: title,
           parents: [this.folderId],
           mimeType: 'application/json',
-          appProperties: { audioFileId: fileId },
         },
         media: {
           mimeType: 'application/json',
@@ -78,6 +75,22 @@ export class GoogleDriveService implements DriveService {
       });
     } catch (err) {
       throw new DriveError('原稿ファイルのアップロードに失敗しました', err);
+    }
+
+    const jsonFileId = jsonRes.data.id;
+    if (!jsonFileId) {
+      throw new DriveError('原稿ファイルの ID が取得できませんでした');
+    }
+
+    try {
+      await this.drive.files.update({
+        fileId,
+        requestBody: {
+          appProperties: { jsonFileId },
+        },
+      });
+    } catch (err) {
+      throw new DriveError('音声ファイルへの原稿 ID 紐付けに失敗しました', err);
     }
 
     return fileId;
@@ -104,9 +117,9 @@ export class GoogleDriveService implements DriveService {
   }
 
   async getEpisode(id: string): Promise<Episode> {
-    let res;
+    let audioRes;
     try {
-      res = await this.drive.files.get({
+      audioRes = await this.drive.files.get({
         fileId: id,
         fields: 'id, name, description, webContentLink, appProperties',
       });
@@ -114,14 +127,31 @@ export class GoogleDriveService implements DriveService {
       throw new DriveError(`エピソードの取得に失敗しました: ${id}`, err);
     }
 
-    const file = res.data;
+    const file = audioRes.data;
     if (!file.id || !file.webContentLink) {
       throw new DriveError(`episode not found: ${id}`);
     }
 
+    const jsonFileId = file.appProperties?.jsonFileId;
+    if (!jsonFileId) {
+      throw new DriveError(`episode ${id} の原稿ファイル ID が見つかりません`);
+    }
+
+    let jsonRes;
+    try {
+      jsonRes = await this.drive.files.get({
+        fileId: jsonFileId,
+        alt: 'media',
+      });
+    } catch (err) {
+      throw new DriveError(`原稿ファイルの取得に失敗しました: ${jsonFileId}`, err);
+    }
+
     let manuscript: Manuscript;
     try {
-      manuscript = JSON.parse(file.appProperties?.manuscript ?? '') as Manuscript;
+      const raw =
+        typeof jsonRes.data === 'string' ? jsonRes.data : JSON.stringify(jsonRes.data);
+      manuscript = JSON.parse(raw) as Manuscript;
     } catch {
       throw new DriveError(`episode ${id} の manuscript データが不正です`);
     }
