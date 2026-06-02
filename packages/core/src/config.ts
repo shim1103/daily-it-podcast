@@ -18,6 +18,7 @@ export interface PodcastConfig {
   apiProvider: {
     scriptGenerator: ApiProviderKey;
     tts: ApiProviderKey;
+    drive?: 'mock' | 'google';
   };
   drive: {
     folderId: string;

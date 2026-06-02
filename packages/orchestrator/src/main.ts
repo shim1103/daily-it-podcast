@@ -1,8 +1,5 @@
 import { Orchestrator } from './orchestrator.js';
-import { MockInfoFetcher } from '@daily-it-podcast/info-fetcher';
-import { MockScriptGenerator } from '@daily-it-podcast/script-generator';
-import { MockTtsService } from '@daily-it-podcast/tts';
-import { MockDriveService } from '@daily-it-podcast/drive';
+import { createDeps } from './di.js';
 import type { PodcastConfig } from '@daily-it-podcast/core';
 
 const config: PodcastConfig = {
@@ -17,7 +14,8 @@ const config: PodcastConfig = {
   templateKey: 'default',
   apiProvider: {
     scriptGenerator: 'mock',
-    tts: 'mock',
+    tts: 'gemini',
+    drive: 'google',
   },
   drive: {
     folderId: process.env['DRIVE_FOLDER_ID'] ?? '',
@@ -25,12 +23,7 @@ const config: PodcastConfig = {
   cron: { enabled: false },
 };
 
-const orchestrator = new Orchestrator(config, {
-  infoFetcher: new MockInfoFetcher(),
-  scriptGenerator: new MockScriptGenerator(),
-  ttsService: new MockTtsService(),
-  driveService: new MockDriveService(),
-});
+const orchestrator = new Orchestrator(config, createDeps(config));
 
 orchestrator
   .orchestrate()
