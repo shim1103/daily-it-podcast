@@ -18,11 +18,12 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@daily-it-podcast/core": "workspace:*"
+    "@daily-it-podcast/core": "workspace:*",
+    "googleapis": "^173.0.0"
   },
   "devDependencies": {
+    "@types/node": "^22.15.23",
     "typescript": "*",
-    "vitest": "^3.2.2",
-    "@types/node": "^22.15.23"
+    "vitest": "^3.2.2"
   }
 }

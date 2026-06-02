@@ -21,8 +21,9 @@
     "@daily-it-podcast/core": "workspace:*"
   },
   "devDependencies": {
+    "@google/genai": "^2.7.0",
+    "@types/node": "^22.15.23",
     "typescript": "*",
-    "vitest": "^3.2.2",
-    "@types/node": "^22.15.23"
+    "vitest": "^3.2.2"
   }
 }
