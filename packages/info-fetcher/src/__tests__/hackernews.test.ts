@@ -5,8 +5,6 @@ import { HackerNewsInfoFetcher } from '../hackernews.js';
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
-const TOP_STORIES_URL = 'https://hacker-news.firebaseio.com/v0/topstories.json';
-const ITEM_URL = (id: number) => `https://hacker-news.firebaseio.com/v0/item/${id}.json`;
 
 function makeStory(id: number) {
   return {
