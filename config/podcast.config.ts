@@ -12,8 +12,8 @@ export const config: PodcastConfig = {
   templateKey: 'default',
   apiProvider: {
     infoFetcher: 'hackernews',
-    scriptGenerator: 'mock',
-    tts: 'mock',
+    scriptGenerator: 'gemini',
+    tts: 'gemini',
   },
   drive: {
     folderId: process.env['DRIVE_FOLDER_ID'] ?? '',

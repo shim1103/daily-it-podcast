@@ -13,7 +13,8 @@ const config: PodcastConfig = {
   },
   templateKey: 'default',
   apiProvider: {
-    scriptGenerator: 'mock',
+    infoFetcher: 'hackernews',
+    scriptGenerator: 'gemini',
     tts: 'gemini',
     drive: 'google',
   },
