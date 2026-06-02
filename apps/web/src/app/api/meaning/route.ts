@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchMeaning } from '../../../lib/meaning.js';
+import { fetchMeaning } from '@/lib/meaning';
 
 interface RequestBody {
   word: string;
