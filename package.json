@@ -10,9 +10,11 @@
     "orchestrate": "pnpm --filter @daily-it-podcast/orchestrator run start"
   },
   "devDependencies": {
+    "eslint": "^9.28.0",
+    "eslint-config-next": "^16.2.7",
+    "prettier": "^3.5.3",
     "turbo": "^2.5.4",
     "typescript": "^5.8.3",
-    "prettier": "^3.5.3",
-    "eslint": "^9.28.0"
+    "typescript-eslint": "^8.60.1"
   }
 }
