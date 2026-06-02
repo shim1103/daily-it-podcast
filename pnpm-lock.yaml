@@ -29,6 +29,9 @@ importers:
       '@daily-it-podcast/drive':
         specifier: workspace:*
         version: link:../../packages/drive
+      '@google/genai':
+        specifier: ^2.7.0
+        version: 2.7.0
       next:
         specifier: ^15.3.2
         version: 15.5.18(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
