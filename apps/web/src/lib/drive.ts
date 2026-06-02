@@ -1,7 +1,7 @@
 import { MockDriveService, GoogleDriveService } from '@daily-it-podcast/drive';
 import type { DriveService } from '@daily-it-podcast/core';
 
-function createDriveService(): DriveService {
+export function createDriveService(): DriveService {
   const hasGoogleCreds =
     process.env['GOOGLE_CLIENT_ID'] &&
     process.env['GOOGLE_CLIENT_SECRET'] &&
