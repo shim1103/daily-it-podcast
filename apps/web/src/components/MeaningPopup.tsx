@@ -50,18 +50,24 @@ export function MeaningPopup({ word, position, onClose }: Props) {
       role="dialog"
       aria-label={`${word} の意味`}
       style={popupStyle}
-      className="fixed z-50 max-w-xs w-60 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-lg text-sm"
+      className="fixed z-50 max-w-xs w-60 bg-[#1f2937] border border-purple-500/30 rounded-2xl px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.6)] text-sm animate-fade-in"
     >
       <button
         onClick={onClose}
         aria-label="閉じる"
-        className="absolute top-1.5 right-2 bg-transparent border-none cursor-pointer text-base text-gray-400 hover:text-gray-600"
+        className="absolute top-2 right-2.5 bg-transparent border-none cursor-pointer text-base text-gray-500 hover:text-gray-300 transition-colors"
       >
         ×
       </button>
-      <p className="mb-1 font-bold text-gray-900">{word}</p>
-      <p className="text-gray-500">
-        {loading ? '検索中...' : meaning}
+      <p className="mb-1 font-semibold text-purple-300">{word}</p>
+      <p className="text-gray-400 leading-relaxed">
+        {loading ? (
+          <span className="inline-flex items-center gap-1.5 text-gray-500">
+            <span className="inline-block w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="inline-block w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="inline-block w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          </span>
+        ) : meaning}
       </p>
     </div>
   );
