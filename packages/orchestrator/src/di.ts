@@ -1,4 +1,4 @@
-import { MockInfoFetcher } from '@daily-it-podcast/info-fetcher';
+import { MockInfoFetcher, HackerNewsInfoFetcher } from '@daily-it-podcast/info-fetcher';
 import { MockScriptGenerator } from '@daily-it-podcast/script-generator';
 import { MockTtsService, GeminiTtsService } from '@daily-it-podcast/tts';
 import { MockDriveService, GoogleDriveService } from '@daily-it-podcast/drive';
@@ -12,8 +12,13 @@ export function createDeps(config: PodcastConfig): OrchestratorDeps {
   const driveService =
     config.apiProvider.drive === 'google' ? new GoogleDriveService() : new MockDriveService();
 
+  const infoFetcher =
+    config.apiProvider.infoFetcher === 'hackernews'
+      ? new HackerNewsInfoFetcher({ maxItems: 5 })
+      : new MockInfoFetcher();
+
   return {
-    infoFetcher: new MockInfoFetcher(),
+    infoFetcher,
     scriptGenerator: new MockScriptGenerator(),
     ttsService,
     driveService,

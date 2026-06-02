@@ -11,6 +11,7 @@ export const config: PodcastConfig = {
   },
   templateKey: 'default',
   apiProvider: {
+    infoFetcher: 'hackernews',
     scriptGenerator: 'mock',
     tts: 'mock',
   },
