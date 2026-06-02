@@ -28,32 +28,25 @@ export function ManuscriptViewer({ manuscript }: Props) {
   }
 
   return (
-    <div style={{ marginTop: 16 }}>
-      <p style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>
+    <div className="mt-4">
+      <p className="text-xs text-gray-400 mb-2">
         テキストを選択すると意味を検索できます
       </p>
 
       <section
         onMouseUp={handleTextSelect}
-        style={{
-          background: '#fff',
-          borderRadius: 8,
-          padding: '16px',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-          cursor: 'text',
-          userSelect: 'text',
-        }}
+        className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 cursor-text select-text"
       >
-        <p style={{ margin: '0 0 12px', color: '#333' }}>{manuscript.body.opening}</p>
+        <p className="mb-3 text-gray-700 leading-relaxed">{manuscript.body.opening}</p>
 
         {manuscript.body.topics.map((topic, i) => (
-          <div key={i} style={{ marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 'bold', margin: '0 0 6px' }}>{topic.title}</h3>
-            <p style={{ margin: 0, color: '#444', lineHeight: 1.7 }}>{topic.script}</p>
+          <div key={i} className="mb-4">
+            <h3 className="text-sm font-bold mb-1 text-gray-900">{topic.title}</h3>
+            <p className="text-gray-600 leading-relaxed">{topic.script}</p>
           </div>
         ))}
 
-        <p style={{ margin: 0, color: '#333' }}>{manuscript.body.closing}</p>
+        <p className="text-gray-700 leading-relaxed">{manuscript.body.closing}</p>
       </section>
 
       {popup && (
