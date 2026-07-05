@@ -28,25 +28,26 @@ export function ManuscriptViewer({ manuscript }: Props) {
   }
 
   return (
-    <div className="mt-4">
-      <p className="text-xs text-gray-400 mb-2">
-        テキストを選択すると意味を検索できます
-      </p>
+    <div className="mt-2">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-purple-400 text-sm font-medium">📄 原稿</span>
+        <span className="text-xs text-gray-600 ml-auto">テキストを選択すると意味を検索</span>
+      </div>
 
       <section
         onMouseUp={handleTextSelect}
-        className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 cursor-text select-text"
+        className="bg-[#111827] border border-white/8 rounded-2xl p-5 cursor-text select-text space-y-5"
       >
-        <p className="mb-3 text-gray-700 leading-relaxed">{manuscript.body.opening}</p>
+        <p className="text-gray-300 leading-relaxed text-sm">{manuscript.body.opening}</p>
 
         {manuscript.body.topics.map((topic, i) => (
-          <div key={i} className="mb-4">
-            <h3 className="text-sm font-bold mb-1 text-gray-900">{topic.title}</h3>
-            <p className="text-gray-600 leading-relaxed">{topic.script}</p>
+          <div key={i} className="border-l-2 border-purple-500/40 pl-4">
+            <h3 className="text-sm font-semibold mb-1.5 text-purple-300">{topic.title}</h3>
+            <p className="text-gray-400 leading-relaxed text-sm">{topic.script}</p>
           </div>
         ))}
 
-        <p className="text-gray-700 leading-relaxed">{manuscript.body.closing}</p>
+        <p className="text-gray-300 leading-relaxed text-sm">{manuscript.body.closing}</p>
       </section>
 
       {popup && (
