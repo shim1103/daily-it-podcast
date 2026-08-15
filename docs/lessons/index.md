@@ -16,3 +16,4 @@
 7：2026-08-15 [feature/x-api-adoption] 利用者が完了や execute を明示したら、確認待ちや Plan mode 退避で止めない  # → layer:workflow
 8：2026-08-15 [feature/x-api-adoption] 公開境界の契約コメントの自然言語は、利用者が指定した言語に合わせる  # → layer:0:meta
 9：2026-08-15 [feature/x-api-adoption] manager は Port・Domain 型・契約・後回し範囲まで先に固定し、具象実装と test は所有 path を切った Issue へ委譲する  # → layer:workflow
+13：2026-08-15 [develop] 追記専用の通し番号 list が branch 分岐で番号衝突した時、既存 entry の番号は振り直さず両側をそのまま残す。番号の一意性より記録の保存を優先する  # → layer:workflow
