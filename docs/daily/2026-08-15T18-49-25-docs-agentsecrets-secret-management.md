@@ -8,7 +8,7 @@ prev: なし
 
 ## 1. Summary
 
-local secret 管理に AgentSecrets を採用し、`.env` / `secrets/` / `~/.ssh` の agent 読み取り deny を repo 配下へ置いた。project 作成と dummy 含む secret 登録まで通しで確認した。
+local secret 管理に AgentSecrets を採用し、`.env` / `secrets/` / `~/.ssh` の agent 読み取り deny を repo 配下へ置いた。project 作成と dummy 含む secret 登録まで通しで確認した。続けて develop 向け PR を作成し、Copilot review の妥当指摘を反映した。
 
 ## 2. Changes
 
@@ -16,9 +16,13 @@ local secret 管理に AgentSecrets を採用し、`.env` / `secrets/` / `~/.ssh
 - Claude / Cursor / Codex の deny を project 配下へ追加した（global 設定は撤回）
 - `.agentsecrets/project.json`・workflow・`.gitignore`・`.env.example` を追加した
 - `daily-it-podcast` project を作成し、DUMMY 以外に GETX / TWITTER_IO の 2 key が remote にあることを確認した
+- develop 向け PR #10 を作成した
+- Copilot 指摘に応じ、Claude sandbox deny の `/**` 揃えと `project.json` の個人メタ除去を行った
 
 ### Commits
 
 - `7d2244d` — docs(decisions): local secret 管理に AgentSecrets を採用する
 - `a446d34` — chore: .env / secrets / ~/.ssh の agent 読み取りを project で deny する
 - `df7f962` — chore: AgentSecrets の project 紐付けと .env 系 ignore を追加する
+- `34fa6e9` — docs(log): セッションログ
+- `6433284` — fix: Copilot指摘の deny 表記揃えと project.json 個人メタ除去

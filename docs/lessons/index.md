@@ -9,3 +9,6 @@
 7：2026-08-15 [docs/agentsecrets-secret-management] 未完了記録用の tasks/todo は明示指示があるまで作らない。決定記録や実装と自動でセットにしない  # → layer:workflow
 8：2026-08-15 [docs/agentsecrets-secret-management] AgentSecrets の project 紐付けは git root 自動検出ではなく、カレントディレクトリの project.json 基準である  # → layer:platform
 9：2026-08-15 [docs/agentsecrets-secret-management] AgentSecrets の push 失敗原因は「secret が空」ではなく project 未紐付けであることが多い。空でも push は通る  # → layer:platform
+10：2026-08-15 [docs/agentsecrets-secret-management] 同一対象への deny を permissions と sandbox など複数層に書くとき、glob のカバー範囲表記を揃えないと意図がブレる  # → layer:platform
+11：2026-08-15 [docs/agentsecrets-secret-management] repo 共有する紐付け設定に個人表示名・ローカル操作時刻を残すとノイズ差分と個人情報の混入になる。共有に必要な ID 以外は空にする  # → layer:workflow
+12：2026-08-15 [docs/agentsecrets-secret-management] create-pr 実行指示で gh 禁止があるとき、調査用の gh 呼び出しも禁止対象に含める。wrapper 経由以外の gh を使わない  # → layer:workflow
