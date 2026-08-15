@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# name: pre-push
+# description: push 前に Integration Test をすべて実行する。
+# @require git hook として呼ばれる。scripts/test-integration.sh が存在する。
+# @ensure Integration がすべて pass するときだけ push を通す。
+# @invariant Unit 専用 suite を再実行しない。
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+exec "$root/scripts/test-integration.sh"
