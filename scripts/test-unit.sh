@@ -17,5 +17,9 @@ echo "unit: generator (go)"
 echo "unit: playback (vitest)"
 (
   cd "$root/apps/playback"
+  if [[ ! -f package.json ]]; then
+    echo "skip: package.json なし（空 package）"
+    exit 0
+  fi
   npm run test:unit
 )

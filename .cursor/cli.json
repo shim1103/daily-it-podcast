@@ -11,7 +11,12 @@
       "Read(**/.env)",
       "Read(**/.env.*)",
       "Read(**/secrets/**)",
-      "Read(~/.ssh/**)"
+      "Read(~/.ssh/**)",
+      "Shell(env)",
+      "Shell(env *)",
+      "Shell(printenv)",
+      "Shell(printenv *)",
+      "Shell(*printenv*)"
     ]
   }
 }
