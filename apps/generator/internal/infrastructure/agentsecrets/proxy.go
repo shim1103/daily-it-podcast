@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -33,10 +34,10 @@ type Request struct {
 
 // Do は AgentSecrets proxy 経由で req を upstream へ送る。
 //
-// @require ctx != nil。req.TargetURL は絶対 https URL。Inject の各欄は秘密キー名のみ。
+// @require ctx != nil。req.TargetURL は host 付きの絶対 https URL。Inject の各欄は秘密キー名のみ。
 // @ensure 成功時、戻りは proxy の HTTP 応答である。リクエストは X-AS-Target-URL・X-AS-Method を載せ、Inject.Bearer 非空なら X-AS-Inject-Bearer にそのキー名を載せる。
 // @ensure Method が空のとき X-AS-Method は GET になる。
-// @ensure TargetURL が空（空白のみを含む）、または scheme が https 以外のとき error を返す。
+// @ensure TargetURL が空（空白のみを含む）、scheme が https 以外、または host が空のとき error を返す。
 func (c *Client) Do(ctx context.Context, req Request) (*http.Response, error) {
 	if c == nil {
 		return nil, fmt.Errorf("agentsecrets: client is nil")
@@ -48,8 +49,9 @@ func (c *Client) Do(ctx context.Context, req Request) (*http.Response, error) {
 	if targetURL == "" {
 		return nil, fmt.Errorf("agentsecrets: TargetURL is empty")
 	}
-	if !strings.HasPrefix(targetURL, "https://") {
-		return nil, fmt.Errorf("agentsecrets: TargetURL must be absolute https URL")
+	u, err := url.Parse(targetURL)
+	if err != nil || u.Scheme != "https" || u.Host == "" {
+		return nil, fmt.Errorf("agentsecrets: TargetURL must be absolute https URL with host")
 	}
 	method := strings.TrimSpace(req.Method)
 	if method == "" {
