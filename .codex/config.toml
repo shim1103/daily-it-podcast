@@ -4,7 +4,7 @@
 default_permissions = "secrets-denied"
 
 [permissions.secrets-denied]
-description = "Workspace write + open network; deny .env / secrets / ~/.ssh"
+description = "Workspace write + open network; deny .env / secrets / ~/.ssh; agents must not dump environ"
 extends = ":workspace"
 
 [permissions.secrets-denied.filesystem]

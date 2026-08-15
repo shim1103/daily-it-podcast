@@ -17,8 +17,15 @@
 8：2026-08-15 [feature/x-api-adoption] 公開境界の契約コメントの自然言語は、利用者が指定した言語に合わせる  # → layer:0:meta
 9：2026-08-15 [feature/x-api-adoption] manager は Port・Domain 型・契約・後回し範囲まで先に固定し、具象実装と test は所有 path を切った Issue へ委譲する  # → layer:workflow
 13：2026-08-15 [develop] 追記専用の通し番号 list が branch 分岐で番号衝突した時、既存 entry の番号は振り直さず両側をそのまま残す。番号の一意性より記録の保存を優先する  # → layer:workflow
+14：2026-08-16 [docs/agentsecrets-secret-export] 提案だけの指示では file を書かない。採用指示後に初めて記録・実装する  # → layer:workflow
+15：2026-08-16 [docs/agentsecrets-secret-export] skill 例文の説明句は test へコピペしない。GWT ラベルの後にはその case の前提・呼出・期待を書く  # → layer:0:meta
+16：2026-08-16 [docs/agentsecrets-secret-export] test の主対象は期待振る舞い。失敗系は公開された postcondition として契約した範囲だけを個別 case にする  # → layer:terms
+17：2026-08-16 [docs/agentsecrets-secret-export] zero-knowledge HTTP proxy は注入ヘッダだけでなく session token 検証がある。公式ヘッダ一覧と Architecture の検証順を両方見る  # → layer:platform
+18：2026-08-16 [docs/agentsecrets-secret-export] 公開契約コメントの自然言語は利用者が指定した言語に合わせる  # → layer:0:meta
 14：2026-08-15 [chore/test-and-ci] ホーム配下の AGENTS.md は製品の User Rules ではない。User Rules は cloud 保存で symlink できない  # → layer:platform
 15：2026-08-15 [chore/test-and-ci] 使い方（実行手順）と規則（配置・gate）を別文書に分けたなら、同じ知識を両側へ書かない  # → layer:0:meta
 16：2026-08-15 [chore/test-and-ci] git worktree では .git が directory とは限らない。hook 配置は git-path で解決する  # → layer:platform
 17：2026-08-15 [chore/test-and-ci] 空の package 集合に対し list が成功でも test が失敗することがある。入口 script は空集合を成功として扱う  # → layer:platform
 18：2026-08-15 [chore/test-and-ci] create-rule が作るのは project の rules であり、User Rules（global）ではない。道具と目的を取り違えない  # → layer:workflow
+19：2026-08-16 [docs/agentsecrets-secret-export] 秘密キー名の定数は値と誤読されない名前にする（例: Suffix Name）  # → layer:terms
+20：2026-08-16 [docs/agentsecrets-secret-export] 秘密キー名の定数は Name 接尾辞などで値と誤認しない命名にする  # → layer:terms

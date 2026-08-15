@@ -8,7 +8,13 @@
       "Read(**/.env.*)",
       "Read(secrets/**)",
       "Read(**/secrets/**)",
-      "Read(~/.ssh/**)"
+      "Read(~/.ssh/**)",
+      "Bash(env)",
+      "Bash(env:*)",
+      "Bash(printenv)",
+      "Bash(printenv:*)",
+      "Bash(*printenv*)",
+      "Bash(* /proc/*/environ*)"
     ]
   },
   "sandbox": {
