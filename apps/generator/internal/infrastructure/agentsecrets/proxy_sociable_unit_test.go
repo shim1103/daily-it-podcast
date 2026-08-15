@@ -39,7 +39,7 @@ func TestDo_sendsKeyNameHeadersAndReturnsBody_whenBearerInjected(t *testing.T) {
 	req := agentsecrets.Request{
 		Method:    http.MethodGet,
 		TargetURL: "https://api.example.com/v1/posts",
-		Inject:    agentsecrets.Inject{Bearer: secretnames.GetXAPIKey},
+		Inject:    agentsecrets.Inject{Bearer: secretnames.GetXAPIKeyName},
 	}
 
 	// When: Client.Do を呼び出す
@@ -63,8 +63,8 @@ func TestDo_sendsKeyNameHeadersAndReturnsBody_whenBearerInjected(t *testing.T) {
 	if probe.Method != http.MethodGet {
 		t.Fatalf("X-AS-Method = %q", probe.Method)
 	}
-	if probe.Bearer != secretnames.GetXAPIKey {
-		t.Fatalf("X-AS-Inject-Bearer = %q, want %q", probe.Bearer, secretnames.GetXAPIKey)
+	if probe.Bearer != secretnames.GetXAPIKeyName {
+		t.Fatalf("X-AS-Inject-Bearer = %q, want %q", probe.Bearer, secretnames.GetXAPIKeyName)
 	}
 }
 
@@ -75,7 +75,7 @@ func TestDo_usesGETMethodHeader_whenMethodEmpty(t *testing.T) {
 	client, probe := newClientWithProxyProbe(t, `{}`)
 	req := agentsecrets.Request{
 		TargetURL: "https://api.example.com/v1/posts",
-		Inject:    agentsecrets.Inject{Bearer: secretnames.GetXAPIKey},
+		Inject:    agentsecrets.Inject{Bearer: secretnames.GetXAPIKeyName},
 	}
 
 	// When: Client.Do を呼び出す
@@ -149,5 +149,24 @@ func TestDo_returnsError_whenTargetURLSchemeIsNotHTTPS(t *testing.T) {
 	// Then: error が返る
 	if err == nil {
 		t.Fatal("expected error for non-https TargetURL")
+	}
+}
+
+func TestDo_returnsError_whenTargetURLHostEmpty(t *testing.T) {
+	t.Parallel()
+
+	// Given: scheme は https だが host が空の Request
+	client := &agentsecrets.Client{HTTP: http.DefaultClient, ProxyURL: "http://127.0.0.1:9/proxy"}
+	req := agentsecrets.Request{
+		Method:    http.MethodGet,
+		TargetURL: "https://",
+	}
+
+	// When: Client.Do を呼び出す
+	_, err := client.Do(context.Background(), req)
+
+	// Then: error が返る
+	if err == nil {
+		t.Fatal("expected error for https URL without host")
 	}
 }
