@@ -27,3 +27,4 @@
 16：2026-08-15 [chore/test-and-ci] git worktree では .git が directory とは限らない。hook 配置は git-path で解決する  # → layer:platform
 17：2026-08-15 [chore/test-and-ci] 空の package 集合に対し list が成功でも test が失敗することがある。入口 script は空集合を成功として扱う  # → layer:platform
 18：2026-08-15 [chore/test-and-ci] create-rule が作るのは project の rules であり、User Rules（global）ではない。道具と目的を取り違えない  # → layer:workflow
+19：2026-08-16 [docs/agentsecrets-secret-export] 秘密キー名の定数は値と誤読されない名前にする（例: Suffix Name）  # → layer:terms
