@@ -9,6 +9,10 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 hooks_dir="$(git -C "$root" rev-parse --git-path hooks)"
+case "$hooks_dir" in
+  /*) ;;
+  *) hooks_dir="$root/$hooks_dir" ;;
+esac
 src_dir="$root/scripts/git-hooks"
 
 mkdir -p "$hooks_dir"

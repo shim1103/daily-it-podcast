@@ -11,7 +11,9 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 echo "integration: generator (go)"
 (
   cd "$root/apps/generator"
-  packages="$(go list ./test/... 2>/dev/null || true)"
+  # why not `|| true`: go list の実エラーまで握りつぶすと構文・module 不整合が緑になる。
+  # 空集合は go list が exit 0・stdout 空なので、空だけ skip する。
+  packages="$(go list ./test/...)"
   if [ -z "$packages" ]; then
     echo "generator: Integration package なし（skip）"
   else
