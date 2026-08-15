@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(*)",
+      "Read(*)",
+      "Write(*)",
+      "WebFetch(*)",
+      "Mcp(*:*)"
+    ],
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/secrets/**)",
+      "Read(~/.ssh/**)"
+    ]
+  }
+}

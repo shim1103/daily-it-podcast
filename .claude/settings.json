@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(secrets/**)",
+      "Read(**/secrets/**)",
+      "Read(~/.ssh/**)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "filesystem": {
+      "denyRead": [
+        "~/.ssh",
+        "**/.env",
+        "**/.env.*",
+        "**/secrets"
+      ]
+    }
+  }
+}
