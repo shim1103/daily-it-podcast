@@ -41,7 +41,7 @@
 
 | 役割 | 接続 | 秘密 |
 |------|------|------|
-| 情報取得 | 実装時に固定 | — |
+| 情報取得 | TwitterAPI.io（試作）/ GetXAPI（本運用）。Port は `PostSource`。詳細は `docs/decisions/` の x-api-adoption | `TWITTERAPI_IO_API_KEY`（試作） |
 | 原稿 | Cursor CLI | `CURSOR_API_KEY` |
 | TTS | Gemini | `GEMINI_API_KEY` |
 | Drive | Google Drive + OAuth refresh | README の秘密表 |
