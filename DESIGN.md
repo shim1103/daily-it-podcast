@@ -67,12 +67,14 @@ Scope × Sociability: [levels](file:///Users/shim0729/.claude/skills/testing-str
 | Unit | 対象ソースの隣（Go: `*_test.go`、TS: 隣接 `*.test.ts`） |
 | Integration / Contract / System・E2E | `apps/generator/test/` または `apps/playback/test/`（web のブラウザ E2E は `web` 配下でも可） |
 
-- 分類は **file 名**に出す（`narrow_integration` / `contract` / `system_e2e` 等）。dir 名だけに頼らない
-- `integration` 一語で複数分類を兼ねない
-- 実境界に届かないものに `e2e` と付けない
-- Unit を共有 `tests/` に集めない
+1. 分類は **file 名**に出す（`narrow_integration` / `contract` / `system_e2e` 等）。dir 名だけに頼らない
+2. `integration` 一語で複数分類を兼ねない
+3. 実境界に届かないものに `e2e` と付けない
+4. Unit を共有 `tests/` に集めない
+5. Unit は commit gate、Integration は push / GHA gate
+6. runner は Playback = Vitest（`apps/playback`）、Generator = `go test`
 
-runner / CI ツールの選定は実装時。
+実行手順（hook 導入・コマンド）は `README.md`。
 
 ## 6. 文書
 
