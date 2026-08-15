@@ -16,6 +16,9 @@ local 秘密の渡し方を AgentSecrets の名前参照（HTTP proxy）に固�
 - `infrastructure/agentsecrets` に proxy 向け HTTP client（`X-AS-*` キー名注入）と sociable unit test を追加
 - Claude / Codex / Cursor 設定へ `printenv` / `env` 系 deny を追加
 - `scripts/test-unit.sh` / `test-integration.sh` を復元し、空 package を skip するよう修正
+- `origin/develop` を merge（lessons / scripts conflict を両側保持で解消）
+- PR #12（base: develop）を作成し integration CI SUCCESS
+- Copilot 指摘反映: `url.Parse` + Host 非空、`GetXAPIKey` → `GetXAPIKeyName`、空 host の unit case
 
 ### Commits
 
@@ -25,8 +28,4 @@ local 秘密の渡し方を AgentSecrets の名前参照（HTTP proxy）に固�
 - `2721739` — docs(log): セッションログ
 - `b5ca44d` — merge: origin/develop を取り込み conflict を解消する
 - `760cb94` — fix(generator): Copilot 指摘の URL host 検証とキー名定数を直す
-
-追記 Changes:
-- PR #12（base: develop）を `gh pr create` で作成し CI SUCCESS
-- lessons / scripts の merge conflict を両側保持＋空 package skip 維持で解消
-- Copilot: `url.Parse` + Host 非空、`GetXAPIKey` → `GetXAPIKeyName`
+- `1b3f370` / `04ba9de` — docs(log): セッションログ（追記）
