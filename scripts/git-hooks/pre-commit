@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# name: pre-commit
+# description: commit 前に Unit Test をすべて実行する。
+# @require git hook として呼ばれる。scripts/test-unit.sh が存在する。
+# @ensure Unit がすべて pass するときだけ commit を通す。
+# @invariant Integration を実行しない。
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+exec "$root/scripts/test-unit.sh"
