@@ -73,6 +73,7 @@ Drive のファイル契約 → `contracts/`
 | `DRIVE_FOLDER_ID` | 保存先 | 同上 |
 | `CURSOR_API_KEY` | 原稿 | GHA secrets |
 | `GEMINI_API_KEY` | TTS | GHA secrets |
+| `TWITTERAPI_IO_API_KEY` | X 投稿取得（試作 TwitterAPI.io） | GHA secrets |
 
 ## 制約
 

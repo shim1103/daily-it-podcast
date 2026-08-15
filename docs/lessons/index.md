@@ -12,3 +12,7 @@
 10：2026-08-15 [docs/agentsecrets-secret-management] 同一対象への deny を permissions と sandbox など複数層に書くとき、glob のカバー範囲表記を揃えないと意図がブレる  # → layer:platform
 11：2026-08-15 [docs/agentsecrets-secret-management] repo 共有する紐付け設定に個人表示名・ローカル操作時刻を残すとノイズ差分と個人情報の混入になる。共有に必要な ID 以外は空にする  # → layer:workflow
 12：2026-08-15 [docs/agentsecrets-secret-management] create-pr 実行指示で gh 禁止があるとき、調査用の gh 呼び出しも禁止対象に含める。wrapper 経由以外の gh を使わない  # → layer:workflow
+6：2026-08-15 [feature/x-api-adoption] decisions には指示された判断だけを1ファイルで残す。推測で仕様を確定したことにせず、指示外の判断ファイルを増やさない  # → layer:0:meta
+7：2026-08-15 [feature/x-api-adoption] 利用者が完了や execute を明示したら、確認待ちや Plan mode 退避で止めない  # → layer:workflow
+8：2026-08-15 [feature/x-api-adoption] 公開境界の契約コメントの自然言語は、利用者が指定した言語に合わせる  # → layer:0:meta
+9：2026-08-15 [feature/x-api-adoption] manager は Port・Domain 型・契約・後回し範囲まで先に固定し、具象実装と test は所有 path を切った Issue へ委譲する  # → layer:workflow
