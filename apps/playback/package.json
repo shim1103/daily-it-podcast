@@ -1,0 +1,12 @@
+{
+  "name": "playback",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}
