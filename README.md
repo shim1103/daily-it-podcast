@@ -75,6 +75,8 @@ Drive のファイル契約 → `contracts/`
 | `GEMINI_API_KEY` | TTS | GHA secrets |
 | `TWITTERAPI_IO_API_KEY` | X 投稿取得（試作 TwitterAPI.io） | GHA secrets |
 
+local 開発時の値は AgentSecrets（OS keychain + zero-knowledge cloud sync）が保持する。agent は `.env` / `secrets/**` / `~/.ssh/**` を読めない（`.claude/settings.json` 等の deny）。値の登録・確認は `agentsecrets` CLI を shim 自身が実行する。
+
 ## 制約
 
 - 非公開・独自 DB なし・マルチユーザーなし
