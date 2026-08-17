@@ -44,3 +44,10 @@
 30：2026-08-17 [chore/test-and-ci] 計測と閾値 fail は別能力である。言語標準が cover を出せても、未満で落とす手段が無いなら gate は別途になる  # → layer:platform
 31：2026-08-17 [chore/test-and-ci] Adapter が Port を実装するための import と、組み立て点の結線は別行為である。前者は interface の型が要り、後者だけが全層を組む  # → layer:terms
 32：2026-08-17 [chore/test-and-ci] 確認待ちを structured question tool に載せる前に、その tool が hook で常時 deny されていないかを見る。deny されるなら本文に選択肢を書く  # → layer:workflow
+33：2026-08-17 [feature/tts-speech-synthesizer] 公開境界は呼び出し入口が未決でも、1操作の入出力契約として先に固定できる  # → layer:terms
+34：2026-08-17 [feature/tts-speech-synthesizer] vendor 固有の model・voice・演出は Adapter 定数に閉じ、空でも Port 引数へ上げない  # → layer:terms
+35：2026-08-17 [feature/tts-speech-synthesizer] 再試行の上限を未設定のままにすると打ち切れない。有限の正の回数を先に置く  # → layer:terms
+36：2026-08-17 [feature/tts-speech-synthesizer] 公式が指示文の読み上げ失敗を書く合成系では、本文と演出を同じ入力に混ぜず Adapter が包む  # → layer:platform
+37：2026-08-17 [feature/tts-speech-synthesizer] 次の実行主体が会話履歴を読まなくても着手できるよう、session にしか無い前提は Issue draft の Context へ移す  # → layer:workflow
+38：2026-08-17 [feature/tts-speech-synthesizer] 凍結済み旧実装の置き場が directory とは限らず tag のことがある。path 不在を記録不在と読まない  # → layer:workflow
+39：2026-08-17 [feature/tts-speech-synthesizer] coverage 除外が個別 path 固定だと、同型の薄い Error を足した時に gate が落ちる。除外は方針であり個別 file の列挙だけに頼らない  # → layer:platform
