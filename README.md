@@ -58,9 +58,10 @@ Drive のファイル契約 → `contracts/`
 1. **再生:** Access（メール OTP）→ 一覧 → 再生・原稿表示（意味検索なし）
 2. **生成:** GHA cron / 手動。UI からは起動しない。成果物は `contracts/` に従う
 3. **Playback 依存:** `cd apps/playback && npm ci`
-4. **hook 導入:** `./scripts/install-hooks.sh`
-5. **Unit（commit gate）:** `./scripts/test-unit.sh`
-6. **Integration（push / GHA gate）:** `./scripts/test-integration.sh`
+4. **generator lint:** `golangci-lint` を PATH に入れる（例: `brew install golangci-lint`）
+5. **hook 導入:** `./scripts/install-hooks.sh`
+6. **Unit（commit gate）:** `./scripts/test-unit.sh`（generator: depguard + coverage、playback: Vitest）
+7. **Integration（push / GHA gate）:** `./scripts/test-integration.sh`
 
 test 配置・gate の規則は `DESIGN.md`。
 
