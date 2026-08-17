@@ -38,3 +38,9 @@
 27：2026-08-17 [feature/x-fetch-watched-posts-usecase] simplify の低情報 comment 削除を GWT 構造 label に適用しない。GWT tag は意図説明ではなく構造 label である  # → layer:terms
 28：2026-08-17 [feature/x-fetch-watched-posts-usecase] 完了条件に skill 準拠があるとき、manager は path 委譲だけで足りたとせず reviewer に照合させる  # → layer:workflow
 29：2026-08-17 [feature/x-fetch-watched-posts-usecase] 公開契約の postcondition（部分結果なし等）は先頭失敗だけでは不足しうる。後続失敗 path を別 case にする  # → layer:terms
+27：2026-08-17 [chore/test-and-ci] 依存ゼロの自作検査は見た目の単純さであり、標準と生態系の解析器を捨てて再発明することではない。Least Power は独自 DSL を増やさない側に働く  # → layer:0:meta
+28：2026-08-17 [chore/test-and-ci] allow-unless-denied は既知の禁止だけを止める。未知の新層を自動で止めたいなら deny 列挙ではなく allow 限定にする  # → layer:terms
+29：2026-08-17 [chore/test-and-ci] glob の再帰 pattern は直下 file を含まないことがある。直下と子孫の両方を対象にするなら両方の pattern を書く  # → layer:platform
+30：2026-08-17 [chore/test-and-ci] 計測と閾値 fail は別能力である。言語標準が cover を出せても、未満で落とす手段が無いなら gate は別途になる  # → layer:platform
+31：2026-08-17 [chore/test-and-ci] Adapter が Port を実装するための import と、組み立て点の結線は別行為である。前者は interface の型が要り、後者だけが全層を組む  # → layer:terms
+32：2026-08-17 [chore/test-and-ci] 確認待ちを structured question tool に載せる前に、その tool が hook で常時 deny されていないかを見る。deny されるなら本文に選択肢を書く  # → layer:workflow
