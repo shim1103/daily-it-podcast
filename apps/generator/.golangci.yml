@@ -1,0 +1,42 @@
+# generator の層依存だけを enforce する。他 linter は YAGNI で enable しない。
+# list-mode: strict = allow に無い内部 import は拒否。新層 dir は自動で止まる。
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - depguard
+  settings:
+    depguard:
+      rules:
+        entities:
+          list-mode: strict
+          files:
+            - "**/internal/entities/*.go"
+            - "**/internal/entities/**/*.go"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/entities
+        application:
+          list-mode: strict
+          files:
+            - "**/internal/application/*.go"
+            - "**/internal/application/**/*.go"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/entities
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/application
+        infrastructure:
+          list-mode: strict
+          files:
+            - "**/internal/infrastructure/*.go"
+            - "**/internal/infrastructure/**/*.go"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/entities
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure
+        # composition は全層 import 特権のため規則なし
