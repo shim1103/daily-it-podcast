@@ -8,7 +8,7 @@ prev: なし
 
 ## 1. Summary
 
-TwitterAPI.io 向け `PostSource` Adapter を実装し、Composition から結線できるようにした。AgentSecrets proxy に custom header 注入を足し、vendor 公式の `X-API-Key` をキー名だけで渡す。秘密名の正を README に寄せ、完了した Adapter todo draft と session token todo を削除した。
+TwitterAPI.io 向け `PostSource` Adapter を実装し、Composition から結線できるようにした。AgentSecrets proxy に custom header 注入を足し、vendor 公式の `X-API-Key` をキー名だけで渡す。秘密名の正を README に寄せ、完了した Adapter todo draft と session token todo を削除した。PR #13 を作成し、integration CI は SUCCESS。Copilot は quota 超過で review 不可。`origin/develop` との conflict は無し。
 
 ## 2. Changes
 
@@ -19,9 +19,12 @@ TwitterAPI.io 向け `PostSource` Adapter を実装し、Composition から結�
 - README の秘密名を AgentSecrets 登録名に揃え、DESIGN から秘密名列を外す
 - `docs/tasks/todo/x-post-source-adapter.md` / `agentsecrets-proxy-session-token.md` を削除
 - generator-lane / Issue2 draft の参照を実装 path に更新
+- PR #13（base: develop）。`shim gh create-pr` は `workflow/project.toml` 欠如で失敗したため `gh pr create` で代替
 
 ### Commits
 
 - `4994f03` — feat(generator): AgentSecrets proxy に custom header 注入を足す
 - `4710de5` — feat(generator): TwitterAPI.io で PostSource Adapter を実装する
 - `67bdf86` — docs: 秘密名を README に寄せ Adapter task を片付ける
+- `ed2c984` — docs(log): セッションログ
+- `ff9b39d` — docs(log): セッションログ（lessons 追記）
