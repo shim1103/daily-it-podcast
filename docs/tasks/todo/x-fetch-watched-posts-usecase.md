@@ -24,7 +24,7 @@ GitHub Issue 未作成。作成時はこの本文を使う。
 - 窓・監視 id — `apps/generator/internal/entities/constants/`
 - 採用API・取得方針 — `docs/decisions/2026-08-15T16-39-20-feature-x-api-adoption.md`
 - 後回し範囲 — `docs/decisions/2026-08-15T17-43-09-feature-x-api-adoption.md`
-- Issue1 draft（Adapter・所有境界） — `docs/tasks/todo/x-post-source-adapter.md`
+- Issue1 Adapter — `apps/generator/internal/infrastructure/x/twitterapiio/`、結線は `apps/generator/internal/composition/`
 - 層・依存 — `DESIGN.md`
 - 設計哲学（絶対参照・再定義禁止） — `/Users/shim0729/.claude/skills/philosophy/SKILL.md` および同 dir の `design-philosophy.md`
 - 書き方・公開契約 documentation（絶対参照・再定義禁止） — `/Users/shim0729/.claude/skills/coding-style/SKILL.md`（`naming.md` / `comments.md` / `function-design.md`）
@@ -79,7 +79,7 @@ GitHub Issue 未作成。作成時はこの本文を使う。
 ## 9. Dependencies
 
 - blocked by: なし（Port 契約があれば足りる。Issue1 Adapter 完了は不要）。
-- related: Issue1（`docs/tasks/todo/x-post-source-adapter.md`）、GetXAPI Adapter Issue（未作成可）。
+- related: Issue1 Adapter（`apps/generator/internal/infrastructure/x/twitterapiio/`）、GetXAPI Adapter Issue（未作成可）。
 
 ## 10. Risks
 
