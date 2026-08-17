@@ -1,8 +1,8 @@
 # DESIGN
 
-最終更新: 2026-08-17（coverage / layer gate）
+最終更新: 2026-08-17（playback HTTP 契約）
 
-地図・使い方・受け入れ・秘密の名前は `README.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive 契約の写しは置かない）。
+地図・使い方・受け入れ・秘密の名前は `README.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive / HTTP 契約の写しは置かない）。
 
 ## 1. システム境界
 
@@ -32,6 +32,7 @@
 | `generator/cmd/generator` | 起動入口 |
 | `playback/worker/src/entities` 等 | 上に同じ（BFF） |
 | `playback/web/src/{pages,components,api,utils}` | frontend skill |
+| `playback/contracts` | web↔worker HTTP 境界共有型（API Client と Route / Controller のみ import） |
 
 依存は内側へ。Composition Root だけが全層を結線する。
 

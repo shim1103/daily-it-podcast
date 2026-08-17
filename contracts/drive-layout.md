@@ -22,6 +22,6 @@ Generator が書き、Playback（BFF）が読む。載る成果物は音声と�
 
 ## 読み
 
-- 一覧: `*.mp3` を列挙し stem を `episodeId` とする
-- 1 件: `{episodeId}.json` と対応音声の再生用参照を返す
+- 一覧: `*.json` を列挙し stem を `episodeId` とする。音声の有無は見ない
+- 1 件: `{episodeId}.json` と対応音声の再生用参照を返す。音声が無い・JSON が不適合な件は返さない
 - UI にファイル名を出さない。表示日付は JSON の `date`
