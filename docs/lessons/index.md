@@ -35,6 +35,9 @@
 24：2026-08-17 [feature/x-post-source-adapter] 秘密名の正は1箇所に置き、decision・DESIGN・todo へ別名を再掲しない  # → layer:0:meta
 25：2026-08-17 [feature/x-post-source-adapter] 下位の配線変換を検証する test と、上位がどの注入を選ぶかを検証する test は所有者を分ける。全寄せすると選択事実が無所有者になる  # → layer:terms
 26：2026-08-17 [feature/x-post-source-adapter] create-pr wrapper は repo 根の workflow/project.toml を必須とする。欠けると代替経路へ落ちる前に欠落を表面化する  # → layer:workflow
+27：2026-08-17 [feature/x-fetch-watched-posts-usecase] simplify の低情報 comment 削除を GWT 構造 label に適用しない。GWT tag は意図説明ではなく構造 label である  # → layer:terms
+28：2026-08-17 [feature/x-fetch-watched-posts-usecase] 完了条件に skill 準拠があるとき、manager は path 委譲だけで足りたとせず reviewer に照合させる  # → layer:workflow
+29：2026-08-17 [feature/x-fetch-watched-posts-usecase] 公開契約の postcondition（部分結果なし等）は先頭失敗だけでは不足しうる。後続失敗 path を別 case にする  # → layer:terms
 27：2026-08-17 [chore/test-and-ci] 依存ゼロの自作検査は見た目の単純さであり、標準と生態系の解析器を捨てて再発明することではない。Least Power は独自 DSL を増やさない側に働く  # → layer:0:meta
 28：2026-08-17 [chore/test-and-ci] allow-unless-denied は既知の禁止だけを止める。未知の新層を自動で止めたいなら deny 列挙ではなく allow 限定にする  # → layer:terms
 29：2026-08-17 [chore/test-and-ci] glob の再帰 pattern は直下 file を含まないことがある。直下と子孫の両方を対象にするなら両方の pattern を書く  # → layer:platform
