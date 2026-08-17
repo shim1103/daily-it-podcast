@@ -1,6 +1,6 @@
 # DESIGN
 
-最終更新: 2026-08-17
+最終更新: 2026-08-17（coverage / layer gate）
 
 地図・使い方・受け入れ・秘密の名前は `README.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive 契約の写しは置かない）。
 
@@ -73,6 +73,8 @@ Scope × Sociability: [levels](file:///Users/shim0729/.claude/skills/testing-str
 4. Unit を共有 `tests/` に集めない
 5. Unit は commit gate、Integration は push / GHA gate
 6. runner は Playback = Vitest（`apps/playback`）、Generator = `go test`
+7. generator Unit gate は **statement coverage 90%**（`covermode=atomic`）。除外は Composition Root と薄い Error method（decision 参照）。Integration に Unit 閾値を載せない
+8. generator Unit gate は **depguard**（`golangci-lint`、`strict` allow。他 linter は enable しない）で §2 の層 import を block する。Infrastructure が Application から import してよいのは **Port** のみ。playback 側の同等 gate は置かない
 
 実行手順（hook 導入・コマンド）は `README.md`。
 
