@@ -47,3 +47,4 @@
 33：2026-08-17 [feature/x-getxapi-adapter] 外部系で束ねた directory は Adapter の棚であり、差分吸収 facade ではない。統一 interface は Application の Port、切替は Composition Root  # → layer:terms
 34：2026-08-17 [feature/x-getxapi-adapter] Driven Adapter の見た目が似ていても、vendor 契約（auth・page 名・error 形）が違うなら mechanism を共通化しない。同じ知識が繰り返されてから分ける  # → layer:terms
 35：2026-08-17 [feature/x-getxapi-adapter] 作業レーン上の通し番号と GitHub Issue 番号は別識別子。片方の番号で他方を指したことにしない  # → layer:workflow
+36：2026-08-17 [feature/x-getxapi-adapter] coverage 除外は path 列挙であり、同型の sibling 実装へ自動では広がらない。薄い Error method は呼ぶか除外を明示する  # → layer:platform
