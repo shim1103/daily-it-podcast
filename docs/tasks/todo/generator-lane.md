@@ -7,9 +7,12 @@
 - [x] go.mod（module path）と `PostSource` / `Post` / 監視定数の境界 stub
 - [x] 情報取得 Adapter（TwitterAPI.io / `PostSource`。Composition 結線済み。Issue 未作成）
 - [x] 監視 user 一括取得 UseCase（Issue 未作成。`application.FetchWatchedPosts`）
+- [x] `SpeechSynthesizer` / `SpeechAudio` / Gemini Adapter 定数（空）の境界 stub
 - [ ] GetXAPI Adapter（Issue3・下に詳細。Issue / draft md 未作成）
 - [ ] cmd 入口
-- [ ] Cursor CLI / Gemini / Drive の Infrastructure
+- [ ] Cursor CLI の Infrastructure
+- [ ] Gemini TTS Adapter（下の draft。Issue / gh 未作成）
+- [ ] Drive の Infrastructure
 - [ ] GHA workflow で定期または手動実行
 
 ### 未完了: Issue3 GetXAPI Adapter（本運用差し替え）
@@ -27,3 +30,14 @@ Issue1（TwitterAPI.io）で Port 契約を実測したあと、同じ `PostSour
 - やらない: UseCase、trends、Reply/Repost/引用、profile cache、upsert/DB、media ローカル保存本体、GHA cron 全体
 - 参照: `docs/decisions/2026-08-15T16-39-20-feature-x-api-adoption.md`、`docs/decisions/2026-08-15T17-43-09-feature-x-api-adoption.md`、Port / Post / constants、Issue1 draft
 - 次アクション: Issue1 検証後に create-issue template で正式 draft → gh 作成
+
+### 未完了: Gemini TTS Adapter（`SpeechSynthesizer`）
+
+境界 stub 済み。HTTP / mp3 / retry / 定数の中身 / Composition は未実装。GitHub Issue は未作成。
+
+- 詳細の正: `docs/tasks/todo/gemini-tts-adapter.md`
+- 所有 path: `apps/generator/internal/infrastructure/speech/gemini/`
+- 触ってよい: 上記 dir、Composition のこの Adapter 結線、空定数への公式値
+- 触禁止: Port / `SpeechAudio` の契約変更、UseCase、Drive、cmd、GHA
+- 受け入れの正: 既存 `SpeechSynthesizer` 契約（変えない・満たす）。vendor 型非漏出。戻りは mp3 bytes
+- 次アクション: `shim gh create-issue` は別指示。実装着手は draft 本文で足りる
