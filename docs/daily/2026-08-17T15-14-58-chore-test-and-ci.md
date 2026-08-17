@@ -8,7 +8,7 @@ prev: 2026-08-15T23-17-00-chore-test-and-ci.md
 
 ## 1. Summary
 
-generator の Unit（commit）gate に statement coverage 90%（除外後）と depguard（strict allow、Infrastructure は Port のみ）を入れた。playback と Integration / GHA は触らず、`origin/develop` を merge して lessons 衝突を両方残した。`shim gh create-pr` は `workflow/project.toml` 欠如で失敗し、`gh pr create` は使っていない。GHA `test-integration` は success。
+generator の Unit（commit）gate に statement coverage 90%（除外後）と depguard（strict allow、Infrastructure は Port のみ）を入れた。playback と Integration / GHA は触らず、`origin/develop` を merge して lessons 衝突を両方残した。`shim gh create-pr` は `workflow/project.toml` 欠如で失敗したため、指示どおり `gh pr create` で PR #15 を作った。base は develop、conflict なし、integration CI は SUCCESS。Copilot review は quota 超過で不可。
 
 ## 2. Changes
 
@@ -17,6 +17,7 @@ generator の Unit（commit）gate に statement coverage 90%（除外後）と 
 3. AgentSecrets proxy の未cover分岐を sociable unit で埋める（除外後 92.1%）
 4. DESIGN / README / decision に gate 規則と実行手順を分ける
 5. `origin/develop` の lessons 27–29 と本 branch の 27–32 を番号振り直さず併記する
+6. PR #15（base: `develop`）を `gh pr create` で作成
 
 ### Commits
 
@@ -25,3 +26,4 @@ generator の Unit（commit）gate に statement coverage 90%（除外後）と 
 3. `d4a0039` — docs: generator の coverage と層依存 gate を DESIGN に書く
 4. `3a0d832` — docs(log): セッションログ
 5. `8daa286` — docs(log): develop の lessons 追記と衝突を両方残す
+6. `c71867d` — docs(log): セッションログ（create-pr 欠落の追記）
