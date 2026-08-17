@@ -5,7 +5,7 @@
 取得 → Cursor CLI 原稿 → Gemini TTS → Drive 書込を Go CLI + GHA で通す。
 
 - [x] go.mod（module path）と `PostSource` / `Post` / 監視定数の境界 stub
-- [ ] 情報取得 Adapter（Issue1 draft: `x-post-source-adapter.md`。Issue 未作成）
+- [x] 情報取得 Adapter（TwitterAPI.io / `PostSource`。Composition 結線済み。Issue 未作成）
 - [ ] 監視 user 一括取得 UseCase（Issue2 draft: `x-fetch-watched-posts-usecase.md`。Issue 未作成）
 - [ ] GetXAPI Adapter（Issue3・下に詳細。Issue / draft md 未作成）
 - [ ] cmd 入口
@@ -22,7 +22,7 @@ Issue1（TwitterAPI.io）で Port 契約を実測したあと、同じ `PostSour
 - 触ってよい: 上記 dir、Composition の **Adapter 選択・結線切り替えのみ**（twitterapiio 実装を消さない／無関係リファクタしない）
 - 触禁止: `application/port/`、`entities/`、`infrastructure/x/twitterapiio/` の無関係変更、後回し decision 対象
 - 受け入れの正: 既存 `PostSource` 契約（変えない・満たす）。vendor 型非漏出
-- 秘密: 作成時に env 名を固定（例案 `GETXAPI_API_KEY`）。値は secrets。code に書かない
+- 秘密: 名前の正は README。値は secrets。code に書かない
 - やること: HTTP client、cursor / since 打ち切り、raw → `models.Post`、Infrastructure Error、契約用 test、Composition 切り替え
 - やらない: UseCase、trends、Reply/Repost/引用、profile cache、upsert/DB、media ローカル保存本体、GHA cron 全体
 - 参照: `docs/decisions/2026-08-15T16-39-20-feature-x-api-adoption.md`、`docs/decisions/2026-08-15T17-43-09-feature-x-api-adoption.md`、Port / Post / constants、Issue1 draft

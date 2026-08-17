@@ -79,8 +79,8 @@ test 配置・gate の規則は `DESIGN.md`。
 | `DRIVE_FOLDER_ID` | 保存先 | 同上 |
 | `CURSOR_API_KEY` | 原稿 | GHA secrets |
 | `GEMINI_API_KEY` | TTS | GHA secrets |
-| `TWITTERAPI_IO_API_KEY` | X 投稿取得（試作 TwitterAPI.io） | GHA secrets |
-| `GETX_API_KEY` | X投稿取得（GetX API.com）| GHA secrets | 
+| `TWITTER_IO_API_KEY` | X 投稿取得（試作 TwitterAPI.io） | AgentSecrets（local）/ GHA secrets |
+| `GETX_API_KEY` | X 投稿取得（GetXAPI） | AgentSecrets（local）/ GHA secrets | 
 
 local 開発時の値は AgentSecrets（OS keychain + zero-knowledge cloud sync）が保持する。agent は `.env` / `secrets/**` / `~/.ssh/**` を読めない（`.claude/settings.json` 等の deny）。値の登録・確認は `agentsecrets` CLI を shim 自身が実行する。
 

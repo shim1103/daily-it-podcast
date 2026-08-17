@@ -1,6 +1,6 @@
 # DESIGN
 
-最終更新: 2026-08-15
+最終更新: 2026-08-17
 
 地図・使い方・受け入れ・秘密の名前は `README.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive 契約の写しは置かない）。
 
@@ -39,12 +39,12 @@
 
 ## 3. 外部 I/O
 
-| 役割 | 接続 | 秘密 |
-|------|------|------|
-| 情報取得 | TwitterAPI.io（試作）/ GetXAPI（本運用）。Port は `PostSource`。詳細は `docs/decisions/` の x-api-adoption | `TWITTERAPI_IO_API_KEY`（試作） |
-| 原稿 | Cursor CLI | `CURSOR_API_KEY` |
-| TTS | Gemini | `GEMINI_API_KEY` |
-| Drive | Google Drive + OAuth refresh | README の秘密表 |
+| 役割 | 接続 |
+|------|------|
+| 情報取得 | TwitterAPI.io（試作）/ GetXAPI（本運用）。Port は `PostSource`。詳細は `docs/decisions/` の x-api-adoption |
+| 原稿 | Cursor CLI |
+| TTS | Gemini |
+| Drive | Google Drive + OAuth refresh |
 
 ブラウザに Drive の長期秘密を置かない。フォルダ ID・OAuth の値は実行設定（`contracts/` 外）。
 
