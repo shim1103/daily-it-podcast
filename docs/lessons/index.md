@@ -29,3 +29,8 @@
 18：2026-08-15 [chore/test-and-ci] create-rule が作るのは project の rules であり、User Rules（global）ではない。道具と目的を取り違えない  # → layer:workflow
 19：2026-08-16 [docs/agentsecrets-secret-export] 秘密キー名の定数は値と誤読されない名前にする（例: Suffix Name）  # → layer:terms
 20：2026-08-16 [docs/agentsecrets-secret-export] 秘密キー名の定数は Name 接尾辞などで値と誤認しない命名にする  # → layer:terms
+21：2026-08-17 [feature/x-post-source-adapter] vendor 公式の auth 方式と秘密注入の語形は別知識。凍結前に両方を突き合わせ、一致しない注入を正にしない  # → layer:platform
+22：2026-08-17 [feature/x-post-source-adapter] Port の契約コメントは interface 宣言が SSoT。実装 method へ @ensure を複製しない  # → layer:terms
+23：2026-08-17 [feature/x-post-source-adapter] 同じ observable な失敗へ落ちる内部枝は、枝ごとの test case を増やさない。公開した postcondition の所有者を1つにする  # → layer:terms
+24：2026-08-17 [feature/x-post-source-adapter] 秘密名の正は1箇所に置き、decision・DESIGN・todo へ別名を再掲しない  # → layer:0:meta
+25：2026-08-17 [feature/x-post-source-adapter] 下位の配線変換を検証する test と、上位がどの注入を選ぶかを検証する test は所有者を分ける。全寄せすると選択事実が無所有者になる  # → layer:terms
