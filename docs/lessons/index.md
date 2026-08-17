@@ -34,3 +34,4 @@
 23：2026-08-17 [feature/x-post-source-adapter] 同じ observable な失敗へ落ちる内部枝は、枝ごとの test case を増やさない。公開した postcondition の所有者を1つにする  # → layer:terms
 24：2026-08-17 [feature/x-post-source-adapter] 秘密名の正は1箇所に置き、decision・DESIGN・todo へ別名を再掲しない  # → layer:0:meta
 25：2026-08-17 [feature/x-post-source-adapter] 下位の配線変換を検証する test と、上位がどの注入を選ぶかを検証する test は所有者を分ける。全寄せすると選択事実が無所有者になる  # → layer:terms
+26：2026-08-17 [feature/x-post-source-adapter] create-pr wrapper は repo 根の workflow/project.toml を必須とする。欠けると代替経路へ落ちる前に欠落を表面化する  # → layer:workflow
