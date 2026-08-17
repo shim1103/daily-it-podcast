@@ -15,6 +15,7 @@ type proxyProbe struct {
 	TargetURL string
 	Method    string
 	Bearer    string
+	APIKey    string
 }
 
 func newClientWithProxyProbe(t *testing.T, responseBody string) (*agentsecrets.Client, *proxyProbe) {
@@ -24,6 +25,7 @@ func newClientWithProxyProbe(t *testing.T, responseBody string) (*agentsecrets.C
 		probe.TargetURL = r.Header.Get("X-AS-Target-URL")
 		probe.Method = r.Header.Get("X-AS-Method")
 		probe.Bearer = r.Header.Get("X-AS-Inject-Bearer")
+		probe.APIKey = r.Header.Get("X-AS-Inject-Header-X-API-Key")
 		_, _ = io.WriteString(w, responseBody)
 	}))
 	t.Cleanup(server.Close)
@@ -109,6 +111,35 @@ func TestDo_omitsBearerHeader_whenBearerEmpty(t *testing.T) {
 		t.Fatalf("Do: %v", err)
 	}
 	t.Cleanup(func() { _ = res.Body.Close() })
+	if probe.Bearer != "" {
+		t.Fatalf("X-AS-Inject-Bearer = %q, want empty", probe.Bearer)
+	}
+}
+
+func TestDo_sendsCustomHeaderKeyName_whenHeaderInjected(t *testing.T) {
+	t.Parallel()
+
+	// Given: Headers に upstream header 名とキー名を入れた Request
+	client, probe := newClientWithProxyProbe(t, `{}`)
+	req := agentsecrets.Request{
+		Method:    http.MethodGet,
+		TargetURL: "https://api.example.com/v1/posts",
+		Inject: agentsecrets.Inject{
+			Headers: map[string]string{"X-API-Key": "EXAMPLE_API_KEY"},
+		},
+	}
+
+	// When: Client.Do を呼び出す
+	res, err := client.Do(context.Background(), req)
+
+	// Then: X-AS-Inject-Header-X-API-Key にキー名が載り、Bearer は付かない
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	t.Cleanup(func() { _ = res.Body.Close() })
+	if probe.APIKey != "EXAMPLE_API_KEY" {
+		t.Fatalf("X-AS-Inject-Header-X-API-Key = %q, want EXAMPLE_API_KEY", probe.APIKey)
+	}
 	if probe.Bearer != "" {
 		t.Fatalf("X-AS-Inject-Bearer = %q, want empty", probe.Bearer)
 	}

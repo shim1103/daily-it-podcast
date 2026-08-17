@@ -17,7 +17,7 @@ Generator の情報取得源の一つとして、非公式 X API を採用する
 - 想定 volume: 6,000〜90,000 tweet/月
 - 対象 account は定数 file に人物 id のみ集約（`WatchUserIDs`）
 - 戻り形の正: `entities/models.Post` と `application/port.PostSource` の契約
-- API key・token は secret 管理（試作 env 名: `TWITTERAPI_IO_API_KEY`）
+- API key・token は secret 管理。名前の正は README
 - 重複排除 key: `Post.ID`（tweet id）
 - 取得用 X account は本 account と分離（BAN 対策）
 - 流れ: cron(1/day) → fetch → idempotent upsert(DB) → media local 保存 → log（retry 付き・exponential backoff）。upsert 以降は別 task
