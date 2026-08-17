@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -354,5 +355,11 @@ func TestListByUser_returnsInfrastructureError_whenProxyStatusNotOK(t *testing.T
 	var infra *getxapi.Error
 	if !errors.As(err, &infra) {
 		t.Fatalf("error type %T (%v), want *getxapi.Error", err, err)
+	}
+	if !strings.HasPrefix(infra.Error(), "getxapi:") {
+		t.Fatalf("Error() = %q, want prefix getxapi:", infra.Error())
+	}
+	if errors.Unwrap(infra) == nil {
+		t.Fatal("Unwrap() is nil")
 	}
 }
