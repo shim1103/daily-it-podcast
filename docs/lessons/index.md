@@ -44,3 +44,7 @@
 30：2026-08-17 [chore/test-and-ci] 計測と閾値 fail は別能力である。言語標準が cover を出せても、未満で落とす手段が無いなら gate は別途になる  # → layer:platform
 31：2026-08-17 [chore/test-and-ci] Adapter が Port を実装するための import と、組み立て点の結線は別行為である。前者は interface の型が要り、後者だけが全層を組む  # → layer:terms
 32：2026-08-17 [chore/test-and-ci] 確認待ちを structured question tool に載せる前に、その tool が hook で常時 deny されていないかを見る。deny されるなら本文に選択肢を書く  # → layer:workflow
+33：2026-08-17 [feature/x-getxapi-adapter] 外部系で束ねた directory は Adapter の棚であり、差分吸収 facade ではない。統一 interface は Application の Port、切替は Composition Root  # → layer:terms
+34：2026-08-17 [feature/x-getxapi-adapter] Driven Adapter の見た目が似ていても、vendor 契約（auth・page 名・error 形）が違うなら mechanism を共通化しない。同じ知識が繰り返されてから分ける  # → layer:terms
+35：2026-08-17 [feature/x-getxapi-adapter] 作業レーン上の通し番号と GitHub Issue 番号は別識別子。片方の番号で他方を指したことにしない  # → layer:workflow
+36：2026-08-17 [feature/x-getxapi-adapter] coverage 除外は path 列挙であり、同型の sibling 実装へ自動では広がらない。薄い Error method は呼ぶか除外を明示する  # → layer:platform
