@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # name: pre-commit
-# description: commit 前に Unit Test をすべて実行する。
-# @require git hook として呼ばれる。scripts/test-unit.sh が存在する。
-# @ensure Unit がすべて pass するときだけ commit を通す。
+# description: commit 前に generator の層 lint・Unit coverage・全言語 Unit を実行する。
+# @require git hook として呼ばれる。scripts/test-unit.sh が存在する。golangci-lint が PATH にある。
+# @ensure 層 lint・coverage gate・Unit がすべて pass するときだけ commit を通す。
 # @invariant Integration を実行しない。
 set -euo pipefail
 
