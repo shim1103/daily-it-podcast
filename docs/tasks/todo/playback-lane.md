@@ -12,7 +12,7 @@ Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う 
 - [ ] web / worker の toolchain（Vite / wrangler 等）を入れる — **未切り出し**（Access 未確定）
 - [ ] UI で一覧・再生・原稿表示 — **未切り出し**
 
-HTTP 境界での Domain Error → External `{ code }` 写像、および client 向け表示文（例: エピソードが見つからない）は `playback-worker-http.md` のまま。
+HTTP 境界での Domain Error → External `{ code }` 写像、および client 向け表示文は完了済み（`playback-worker-http.md` は完了により削除済み）。
 
 ### Issue 化待ち（詳細は各 file）
 
@@ -20,7 +20,8 @@ HTTP 境界での Domain Error → External `{ code }` 写像、および client
 |---|---|
 | `playback-worker-episodes.md`（delete 済） | Drive Port + List/Get UseCase + Fake Infrastructure。**済（Fake）** |
 | `playback-worker-drive-adapter.md` | Google Drive API 本番読取 Adapter（json + wav） |
-| `playback-worker-http.md` | Route / Controller / Domain Error → External `{ code }` 写像、client 向け表示文 |
+| `playback-worker-http.md` | Route / Controller / Domain Error → External `{ code }` 写像、client 向け表示文。**済（完了により削除済み）** |
+| `playback-worker-http-refactor.md` | `fetch.ts` 責務分離・複雑性削減（Route抽象化 / error mapping / logging / audio body 作法を分離） |
 | `playback-web-api-client.md` | web API Client（Result 型） |
 
 ### 依存（実装順）
