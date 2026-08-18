@@ -49,7 +49,7 @@ export class InMemoryEpisodeRepository implements EpisodeRepository {
       );
     }
     if (entry.audio === undefined) {
-      throw new EpisodeNotFoundError(`mp3 が無い: ${episodeId}`);
+      throw new EpisodeNotFoundError(`wav が無い: ${episodeId}`);
     }
 
     return parsed.data;

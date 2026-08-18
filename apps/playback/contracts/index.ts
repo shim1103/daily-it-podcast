@@ -3,6 +3,7 @@ export {
   GetEpisodeRequestSchema,
   GetEpisodeResponseSchema,
   ListEpisodesResponseSchema,
+  episodeAudioContentType,
   episodeAudioPath,
   episodePath,
   listEpisodesPath,
@@ -17,3 +18,8 @@ export type {
 } from "./http.ts";
 export { classifyHttpStatus } from "./http-error.ts";
 export type { HttpStatusClassification } from "./http-error.ts";
+export {
+  NotFoundError,
+  UnavailableError,
+  ValidationError,
+} from "./external-errors.ts";

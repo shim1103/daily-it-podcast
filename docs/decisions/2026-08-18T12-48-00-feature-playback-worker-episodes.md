@@ -6,7 +6,7 @@ branch: feature/playback-worker-episodes
 
 ## 1. Decision
 
-1. JSON 欠落・schema 不適合・mp3 欠落・stem 不一致は、いずれも `EpisodeNotFoundError` 1 class に畳む
+1. JSON 欠落・schema 不適合・wav 欠落・stem 不一致は、いずれも `EpisodeNotFoundError` 1 class に畳む
 2. `Error.message` は server 境界が log する診断文であり、HTTP / UI の表示文ではない
 3. client 向け文（例: エピソードが見つからない）と External `{ code }` 写像は HTTP 層が所有する
 
