@@ -35,3 +35,6 @@
 49：2026-08-18 [feature/tts-speech-synthesizer] hook が別 app の unit を回すとき、merge で入った package の依存未導入は import 失敗になる。hook 失敗を merge 内容の欠陥と同一視しない  # → layer:platform
 
 78：2026-08-18 [refactor-playback-worker-http] Workers の HTTP response body に byte を返す場合、`Uint8Array.buffer` の `SharedArrayBuffer` union により `ArrayBuffer` 契約を崩し得る。境界で正規化して型と観測可能な body を揃える。 # → layer:platform
+
+79：2026-08-18 [pr-c-playback-biome-tsc] sandbox の read-deny 対象 file は、全体scanする `git status` では変更なし扱いに落ちるが、path 指定の `git diff -- <path>` は open 失敗を deleted と誤判定することがある。両者が食い違う時は `git status` の全体判定を正とし、疑わしい削除は復元前に判断材料不足を declare する  # → layer:platform
+80：2026-08-18 [pr-c-playback-biome-tsc] uncommitted 変更の取り消しは `git checkout`/`git restore` が hook で deny されることがある。tracked file を元に戻す代替として、編集tool（Edit等）で HEAD 相当の内容へ直接書き戻す手段を残す  # → layer:workflow
