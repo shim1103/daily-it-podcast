@@ -4,7 +4,7 @@ Issue draft。`create-issue` で正式化する前の一時置き場。
 
 ## 1. Summary
 
-`apps/playback/web/src/api` に worker への HTTP Client を実装する。契約 path で fetch し、Response schema を parse、失敗を Result 型で返す。UI 状態・hooks は持たない。
+`apps/playback/web/src/api` に worker への HTTP Client を実装する。契約 path で fetch し、Response schema を parse、失敗を Result 型で返す。UI 状態・DOM は持たない。
 
 ## 2. Context
 
@@ -17,6 +17,7 @@ Issue draft。`create-issue` で正式化する前の一時置き場。
 
 - `apps/playback/contracts/` — path 定数、Request/Response schema、`classifyHttpStatus`、`playbackHttpErrorCodes`
 - `docs/decisions/2026-08-17T17-40-00-feature-playback-web.md` — status 級・3 `code`
+- `docs/decisions/2026-08-18T11-12-00-feature-playback-web.md` — web は TS + Pico.css（React なし）
 - `DESIGN.md` §2 — API Client 層。`playback/contracts` import 可
 - `architecture/frontend/api-client` skill — 3 段責務・Result 型・throw 禁止
 - `http-boundary` skill — Outbound fetch 責務
@@ -36,7 +37,7 @@ Issue draft。`create-issue` で正式化する前の一時置き場。
 
 ### Out of Scope
 
-- React hooks / ViewModel / page / components
+- ViewModel（DOM）/ page / components
 - worker 側実装
 - Access / 認証 header（未確定。必要なら baseUrl または fetch wrapper 引数で後続）
 - UI エラー表示の住み分け
