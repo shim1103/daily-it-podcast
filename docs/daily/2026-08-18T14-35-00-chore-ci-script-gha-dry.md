@@ -8,7 +8,7 @@ prev: なし
 
 ## 1. Summary
 
-test 手順を `scripts/generator/` と `scripts/playback/` の片系入口へ分け、root 集約と hook / GHA はそれを呼ぶだけにした。GHA に Unit workflow を足し、Integration 専用だった remote gate を上書きする decision を残した。commit と PR はしていない。
+test 手順を `scripts/generator/` と `scripts/playback/` の片系入口へ分け、root 集約と hook / GHA はそれを呼ぶだけにした。GHA に Unit workflow を足し、Integration 専用だった remote gate を上書きする decision を残した。以降の script / docs 更新は commit → push → PR 作成まで実施した。
 
 ## 2. Changes
 
@@ -21,4 +21,8 @@ test 手順を `scripts/generator/` と `scripts/playback/` の片系入口へ�
 
 ### Commits
 
-なし（指示により commit しない）
+- `ee77a98` chore(ci): unify static/unit/integration entrypoints
+- `d9c30ef` chore(generator): adjust unit coverage gate and generator tests
+- `917b429` docs(tasks): add generator/playback static gate tasks
+
+PR: [#25](https://github.com/shim1103/daily-it-podcast/pull/25)
