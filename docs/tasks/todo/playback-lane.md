@@ -14,7 +14,8 @@ Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う 
 
 | file | 内容 |
 |---|---|
-| `playback-worker-episodes.md` | Drive Port + List/Get UseCase + Infrastructure |
+| `playback-worker-episodes.md` | Drive Port + List/Get UseCase + in-memory Fake |
+| `playback-worker-drive-adapter.md` | Google Drive API 本番読取 Adapter |
 | `playback-worker-http.md` | Route / Controller / Error 写像 |
 | `playback-web-api-client.md` | web API Client（Result 型） |
 
@@ -22,10 +23,11 @@ Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う 
 
 ```text
 contracts（済）
-  → worker-episodes
+  → worker-episodes（Port + Fake）
       → worker-http
+      → worker-drive-adapter（本番。http と並行可）
   → web-api-client（Stub で worker-http と並行可）
   → UI（未切り出し。api-client 後）
 ```
 
-toolchain は worker-http と web-api-client の dev 確認用に後から足してよい。3 Issue の AC は Fake/Stub で完結する。
+toolchain は worker-http と web-api-client の dev 確認用に後から足してよい。episodes / http / api-client の AC は Fake/Stub で完結する。本番 Drive は `playback-worker-drive-adapter.md`。generator 書込とは共有しない。

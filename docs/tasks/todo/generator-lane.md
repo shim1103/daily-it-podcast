@@ -9,5 +9,24 @@
 - [x] 監視 user 一括取得 UseCase（Issue 未作成。`application.FetchWatchedPosts`）
 - [x] GetXAPI Adapter（`PostSource`。Composition 結線済み。Issue 未作成）
 - [ ] cmd 入口
-- [ ] Cursor CLI / Gemini / Drive の Infrastructure
+- [ ] Cursor CLI Infrastructure
+- [ ] Gemini TTS Infrastructure
+- [ ] Drive 書込 Adapter（本番）— 詳細は `generator-drive-adapter.md`
 - [ ] GHA workflow で定期または手動実行
+
+### Issue 化待ち（詳細は各 file）
+
+| file | 内容 |
+|---|---|
+| `generator-drive-adapter.md` | Drive 書込 Port + Google Drive API 本番 Adapter |
+
+### 依存（実装順）
+
+```text
+contracts（済）
+  → drive-adapter（書込 Port + 本番 Adapter。Cursor / Gemini と並行可）
+  → 原稿→TTS→書込 UseCase（未切り出し）
+  → cmd / GHA（未切り出し）
+```
+
+playback の読取 Adapter とは共有しない。

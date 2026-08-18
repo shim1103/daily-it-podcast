@@ -9,7 +9,7 @@ worker の Route / Controller / Composition で、契約どおりの 3 HTTP 操�
 ## 2. Context
 
 - path・Response・`code` enum は `apps/playback/contracts/` が SSOT
-- Drive 読取ロジックは `playback-worker-episodes.md` が所有。本 task は HTTP 層のみ
+- Drive 読取 Port / UseCase / Fake は `playback-worker-episodes.md`。Google Drive API 本番は `playback-worker-drive-adapter.md`。本 task は HTTP 層のみ
 - Access 検証・wrangler 本番設定は未確定のため Out of Scope
 
 ## 3. Canonical Sources
@@ -37,7 +37,7 @@ worker の Route / Controller / Composition で、契約どおりの 3 HTTP 操�
 
 ### Out of Scope
 
-- Drive API 呼び出し本体（→ `playback-worker-episodes.md`）
+- Drive API 呼び出し本体（→ `playback-worker-drive-adapter.md`）
 - `apps/playback/web/`
 - UI / ViewModel
 - Cloudflare Access JWT 検証（将来 task）
