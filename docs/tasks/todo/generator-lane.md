@@ -10,7 +10,7 @@
 - [x] `SpeechSynthesizer` / `SpeechAudio` / Gemini Adapter 定数（空）の境界 stub
 - [x] GetXAPI Adapter（`PostSource`。Composition 結線済み。Issue 未作成）
 - [ ] cmd 入口
-- [ ] Cursor CLI の Infrastructure
+- [ ] Cursor CLI の Infrastructure（`TextWriter` Adapter。Issue は `generator-cursor-text-writer.md`）
 - [x] Gemini TTS Adapter（`SpeechSynthesizer`。Composition 結線済み。Issue 未作成）
 - [ ] Drive 書込 Adapter（本番・WAV）— 詳細は `generator-drive-adapter.md`
 - [ ] GHA workflow で定期または手動実行
@@ -20,6 +20,7 @@
 | file | 内容 |
 |---|---|
 | `generator-drive-adapter.md` | Drive 書込 Port + Google Drive API 本番 Adapter（json + wav） |
+| `generator-cursor-text-writer.md` | Cursor CLI `TextWriter` Port + Adapter（non-interactive、JSON envelope） |
 
 ### 依存（実装順）
 

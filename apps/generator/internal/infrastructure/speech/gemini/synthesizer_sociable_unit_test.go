@@ -195,6 +195,12 @@ func TestSynthesize_returnsInfrastructureError_whenTextEmptyAfterTrim(t *testing
 	if !errors.As(err, &infra) {
 		t.Fatalf("error type %T (%v), want *gemini.Error", err, err)
 	}
+	if !strings.HasPrefix(infra.Error(), "gemini:") {
+		t.Fatalf("Error() = %q, want prefix gemini:", infra.Error())
+	}
+	if errors.Unwrap(infra) == nil {
+		t.Fatal("Unwrap() is nil")
+	}
 	if len(probe.TargetURLs) != 0 {
 		t.Fatalf("unexpected requests: %#v", probe.TargetURLs)
 	}
