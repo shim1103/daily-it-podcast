@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # name: pre-commit
-# description: commit 前に generator の層 lint・Unit coverage・全言語 Unit を実行する。
-# @require git hook として呼ばれる。scripts/test-unit.sh が存在する。golangci-lint が PATH にある。
-# @ensure 層 lint・coverage gate・Unit がすべて pass するときだけ commit を通す。
-# @invariant Integration を実行しない。
+# description: commit 前に静的検査と全系統 Unit を実行する。
+# @require git hook として呼ばれる。scripts/check-static.sh と scripts/test-unit.sh が存在する。
+# @ensure static と Unit がすべて pass するときだけ commit を通す。
+# @invariant Integration を実行しない。toolchain を直接実行しない。
 set -euo pipefail
 
 root="$(git rev-parse --show-toplevel)"
-exec "$root/scripts/test-unit.sh"
+"$root/scripts/check-static.sh"
+"$root/scripts/test-unit.sh"

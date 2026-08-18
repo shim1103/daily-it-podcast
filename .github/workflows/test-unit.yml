@@ -1,0 +1,45 @@
+# scope: Unit（CI 上の static + Unit gate）
+# 実物: scripts/check-static.sh と scripts/test-unit.sh
+# double: なし（外部 API は叩かない）
+# @require Go 1.22+ と Node と golangci-lint が使える runner。
+# @ensure static と Unit 入口が exit 0。
+# @invariant 本番 credential を使わない。Integration 専用 suite をこの workflow の必須条件にしない。
+# @invariant toolchain の test command を YAML に直書きしない。
+name: test-unit
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  static-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/playback/package-lock.json
+
+      - name: golangci-lint を PATH に入れる
+        run: |
+          bin="$(go env GOPATH)/bin"
+          mkdir -p "$bin"
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/v2.12.2/install.sh | sh -s -- -b "$bin" v2.12.2
+          echo "$bin" >> "$GITHUB_PATH"
+
+      - name: playback 依存を install
+        working-directory: apps/playback
+        run: npm ci
+
+      - name: static を実行
+        run: ./scripts/check-static.sh
+
+      - name: Unit を実行
+        run: ./scripts/test-unit.sh
