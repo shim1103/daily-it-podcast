@@ -1,4 +1,4 @@
-# generator の層依存だけを enforce する。他 linter は YAGNI で enable しない。
+# generator の層依存（depguard）に加え、curated subset（errcheck / govet）と gofmt を enforce する。
 # list-mode: strict = allow に無い内部 import は拒否。新層 dir は自動で止まる。
 version: "2"
 
@@ -6,6 +6,8 @@ linters:
   default: none
   enable:
     - depguard
+    - errcheck
+    - govet
   settings:
     depguard:
       rules:
@@ -40,3 +42,7 @@ linters:
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure
         # composition は全層 import 特権のため規則なし
+
+formatters:
+  enable:
+    - gofmt
