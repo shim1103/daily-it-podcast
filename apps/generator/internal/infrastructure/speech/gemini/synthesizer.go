@@ -22,8 +22,8 @@ const geminiAPIKeyHeader = "x-goog-api-key"
 var _ port.SpeechSynthesizer = (*SpeechSynthesizer)(nil)
 
 type SpeechSynthesizer struct {
-	client          *agentsecrets.Client
-	backoffSleepFn  func(time.Duration) // why: test の並列実行と共存するため package global に置かない
+	client         *agentsecrets.Client
+	backoffSleepFn func(time.Duration) // why: test の並列実行と共存するため package global に置かない
 }
 
 // NewSpeechSynthesizer は Gemini TTS Adapter を返す。
@@ -106,7 +106,7 @@ func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]
 	if err != nil {
 		return nil, true, infraErr("do", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	raw, err := io.ReadAll(res.Body)
 	if err != nil {

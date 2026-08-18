@@ -10,17 +10,16 @@ const (
 	// Cursor CLI は mode と model を独立に選べるため、mode をここで固定する。
 	Mode = "ask"
 
-	PrintFlag     = "-p"
+	PrintFlag    = "-p"
 	OutputFormat = "json"
 	OutputFlag   = "--output-format"
-	ModelFlag     = "--model"
-	ModeFlag      = "--mode"
+	ModelFlag    = "--model"
+	ModeFlag     = "--mode"
 
 	// sandbox を有効化して、誤った write を隔離する。
-	SandboxFlag   = "--sandbox"
-	SandboxValue  = "enabled"
+	SandboxFlag  = "--sandbox"
+	SandboxValue = "enabled"
 
 	// trust は確認待ちを減らすために利用する（write ではなく実行手順の簡略化）。
 	TrustFlag = "--trust"
 )
-
