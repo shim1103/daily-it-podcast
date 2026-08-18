@@ -76,4 +76,6 @@
 52：2026-08-18 [feature/playback-web] 現行契約と違う残存表記を「別境界だから残す」と断定する前に、それが現行 SSOT か履歴記録かを実装と docs の両方で分類する  # → layer:workflow
 53：2026-08-18 [feature/playback-web] merge 後に入った契約変更を、未更新の Fake 文言や comment として許容しない。現行 SSOT に合わせて直す  # → layer:terms
 54：2026-08-18 [feature/playback-web] 定数の値を同じ定数へ assert して存在確認する test は検出力が無い。値の正しさは消費側の振る舞い test で見る  # → layer:terms
+
+78：2026-08-18 [refactor-playback-worker-http] Workers の HTTP response body に byte を返す場合、`Uint8Array.buffer` の `SharedArrayBuffer` union により `ArrayBuffer` 契約を崩し得る。境界で正規化して型と観測可能な body を揃える。 # → layer:platform
 55：2026-08-18 [feature/generator-cursor-manuscript] `log-session` は「カテゴリコマンドが存在する/起動できる」ことを先に確定し、存在しない場合は手順通りに日次・decision・task・lessonへ振り分けを手作業で再現する。推測で済ませない  # → layer:workflow
