@@ -14,7 +14,7 @@ Generator が書き、Playback（BFF）が読む。載る成果物は音声と�
 
 | 種別 | 名前 |
 |------|------|
-| 音声 | `{episodeId}.mp3` |
+| 音声 | `{episodeId}.wav` |
 | 原稿 | `{episodeId}.json` |
 
 - `{episodeId}` は不透明な対応キー。両ファイルで同一。生成規則は Generator に閉じ、Reader は stem 一致だけ見る
@@ -22,6 +22,6 @@ Generator が書き、Playback（BFF）が読む。載る成果物は音声と�
 
 ## 読み
 
-- 一覧: `*.mp3` を列挙し stem を `episodeId` とする
+- 一覧: `*.wav` を列挙し stem を `episodeId` とする
 - 1 件: `{episodeId}.json` と対応音声の再生用参照を返す
 - UI にファイル名を出さない。表示日付は JSON の `date`
