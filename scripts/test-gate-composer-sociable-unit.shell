@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# name: test-gate-composer-sociable-unit
+# description: root の集約 script が片系入口へ委譲し、toolchain を直接叩かないことを検証する。
+# @require リポジトリ root から、または本 file を直接実行する。
+# @ensure 片系入口が実行可能で、root 集約が片系 path を実行行に持ち、hook・GHA が同じ script を caller としてだけ使うとき exit 0。
+# @invariant 実 Unit / Integration を実行しない。
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+
+fail() {
+  printf '%s\n' "$1" >&2
+  return 1
+}
+
+need_exec() {
+  local path="$1"
+  if [[ ! -x "$path" ]]; then
+    fail "実行可能 file が無い: $path" || return
+  fi
+}
+
+# Given: 片系と集約の入口 path
+# When: 実行ビットを確認する
+# Then: すべて実行可能である
+test_per_system_entries_are_executable_when_layout_is_split() {
+  need_exec "$root/scripts/generator/check-static.sh" || return
+  need_exec "$root/scripts/generator/test-unit.sh" || return
+  need_exec "$root/scripts/generator/test-integration.sh" || return
+  need_exec "$root/scripts/playback/test-unit.sh" || return
+  need_exec "$root/scripts/playback/test-integration.sh" || return
+  need_exec "$root/scripts/check-static.sh" || return
+  need_exec "$root/scripts/test-unit.sh" || return
+  need_exec "$root/scripts/test-integration.sh" || return
+}
+
+command_lines() {
+  local path="$1"
+  grep -E '^[[:space:]]*[^#[:space:]]' "$path" || true
+}
+
+need_named() {
+  local file="$1"
+  local needle="$2"
+  if ! command_lines "$file" | grep -Fq "$needle"; then
+    fail "集約 script が $needle を呼ばない: $file" || return
+  fi
+}
+
+# Given: root 集約 script の実行行
+# When: 片系 path を探す
+# Then: 空の委譲にならず、各入口が対応する片系を呼ぶ
+test_root_composers_name_per_system_scripts_when_delegating() {
+  need_named "$root/scripts/test-unit.sh" 'scripts/generator/test-unit.sh' || return
+  need_named "$root/scripts/test-unit.sh" 'scripts/playback/test-unit.sh' || return
+  need_named "$root/scripts/check-static.sh" 'scripts/generator/check-static.sh' || return
+  need_named "$root/scripts/test-integration.sh" 'scripts/generator/test-integration.sh' || return
+  need_named "$root/scripts/test-integration.sh" 'scripts/playback/test-integration.sh' || return
+}
+
+# Given: root 集約 script の実行行
+# When: toolchain 直呼びを探す
+# Then: golangci-lint run と npm run test が無い
+test_root_composer_does_not_invoke_toolchain_directly() {
+  local files=(
+    "$root/scripts/check-static.sh"
+    "$root/scripts/test-unit.sh"
+    "$root/scripts/test-integration.sh"
+  )
+  local file
+  for file in "${files[@]}"; do
+    if command_lines "$file" | grep -Eq 'golangci-lint[[:space:]]+run|npm[[:space:]]+run[[:space:]]+test'; then
+      fail "集約 script が toolchain を直接実行している: $file" || return
+    fi
+  done
+}
+
+# Given: git hook
+# When: 呼び先を読む
+# Then: pre-commit は static と Unit、pre-push は Integration の root 入口だけを呼ぶ
+test_hooks_call_root_scripts_only() {
+  if ! command_lines "$root/scripts/git-hooks/pre-commit" | grep -q 'scripts/check-static.sh'; then
+    fail "pre-commit が check-static.sh を呼ばない" || return
+  fi
+  if ! command_lines "$root/scripts/git-hooks/pre-commit" | grep -q 'scripts/test-unit.sh'; then
+    fail "pre-commit が test-unit.sh を呼ばない" || return
+  fi
+  if command_lines "$root/scripts/git-hooks/pre-commit" | grep -Eq 'golangci-lint[[:space:]]+run|npm[[:space:]]+run[[:space:]]+test'; then
+    fail "pre-commit が toolchain を直接実行している" || return
+  fi
+  if ! command_lines "$root/scripts/git-hooks/pre-push" | grep -q 'scripts/test-integration.sh'; then
+    fail "pre-push が test-integration.sh を呼ばない" || return
+  fi
+}
+
+# Given: GHA Unit workflow
+# When: 実行 step を読む
+# Then: check-static と test-unit を呼び、Integration workflow は test-integration だけを呼ぶ
+test_gha_calls_same_scripts_as_hooks() {
+  local unit_wf="$root/.github/workflows/test-unit.yml"
+  local integration_wf="$root/.github/workflows/test-integration.yml"
+  if [[ ! -f "$unit_wf" ]]; then
+    fail "Unit workflow が無い: $unit_wf" || return
+  fi
+  if ! grep -q './scripts/check-static.sh' "$unit_wf"; then
+    fail "Unit workflow が check-static.sh を呼ばない" || return
+  fi
+  if ! grep -q './scripts/test-unit.sh' "$unit_wf"; then
+    fail "Unit workflow が test-unit.sh を呼ばない" || return
+  fi
+  if grep -Eq 'golangci-lint[[:space:]]+run|npm[[:space:]]+run[[:space:]]+test' "$unit_wf"; then
+    fail "Unit workflow が toolchain を直接実行している" || return
+  fi
+  if ! grep -q './scripts/test-integration.sh' "$integration_wf"; then
+    fail "Integration workflow が test-integration.sh を呼ばない" || return
+  fi
+  if grep -Eq 'golangci-lint[[:space:]]+run|npm[[:space:]]+run[[:space:]]+test' "$integration_wf"; then
+    fail "Integration workflow が toolchain を直接実行している" || return
+  fi
+}
+
+test_per_system_entries_are_executable_when_layout_is_split
+test_root_composers_name_per_system_scripts_when_delegating
+test_root_composer_does_not_invoke_toolchain_directly
+test_hooks_call_root_scripts_only
+test_gha_calls_same_scripts_as_hooks
