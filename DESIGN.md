@@ -45,7 +45,7 @@
 | 役割 | 接続 |
 |------|------|
 | 情報取得 | TwitterAPI.io（試作）/ GetXAPI（本運用）。Port は `PostSource`。詳細は `docs/decisions/` の x-api-adoption |
-| 原稿 | Cursor CLI |
+| 原稿 | Cursor CLI（Port は `TextWriter`） |
 | TTS | Gemini |
 | Drive | Google Drive + OAuth refresh |
 
