@@ -71,3 +71,6 @@
 49：2026-08-18 [feature/tts-speech-synthesizer] hook が別 app の unit を回すとき、merge で入った package の依存未導入は import 失敗になる。hook 失敗を merge 内容の欠陥と同一視しない  # → layer:platform
 50：2026-08-18 [feature/tts-speech-synthesizer] 呼び出しに無い option を、別 skill の完了条件や前回実行から補完しない  # → layer:workflow
 51：2026-08-18 [feature/tts-speech-synthesizer] skill の完了条件はその skill の呼び出し範囲に閉じる。隣接 skill へ option を伝播しない  # → layer:0:meta
+52：2026-08-18 [feature/playback-web] 現行契約と違う残存表記を「別境界だから残す」と断定する前に、それが現行 SSOT か履歴記録かを実装と docs の両方で分類する  # → layer:workflow
+53：2026-08-18 [feature/playback-web] merge 後に入った契約変更を、未更新の Fake 文言や comment として許容しない。現行 SSOT に合わせて直す  # → layer:terms
+54：2026-08-18 [feature/playback-web] 定数の値を同じ定数へ assert して存在確認する test は検出力が無い。値の正しさは消費側の振る舞い test で見る  # → layer:terms
