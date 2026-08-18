@@ -8,10 +8,7 @@ import {
 import { EpisodeNotFoundError } from "../entities/errors/episode-not-found-error.ts";
 import { DriveError } from "../infrastructure/drive/drive-error.ts";
 import { createGetEpisodeController } from "./get-episode-controller.ts";
-import {
-  createFakeGetEpisodeUseCase,
-  validGetEpisodeResponse,
-} from "./fake-use-cases.ts";
+import { createFakeGetEpisodeUseCase, validGetEpisodeResponse } from "./fake-use-cases.ts";
 
 describe("createGetEpisodeController", () => {
   it("UseCase が成功する時、GetEpisodeResponse schema を満たす", async () => {
@@ -52,8 +49,7 @@ describe("createGetEpisodeController", () => {
 
     // Then: External NotFoundError が Domain を cause に持つ
     await expect(act).rejects.toSatisfy(
-      (error: unknown) =>
-        error instanceof NotFoundError && error.cause === domainError,
+      (error: unknown) => error instanceof NotFoundError && error.cause === domainError,
     );
   });
 
@@ -70,8 +66,7 @@ describe("createGetEpisodeController", () => {
 
     // Then: External UnavailableError が Infrastructure を cause に持つ
     await expect(act).rejects.toSatisfy(
-      (error: unknown) =>
-        error instanceof UnavailableError && error.cause === driveError,
+      (error: unknown) => error instanceof UnavailableError && error.cause === driveError,
     );
   });
 });
