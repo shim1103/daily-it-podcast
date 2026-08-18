@@ -44,7 +44,30 @@
 30：2026-08-17 [chore/test-and-ci] 計測と閾値 fail は別能力である。言語標準が cover を出せても、未満で落とす手段が無いなら gate は別途になる  # → layer:platform
 31：2026-08-17 [chore/test-and-ci] Adapter が Port を実装するための import と、組み立て点の結線は別行為である。前者は interface の型が要り、後者だけが全層を組む  # → layer:terms
 32：2026-08-17 [chore/test-and-ci] 確認待ちを structured question tool に載せる前に、その tool が hook で常時 deny されていないかを見る。deny されるなら本文に選択肢を書く  # → layer:workflow
+33：2026-08-17 [feature/tts-speech-synthesizer] 公開境界は呼び出し入口が未決でも、1操作の入出力契約として先に固定できる  # → layer:terms
+34：2026-08-17 [feature/tts-speech-synthesizer] vendor 固有の model・voice・演出は Adapter 定数に閉じ、空でも Port 引数へ上げない  # → layer:terms
+35：2026-08-17 [feature/tts-speech-synthesizer] 再試行の上限を未設定のままにすると打ち切れない。有限の正の回数を先に置く  # → layer:terms
+36：2026-08-17 [feature/tts-speech-synthesizer] 公式が指示文の読み上げ失敗を書く合成系では、本文と演出を同じ入力に混ぜず Adapter が包む  # → layer:platform
+37：2026-08-17 [feature/tts-speech-synthesizer] 次の実行主体が会話履歴を読まなくても着手できるよう、session にしか無い前提は Issue draft の Context へ移す  # → layer:workflow
+38：2026-08-17 [feature/tts-speech-synthesizer] 凍結済み旧実装の置き場が directory とは限らず tag のことがある。path 不在を記録不在と読まない  # → layer:workflow
+39：2026-08-17 [feature/tts-speech-synthesizer] coverage 除外が個別 path 固定だと、同型の薄い Error を足した時に gate が落ちる。除外は方針であり個別 file の列挙だけに頼らない  # → layer:platform
+40：2026-08-18 [feature/tts-speech-synthesizer] 再生・保存が目的なら非可逆圧縮を足さず、標本を自己記述の標準容器へ包む。圧縮は帯域要件が現れてからにする  # → layer:terms
+41：2026-08-18 [feature/tts-speech-synthesizer] 同一製品名の音声合成でも API 窓口が違うと戻り形式が違う。直出し encoding を前提にせず、その窓口の公式例を正とする  # → layer:platform
+42：2026-08-18 [feature/tts-speech-synthesizer] 標本列と容器は別知識。容器なしの生標本を保存形式にすると、読取側が標本パラメータを契約として持つ  # → layer:terms
+43：2026-08-18 [feature/tts-speech-synthesizer] 薄い Error method は専用 test を足すか、同型の除外方針へ載せる。片方だけだと層を増やすたびに gate が落ちる  # → layer:platform
+44：2026-08-18 [feature/tts-speech-synthesizer] 変換関数の公開された失敗条件は、その関数を直接呼ぶ Unit が所有する。上位経路の test 名で下位関数を名乗ると所有者がずれる  # → layer:terms
+45：2026-08-18 [feature/tts-speech-synthesizer] 外部 module を外したあと checksum file だけ残さない。require が無いなら checksum も不要  # → layer:platform
+46：2026-08-18 [feature/tts-speech-synthesizer] 有名な圧縮器への乗り換えは不安の解消であり、目的に対して過剰な力なら Least Power に負ける  # → layer:0:meta
 33：2026-08-17 [feature/x-getxapi-adapter] 外部系で束ねた directory は Adapter の棚であり、差分吸収 facade ではない。統一 interface は Application の Port、切替は Composition Root  # → layer:terms
 34：2026-08-17 [feature/x-getxapi-adapter] Driven Adapter の見た目が似ていても、vendor 契約（auth・page 名・error 形）が違うなら mechanism を共通化しない。同じ知識が繰り返されてから分ける  # → layer:terms
 35：2026-08-17 [feature/x-getxapi-adapter] 作業レーン上の通し番号と GitHub Issue 番号は別識別子。片方の番号で他方を指したことにしない  # → layer:workflow
 36：2026-08-17 [feature/x-getxapi-adapter] coverage 除外は path 列挙であり、同型の sibling 実装へ自動では広がらない。薄い Error method は呼ぶか除外を明示する  # → layer:platform
+37：2026-08-18 [feature/playback-worker-episodes] 同一 test group は正常系、異常系、境界、例外の順に並べる。異常系から始めると契約の基準点が後回しになる  # → layer:terms
+38：2026-08-18 [feature/playback-worker-episodes] Domain Error の外部分類は class。診断 message は境界の log が消費し、Unit は文字列を写して固定しない  # → layer:terms
+39：2026-08-18 [feature/playback-worker-episodes] 内側の診断文と外側の表示文は別契約。内側 message を UI 文にしてはならない  # → layer:terms
+40：2026-08-18 [feature/playback-worker-episodes] Port の in-memory 実装は Test Double であり本番外部 I/O ではない。AC が Fake 完結なら実 adapter は別 task として残す  # → layer:terms
+47：2026-08-18 [feature/tts-speech-synthesizer] 通し番号付き知見の merge では番号を振り直さない。両側を連結し、衝突した番号はそのまま残す  # → layer:0:meta
+48：2026-08-18 [feature/tts-speech-synthesizer] remote の mergeable は push 直後に CONFLICTING を残すことがある。local の conflict 解消後に再取得して判定する  # → layer:workflow
+49：2026-08-18 [feature/tts-speech-synthesizer] hook が別 app の unit を回すとき、merge で入った package の依存未導入は import 失敗になる。hook 失敗を merge 内容の欠陥と同一視しない  # → layer:platform
+50：2026-08-18 [feature/tts-speech-synthesizer] 呼び出しに無い option を、別 skill の完了条件や前回実行から補完しない  # → layer:workflow
+51：2026-08-18 [feature/tts-speech-synthesizer] skill の完了条件はその skill の呼び出し範囲に閉じる。隣接 skill へ option を伝播しない  # → layer:0:meta
