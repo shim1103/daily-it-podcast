@@ -8,7 +8,7 @@ prev: なし
 
 ## 1. Summary
 
-`origin/develop` から `feature/playback-worker-episodes` を切り、worker Application（Port / List / Get JSON / Get 音声）と in-memory Fake Drive adapter を実装した。Unit 27 件と Integration（0 file）が pass した。実 Google Drive adapter は未切り出しとして lane に残し、episodes todo を削除した。
+`origin/develop` から `feature/playback-worker-episodes` を切り、worker Application（Port / List / Get JSON / Get 音声）と in-memory Fake Drive adapter を実装した。Unit 27 件と Integration（0 file）が pass した。実 Google Drive adapter は未切り出しとして lane に残し、episodes todo を削除した。PR https://github.com/shim1103/daily-it-podcast/pull/19 を `develop` 向けに作成した。
 
 ## 2. Changes
 
@@ -21,3 +21,4 @@ prev: なし
 - `bd7139a` — feat(playback): worker の Episode 読取 Port と UseCase を追加する
 - `53e0a02` — feat(playback): Drive 読取の in-memory Fake adapter を追加する
 - `d89259f` — docs(playback): worker-episodes 完了と実 Drive 未切り出しを lane に残す
+- `53d695e` — docs(log): セッションログ
