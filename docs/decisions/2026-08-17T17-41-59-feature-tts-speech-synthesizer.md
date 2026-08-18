@@ -6,7 +6,7 @@ branch: feature/tts-speech-synthesizer
 
 ## 1. Decision
 
-1. 読み上げの単位は Application 所有の Port `SpeechSynthesizer.Synthesize`。入力は朗読本文だけ。戻りは mp3 の中身（`SpeechAudio`）。呼び出し入口（CLI / UseCase pipeline）は決めない
+1. 読み上げの単位は Application 所有の Port `SpeechSynthesizer.Synthesize`。入力は朗読本文だけ。戻りは WAV の中身（`SpeechAudio`）。形式の正は `2026-08-18T11-17-00`。呼び出し入口（CLI / UseCase pipeline）は決めない
 2. 本文以外（model / voice / envelope / endpoint）は Gemini Adapter 定数へ閉じる。今は空文字。仕様決定後に同じ定数へ埋める
 3. retry は Adapter 内部。無限回を防ぐため上限定数 `MaxAttempts` を置く。回数の正は constants.go
 4. 課金は安い plan。学習利用は許容する。無料枠の実行時間制約は agent が見ない（archive `docs/human/MEMO.md` §4 を継承）。Free / Paid の切替は実行設定であり code に持たない

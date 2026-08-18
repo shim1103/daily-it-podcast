@@ -30,11 +30,13 @@ const validManuscript = {
   },
 };
 
-const audioBytes = new Uint8Array([0xff, 0xfb, 0x90]);
+const audioBytes = new Uint8Array([
+  0x52, 0x49, 0x46, 0x46, 0x04, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
+]);
 
 describe("InMemoryEpisodeRepository", () => {
   it("Get 成功時、返却原稿が manuscript schema に適合する", async () => {
-    // Given: json + mp3 のペア
+    // Given: json + wav のペア
     const repository = new InMemoryEpisodeRepository();
     repository.put("ep-1", validManuscript, audioBytes);
 
@@ -48,8 +50,8 @@ describe("InMemoryEpisodeRepository", () => {
     expect(got.audioRef).toBe(episodeAudioPath("ep-1"));
   });
 
-  it("Get 音声成功時、mp3 byte が取得できる", async () => {
-    // Given: json + mp3 のペア
+  it("Get 音声成功時、wav byte が取得できる", async () => {
+    // Given: json + wav のペア
     const repository = new InMemoryEpisodeRepository();
     repository.put("ep-1", validManuscript, audioBytes);
 
@@ -110,7 +112,7 @@ describe("InMemoryEpisodeRepository", () => {
     await expect(act).rejects.toBeInstanceOf(EpisodeNotFoundError);
   });
 
-  it("mp3 が無い json のみ件は Get で EpisodeNotFoundError になる", async () => {
+  it("wav が無い json のみ件は Get で EpisodeNotFoundError になる", async () => {
     // Given: 音声無しの有効 JSON
     const repository = new InMemoryEpisodeRepository();
     repository.put("ep-1", validManuscript);
@@ -123,7 +125,7 @@ describe("InMemoryEpisodeRepository", () => {
   });
 
   it("stem と JSON 内 episodeId が不一致の Get は EpisodeNotFoundError になる", async () => {
-    // Given: stem と episodeId がズレた json + mp3
+    // Given: stem と episodeId がズレた json + wav
     const repository = new InMemoryEpisodeRepository();
     repository.put("stem-a", { ...validManuscript, episodeId: "ep-other" }, audioBytes);
 
