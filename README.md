@@ -96,6 +96,6 @@ local 開発時の値は AgentSecrets（OS keychain + zero-knowledge cloud sync�
 |------|------|
 | README.md | 地図・使い方・受け入れ（本ファイル） |
 | DESIGN.md | 層・依存・所有・test 方針 |
-| contracts/ | Drive に載る mp3/json |
+| contracts/ | Drive に載る wav/json |
 
 dir ごとの README は置かない。層の詳細は skill を正とする（`DESIGN.md` 参照）。

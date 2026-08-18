@@ -9,7 +9,7 @@
   "properties": {
     "episodeId": {
       "type": "string",
-      "description": "エピソード対応キー。ファイル名 stem（{episodeId}.mp3 / {episodeId}.json）と同一。不透明でよい。",
+      "description": "エピソード対応キー。ファイル名 stem（{episodeId}.wav / {episodeId}.json）と同一。不透明でよい。",
       "minLength": 1
     },
     "date": {
