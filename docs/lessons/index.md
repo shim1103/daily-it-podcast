@@ -58,3 +58,11 @@
 44：2026-08-18 [feature/tts-speech-synthesizer] 変換関数の公開された失敗条件は、その関数を直接呼ぶ Unit が所有する。上位経路の test 名で下位関数を名乗ると所有者がずれる  # → layer:terms
 45：2026-08-18 [feature/tts-speech-synthesizer] 外部 module を外したあと checksum file だけ残さない。require が無いなら checksum も不要  # → layer:platform
 46：2026-08-18 [feature/tts-speech-synthesizer] 有名な圧縮器への乗り換えは不安の解消であり、目的に対して過剰な力なら Least Power に負ける  # → layer:0:meta
+33：2026-08-17 [feature/x-getxapi-adapter] 外部系で束ねた directory は Adapter の棚であり、差分吸収 facade ではない。統一 interface は Application の Port、切替は Composition Root  # → layer:terms
+34：2026-08-17 [feature/x-getxapi-adapter] Driven Adapter の見た目が似ていても、vendor 契約（auth・page 名・error 形）が違うなら mechanism を共通化しない。同じ知識が繰り返されてから分ける  # → layer:terms
+35：2026-08-17 [feature/x-getxapi-adapter] 作業レーン上の通し番号と GitHub Issue 番号は別識別子。片方の番号で他方を指したことにしない  # → layer:workflow
+36：2026-08-17 [feature/x-getxapi-adapter] coverage 除外は path 列挙であり、同型の sibling 実装へ自動では広がらない。薄い Error method は呼ぶか除外を明示する  # → layer:platform
+37：2026-08-18 [feature/playback-worker-episodes] 同一 test group は正常系、異常系、境界、例外の順に並べる。異常系から始めると契約の基準点が後回しになる  # → layer:terms
+38：2026-08-18 [feature/playback-worker-episodes] Domain Error の外部分類は class。診断 message は境界の log が消費し、Unit は文字列を写して固定しない  # → layer:terms
+39：2026-08-18 [feature/playback-worker-episodes] 内側の診断文と外側の表示文は別契約。内側 message を UI 文にしてはならない  # → layer:terms
+40：2026-08-18 [feature/playback-worker-episodes] Port の in-memory 実装は Test Double であり本番外部 I/O ではない。AC が Fake 完結なら実 adapter は別 task として残す  # → layer:terms

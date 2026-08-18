@@ -7,7 +7,11 @@ export default defineConfig({
       {
         test: {
           name: "unit",
-          include: ["web/src/**/*.test.ts", "worker/src/**/*.test.ts"],
+          include: [
+            "contracts/**/*.test.ts",
+            "web/src/**/*.test.ts",
+            "worker/src/**/*.test.ts",
+          ],
           passWithNoTests: true,
         },
       },
