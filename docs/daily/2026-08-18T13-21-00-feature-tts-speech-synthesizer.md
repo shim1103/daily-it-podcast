@@ -17,10 +17,12 @@ Gemini Developer API の TTS 戻り raw PCM を Adapter 内で WAV に wrap し�
 3. 薄い Error method を coverage 除外へ追加（twitterapiio と同型）
 4. `generator-lane` の Gemini TTS を完了にし、`gemini-tts-adapter.md` を削除
 5. playback worker 着手用の session memo を todo に残した
+6. PR #20（base: `develop`）を `gh pr create` で作成
 
 ### Commits
 
 1. `4ed6ca6` — feat(generator): Gemini TTS Adapter を PCM→WAV で実装する
 2. `017f0c9` — docs: Drive 音声形式を WAV にし Adapter 完了を記録する
 3. `27fa0eb` — docs: playback worker 着手用の session memo を残す
-4. 本 commit — docs(log): セッションログ
+4. `790cd18` — docs(log): セッションログ
+5. 本 commit — docs(log): セッションログ

@@ -1,8 +1,8 @@
 # DESIGN
 
-最終更新: 2026-08-17（coverage / layer gate）
+最終更新: 2026-08-18（playback web 技術選定）
 
-地図・使い方・受け入れ・秘密の名前は `README.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive 契約の写しは置かない）。
+地図・使い方・受け入れ・秘密の名前は `README.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive / HTTP 契約の写しは置かない）。
 
 ## 1. システム境界
 
@@ -32,6 +32,9 @@
 | `generator/cmd/generator` | 起動入口 |
 | `playback/worker/src/entities` 等 | 上に同じ（BFF） |
 | `playback/web/src/{pages,components,api,utils}` | frontend skill |
+| `playback/contracts` | web↔worker HTTP 境界共有型（API Client と Route / Controller のみ import） |
+
+`playback/web` は Vite + TypeScript（vanilla）+ Pico.css classless。React / Next.js / shadcn は使わない（`docs/decisions/2026-08-18T11-12-00-feature-playback-web.md`）。
 
 依存は内側へ。Composition Root だけが全層を結線する。
 

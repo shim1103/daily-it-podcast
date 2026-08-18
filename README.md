@@ -12,7 +12,7 @@ Generator (Go + GitHub Actions cron)
         ↓
   個人 Google Drive（音声 + 原稿）
         ↑
-Playback (Vite + React + Cloudflare)
+Playback (Vite + TypeScript + Cloudflare)
   Cloudflare Access（メール OTP・許可 email = 自分だけ）
   → UI → Workers（Drive 読取の代理）
 ```
@@ -23,7 +23,7 @@ Playback (Vite + React + Cloudflare)
 
 | 役割 | 選定 |
 |------|------|
-| 再生 UI | Vite + React + TypeScript + Tailwind |
+| 再生 UI | Vite + TypeScript + Pico.css（classless） |
 | UI の裏側 | Cloudflare Workers（Drive 代理） |
 | UI 入場 | Cloudflare Access（メール OTP、自分のみ） |
 | 生成 | Go CLI + GitHub Actions cron |
@@ -34,6 +34,7 @@ Playback (Vite + React + Cloudflare)
 ## リポジトリ
 
 ```text
+apps/playback/contracts/ # web↔worker HTTP
 apps/playback/web/       # Vite UI
 apps/playback/worker/    # BFF
 apps/generator/          # Go CLI
@@ -42,7 +43,8 @@ contracts/               # Drive 上の表現（SSOT）
 ```
 
 層・依存・test 配置の規則 → `DESIGN.md`  
-Drive のファイル契約 → `contracts/`
+Drive のファイル契約 → `contracts/`  
+Playback HTTP 契約 → `apps/playback/contracts/`
 
 ## Branch
 
@@ -97,5 +99,6 @@ local 開発時の値は AgentSecrets（OS keychain + zero-knowledge cloud sync�
 | README.md | 地図・使い方・受け入れ（本ファイル） |
 | DESIGN.md | 層・依存・所有・test 方針 |
 | contracts/ | Drive に載る wav/json |
+| apps/playback/contracts/ | web↔worker HTTP |
 
 dir ごとの README は置かない。層の詳細は skill を正とする（`DESIGN.md` 参照）。
