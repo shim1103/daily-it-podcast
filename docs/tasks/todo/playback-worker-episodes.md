@@ -30,8 +30,8 @@ worker の Application + Drive Infrastructure で、Drive 上の `{episodeId}.js
 - `ListEpisodes` UseCase: `*.json` 列挙 → `ListEpisodesResponseSchema` を満たす item だけ返す。schema 不適合 file は行に出さない
 - `GetEpisode` UseCase: `{episodeId}.json` + 対応 mp3。JSON 不適合・音声無しは Domain 不在。成功時 `GetEpisodeResponseSchema` 相当 + 音声 byte
 - `GetEpisodeAudio`（または同等）: mp3 byte を返す。成功 body は `audio/mpeg`
-- Drive Infrastructure: OAuth・folder ID は env/secrets（README の名前のみ）。Drive file id を Response に載せない
 - Fake / in-memory Drive Adapter で Application Unit test 可能にする
+- Drive file id を Response に載せない
 
 ### Out of Scope
 
@@ -42,6 +42,7 @@ worker の Application + Drive Infrastructure で、Drive 上の `{episodeId}.js
 - List の sort 順（契約未固定。実装で勝手に決めない）
 - Range / cache / 署名 URL
 - `apps/playback/contracts/` の schema 変更
+- Google Drive API 本番 Adapter / OAuth refresh（→ `playback-worker-drive-adapter.md`）
 - wrangler.toml・本番 deploy
 
 ## 5. Contract
@@ -86,6 +87,7 @@ worker の Application + Drive Infrastructure で、Drive 上の `{episodeId}.js
 
 - 先行: `apps/playback/contracts/`（済）
 - 後続: `playback-worker-http.md`（本 task の UseCase を HTTP に載せる）
+- 後続: `playback-worker-drive-adapter.md`（同じ Port の Google Drive API 実装）
 
 ## 10. Risks
 
