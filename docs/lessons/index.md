@@ -51,3 +51,10 @@
 37：2026-08-17 [feature/tts-speech-synthesizer] 次の実行主体が会話履歴を読まなくても着手できるよう、session にしか無い前提は Issue draft の Context へ移す  # → layer:workflow
 38：2026-08-17 [feature/tts-speech-synthesizer] 凍結済み旧実装の置き場が directory とは限らず tag のことがある。path 不在を記録不在と読まない  # → layer:workflow
 39：2026-08-17 [feature/tts-speech-synthesizer] coverage 除外が個別 path 固定だと、同型の薄い Error を足した時に gate が落ちる。除外は方針であり個別 file の列挙だけに頼らない  # → layer:platform
+40：2026-08-18 [feature/tts-speech-synthesizer] 再生・保存が目的なら非可逆圧縮を足さず、標本を自己記述の標準容器へ包む。圧縮は帯域要件が現れてからにする  # → layer:terms
+41：2026-08-18 [feature/tts-speech-synthesizer] 同一製品名の音声合成でも API 窓口が違うと戻り形式が違う。直出し encoding を前提にせず、その窓口の公式例を正とする  # → layer:platform
+42：2026-08-18 [feature/tts-speech-synthesizer] 標本列と容器は別知識。容器なしの生標本を保存形式にすると、読取側が標本パラメータを契約として持つ  # → layer:terms
+43：2026-08-18 [feature/tts-speech-synthesizer] 薄い Error method は専用 test を足すか、同型の除外方針へ載せる。片方だけだと層を増やすたびに gate が落ちる  # → layer:platform
+44：2026-08-18 [feature/tts-speech-synthesizer] 変換関数の公開された失敗条件は、その関数を直接呼ぶ Unit が所有する。上位経路の test 名で下位関数を名乗ると所有者がずれる  # → layer:terms
+45：2026-08-18 [feature/tts-speech-synthesizer] 外部 module を外したあと checksum file だけ残さない。require が無いなら checksum も不要  # → layer:platform
+46：2026-08-18 [feature/tts-speech-synthesizer] 有名な圧縮器への乗り換えは不安の解消であり、目的に対して過剰な力なら Least Power に負ける  # → layer:0:meta
