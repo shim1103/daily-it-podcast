@@ -3,6 +3,7 @@ export {
   GetEpisodeRequestSchema,
   GetEpisodeResponseSchema,
   ListEpisodesResponseSchema,
+  episodeAudioContentType,
   episodeAudioPath,
   episodePath,
   listEpisodesPath,

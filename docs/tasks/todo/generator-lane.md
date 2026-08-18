@@ -12,5 +12,22 @@
 - [ ] cmd 入口
 - [ ] Cursor CLI の Infrastructure
 - [x] Gemini TTS Adapter（`SpeechSynthesizer`。Composition 結線済み。Issue 未作成）
-- [ ] Drive の Infrastructure
+- [ ] Drive 書込 Adapter（本番・WAV）— 詳細は `generator-drive-adapter.md`
 - [ ] GHA workflow で定期または手動実行
+
+### Issue 化待ち（詳細は各 file）
+
+| file | 内容 |
+|---|---|
+| `generator-drive-adapter.md` | Drive 書込 Port + Google Drive API 本番 Adapter（json + wav） |
+
+### 依存（実装順）
+
+```text
+contracts / SpeechSynthesizer（済）
+  → drive-adapter（書込 Port + 本番 Adapter。Cursor と並行可）
+  → 原稿→TTS→書込 UseCase（未切り出し）
+  → cmd / GHA（未切り出し）
+```
+
+playback の読取 Adapter とは共有しない。音声は wav。

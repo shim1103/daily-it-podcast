@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { EpisodeRepository } from "../ports/episode-repository.ts";
 import { getEpisodeAudio } from "./get-episode-audio.ts";
 
-const audioBytes = new Uint8Array([0xff, 0xfb, 0x90]);
+const audioBytes = new Uint8Array([
+  0x52, 0x49, 0x46, 0x46, 0x04, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
+]);
 
 function createFakeRepository(
   overrides: Partial<EpisodeRepository> = {},
@@ -20,7 +22,7 @@ function createFakeRepository(
 }
 
 describe("getEpisodeAudio", () => {
-  it("Port が返した mp3 バイト列をそのまま返す", async () => {
+  it("Port が返した wav バイト列をそのまま返す", async () => {
     // Given: 音声 byte を返す Fake Port
     const repository = createFakeRepository();
 
