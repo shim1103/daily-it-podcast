@@ -9,12 +9,12 @@ worker の Route / Controller / Composition で、契約どおりの 3 HTTP 操�
 ## 2. Context
 
 - path・Response・`code` enum は `apps/playback/contracts/` が SSOT
-- Drive 読取 Port / UseCase / Fake は `playback-worker-episodes.md`。Google Drive API 本番は `playback-worker-drive-adapter.md`。本 task は HTTP 層のみ
+- Drive 読取 Port / UseCase / Fake は済。Google Drive API 本番は `playback-worker-drive-adapter.md`。本 task は HTTP 層のみ
 - Access 検証・wrangler 本番設定は未確定のため Out of Scope
 
 ## 3. Canonical Sources
 
-- `apps/playback/contracts/http.ts` — path（`listEpisodesPath` / `episodePath` / `episodeAudioPath`）、Request/Response schema
+- `apps/playback/contracts/http.ts` — path（`listEpisodesPath` / `episodePath` / `episodeAudioPath`）、`episodeAudioContentType`、Request/Response schema
 - `apps/playback/contracts/http-error.ts` — `classifyHttpStatus`（web 側用。worker Route は既知 status → `code` の写像を Route/Controller が持つ）
 - `docs/decisions/2026-08-17T17-40-00-feature-playback-web.md` — status 400/404/503、`episode_not_found` 等
 - `DESIGN.md` §2 — Route / Controller / Composition。`playback/contracts` は Route / Controller のみ import 可
@@ -27,7 +27,7 @@ worker の Route / Controller / Composition で、契約どおりの 3 HTTP 操�
 
 - `GET listEpisodesPath` → 200 + `ListEpisodesResponseSchema`
 - `GET episodePath({episodeId})` → 200 + `GetEpisodeResponseSchema`（`audioRef` 必須）
-- `GET episodeAudioPath({episodeId})` → 200 + `audio/mpeg` body（JSON なし）
+- `GET episodeAudioPath({episodeId})` → 200 + `episodeAudioContentType`（`audio/wav`）body（JSON なし）
 - path param / body を `unknown` で受け、Controller が schema parse
 - Domain 不在 → 404 + `{ code: "episode_not_found" }`
 - 入力 validation 失敗 → 400 + `{ code: "validation_error" }`
@@ -51,7 +51,7 @@ worker の Route / Controller / Composition で、契約どおりの 3 HTTP 操�
 |---|---|---|---|
 | List | `GET` + `listEpisodesPath` | 200 JSON `ListEpisodesResponse` | 503 `unavailable` |
 | Get JSON | `GET` + `episodePath(id)` | 200 JSON `GetEpisodeResponse` | 400 `validation_error` / 404 `episode_not_found` / 503 `unavailable` |
-| Get 音声 | `GET` + `episodeAudioPath(id)` | 200 `audio/mpeg` | 404 / 503 同上 |
+| Get 音声 | `GET` + `episodeAudioPath(id)` | 200 `audio/wav` | 404 / 503 同上 |
 
 - 失敗 JSON は `ErrorResponseSchema`（`code` のみ。`message` 無し）
 - 不完全ペア専用 `code` は返さない（404 に畳む）
@@ -68,7 +68,7 @@ worker の Route / Controller / Composition で、契約どおりの 3 HTTP 操�
 - [ ] AC-2: 空 `episodeId` が 400 + `validation_error` になる
 - [ ] AC-3: UseCase が Domain 不在を返すと 404 + `episode_not_found` になる
 - [ ] AC-4: UseCase が Infrastructure 失敗を返すと 503 + `unavailable` になる
-- [ ] AC-5: Get 音声 Route が `Content-Type: audio/mpeg` で byte を返す（Fake UseCase）
+- [ ] AC-5: Get 音声 Route が `Content-Type: audio/wav` で byte を返す（Fake UseCase）
 - [ ] AC-6: 契約外 `code` を Response に出さない
 
 ## 8. Verification
@@ -78,7 +78,8 @@ worker の Route / Controller / Composition で、契約どおりの 3 HTTP 操�
 
 ## 9. Dependencies
 
-- blocked by: `playback-worker-episodes.md`（List/Get UseCase + Port Fake）
+- 先行: `EpisodeRepository` + Fake（済）
+- 並行可: `playback-worker-drive-adapter.md`
 - blocks: なし（web API Client は Fake HTTP で並行可）
 
 ## 10. Risks
