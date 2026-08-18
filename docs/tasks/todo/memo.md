@@ -18,3 +18,16 @@ you are `manager` non-edit but-audit
 - /philosophy /testing-strategy /coding-style /architecture /error-handling
 # non-scope
 - commit, 2task
+
+
+
+
+# goal
+- finished /create-pr
+# flow
+- /migrate-lessons
+- /commit --repo --split refto @skill_options.json
+- /log-session
+- /create-pr not `shim gh` but `gh pr`
+# note
+- migrate-lessons後の log-sessionで再び lessons/index.md isnt't emptyになるがこれは正しい
