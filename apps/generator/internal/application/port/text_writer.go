@@ -7,8 +7,8 @@ import "context"
 // @require brief は trim 後に非空。生成対象は brief のみ。モデル/voice 等の vendor 設定を渡さない。
 // @ensure 成功時は非空の text 断片を返す。戻りの byte 一致は保証しない。
 // @invariant vendor 固有の CLI envelope、JSON schema、stdout/stderr 形式、exit code を露出しない。
-//            method は Write のみ。
+//
+//	method は Write のみ。
 type TextWriter interface {
 	Write(ctx context.Context, brief string) (string, error)
 }
-
