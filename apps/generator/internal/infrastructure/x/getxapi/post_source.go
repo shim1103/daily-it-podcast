@@ -82,7 +82,7 @@ func (s *PostSource) fetchPage(ctx context.Context, userID, cursor string) (user
 	if err != nil {
 		return userTweetsResponse{}, infraErr("do", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return userTweetsResponse{}, infraErr("read_body", err)
