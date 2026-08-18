@@ -4,7 +4,7 @@
 HTTP 契約の正: `apps/playback/contracts/`  
 Drive 読みの正: `contracts/drive-layout.md`
 
-Access + Vite UI + Worker（list/get）で、contracts に合う fixture または実 Drive から再生できる状態にする。
+Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う fixture または実 Drive から再生できる状態にする。
 
 - [x] web↔worker HTTP 契約（List / Get の TS schema・status 級）
 - [ ] web / worker の toolchain（Vite / wrangler 等）を入れる — **未切り出し**（Access 未確定）
