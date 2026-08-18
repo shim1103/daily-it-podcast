@@ -12,7 +12,7 @@ Generator (Go + GitHub Actions cron)
         ↓
   個人 Google Drive（音声 + 原稿）
         ↑
-Playback (Vite + React + Cloudflare)
+Playback (Vite + TypeScript + Cloudflare)
   Cloudflare Access（メール OTP・許可 email = 自分だけ）
   → UI → Workers（Drive 読取の代理）
 ```
@@ -23,7 +23,7 @@ Playback (Vite + React + Cloudflare)
 
 | 役割 | 選定 |
 |------|------|
-| 再生 UI | Vite + React + TypeScript + Tailwind |
+| 再生 UI | Vite + TypeScript + Pico.css（classless） |
 | UI の裏側 | Cloudflare Workers（Drive 代理） |
 | UI 入場 | Cloudflare Access（メール OTP、自分のみ） |
 | 生成 | Go CLI + GitHub Actions cron |
