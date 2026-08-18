@@ -1,6 +1,6 @@
 # DESIGN
 
-最終更新: 2026-08-18（playback web 技術選定）
+最終更新: 2026-08-18（coverage 除外を Composition Root のみへ）
 
 地図・使い方・受け入れ・秘密の名前は `README.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive / HTTP 契約の写しは置かない）。
 
@@ -74,10 +74,11 @@ Scope × Sociability: [levels](file:///Users/shim0729/.claude/skills/testing-str
 2. `integration` 一語で複数分類を兼ねない
 3. 実境界に届かないものに `e2e` と付けない
 4. Unit を共有 `tests/` に集めない
-5. Unit は commit gate、Integration は push / GHA gate
-6. runner は Playback = Vitest（`apps/playback`）、Generator = `go test`
-7. generator Unit gate は **statement coverage 90%**（`covermode=atomic`）。除外は Composition Root と薄い Error method（decision 参照）。Integration に Unit 閾値を載せない
-8. generator Unit gate は **depguard**（`golangci-lint`、`strict` allow。他 linter は enable しない）で §2 の層 import を block する。Infrastructure が Application から import してよいのは **Port** のみ。playback 側の同等 gate は置かない
+5. Unit は commit と GHA。Integration は push と GHA。手順の正は `scripts/`。hook と GHA は同じ入口を呼ぶ caller であり、command を YAML や hook へ写さない
+6. 片系は `scripts/generator/` と `scripts/playback/` から単独実行できる。root の `check-static.sh` / `test-integration.sh` は片系を呼ぶだけ。root の `test-unit.sh` は composer 契約を実行してから片系 unit を呼ぶ
+7. runner は Playback = Vitest（`apps/playback`）、Generator = `go test`
+8. generator Unit gate は **statement coverage 90%**（`covermode=atomic`）。除外は Composition Root のみ。`error.go` / `names.go` / `constants.go` を名前では除外しない。Integration に Unit 閾値を載せない
+9. generator static は **depguard**（`golangci-lint`、`strict` allow。他 linter は enable しない）で §2 の層 import を block する。Infrastructure が Application から import してよいのは **Port** のみ。playback 側の同等 gate は置かない
 
 実行手順（hook 導入・コマンド）は `README.md`。
 

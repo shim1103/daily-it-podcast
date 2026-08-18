@@ -35,3 +35,18 @@ contracts（済）
 ```
 
 toolchain は worker-http と web-api-client の dev 確認用に後から足してよい。http / api-client の AC は Fake/Stub で完結する。本番 Drive は `playback-worker-drive-adapter.md`。音声ファイルは wav。generator 書込とは共有しない。
+
+### 依存（CI 静的 / 層 / coverage）
+
+```text
+PR-A（CI 入口の統一）完了前提
+  → PR-E（worker 層検知）: worker-http 実装完了後
+  → PR-G（web 層検知）: web-api-client 実装完了後
+  → PR-H（unit coverage gate）: worker-http / web-api-client の unit が成立後
+```
+
+### Issue 化待ち（今後やるべきこと）
+
+- [ ] PR-E `chore/playback-worker-layer`: worker の **層違反検知**（depcruise 等）を static gate で実行できる状態にする
+- [ ] PR-G `chore/playback-web-layer`: web の **層違反検知**（depcruise 等）を static gate で実行できる状態にする
+- [ ] PR-H `chore/playback-unit-coverage`: playback の **Unit coverage gate**（Vitest）を導入し、落ちる分岐を最小の unit 追加で埋める

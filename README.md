@@ -62,8 +62,9 @@ Playback HTTP 契約 → `apps/playback/contracts/`
 3. **Playback 依存:** `cd apps/playback && npm ci`
 4. **generator lint:** `golangci-lint` を PATH に入れる（例: `brew install golangci-lint`）
 5. **hook 導入:** `./scripts/install-hooks.sh`
-6. **Unit（commit gate）:** `./scripts/test-unit.sh`（generator: depguard + coverage、playback: Vitest）
-7. **Integration（push / GHA gate）:** `./scripts/test-integration.sh`
+6. **static（commit / GHA）:** `./scripts/check-static.sh`（片系: `./scripts/generator/check-static.sh`）
+7. **Unit（commit / GHA）:** `./scripts/test-unit.sh`（composer 契約のあと片系: `./scripts/generator/test-unit.sh`、`./scripts/playback/test-unit.sh`）
+8. **Integration（push / GHA）:** `./scripts/test-integration.sh`（片系: `./scripts/generator/test-integration.sh`、`./scripts/playback/test-integration.sh`）
 
 test 配置・gate の規則は `DESIGN.md`。
 
