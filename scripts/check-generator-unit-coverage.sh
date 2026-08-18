@@ -23,6 +23,7 @@ awk -v out="$filtered" '
   NR == 1 { print > out; next }
   $0 ~ /\/internal\/composition\// { next }
   $0 ~ /\/infrastructure\/x\/twitterapiio\/error\.go:/ { next }
+  $0 ~ /\/infrastructure\/speech\/gemini\/error\.go:/ { next }
   { print > out }
 ' "$profile"
 
