@@ -8,13 +8,14 @@ prev: 2026-08-18T11-13-00-feature-playback-web.md
 
 ## 1. Summary
 
-Drive 本番 Adapter の Issue draft を generator 書込と playback 読取へ分け、`origin/develop` を取り込んだ。音声の現行契約は WAV。merge 後に残っていた mp3 / `audio/mpeg` を揃えた。
+Drive 本番 Adapter の Issue draft を generator 書込と playback 読取へ分け、`origin/develop` を取り込んだ。音声の現行契約は WAV。merge 後に残っていた mp3 / `audio/mpeg` を揃えた。PR: https://github.com/shim1103/daily-it-podcast/pull/21
 
 ## 2. Changes
 
 1. `docs/tasks/todo/generator-drive-adapter.md` と `playback-worker-drive-adapter.md` を追加し lane から参照した
 2. `origin/develop` を merge し、conflict は develop を正とした（episodes todo は delete）
 3. HTTP `episodeAudioContentType` を `audio/wav` にし、Fake と現行 decision の mp3 残を直した
+4. PR #21 を `develop` 向けに作成した（`gh pr create`）
 
 ### Commits
 
