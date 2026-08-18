@@ -7,7 +7,7 @@ branch: feature/tts-speech-synthesizer
 ## 1. Decision
 
 1. Gemini Developer API（Interactions TTS）の戻り raw PCM（24 kHz / 16-bit / mono）を、Adapter 内部で **WAV** bytes に wrap する。`SpeechSynthesizer.Synthesize` の成功戻りは非空の WAV bytes（`SpeechAudio.Content`）
-2. Drive 配置契約の音声拡張子は `{episodeId}.wav`。一覧は `*.wav` を stem 列挙
+2. Drive 配置契約の音声拡張子は `{episodeId}.wav`。一覧は `*.json` を stem 列挙（`contracts/drive-layout.md`）
 3. mp3 encoder（`shine-mp3` 等）・外部圧縮 lib・Cloud Text-to-Speech API への乗り換えは行わない。Developer API + AgentSecrets proxy を維持
 4. `docs/decisions/2026-08-17T17-41-59-feature-tts-speech-synthesizer.md` の Port 1 呼び出し・Adapter 定数・retry・課金方針は維持。戻り形式（mp3）だけ本 decision で上書き
 

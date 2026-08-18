@@ -7,7 +7,7 @@ branch: feature/playback-web
 ## 1. Decision
 
 1. web↔worker の HTTP 契約の正本は `apps/playback/contracts/` の TS schema。repo 根 `contracts/` は Drive のまま
-2. ListEpisodes は JSON の目録だけを返す。mp3 の有無は GetEpisode で初めて見る
+2. ListEpisodes は JSON の目録だけを返す。wav の有無は GetEpisode で初めて見る
 3. 宣言した HTTP status（200 / 400 / 404 / 503）はその行。表に無い番号は `floor(status / 100)` の級へ落とす
 4. 不完全ペア専用の error `code` は作らない。Get で渡せない件は `episode_not_found`
 
@@ -22,6 +22,6 @@ branch: feature/playback-web
 
 1. web↔worker にも JSON Schema file を置く案（言語跨ぎが無いのに Drive 契約の形式をコピーする）
 2. HTTP 契約を repo 根 `contracts/` に混ぜる案（generator が playback HTTP を知る経路になる）
-3. List で mp3 と JSON をペア確認する案（再生しない操作が音声を要求する）
+3. List で wav と JSON をペア確認する案（再生しない操作が音声を要求する）
 4. 不完全ペア専用 `code` を返す案
 5. HTTP 契約に ViewModel / 画面分岐を書く案（表示は HTTP 境界の外）
