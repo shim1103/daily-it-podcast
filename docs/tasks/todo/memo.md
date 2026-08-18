@@ -1,7 +1,7 @@
 # role
 you are `manager` non-edit but-audit
 # goal
-- finished /Users/shim0729/projects/daily-it-podcast/docs/tasks/todo/playback-worker-episodes.md
+- finished 
 - pass unit& integration test
 - followd ref skills completely
 # flow
@@ -13,7 +13,7 @@ you are `manager` non-edit but-audit
 - invoke `reviewers` by code-review & /simplify
 - invoke `executor`s by re-execute
 - manager: audit
-- delete /Users/shim0729/projects/daily-it-podcast/docs/tasks/todo/playback-worker-episodes.md
+- delete 
 # ref
 - /philosophy /testing-strategy /coding-style /architecture /error-handling
 # non-scope

@@ -66,6 +66,8 @@
 38：2026-08-18 [feature/playback-worker-episodes] Domain Error の外部分類は class。診断 message は境界の log が消費し、Unit は文字列を写して固定しない  # → layer:terms
 39：2026-08-18 [feature/playback-worker-episodes] 内側の診断文と外側の表示文は別契約。内側 message を UI 文にしてはならない  # → layer:terms
 40：2026-08-18 [feature/playback-worker-episodes] Port の in-memory 実装は Test Double であり本番外部 I/O ではない。AC が Fake 完結なら実 adapter は別 task として残す  # → layer:terms
+41：2026-08-18 [chore/ci-script-gha-dry] 手順を1箇所に置くこと（知識の DRY）と、同じ手順を複数 runner で実行することは別である。後者は再現であり重複ではない  # → layer:terms
+42：2026-08-18 [chore/ci-script-gha-dry] local hook を薄くしたことは remote CI で同じ検査を省略する理由にならない。CI は hook bypass を拾う別 runner である  # → layer:workflow
 47：2026-08-18 [feature/tts-speech-synthesizer] 通し番号付き知見の merge では番号を振り直さない。両側を連結し、衝突した番号はそのまま残す  # → layer:0:meta
 48：2026-08-18 [feature/tts-speech-synthesizer] remote の mergeable は push 直後に CONFLICTING を残すことがある。local の conflict 解消後に再取得して判定する  # → layer:workflow
 49：2026-08-18 [feature/tts-speech-synthesizer] hook が別 app の unit を回すとき、merge で入った package の依存未導入は import 失敗になる。hook 失敗を merge 内容の欠陥と同一視しない  # → layer:platform
@@ -76,3 +78,4 @@
 54：2026-08-18 [feature/playback-web] 定数の値を同じ定数へ assert して存在確認する test は検出力が無い。値の正しさは消費側の振る舞い test で見る  # → layer:terms
 
 78：2026-08-18 [refactor-playback-worker-http] Workers の HTTP response body に byte を返す場合、`Uint8Array.buffer` の `SharedArrayBuffer` union により `ArrayBuffer` 契約を崩し得る。境界で正規化して型と観測可能な body を揃える。 # → layer:platform
+55：2026-08-18 [feature/generator-cursor-manuscript] `log-session` は「カテゴリコマンドが存在する/起動できる」ことを先に確定し、存在しない場合は手順通りに日次・decision・task・lessonへ振り分けを手作業で再現する。推測で済ませない  # → layer:workflow

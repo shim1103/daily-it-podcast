@@ -1,32 +1,12 @@
 #!/usr/bin/env bash
 # name: test-integration
-# description: 全言語の Integration Test を実行する入口。
-# @require リポジトリ root から呼ぶ。Go が PATH にある。Playback は npm 依存が install 済み。
-# @ensure generator の Integration と playback の Integration がすべて pass する。対象 package が空なら成功扱い。
-# @invariant Unit 専用 suite を再実行しない。本番 credential を読まない。
+# description: 全系統の Integration Test 入口。片系 script を呼ぶだけ。
+# @require リポジトリ内から呼ぶ。片系 test-integration が存在する系統の前提を満たす。
+# @ensure 両系統の Integration がすべて pass する。対象 package が空なら成功扱い。
+# @invariant toolchain を直接実行しない。Unit 専用 suite を再実行しない。本番 credential を読まない。
 set -euo pipefail
 
-root="$(cd "$(dirname "$0")/.." && pwd)"
+root="$(git rev-parse --show-toplevel)"
 
-echo "integration: generator (go)"
-(
-  cd "$root/apps/generator"
-  # why not `|| true`: go list の実エラーまで握りつぶすと構文・module 不整合が緑になる。
-  # 空集合は go list が exit 0・stdout 空なので、空だけ skip する。
-  packages="$(go list ./test/...)"
-  if [ -z "$packages" ]; then
-    echo "generator: Integration package なし（skip）"
-  else
-    go test ./test/...
-  fi
-)
-
-echo "integration: playback (vitest)"
-(
-  cd "$root/apps/playback"
-  if [[ ! -f package.json ]]; then
-    echo "skip: package.json なし（空 package）"
-    exit 0
-  fi
-  npm run test:integration
-)
+"$root/scripts/generator/test-integration.sh"
+"$root/scripts/playback/test-integration.sh"
