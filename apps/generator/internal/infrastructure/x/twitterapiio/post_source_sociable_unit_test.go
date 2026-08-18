@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -338,6 +339,12 @@ func TestListByUser_returnsInfrastructureError_whenProxyStatusNotOK(t *testing.T
 	var infra *twitterapiio.Error
 	if !errors.As(err, &infra) {
 		t.Fatalf("error type %T (%v), want *twitterapiio.Error", err, err)
+	}
+	if !strings.HasPrefix(infra.Error(), "twitterapiio:") {
+		t.Fatalf("Error() = %q, want prefix twitterapiio:", infra.Error())
+	}
+	if errors.Unwrap(infra) == nil {
+		t.Fatal("Unwrap() is nil")
 	}
 }
 
