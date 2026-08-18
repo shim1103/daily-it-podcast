@@ -46,7 +46,7 @@ export function episodePath(episodeId: string): string {
 }
 
 /**
- * 音声 GET の path。成功時の body は `audio/mpeg` のバイト列であり JSON ではない。
+ * 音声 GET の path。成功時の body は `audio/wav` のバイト列であり JSON ではない。
  *
  * @require episodeId は空でない（GetEpisodeRequest.episodeId）
  * @ensure episodePath の後に `audio` 段が 1 つ続く
@@ -54,6 +54,9 @@ export function episodePath(episodeId: string): string {
 export function episodeAudioPath(episodeId: string): string {
   return `${episodePath(episodeId)}/audio`;
 }
+
+/** 音声 GET 成功時の `Content-Type`。Drive 上の `{episodeId}.wav` に対応する。 */
+export const episodeAudioContentType = "audio/wav";
 
 export const ListEpisodesResponseSchema = z.strictObject({
   episodes: z.array(episodeListItemSchema),
