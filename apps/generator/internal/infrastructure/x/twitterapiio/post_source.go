@@ -2,12 +2,19 @@ package twitterapiio
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
+	xinfra "github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/x"
 )
 
 var _ port.ItemSource = (*PostSource)(nil)
@@ -24,30 +31,23 @@ func NewPostSource(client *agentsecrets.Client) *PostSource {
 	return &PostSource{client: client}
 }
 
-func (s *PostSource) List(_ context.Context, _ time.Time) ([]models.SourceItem, error) {
-	// todo: docs/tasks/todo/generator-x-item-source.md — 下記 ListByUser 参照を List + SourceItem へ移植する
+func (s *PostSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
 	if s == nil || s.client == nil {
 		return nil, infraErr("list", fmt.Errorf("client is nil"))
 	}
-	return []models.SourceItem{}, nil
+	out := make([]models.SourceItem, 0)
+	for _, userID := range xinfra.WatchUserIDs {
+		items, err := s.listByUser(ctx, userID, since)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, items...)
+	}
+	return out, nil
 }
 
-/*
-todo: docs/tasks/todo/generator-x-item-source.md — ItemSource.List 実装時の参照。移植完了後にこの block ごと削除する。
-
-const (
-	lastTweetsEndpoint = "https://api.twitterapi.io/twitter/user/last_tweets"
-	createdAtLayout    = "Mon Jan 02 15:04:05 -0700 2006"
-	includeRepliesNo   = "false"
-	apiKeyHeaderName   = "X-API-Key"
-)
-
-func (s *PostSource) ListByUser(ctx context.Context, userID string, since time.Time) ([]models.Post, error) {
-	if s == nil || s.client == nil {
-		return nil, infraErr("list_by_user", fmt.Errorf("client is nil"))
-	}
-
-	out := make([]models.Post, 0)
+func (s *PostSource) listByUser(ctx context.Context, userID string, since time.Time) ([]models.SourceItem, error) {
+	out := make([]models.SourceItem, 0)
 	cursor := ""
 	for {
 		page, err := s.fetchPage(ctx, userID, cursor)
@@ -59,14 +59,14 @@ func (s *PostSource) ListByUser(ctx context.Context, userID string, since time.T
 			if err != nil {
 				return nil, infraErr("parse_created_at", err)
 			}
+			createdAt = createdAt.UTC()
 			if createdAt.Before(since) {
-				// why: OpenAPI は created_at 降順。下限を下回ったら以降 page も古い。
 				return out, nil
 			}
 			if !isOriginal(raw) {
 				continue
 			}
-			out = append(out, toPost(raw, createdAt))
+			out = append(out, toSourceItem(raw, createdAt))
 		}
 		if !page.HasNextPage || page.NextCursor == "" {
 			break
@@ -77,11 +77,9 @@ func (s *PostSource) ListByUser(ctx context.Context, userID string, since time.T
 }
 
 func (s *PostSource) fetchPage(ctx context.Context, userID, cursor string) (lastTweetsResponse, error) {
-	target := lastTweetsURL(userID, cursor)
-	// why: TwitterAPI.io 公式 auth は X-API-Key。Bearer は Authorization になり合わない。
 	res, err := s.client.Do(ctx, agentsecrets.Request{
 		Method:    http.MethodGet,
-		TargetURL: target,
+		TargetURL: lastTweetsURL(userID, cursor),
 		Inject: agentsecrets.Inject{
 			Headers: map[string]string{apiKeyHeaderName: secretnames.TwitterIOAPIKeyName},
 		},
@@ -107,11 +105,15 @@ func (s *PostSource) fetchPage(ctx context.Context, userID, cursor string) (last
 	return page, nil
 }
 
+const (
+	lastTweetsEndpoint = "https://api.twitterapi.io/twitter/user/last_tweets"
+	createdAtLayout    = "Mon Jan 02 15:04:05 -0700 2006"
+	includeRepliesNo   = "false"
+	apiKeyHeaderName   = "X-API-Key"
+)
+
 func lastTweetsURL(userID, cursor string) string {
-	q := url.Values{}
-	q.Set("userId", userID)
-	q.Set("includeReplies", includeRepliesNo)
-	// why: 初回は cursor 空が正。空文字を query に付けると vendor が次 page と誤読しうる。
+	q := url.Values{"userId": []string{userID}, "includeReplies": []string{includeRepliesNo}}
 	if cursor != "" {
 		q.Set("cursor", cursor)
 	}
@@ -127,20 +129,20 @@ type lastTweetsResponse struct {
 }
 
 type rawTweet struct {
-	ID        string      `json:"id"`
-	URL       string      `json:"url"`
-	Text      string      `json:"text"`
-	CreatedAt string      `json:"createdAt"`
-	IsReply   bool        `json:"isReply"`
-	Author    rawAuthor   `json:"author"`
-	Entities  rawEntities `json:"entities"`
-	// why: 中身は捨て、null 以外の存在だけで引用・Repost と判定する。
+	ID             string          `json:"id"`
+	URL            string          `json:"url"`
+	Text           string          `json:"text"`
+	CreatedAt      string          `json:"createdAt"`
+	IsReply        bool            `json:"isReply"`
+	Author         rawAuthor       `json:"author"`
+	Entities       rawEntities     `json:"entities"`
 	QuotedTweet    json.RawMessage `json:"quoted_tweet"`
 	RetweetedTweet json.RawMessage `json:"retweeted_tweet"`
 }
 
 type rawAuthor struct {
-	ID string `json:"id"`
+	ID       string `json:"id"`
+	UserName string `json:"userName"`
 }
 
 type rawEntities struct {
@@ -152,7 +154,6 @@ type rawURL struct {
 }
 
 func isOriginal(t rawTweet) bool {
-	// why: includeReplies=false は Reply だけ落とす。引用・Repost は quoted_tweet / retweeted_tweet で除外する。
 	return !t.IsReply && !hasEmbeddedTweet(t.QuotedTweet) && !hasEmbeddedTweet(t.RetweetedTweet)
 }
 
@@ -161,23 +162,20 @@ func hasEmbeddedTweet(raw json.RawMessage) bool {
 	return s != "" && s != "null"
 }
 
-func toPost(t rawTweet, createdAt time.Time) models.Post {
+func toSourceItem(t rawTweet, occurredAt time.Time) models.SourceItem {
+	lines := []string{"item_id: " + t.ID, "actor_id: " + t.Author.ID}
+	if t.Author.UserName != "" {
+		lines = append(lines, "actor_name: "+t.Author.UserName)
+	}
+	lines = append(lines, "text: "+t.Text, "permalink: "+t.URL)
 	urls := make([]string, 0, len(t.Entities.URLs))
-	for _, u := range t.Entities.URLs {
-		if u.ExpandedURL == "" {
-			continue
+	for _, item := range t.Entities.URLs {
+		if item.ExpandedURL != "" {
+			urls = append(urls, item.ExpandedURL)
 		}
-		urls = append(urls, u.ExpandedURL)
 	}
-	return models.Post{
-		ID:        t.ID,
-		AuthorID:  t.Author.ID,
-		Text:      t.Text,
-		CreatedAt: createdAt,
-		Permalink: t.URL,
-		URLs:      urls,
-		// why: OpenAPI の Tweet に media field が無い。
-		Media: []models.Media{},
+	if len(urls) > 0 {
+		lines = append(lines, "links: "+strings.Join(urls, " "))
 	}
+	return models.SourceItem{SourceID: xinfra.SourceID, OccurredAt: occurredAt, Context: strings.Join(lines, "\n")}
 }
-*/
