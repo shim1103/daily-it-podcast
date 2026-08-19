@@ -80,6 +80,9 @@ test 配置・gate の規則は `DESIGN.md`。
 |------|------|----------|
 | Access 許可 email | UI 入場 | Access ポリシー |
 | Google OAuth（Drive） | 読取・書込 | Workers / GHA secrets |
+| `GOOGLE_OAUTH_CLIENT_ID` | Drive OAuth client id | 同上 |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Drive OAuth client secret | 同上 |
+| `GOOGLE_OAUTH_REFRESH_TOKEN` | Drive OAuth refresh token | 同上 |
 | `DRIVE_FOLDER_ID` | 保存先 | 同上 |
 | `CURSOR_API_KEY` | 原稿 | GHA secrets |
 | `GEMINI_API_KEY` | TTS | GHA secrets |
