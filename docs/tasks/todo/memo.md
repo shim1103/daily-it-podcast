@@ -21,7 +21,7 @@ Do not ask confirmation, until finished
 # ref
 - /philosophy /testing-strategy /coding-style /architecture /error-handling
 # non-scope
-- commit, 2task
+- commit, other-task
 
 
 
@@ -30,5 +30,5 @@ Do not ask confirmation, until finished
 - finished /create-pr
 # flow
 - /commit --repo --split refto @skill_options.json
-- /log-session --not-append
+- /log-session --not-append; --carefully-read-SKILL-add-lessons-definitely
 - /create-pr not `shim gh` but `gh pr`
