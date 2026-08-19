@@ -190,6 +190,28 @@ describe("fetch", () => {
     expect(body).toEqual({ code: "unavailable" });
   });
 
+  it("未知の error は契約外 code を返さず 500 として一度だけ log する", async () => {
+    // Given: External Error mapping に存在しない error
+    const thrown = new Error("予期しない失敗");
+    vi.mocked(getEpisodeController).mockRejectedValue(thrown);
+
+    // When: 1件 path へ GET する
+    const got = await handleFetch(new Request(`${origin}${episodePath("ep-1")}`), emptyEnv);
+
+    // Then: 契約外 code を返さず、Route境界で一度だけ structured log する
+    expect(got.status).toBe(500);
+    expect(await got.text()).toBe("");
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "UnmappedError",
+        message: thrown.message,
+        requestId: expect.any(String),
+      }),
+    );
+    expect(errorSpy.mock.calls[0]?.[0]).not.toHaveProperty("code");
+  });
+
   it("音声 GET が成功する時、契約の Content-Type で byte を返す", async () => {
     // Given: Composition が音声 byte を返す
     vi.mocked(getEpisodeAudioController).mockResolvedValue(validAudioBytes);
