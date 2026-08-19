@@ -2,12 +2,19 @@ package getxapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
+	xinfra "github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/x"
 )
 
 var _ port.ItemSource = (*PostSource)(nil)
@@ -24,28 +31,23 @@ func NewPostSource(client *agentsecrets.Client) *PostSource {
 	return &PostSource{client: client}
 }
 
-func (s *PostSource) List(_ context.Context, _ time.Time) ([]models.SourceItem, error) {
-	// todo: docs/tasks/todo/generator-x-item-source.md — 下記 ListByUser 参照を List + SourceItem へ移植する
+func (s *PostSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
 	if s == nil || s.client == nil {
 		return nil, infraErr("list", fmt.Errorf("client is nil"))
 	}
-	return []models.SourceItem{}, nil
+	out := make([]models.SourceItem, 0)
+	for _, userID := range xinfra.WatchUserIDs {
+		items, err := s.listByUser(ctx, userID, since)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, items...)
+	}
+	return out, nil
 }
 
-/*
-todo: docs/tasks/todo/generator-x-item-source.md — ItemSource.List 実装時の参照。移植完了後にこの block ごと削除する。
-
-const (
-	userTweetsEndpoint = "https://api.getxapi.com/twitter/user/tweets"
-	createdAtLayout    = "Mon Jan 02 15:04:05 -0700 2006"
-)
-
-func (s *PostSource) ListByUser(ctx context.Context, userID string, since time.Time) ([]models.Post, error) {
-	if s == nil || s.client == nil {
-		return nil, infraErr("list_by_user", fmt.Errorf("client is nil"))
-	}
-
-	out := make([]models.Post, 0)
+func (s *PostSource) listByUser(ctx context.Context, userID string, since time.Time) ([]models.SourceItem, error) {
+	out := make([]models.SourceItem, 0)
 	cursor := ""
 	for {
 		page, err := s.fetchPage(ctx, userID, cursor)
@@ -57,14 +59,14 @@ func (s *PostSource) ListByUser(ctx context.Context, userID string, since time.T
 			if err != nil {
 				return nil, infraErr("parse_created_at", err)
 			}
+			createdAt = createdAt.UTC()
 			if createdAt.Before(since) {
-				// why: docs は順序未記載。新しい順と仮定し、下限を下回ったら以降 page も古い。
 				return out, nil
 			}
 			if !isOriginal(raw) {
 				continue
 			}
-			out = append(out, toPost(raw, createdAt))
+			out = append(out, toSourceItem(raw, createdAt))
 		}
 		if !page.HasMore || page.NextCursor == "" {
 			break
@@ -75,14 +77,10 @@ func (s *PostSource) ListByUser(ctx context.Context, userID string, since time.T
 }
 
 func (s *PostSource) fetchPage(ctx context.Context, userID, cursor string) (userTweetsResponse, error) {
-	target := userTweetsURL(userID, cursor)
-	// why: 公式 auth は Authorization Bearer。X-API-Key header 注入は合わない。
 	res, err := s.client.Do(ctx, agentsecrets.Request{
 		Method:    http.MethodGet,
-		TargetURL: target,
-		Inject: agentsecrets.Inject{
-			Bearer: secretnames.GetXAPIKeyName,
-		},
+		TargetURL: userTweetsURL(userID, cursor),
+		Inject:    agentsecrets.Inject{Bearer: secretnames.GetXAPIKeyName},
 	})
 	if err != nil {
 		return userTweetsResponse{}, infraErr("do", err)
@@ -102,10 +100,13 @@ func (s *PostSource) fetchPage(ctx context.Context, userID, cursor string) (user
 	return page, nil
 }
 
+const (
+	userTweetsEndpoint = "https://api.getxapi.com/twitter/user/tweets"
+	createdAtLayout    = "Mon Jan 02 15:04:05 -0700 2006"
+)
+
 func userTweetsURL(userID, cursor string) string {
-	q := url.Values{}
-	q.Set("userId", userID)
-	// why: 初回は cursor 空が正。空文字を query に付けると vendor が次 page と誤読しうる。
+	q := url.Values{"userId": []string{userID}}
 	if cursor != "" {
 		q.Set("cursor", cursor)
 	}
@@ -119,20 +120,21 @@ type userTweetsResponse struct {
 }
 
 type rawTweet struct {
-	ID        string      `json:"id"`
-	URL       string      `json:"url"`
-	Text      string      `json:"text"`
-	CreatedAt string      `json:"createdAt"`
-	IsReply   bool        `json:"isReply"`
-	Author    rawAuthor   `json:"author"`
-	Entities  rawEntities `json:"entities"`
-	Media     []rawMedia  `json:"media"`
-	// why: 中身は捨て、null 以外の存在だけで引用と判定する。
+	ID          string          `json:"id"`
+	URL         string          `json:"url"`
+	Text        string          `json:"text"`
+	CreatedAt   string          `json:"createdAt"`
+	IsReply     bool            `json:"isReply"`
+	Author      rawAuthor       `json:"author"`
+	Entities    rawEntities     `json:"entities"`
+	Media       []rawMedia      `json:"media"`
 	QuotedTweet json.RawMessage `json:"quoted_tweet"`
 }
 
 type rawAuthor struct {
-	ID string `json:"id"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
 }
 
 type rawEntities struct {
@@ -143,14 +145,11 @@ type rawURL struct {
 	ExpandedURL string `json:"expanded_url"`
 }
 
-// why: expanded_url は投稿 permalink。取得可能なメディア URL は url。
 type rawMedia struct {
-	Type string `json:"type"`
-	URL  string `json:"url"`
+	URL string `json:"url"`
 }
 
 func isOriginal(t rawTweet) bool {
-	// why: User Tweets docs sample に retweeted_tweet が無い。Posts tab の応答に従い field を持たない。
 	return !t.IsReply && !hasEmbeddedTweet(t.QuotedTweet)
 }
 
@@ -159,29 +158,41 @@ func hasEmbeddedTweet(raw json.RawMessage) bool {
 	return s != "" && s != "null"
 }
 
-func toPost(t rawTweet, createdAt time.Time) models.Post {
-	urls := make([]string, 0, len(t.Entities.URLs))
-	for _, u := range t.Entities.URLs {
-		if u.ExpandedURL == "" {
-			continue
+func toSourceItem(t rawTweet, occurredAt time.Time) models.SourceItem {
+	lines := []string{
+		"item_id: " + t.ID,
+		"actor_id: " + t.Author.ID,
+	}
+	actorName := t.Author.Name
+	if actorName == "" {
+		actorName = t.Author.DisplayName
+	}
+	if actorName != "" {
+		lines = append(lines, "actor_name: "+actorName)
+	}
+	lines = append(lines, "text: "+t.Text, "permalink: "+t.URL)
+	urls := expandedURLs(t.Entities.URLs)
+	if len(urls) > 0 {
+		lines = append(lines, "links: "+strings.Join(urls, " "))
+	}
+	media := make([]string, 0, len(t.Media))
+	for _, item := range t.Media {
+		if item.URL != "" {
+			media = append(media, item.URL)
 		}
-		urls = append(urls, u.ExpandedURL)
 	}
-	media := make([]models.Media, 0, len(t.Media))
-	for _, m := range t.Media {
-		if m.URL == "" {
-			continue
-		}
-		media = append(media, models.Media{Type: m.Type, URL: m.URL})
+	if len(media) > 0 {
+		lines = append(lines, "media: "+strings.Join(media, " "))
 	}
-	return models.Post{
-		ID:        t.ID,
-		AuthorID:  t.Author.ID,
-		Text:      t.Text,
-		CreatedAt: createdAt,
-		Permalink: t.URL,
-		URLs:      urls,
-		Media:     media,
-	}
+	return models.SourceItem{SourceID: xinfra.SourceID, OccurredAt: occurredAt, Context: strings.Join(lines, "\n")}
 }
-*/
+
+func expandedURLs(raw []rawURL) []string {
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		if item.ExpandedURL != "" {
+			out = append(out, item.ExpandedURL)
+		}
+	}
+	return out
+}
