@@ -2,38 +2,43 @@ package getxapi
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
 )
 
-const (
-	userTweetsEndpoint = "https://api.getxapi.com/twitter/user/tweets"
-	createdAtLayout    = "Mon Jan 02 15:04:05 -0700 2006"
-)
-
-var _ port.PostSource = (*PostSource)(nil)
+var _ port.ItemSource = (*PostSource)(nil)
 
 type PostSource struct {
 	client *agentsecrets.Client
 }
 
-// NewPostSource は GetXAPI 向け PostSource を返す。
+// NewPostSource は GetXAPI 向け ItemSource を返す。
 //
 // @require client != nil
 // @ensure 秘密値は保持しない。
 func NewPostSource(client *agentsecrets.Client) *PostSource {
 	return &PostSource{client: client}
 }
+
+func (s *PostSource) List(_ context.Context, _ time.Time) ([]models.SourceItem, error) {
+	// todo: docs/tasks/todo/generator-x-item-source.md — 下記 ListByUser 参照を List + SourceItem へ移植する
+	if s == nil || s.client == nil {
+		return nil, infraErr("list", fmt.Errorf("client is nil"))
+	}
+	return []models.SourceItem{}, nil
+}
+
+/*
+todo: docs/tasks/todo/generator-x-item-source.md — ItemSource.List 実装時の参照。移植完了後にこの block ごと削除する。
+
+const (
+	userTweetsEndpoint = "https://api.getxapi.com/twitter/user/tweets"
+	createdAtLayout    = "Mon Jan 02 15:04:05 -0700 2006"
+)
 
 func (s *PostSource) ListByUser(ctx context.Context, userID string, since time.Time) ([]models.Post, error) {
 	if s == nil || s.client == nil {
@@ -179,3 +184,4 @@ func toPost(t rawTweet, createdAt time.Time) models.Post {
 		Media:     media,
 	}
 }
+*/

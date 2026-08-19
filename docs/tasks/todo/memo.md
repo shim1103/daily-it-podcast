@@ -1,19 +1,22 @@
 # role
 you are `manager` non-edit but-audit
+# issue
+-
 # goal
-- finished 
+- finished issue
 - pass unit& integration test
 - followd ref skills completely
 # flow
+- `git switch tmp-branch` from origin/develop
+- rename property branch
 - /philosophy /agent-cli
-- `git switch {new-branch}` from origin/develop
 - /0:meta
 - plan
 - invoke `executors`: /philosophy -> execute -> self-review
 - invoke `reviewers` by code-review & /simplify
 - invoke `executor`s by re-execute
 - manager: audit
-- delete 
+- delete issue file
 # ref
 - /philosophy /testing-strategy /coding-style /architecture /error-handling
 # non-scope
@@ -25,9 +28,6 @@ you are `manager` non-edit but-audit
 # goal
 - finished /create-pr
 # flow
-- /migrate-lessons
 - /commit --repo --split refto @skill_options.json
-- /log-session
+- /log-session --not-append
 - /create-pr not `shim gh` but `gh pr`
-# note
-- migrate-lessons後の log-sessionで再び lessons/index.md isnt't emptyになるがこれは正しい

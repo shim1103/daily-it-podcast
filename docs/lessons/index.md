@@ -41,3 +41,7 @@
 79：2026-08-18 [chore/generator-static-lint-format] サンドボックスの read 拒否で出る stderr の file 名は、対象範囲を確定させる `git diff`/`git status` の構造化出力（--porcelain・--name-status）と別物である。査読 agent の指摘は委譲元が自分でその構造化出力を取り直してから採否を判断する # → layer:workflow
 80：2026-08-19 [feature/playback-worker-drive-adapter] 既存の公開 symbol の signature を変えない制約を優先すると、新しい分岐条件（env 等）が固定値経由でしか呼ばれない配線を作りうる。受け入れ条件が「実行時に本当にその分岐へ到達するか」を要求する時は、既存 export を保つことより実行経路の到達可能性を先に検証する # → layer:workflow
 81：2026-08-19 [feature/playback-worker-drive-adapter] 「throw しない」という組み立て層の禁止は、値の妥当性判定という責務自体を放棄してよい意味ではない。判定結果を無言で代替実装へ逃がすと、設定漏れが観測不能になる。判定はして、判定の結果どう失敗を表現するか（throw か戻り値の分類か）だけを禁止範囲の外へ出す # → layer:terms
+82：2026-08-19 [refactor/generator-source-port] 抽象境界の optional field は構造化である。一部実装だけが埋める形を上位 schema に置くと、上位が欠落の意味を解釈し始める。必須以外は opaque な余りへ寄せ、上位は parse しない  # → layer:terms
+83：2026-08-19 [refactor/generator-source-port] 上位の契約と下位の内部 field を同じ会話で混ぜると、必須 schema が具象の形に汚染される。層を分けてから field の帰属を決める  # → layer:terms
+84：2026-08-19 [refactor/generator-source-port] 情報要素の時刻は情報源データに付随する発生時刻であり、取得時刻でも呼び出し元の実行時刻でもない。実行時刻から導くのは窓の下限だけ  # → layer:terms
+85：2026-08-19 [refactor/generator-source-port] 一意性の保証は返す側の義務である。下流が同一主体を推論するための識別子は、必須 schema ではなく余りへ載せてよい  # → layer:terms
