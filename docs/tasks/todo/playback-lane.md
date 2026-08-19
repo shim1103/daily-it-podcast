@@ -9,10 +9,13 @@ Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う 
 - [x] web↔worker HTTP 契約（List / Get の TS schema・status 級）
 - [x] worker Drive Port + List/Get UseCase + Fake/in-memory Infrastructure（`playback-worker-episodes`。AC は Fake で完了）
 - [ ] 実 Google Drive adapter（OAuth・folder ID・Drive API 読取・WAV）— `playback-worker-drive-adapter.md`
+- [x] playback 静的検査（Biome + tsc）導入。`pr-c-playback-biome-tsc` で完了
 - [ ] web / worker の toolchain（Vite / wrangler 等）を入れる — **未切り出し**（Access 未確定）
 - [ ] UI で一覧・再生・原稿表示 — **未切り出し**
 
 HTTP 境界での Domain Error → External `{ code }` 写像、および client 向け表示文は完了済み（`playback-worker-http.md` は完了により削除済み）。
+
+`apps/playback/tsconfig.json` の `lib` は暫定で `["ES2022", "DOM"]` にしている（`worker/src` が `Request`/`Response`/`crypto`/`URL` 等の Web 標準 API 型を要求するため）。wrangler 導入時、`worker` の実行 runtime が Cloudflare Workers に確定したら `@cloudflare/workers-types` への置き換えを再検討する（DOM 固有 API の型が worker 側へ誤って混入する余地を塞ぐため）。
 
 ### Issue 化待ち（詳細は各 file）
 

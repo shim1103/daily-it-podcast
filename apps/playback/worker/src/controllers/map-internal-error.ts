@@ -10,9 +10,7 @@ function classifyInternalError(error: unknown): InternalErrorKind {
   return "other";
 }
 
-export function mapInternalErrorToExternal(
-  error: unknown,
-): NotFoundError | UnavailableError {
+export function mapInternalErrorToExternal(error: unknown): NotFoundError | UnavailableError {
   const kind = classifyInternalError(error);
   switch (kind) {
     case "domain_not_found":

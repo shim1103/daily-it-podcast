@@ -44,9 +44,7 @@ export class InMemoryEpisodeRepository implements EpisodeRepository {
       throw new EpisodeNotFoundError(`原稿 JSON が schema に不適合: ${episodeId}`);
     }
     if (parsed.data.episodeId !== episodeId) {
-      throw new EpisodeNotFoundError(
-        `stem と JSON の episodeId が不一致: ${episodeId}`,
-      );
+      throw new EpisodeNotFoundError(`stem と JSON の episodeId が不一致: ${episodeId}`);
     }
     if (entry.audio === undefined) {
       throw new EpisodeNotFoundError(`wav が無い: ${episodeId}`);

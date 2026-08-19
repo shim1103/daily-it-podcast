@@ -60,10 +60,7 @@ function toArrayBufferFromUint8Array(bytes: Uint8Array): ArrayBuffer {
 
   // ArrayBuffer の場合は slice で visible range を切り出す
   // NOTE: TS が union の slice 戻りを ArrayBuffer に絞り込めない可能性があるため、cast する。
-  return (buf as ArrayBuffer).slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  );
+  return (buf as ArrayBuffer).slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 }
 
 function isMappedExternalErrorName(name: string): name is ExternalErrorName {

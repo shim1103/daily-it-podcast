@@ -1,7 +1,4 @@
-import {
-  episodeAudioPath,
-  type GetEpisodeResponse,
-} from "../../../../contracts/index.ts";
+import { episodeAudioPath, type GetEpisodeResponse } from "../../../../contracts/index.ts";
 import type { EpisodeRepository } from "../ports/episode-repository.ts";
 
 export async function getEpisode(

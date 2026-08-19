@@ -1,13 +1,9 @@
 import { mapInternalErrorToExternal } from "./map-internal-error.ts";
 import { parseGetEpisodeRequest } from "./parse-get-episode-request.ts";
 
-export type GetEpisodeAudioUseCase = (
-  episodeId: string,
-) => Promise<Uint8Array>;
+export type GetEpisodeAudioUseCase = (episodeId: string) => Promise<Uint8Array>;
 
-export type GetEpisodeAudioController = (
-  body: unknown,
-) => Promise<Uint8Array>;
+export type GetEpisodeAudioController = (body: unknown) => Promise<Uint8Array>;
 
 /**
  * 音声 byte を返す Controller を組み立てる。
@@ -19,9 +15,7 @@ export type GetEpisodeAudioController = (
 export function createGetEpisodeAudioController(
   useCase: GetEpisodeAudioUseCase,
 ): GetEpisodeAudioController {
-  return async function getEpisodeAudioController(
-    body: unknown,
-  ): Promise<Uint8Array> {
+  return async function getEpisodeAudioController(body: unknown): Promise<Uint8Array> {
     const request = parseGetEpisodeRequest(body);
     try {
       return await useCase(request.episodeId);

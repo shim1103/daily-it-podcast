@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  GetEpisodeResponseSchema,
-  episodeAudioPath,
-} from "../../../../contracts/index.ts";
+import { GetEpisodeResponseSchema, episodeAudioPath } from "../../../../contracts/index.ts";
 import type { EpisodeManuscript, EpisodeRepository } from "../ports/episode-repository.ts";
 import { getEpisode } from "./get-episode.ts";
 
@@ -25,9 +22,7 @@ const validManuscript: EpisodeManuscript = {
   },
 };
 
-function createFakeRepository(
-  overrides: Partial<EpisodeRepository> = {},
-): EpisodeRepository {
+function createFakeRepository(overrides: Partial<EpisodeRepository> = {}): EpisodeRepository {
   return {
     listEpisodes: async () => {
       throw new Error("not used");

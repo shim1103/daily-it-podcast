@@ -8,14 +8,12 @@ import { InMemoryEpisodeRepository } from "../infrastructure/drive/in-memory-epi
 
 const repository = new InMemoryEpisodeRepository();
 
-export const listEpisodesController = createListEpisodesController(() =>
-  listEpisodes(repository),
-);
+export const listEpisodesController = createListEpisodesController(() => listEpisodes(repository));
 
 export const getEpisodeController = createGetEpisodeController((episodeId) =>
   getEpisode(repository, episodeId),
 );
 
-export const getEpisodeAudioController = createGetEpisodeAudioController(
-  (episodeId) => getEpisodeAudio(repository, episodeId),
+export const getEpisodeAudioController = createGetEpisodeAudioController((episodeId) =>
+  getEpisodeAudio(repository, episodeId),
 );
