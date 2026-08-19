@@ -45,3 +45,5 @@
 83：2026-08-19 [refactor/generator-source-port] 上位の契約と下位の内部 field を同じ会話で混ぜると、必須 schema が具象の形に汚染される。層を分けてから field の帰属を決める  # → layer:terms
 84：2026-08-19 [refactor/generator-source-port] 情報要素の時刻は情報源データに付随する発生時刻であり、取得時刻でも呼び出し元の実行時刻でもない。実行時刻から導くのは窓の下限だけ  # → layer:terms
 85：2026-08-19 [refactor/generator-source-port] 一意性の保証は返す側の義務である。下流が同一主体を推論するための識別子は、必須 schema ではなく余りへ載せてよい  # → layer:terms
+86：2026-08-19 [feature/generator-drive-adapter-redo2] `log-session` を読んだだけで daily だけ書いて終えると、shim 指摘や agent の誤読が `lessons` へ残らない。logging の振り分けでは、実装説明から確認論点が誤解・判断ミスへ移った時点で、その誤り自体を `docs/lessons/` 候補として先に切り出す  # → layer:workflow
+87：2026-08-19 [feature/generator-drive-adapter-redo2] KISS/DRY 指摘で doc を薄くする時も、情報を消すのではなく記録先を分ける。README / DESIGN / decision / Issue / daily / lessons の責務を混ぜると、修正後の agent が transcript なしで再現できなくなる  # → layer:0:meta
