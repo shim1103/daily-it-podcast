@@ -47,3 +47,6 @@
 85：2026-08-19 [refactor/generator-source-port] 一意性の保証は返す側の義務である。下流が同一主体を推論するための識別子は、必須 schema ではなく余りへ載せてよい  # → layer:terms
 86：2026-08-19 [feature/generator-drive-adapter-redo2] `log-session` を読んだだけで daily だけ書いて終えると、shim 指摘や agent の誤読が `lessons` へ残らない。logging の振り分けでは、実装説明から確認論点が誤解・判断ミスへ移った時点で、その誤り自体を `docs/lessons/` 候補として先に切り出す  # → layer:workflow
 87：2026-08-19 [feature/generator-drive-adapter-redo2] KISS/DRY 指摘で doc を薄くする時も、情報を消すのではなく記録先を分ける。README / DESIGN / decision / Issue / daily / lessons の責務を混ぜると、修正後の agent が transcript なしで再現できなくなる  # → layer:0:meta
+88：2026-08-19 [tmp-branch] agentを自立実行させるpromptでは、最初のbranch作成・実行権限・確認待ちを明示し、managerの非編集責務とexecutorの編集責務を混ぜない  # → layer:workflow
+89：2026-08-19 [tmp-branch] 複数Adapterが同じ意味の識別子を返す時は共有境界の定数を使い、変換testは部分文字列ではなく必須値・時刻・全出力を検証する  # → layer:terms
+90：2026-08-19 [tmp-branch] constants fileへの分割は定数の存在だけで決めず、共有範囲と責務の独立性で決める。test差し替えが必要なmutable設定は定数群へ混ぜない  # → layer:terms
