@@ -47,3 +47,5 @@
 85：2026-08-19 [refactor/generator-source-port] 一意性の保証は返す側の義務である。下流が同一主体を推論するための識別子は、必須 schema ではなく余りへ載せてよい  # → layer:terms
 86：2026-08-19 [feature/generator-drive-adapter-redo2] `log-session` を読んだだけで daily だけ書いて終えると、shim 指摘や agent の誤読が `lessons` へ残らない。logging の振り分けでは、実装説明から確認論点が誤解・判断ミスへ移った時点で、その誤り自体を `docs/lessons/` 候補として先に切り出す  # → layer:workflow
 87：2026-08-19 [feature/generator-drive-adapter-redo2] KISS/DRY 指摘で doc を薄くする時も、情報を消すのではなく記録先を分ける。README / DESIGN / decision / Issue / daily / lessons の責務を混ぜると、修正後の agent が transcript なしで再現できなくなる  # → layer:0:meta
+88：2026-08-19 [feature/playback-worker-http-refactor] `non-edit` roleを理由に、明示されたexecutor委譲・検証・完了処理まで止めてはいけない。roleの権限境界とuserが要求した作業範囲を分け、委譲可能な実装はexecutorへ渡す  # → layer:workflow
+89：2026-08-19 [feature/playback-worker-http-refactor] 完了済みtodoの削除と未完了follow-upの保持を同じ判断に混ぜない。完了契約を満たしたfileだけを削除し、未完了作業は別todoとして残す  # → layer:workflow
