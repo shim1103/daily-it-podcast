@@ -1,16 +1,9 @@
 import { describe, expect, it } from "vitest";
-import {
-  NotFoundError,
-  UnavailableError,
-  ValidationError,
-} from "../../../contracts/index.ts";
+import { NotFoundError, UnavailableError, ValidationError } from "../../../contracts/index.ts";
 import { EpisodeNotFoundError } from "../entities/errors/episode-not-found-error.ts";
 import { DriveError } from "../infrastructure/drive/drive-error.ts";
 import { createGetEpisodeAudioController } from "./get-episode-audio-controller.ts";
-import {
-  createFakeGetEpisodeAudioUseCase,
-  validAudioBytes,
-} from "./fake-use-cases.ts";
+import { createFakeGetEpisodeAudioUseCase, validAudioBytes } from "./fake-use-cases.ts";
 
 describe("createGetEpisodeAudioController", () => {
   it("UseCase が成功する時、音声 byte を返す", async () => {
@@ -50,8 +43,7 @@ describe("createGetEpisodeAudioController", () => {
 
     // Then: External NotFoundError が Domain を cause に持つ
     await expect(act).rejects.toSatisfy(
-      (error: unknown) =>
-        error instanceof NotFoundError && error.cause === domainError,
+      (error: unknown) => error instanceof NotFoundError && error.cause === domainError,
     );
   });
 
@@ -68,8 +60,7 @@ describe("createGetEpisodeAudioController", () => {
 
     // Then: External UnavailableError が Infrastructure を cause に持つ
     await expect(act).rejects.toSatisfy(
-      (error: unknown) =>
-        error instanceof UnavailableError && error.cause === driveError,
+      (error: unknown) => error instanceof UnavailableError && error.cause === driveError,
     );
   });
 });

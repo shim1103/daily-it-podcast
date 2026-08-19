@@ -6,9 +6,7 @@ const audioBytes = new Uint8Array([
   0x52, 0x49, 0x46, 0x46, 0x04, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
 ]);
 
-function createFakeRepository(
-  overrides: Partial<EpisodeRepository> = {},
-): EpisodeRepository {
+function createFakeRepository(overrides: Partial<EpisodeRepository> = {}): EpisodeRepository {
   return {
     listEpisodes: async () => {
       throw new Error("not used");

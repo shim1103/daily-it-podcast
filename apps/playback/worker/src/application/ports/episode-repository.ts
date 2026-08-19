@@ -1,7 +1,4 @@
-import type {
-  GetEpisodeResponse,
-  ListEpisodesResponse,
-} from "../../../../contracts/index.ts";
+import type { GetEpisodeResponse, ListEpisodesResponse } from "../../../../contracts/index.ts";
 
 export type EpisodeListItem = ListEpisodesResponse["episodes"][number];
 export type EpisodeManuscript = Omit<GetEpisodeResponse, "audioRef">;

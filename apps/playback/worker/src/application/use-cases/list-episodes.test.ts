@@ -10,9 +10,7 @@ const validListItem: EpisodeListItem = {
   durationSec: 60,
 };
 
-function createFakeRepository(
-  overrides: Partial<EpisodeRepository> = {},
-): EpisodeRepository {
+function createFakeRepository(overrides: Partial<EpisodeRepository> = {}): EpisodeRepository {
   return {
     listEpisodes: async () => [validListItem],
     getEpisode: async () => {
