@@ -88,6 +88,8 @@ test 配置・gate の規則は `DESIGN.md`。
 | `TWITTER_IO_API_KEY` | X 投稿取得（試作 TwitterAPI.io） | AgentSecrets（local）/ GHA secrets |
 | `GETX_API_KEY` | X 投稿取得（GetXAPI） | AgentSecrets（local）/ GHA secrets | 
 
+secret名の一覧は運用上のinventoryであり、実行時のSSOTではない。必要なsecretと注入経路の契約は各runtimeが所有する（`docs/decisions/2026-08-19T17-37-00-playback-runtime-secret-boundary.md`）。
+
 local 開発時の値は AgentSecrets（OS keychain + zero-knowledge cloud sync）が保持する。agent は `.env` / `secrets/**` / `~/.ssh/**` を読めない（`.claude/settings.json` 等の deny）。値の登録・確認は `agentsecrets` CLI を shim 自身が実行する。
 
 ## 制約

@@ -51,3 +51,8 @@
 89：2026-08-19 [feature/generator-drive-storage-adapter] 確認 tool が deny され、deny 理由に「自律判断で完遂し、質問は stdout へ出力せよ」と明記された後は、同種の判断が再度必要になっても同じ tool を再試行しない。1 回の deny 理由を以降の全判断の運用方針として引き継ぐ  # → layer:workflow
 90：2026-08-19 [feature/generator-drive-storage-adapter] 公開契約文書に書かれた invariant は、書かれているという理由だけで現行仕様と断定しない。契約文言も実装同様に変更履歴を持つ。文言が指す語彙が実装から消えている・別 Port が同種語彙を新しい語彙へ改訂済みである等の兆候があれば、契約を書いた commit まで遡り、旧設計の残骸か恒久 invariant かを先に切り分ける  # → layer:terms
 91：2026-08-19 [feature/generator-drive-storage-adapter] 秘密値を注入する proxy 越し通信を「実際に HTTP を飛ばす」とだけ説明すると、外部 API へ接続していると誤解される。宛先 URL がヘッダ等の値として運ばれるだけで、実接続先は迂回用の代役 endpoint という構造は、消費先が本物か代役かを明示して初めて正確になる  # → layer:terms
+88：2026-08-19 [feature/playback-worker-http-refactor] `non-edit` roleを理由に、明示されたexecutor委譲・検証・完了処理まで止めてはいけない。roleの権限境界とuserが要求した作業範囲を分け、委譲可能な実装はexecutorへ渡す  # → layer:workflow
+89：2026-08-19 [feature/playback-worker-http-refactor] 完了済みtodoの削除と未完了follow-upの保持を同じ判断に混ぜない。完了契約を満たしたfileだけを削除し、未完了作業は別todoとして残す  # → layer:workflow
+90：2026-08-19 [tmp-branch] agentを自立実行させるpromptでは、最初のbranch作成・実行権限・確認待ちを明示し、managerの非編集責務とexecutorの編集責務を混ぜない  # → layer:workflow
+91：2026-08-19 [tmp-branch] 複数Adapterが同じ意味の識別子を返す時は共有境界の定数を使い、変換testは部分文字列ではなく必須値・時刻・全出力を検証する  # → layer:terms
+92：2026-08-19 [tmp-branch] constants fileへの分割は定数の存在だけで決めず、共有範囲と責務の独立性で決める。test差し替えが必要なmutable設定は定数群へ混ぜない  # → layer:terms
