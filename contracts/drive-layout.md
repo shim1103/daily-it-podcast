@@ -8,9 +8,18 @@ Generator が書き、Playback（BFF）が読む。載る成果物は音声と�
 
 **書かない:** 原稿 JSON のフィールド（→ `manuscript.schema.json`）。OAuth・フォルダ ID・API 手順・prompt・TTS・UI（→ 各 app の Infrastructure / 実行設定 / README）。
 
+## 検証の分担（Generator）
+
+| 知識 | 正本 | 誰が enforce |
+|------|------|----------------|
+| 原稿 JSON の field・`episodeId` と stem の一致 | `manuscript.schema.json` | **Application**（書込 UseCase の直前） |
+| ファイル名・拡張子・folder 内配置 | 本 file | **Infrastructure** の保存 Adapter（HTTP put の name / MIME / parent） |
+
+Generator の保存 Adapter は schema を import しない。配置（`{episodeId}.json` / `{episodeId}.wav`）だけを実装する。Playback worker の読取 Adapter は従来どおり読取直前に schema を enforce する。
+
 ## 配置
 
-所定フォルダは実行設定（値はここに書かない）。直下に:
+所定 folder は実行設定 `DRIVE_FOLDER_ID`（値はここに書かない）。**当該 folder 直下**に episode 用 file を置く（episode ごとの sub folder は作らない）:
 
 | 種別 | 名前 |
 |------|------|

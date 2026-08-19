@@ -12,23 +12,31 @@
 - [ ] cmd 入口
 - [ ] Cursor CLI の Infrastructure（`TextWriter` Adapter。Issue は `generator-cursor-text-writer.md`）
 - [x] Gemini TTS Adapter（`SpeechSynthesizer`。Composition 結線済み。Issue 未作成）
-- [ ] Drive 書込 Adapter（本番・WAV）— 詳細は `generator-drive-adapter.md`
+- [ ] Drive 保存 Adapter — `generator-drive-storage-adapter.md`
+- [ ] Google OAuth refresh Adapter — `generator-google-oauth-adapter.md`
+- [ ] Application 原稿検証 + WriteEpisode — `generator-episode-validation.md`
 - [ ] GHA workflow で定期または手動実行
 
 ### Issue 化待ち（詳細は各 file）
 
 | file | 内容 |
 |---|---|
-| `generator-drive-adapter.md` | Drive 書込 Port + Google Drive API 本番 Adapter（json + wav） |
-| `generator-cursor-text-writer.md` | Cursor CLI `TextWriter` Port + Adapter（non-interactive、JSON envelope） |
+| `generator-cursor-text-writer.md` | Cursor CLI `TextWriter` |
+| `generator-drive-storage-adapter.md` | Drive 保存（REST + `EpisodeWriter`） |
+| `generator-google-oauth-adapter.md` | OAuth refresh + TokenSource |
+| `generator-episode-validation.md` | Application schema 検証 + WriteEpisode |
 
 ### 依存（実装順）
 
 ```text
 contracts / SpeechSynthesizer（済）
-  → drive-adapter（書込 Port + 本番 Adapter。Cursor と並行可）
-  → 原稿→TTS→書込 UseCase（未切り出し）
-  → cmd / GHA（未切り出し）
+  → drive-storage-adapter
+  → google-oauth-adapter
+  → episode-validation
+  → 原稿→TTS→書込 UseCase
+  → cmd / GHA
 ```
+
+方針: `docs/decisions/2026-08-19T15-00-00-feature-generator-drive-adapter-layer-split.md`
 
 playback の読取 Adapter とは共有しない。音声は wav。

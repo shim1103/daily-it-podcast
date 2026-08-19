@@ -1,6 +1,6 @@
 # DESIGN
 
-最終更新: 2026-08-18（coverage 除外を Composition Root のみへ）
+最終更新: 2026-08-19（generator の `contracts/` 読み手を Application へ）
 
 地図・使い方・受け入れ・秘密の名前は `README.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive / HTTP 契約の写しは置かない）。
 
@@ -12,7 +12,7 @@
 | `apps/playback/web` | 一覧・再生・原稿表示 | `worker` の HTTP のみ |
 | `apps/playback/worker` | Drive 読取 BFF | Drive API（Access 背後） |
 
-禁止: `playback` ↔ `generator` の直接依存。共有は Drive 上のファイルのみ（`contracts/`）。
+禁止: `playback` ↔ `generator` の直接依存。二系統の runtime は互いに import しない。つながるのは Drive 上の file だけ。その形の正本が repo 根 `contracts/`。
 
 ## 2. 層と依存（Clean Arch / DIP）
 
@@ -38,7 +38,20 @@
 
 依存は内側へ。Composition Root だけが全層を結線する。
 
-`generator` の Entities は generator に閉じる。UI / agent が共有して読む Domains の正は `contracts/`（言語横断の型モジュールは作らない）。
+`generator` の Entities は generator に閉じる。UI / agent が共有して読む Domains の正は `contracts/`。言語横断の **Domain 型** module（共有 struct / Zod を正本にする）は作らない。
+
+### `contracts/` の読み手
+
+repo 根 `contracts/` は Drive 上の表現（配置・`manuscript.schema.json`）の SSOT。`apps/playback/contracts/`（web↔worker HTTP）とは別物。
+
+| 層 | repo 根 `contracts/` |
+|----|----------------------|
+| generator **Application** | import する |
+| playback worker **Infrastructure**（Drive 読取） | import する |
+| generator **Infrastructure**（Drive 保存） | import しない |
+| Entities / Composition Root / cmd / playback web | import しない |
+
+禁止: field 手写し・Adapter 隣 snapshot。generator の Drive 書込の層分担は `docs/decisions/2026-08-19T15-00-00-feature-generator-drive-adapter-layer-split.md`。配置は `contracts/drive-layout.md`。
 
 ## 3. 外部 I/O
 
