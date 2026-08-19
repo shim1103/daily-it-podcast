@@ -6,9 +6,9 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/x/twitterapiio"
 )
 
-// NewTwitterAPIIOPostSource は TwitterAPI.io Adapter を組み立てる。
+// NewTwitterAPIIOItemSource は TwitterAPI.io Adapter を組み立てる。
 //
-// @ensure 戻りは port.PostSource。
-func NewTwitterAPIIOPostSource() port.PostSource {
+// @ensure 戻りは port.ItemSource。
+func NewTwitterAPIIOItemSource() port.ItemSource {
 	return twitterapiio.NewPostSource(&agentsecrets.Client{})
 }

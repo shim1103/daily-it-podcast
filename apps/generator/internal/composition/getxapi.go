@@ -6,9 +6,9 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/x/getxapi"
 )
 
-// NewGetXAPIPostSource は GetXAPI Adapter を組み立てる。
+// NewGetXAPIItemSource は GetXAPI Adapter を組み立てる。
 //
-// @ensure 戻りは port.PostSource。
-func NewGetXAPIPostSource() port.PostSource {
+// @ensure 戻りは port.ItemSource。
+func NewGetXAPIItemSource() port.ItemSource {
 	return getxapi.NewPostSource(&agentsecrets.Client{})
 }
