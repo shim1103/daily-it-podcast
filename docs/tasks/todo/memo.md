@@ -1,3 +1,5 @@
+# do-first
+- `git switch tmp-branch` from origin/devleop
 # role
 you are `manager` non-edit but-audit
 # issue
@@ -7,7 +9,6 @@ you are `manager` non-edit but-audit
 - pass unit& integration test
 - followd ref skills completely
 # flow
-- `git switch tmp-branch` from origin/develop
 - rename property branch
 - /philosophy /agent-cli
 - /0:meta
