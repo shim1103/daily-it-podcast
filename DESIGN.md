@@ -1,6 +1,6 @@
 # DESIGN
 
-最終更新: 2026-08-18（coverage 除外を Composition Root のみへ）
+最終更新: 2026-08-19（情報取得 Port は `ItemSource`）
 
 地図・使い方・受け入れ・秘密の名前は `README.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive / HTTP 契約の写しは置かない）。
 
@@ -44,7 +44,7 @@
 
 | 役割 | 接続 |
 |------|------|
-| 情報取得 | TwitterAPI.io（試作）/ GetXAPI（本運用）。Port は `PostSource`。詳細は `docs/decisions/` の x-api-adoption |
+| 情報取得 | TwitterAPI.io（試作）/ GetXAPI（本運用）。Port は `ItemSource`。詳細は `docs/decisions/` の source-port と x-api-adoption |
 | 原稿 | Cursor CLI（Port は `TextWriter`） |
 | TTS | Gemini |
 | Drive | Google Drive + OAuth refresh |
