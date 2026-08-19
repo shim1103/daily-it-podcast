@@ -36,11 +36,24 @@ linters:
             - "**/internal/infrastructure/*.go"
             - "**/internal/infrastructure/**/*.go"
             - "!$test"
+            - "!**/drive/gdrive/**"
           allow:
             - $gostd
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/entities
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure
+        infrastructure-gdrive:
+          list-mode: strict
+          files:
+            - "**/internal/infrastructure/drive/gdrive/**/*.go"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/entities
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure
+            - github.com/santhosh-tekuri/jsonschema/v6
+            - github.com/shim1103/daily-it-podcast/contracts
         # composition は全層 import 特権のため規則なし
 
 formatters:
