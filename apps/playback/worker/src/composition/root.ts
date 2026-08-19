@@ -108,9 +108,7 @@ export function createPlaybackControllers(env: PlaybackEnv): PlaybackControllers
   return {
     kind: "ready",
     controllers: {
-      listEpisodesController: createListEpisodesController(() =>
-        listEpisodes(repository),
-      ),
+      listEpisodesController: createListEpisodesController(() => listEpisodes(repository)),
       getEpisodeController: createGetEpisodeController((episodeId) =>
         getEpisode(repository, episodeId),
       ),

@@ -89,9 +89,8 @@ function stubFetch(options: {
           : options.files.filter((file) => nameFilters.includes(file.name));
       return new Response(JSON.stringify({ files }), { status: 200 });
     }
-    const downloadMatch = /^https:\/\/www\.googleapis\.com\/drive\/v3\/files\/([^?]+)\?alt=media$/.exec(
-      input,
-    );
+    const downloadMatch =
+      /^https:\/\/www\.googleapis\.com\/drive\/v3\/files\/([^?]+)\?alt=media$/.exec(input);
     if (downloadMatch) {
       const fileId = downloadMatch[1] ?? "";
       const body = downloads[fileId];
@@ -101,7 +100,8 @@ function stubFetch(options: {
       if (typeof body === "string") {
         return new Response(body, { status: 200 });
       }
-      return new Response(body, { status: 200 });
+      const copy = new Uint8Array(body);
+      return new Response(copy.buffer, { status: 200 });
     }
     void init;
     throw new Error(`Stub 未対応の呼び出し: ${input}`);
@@ -194,9 +194,8 @@ describe("GoogleDriveEpisodeRepository", () => {
             { status: 200 },
           );
         }
-        const downloadMatch = /^https:\/\/www\.googleapis\.com\/drive\/v3\/files\/([^?]+)\?alt=media$/.exec(
-          input,
-        );
+        const downloadMatch =
+          /^https:\/\/www\.googleapis\.com\/drive\/v3\/files\/([^?]+)\?alt=media$/.exec(input);
         if (downloadMatch) {
           const fileId = downloadMatch[1] ?? "";
           startedFileIds.push(fileId);
@@ -221,9 +220,9 @@ describe("GoogleDriveEpisodeRepository", () => {
       // Then: 1件目の応答を待たずに2件目の download が開始されている
       expect(startedFileIds.sort()).toEqual(["file-json-1", "file-json-2"]);
 
-      pendingResolvers.forEach((resolve) =>
-        resolve(JSON.stringify({ ...validManuscript, episodeId: "ep-1" })),
-      );
+      pendingResolvers.forEach((resolve) => {
+        resolve(JSON.stringify({ ...validManuscript, episodeId: "ep-1" }));
+      });
       await got;
     });
 
@@ -634,10 +633,9 @@ describe("GoogleDriveEpisodeRepository", () => {
           });
         }
         if (input.startsWith("https://www.googleapis.com/drive/v3/files?")) {
-          return new Response(
-            JSON.stringify({ files: [{ id: 1, name: "ep-1.json" }] }),
-            { status: 200 },
-          );
+          return new Response(JSON.stringify({ files: [{ id: 1, name: "ep-1.json" }] }), {
+            status: 200,
+          });
         }
         throw new Error(`想定外の呼び出し: ${input}`);
       });

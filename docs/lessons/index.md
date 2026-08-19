@@ -35,6 +35,9 @@
 49：2026-08-18 [feature/tts-speech-synthesizer] hook が別 app の unit を回すとき、merge で入った package の依存未導入は import 失敗になる。hook 失敗を merge 内容の欠陥と同一視しない  # → layer:platform
 
 78：2026-08-18 [refactor-playback-worker-http] Workers の HTTP response body に byte を返す場合、`Uint8Array.buffer` の `SharedArrayBuffer` union により `ArrayBuffer` 契約を崩し得る。境界で正規化して型と観測可能な body を揃える。 # → layer:platform
+
+79：2026-08-18 [pr-c-playback-biome-tsc] sandbox の read-deny 対象 file は、全体scanする `git status` では変更なし扱いに落ちるが、path 指定の `git diff -- <path>` は open 失敗を deleted と誤判定することがある。両者が食い違う時は `git status` の全体判定を正とし、疑わしい削除は復元前に判断材料不足を declare する  # → layer:platform
+80：2026-08-18 [pr-c-playback-biome-tsc] uncommitted 変更の取り消しは `git checkout`/`git restore` が hook で deny されることがある。tracked file を元に戻す代替として、編集tool（Edit等）で HEAD 相当の内容へ直接書き戻す手段を残す  # → layer:workflow
 79：2026-08-18 [chore/generator-static-lint-format] サンドボックスの read 拒否で出る stderr の file 名は、対象範囲を確定させる `git diff`/`git status` の構造化出力（--porcelain・--name-status）と別物である。査読 agent の指摘は委譲元が自分でその構造化出力を取り直してから採否を判断する # → layer:workflow
 80：2026-08-19 [feature/playback-worker-drive-adapter] 既存の公開 symbol の signature を変えない制約を優先すると、新しい分岐条件（env 等）が固定値経由でしか呼ばれない配線を作りうる。受け入れ条件が「実行時に本当にその分岐へ到達するか」を要求する時は、既存 export を保つことより実行経路の到達可能性を先に検証する # → layer:workflow
 81：2026-08-19 [feature/playback-worker-drive-adapter] 「throw しない」という組み立て層の禁止は、値の妥当性判定という責務自体を放棄してよい意味ではない。判定結果を無言で代替実装へ逃がすと、設定漏れが観測不能になる。判定はして、判定の結果どう失敗を表現するか（throw か戻り値の分類か）だけを禁止範囲の外へ出す # → layer:terms

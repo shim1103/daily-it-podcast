@@ -89,22 +89,20 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
     const accessToken = await this.fetchAccessToken();
     const entries = await this.listEntriesByEpisodeId(accessToken, episodeId);
 
-    const jsonEntry = entries.find(
-      (entry) => stemOf(entry.name, jsonExtension) === episodeId,
-    );
+    const jsonEntry = entries.find((entry) => stemOf(entry.name, jsonExtension) === episodeId);
     if (jsonEntry === undefined) {
       throw new EpisodeNotFoundError(`JSON エントリが無い: ${episodeId}`);
     }
-    const wavEntry = entries.find(
-      (entry) => stemOf(entry.name, wavExtension) === episodeId,
-    );
+    const wavEntry = entries.find((entry) => stemOf(entry.name, wavExtension) === episodeId);
     if (wavEntry === undefined) {
       throw new EpisodeNotFoundError(`wav が無い: ${episodeId}`);
     }
 
     const manuscript = await this.tryDownloadManuscript(accessToken, jsonEntry.id, episodeId);
     if (manuscript === undefined) {
-      throw new EpisodeNotFoundError(`原稿 JSON が schema に不適合または stem 不一致: ${episodeId}`);
+      throw new EpisodeNotFoundError(
+        `原稿 JSON が schema に不適合または stem 不一致: ${episodeId}`,
+      );
     }
     return manuscript;
   }
@@ -113,9 +111,7 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
     const accessToken = await this.fetchAccessToken();
     const entries = await this.listEntriesByEpisodeId(accessToken, episodeId);
 
-    const wavEntry = entries.find(
-      (entry) => stemOf(entry.name, wavExtension) === episodeId,
-    );
+    const wavEntry = entries.find((entry) => stemOf(entry.name, wavExtension) === episodeId);
     if (wavEntry === undefined) {
       throw new EpisodeNotFoundError(`音声エントリが無い: ${episodeId}`);
     }
@@ -186,7 +182,10 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
    * `getEpisodeAudio`）は特定 episodeId の json/wav だけが要るため `listEntriesByEpisodeId` を使う。
    */
   private async listFolderEntries(accessToken: string): Promise<DriveFileEntry[]> {
-    return this.queryFolderEntries(accessToken, `'${this.folderId}' in parents and trashed = false`);
+    return this.queryFolderEntries(
+      accessToken,
+      `'${this.folderId}' in parents and trashed = false`,
+    );
   }
 
   /**

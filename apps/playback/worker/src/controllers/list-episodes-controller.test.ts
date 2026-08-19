@@ -1,14 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {
-  ListEpisodesResponseSchema,
-  UnavailableError,
-} from "../../../contracts/index.ts";
+import { ListEpisodesResponseSchema, UnavailableError } from "../../../contracts/index.ts";
 import { DriveError } from "../infrastructure/drive/drive-error.ts";
 import { createListEpisodesController } from "./list-episodes-controller.ts";
-import {
-  createFakeListEpisodesUseCase,
-  validListEpisodesResponse,
-} from "./fake-use-cases.ts";
+import { createFakeListEpisodesUseCase, validListEpisodesResponse } from "./fake-use-cases.ts";
 
 describe("createListEpisodesController", () => {
   it("UseCase が成功する時、ListEpisodesResponse schema を満たす", async () => {
@@ -37,8 +31,7 @@ describe("createListEpisodesController", () => {
 
     // Then: External UnavailableError が Infrastructure を cause に持つ
     await expect(act).rejects.toSatisfy(
-      (error: unknown) =>
-        error instanceof UnavailableError && error.cause === driveError,
+      (error: unknown) => error instanceof UnavailableError && error.cause === driveError,
     );
   });
 });

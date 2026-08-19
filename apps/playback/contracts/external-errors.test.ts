@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  NotFoundError,
-  UnavailableError,
-  ValidationError,
-} from "./external-errors.ts";
+import { NotFoundError, UnavailableError, ValidationError } from "./external-errors.ts";
 
 describe("ValidationError", () => {
   it("message と name を持ち Error を継承する", () => {
