@@ -1,7 +1,8 @@
 # do-first
-- `git switch tmp-branch` from origin/devleop
+- `git switch -c tmp-branch origin/develop`
 # role
 you are `manager` non-edit but-audit
+Do not ask confirmation, until finished
 # issue
 -
 # goal
@@ -9,10 +10,9 @@ you are `manager` non-edit but-audit
 - pass unit& integration test
 - followd ref skills completely
 # flow
-- rename property branch
+- rename property branch first
+- read the issue file
 - /philosophy /agent-cli
-- /0:meta
-- plan
 - invoke `executors`: /philosophy -> execute -> self-review
 - invoke `reviewers` by code-review & /simplify
 - invoke `executor`s by re-execute
