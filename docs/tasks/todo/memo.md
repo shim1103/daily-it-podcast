@@ -1,5 +1,5 @@
 # do-first
-- `git switch tmp-branch` from origin/devleop
+- `git switch tmp-branch` from origin/develop
 # role
 you are `manager` non-edit but-audit
 # issue
@@ -29,5 +29,5 @@ you are `manager` non-edit but-audit
 - finished /create-pr
 # flow
 - /commit --repo --split refto @skill_options.json
-- /log-session --not-append
+- /log-session --not-append; --carefully-read-SKILL-add-lessons-definitely
 - /create-pr not `shim gh` but `gh pr`
