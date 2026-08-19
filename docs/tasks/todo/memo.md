@@ -10,7 +10,6 @@ you are `manager` non-edit but-audit
 - `git switch tmp-branch` from origin/develop
 - rename property branch
 - /philosophy /agent-cli
-- /0:meta
 - plan
 - invoke `executors`: /philosophy -> execute -> self-review
 - invoke `reviewers` by code-review & /simplify
@@ -20,7 +19,7 @@ you are `manager` non-edit but-audit
 # ref
 - /philosophy /testing-strategy /coding-style /architecture /error-handling
 # non-scope
-- commit, 2task
+- commit, other-task
 
 
 
