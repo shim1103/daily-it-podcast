@@ -118,10 +118,7 @@ describe("fetch", () => {
     vi.mocked(getEpisodeController).mockResolvedValue(validGet);
 
     // When: 1件 path へ GET する
-    const got = await handleFetch(
-      new Request(`${origin}${episodePath("ep-1")}`),
-      emptyEnv,
-    );
+    const got = await handleFetch(new Request(`${origin}${episodePath("ep-1")}`), emptyEnv);
 
     // Then: 200 と契約 schema
     expect(got.status).toBe(200);
@@ -142,9 +139,7 @@ describe("fetch", () => {
 
   it("空の path 段を unknown の episodeId として Controller に渡す", async () => {
     // Given: 空 episodeId は Controller が ValidationError にする
-    vi.mocked(getEpisodeController).mockRejectedValue(
-      new ValidationError("入力が契約に不適合"),
-    );
+    vi.mocked(getEpisodeController).mockRejectedValue(new ValidationError("入力が契約に不適合"));
 
     // When: 末尾スラッシュだけの 1件 path へ GET する
     await handleFetch(new Request(`${origin}${listEpisodesPath}/`), emptyEnv);
@@ -155,15 +150,10 @@ describe("fetch", () => {
 
   it("Controller が ValidationError を throw する時、400 と validation_error を返す", async () => {
     // Given: 空 episodeId 相当の External Error
-    vi.mocked(getEpisodeController).mockRejectedValue(
-      new ValidationError("入力が契約に不適合"),
-    );
+    vi.mocked(getEpisodeController).mockRejectedValue(new ValidationError("入力が契約に不適合"));
 
     // When: 1件 path へ GET する
-    const got = await handleFetch(
-      new Request(`${origin}${episodePath("ep-1")}`),
-      emptyEnv,
-    );
+    const got = await handleFetch(new Request(`${origin}${episodePath("ep-1")}`), emptyEnv);
 
     // Then: 400 と契約 code のみ
     expect(got.status).toBe(400);
@@ -174,15 +164,10 @@ describe("fetch", () => {
 
   it("Controller が NotFoundError を throw する時、404 と episode_not_found を返す", async () => {
     // Given: Domain 不在を写した External Error
-    vi.mocked(getEpisodeController).mockRejectedValue(
-      new NotFoundError("エピソードが無い"),
-    );
+    vi.mocked(getEpisodeController).mockRejectedValue(new NotFoundError("エピソードが無い"));
 
     // When: 1件 path へ GET する
-    const got = await handleFetch(
-      new Request(`${origin}${episodePath("missing")}`),
-      emptyEnv,
-    );
+    const got = await handleFetch(new Request(`${origin}${episodePath("missing")}`), emptyEnv);
 
     // Then: 404 と契約 code のみ
     expect(got.status).toBe(404);
@@ -193,15 +178,10 @@ describe("fetch", () => {
 
   it("Controller が UnavailableError を throw する時、503 と unavailable を返す", async () => {
     // Given: Infrastructure 失敗を写した External Error
-    vi.mocked(getEpisodeController).mockRejectedValue(
-      new UnavailableError("利用できない"),
-    );
+    vi.mocked(getEpisodeController).mockRejectedValue(new UnavailableError("利用できない"));
 
     // When: 1件 path へ GET する
-    const got = await handleFetch(
-      new Request(`${origin}${episodePath("ep-1")}`),
-      emptyEnv,
-    );
+    const got = await handleFetch(new Request(`${origin}${episodePath("ep-1")}`), emptyEnv);
 
     // Then: 503 と契約 code のみ
     expect(got.status).toBe(503);
@@ -215,10 +195,7 @@ describe("fetch", () => {
     vi.mocked(getEpisodeAudioController).mockResolvedValue(validAudioBytes);
 
     // When: 音声 path へ GET する
-    const got = await handleFetch(
-      new Request(`${origin}${episodeAudioPath("ep-1")}`),
-      emptyEnv,
-    );
+    const got = await handleFetch(new Request(`${origin}${episodeAudioPath("ep-1")}`), emptyEnv);
 
     // Then: JSON ではなく契約 Content-Type の byte
     expect(got.status).toBe(200);

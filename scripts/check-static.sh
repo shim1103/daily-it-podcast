@@ -9,3 +9,4 @@ set -euo pipefail
 root="$(git rev-parse --show-toplevel)"
 
 "$root/scripts/generator/check-static.sh"
+"$root/scripts/playback/check-static.sh"
