@@ -73,3 +73,5 @@
 105：2026-08-20 [playback-web-api-client] 実装済みcodeを持たない領域へは「今修正する」分類が成立しない。分類軸は変更対象の有無ではなく、決定の固定先がcodeか別sessionかで決める  # → layer:workflow
 106：2026-08-20 [playback-web-api-client] sandboxがbuild cacheへの書き込みを禁じると、compile済み言語のlintを呼ぶcommit hookが失敗する。hook失敗を変更内容の欠陥と同一視せず、権限側の原因を切り分ける  # → layer:platform
 107：2026-08-20 [playback-web-api-client] 作業tree上の未整理差分が上流branchと完全一致する時、それは作業ではなく上流へ戻す逆差分である。commitせず捨ててよいかは、打ち消される側のcommitがremoteにあるかで判定する  # → layer:workflow
+108：2026-08-20 [generator-episode-validation] coverage対象外のComposition Rootでも、実装選択を固定する結線testは省略しない。coverage除外は計測範囲の設定であり、責務境界の検証免除ではない  # → layer:terms
+109：2026-08-20 [generator-episode-validation] Driven Portを実装するAdapterと、そのPortを呼ぶUseCaseを同じ型へ兼務させない。Composition RootはUseCaseへAdapterを注入し、呼び出し側がvalidationを迂回できない戻り値を公開する  # → layer:terms
