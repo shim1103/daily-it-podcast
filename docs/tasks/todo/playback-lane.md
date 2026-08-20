@@ -26,6 +26,7 @@ HTTP 境界での Domain Error → External `{ code }` 写像、および client
 | `playback-worker-http.md` | Route / Controller / Domain Error → External `{ code }` 写像、client 向け表示文。**済（完了により削除済み）** |
 | `playback-worker-http-refactor.md` | `fetch.ts` 責務分離・複雑性削減（Route抽象化 / error mapping / logging / audio body 作法を分離） |
 | `playback-web-api-client.md` | web API Client（Result 型） |
+| `playback-runtime-config-http-contract.md` | runtime config不備を`configuration_error`へ分離するHTTP contract |
 
 ### 依存（実装順）
 
@@ -35,6 +36,7 @@ contracts（済）
       → worker-http
       → worker-drive-adapter（本番・WAV。http と並行可）
   → web-api-client（Stub で worker-http と並行可）
+  → runtime-config-http-contract（runtime config boundary完了後）
   → UI（未切り出し。api-client 後）
 ```
 
