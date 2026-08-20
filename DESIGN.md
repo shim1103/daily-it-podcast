@@ -80,10 +80,10 @@ Scope × Sociability: [levels](file:///Users/shim0729/.claude/skills/testing-str
 
 | Scope | 置き場 |
 |-------|--------|
-| Unit | 対象ソースの隣（Go: `*_test.go`、TS: 隣接 `*.test.ts`） |
+| Unit | 対象ソースの隣（Go: `*_{分類}_test.go`、TS: 隣接 `*.{分類}.test.ts`） |
 | Integration / Contract / System・E2E | `apps/generator/test/` または `apps/playback/test/`（web のブラウザ E2E は `web` 配下でも可） |
 
-1. 分類は **file 名**に出す（`narrow_integration` / `contract` / `system_e2e` 等）。dir 名だけに頼らない
+1. 分類は **file 名**に出す（`sociable_unit` / `narrow_integration` / `contract` / `system_e2e` 等）。dir 名だけに頼らない。runner の収集条件も分類名で絞り、命名忘れを収集漏れとして検出する
 2. `integration` 一語で複数分類を兼ねない
 3. 実境界に届かないものに `e2e` と付けない
 4. Unit を共有 `tests/` に集めない
