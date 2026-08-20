@@ -9,30 +9,33 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
-
-	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
-	"github.com/shim1103/daily-it-podcast/contracts"
 )
 
 var _ port.EpisodeWriter = (*EpisodeWriter)(nil)
 
+// TokenSource は Drive REST 呼び出しに使う access token を返す。
+// OAuth refresh 等の取得手段は実装に閉じる。
+type TokenSource interface {
+	Token(ctx context.Context) (string, error)
+}
+
 type EpisodeWriter struct {
 	client *agentsecrets.Client
+	tokens TokenSource
 }
 
 // NewEpisodeWriter は Google Drive 書込 Adapter を返す。
 //
-// @require client != nil
+// @require client != nil。tokens != nil。
 // @ensure 秘密値は保持しない。
-func NewEpisodeWriter(client *agentsecrets.Client) *EpisodeWriter {
-	return &EpisodeWriter{client: client}
+func NewEpisodeWriter(client *agentsecrets.Client, tokens TokenSource) *EpisodeWriter {
+	return &EpisodeWriter{client: client, tokens: tokens}
 }
 
 func (w *EpisodeWriter) Write(ctx context.Context, episodeID string, manuscript []byte, audio models.SpeechAudio) error {
@@ -45,17 +48,10 @@ func (w *EpisodeWriter) Write(ctx context.Context, episodeID string, manuscript 
 	if len(audio.Content) == 0 {
 		return &domainerrors.EmptyAudio{}
 	}
-	jsonEpisodeID, err := validateManuscript(manuscript)
-	if err != nil {
-		return err
-	}
-	if jsonEpisodeID != episodeID {
-		return &domainerrors.EpisodeIDMismatch{Stem: episodeID, EpisodeID: jsonEpisodeID}
-	}
 
-	token, err := w.refreshToken(ctx)
+	token, err := w.tokens.Token(ctx)
 	if err != nil {
-		return err
+		return infraErr("token", err)
 	}
 	if err := w.putFile(ctx, token, episodeID+jsonExt, jsonMIME, manuscript); err != nil {
 		return err
@@ -64,90 +60,6 @@ func (w *EpisodeWriter) Write(ctx context.Context, episodeID string, manuscript 
 		return err
 	}
 	return nil
-}
-
-type denyRemoteLoader struct{}
-
-func (denyRemoteLoader) Load(url string) (any, error) {
-	return nil, fmt.Errorf("jsonschema remote load is disabled: %s", url)
-}
-
-var (
-	manuscriptSchemaOnce sync.Once
-	manuscriptSchema     *jsonschema.Schema
-	manuscriptSchemaErr  error
-)
-
-func compiledManuscriptSchema() (*jsonschema.Schema, error) {
-	manuscriptSchemaOnce.Do(func() {
-		doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(contracts.ManuscriptSchema))
-		if err != nil {
-			manuscriptSchemaErr = err
-			return
-		}
-		compiler := jsonschema.NewCompiler()
-		compiler.UseLoader(denyRemoteLoader{})
-		if err := compiler.AddResource(schemaResourceURL, doc); err != nil {
-			manuscriptSchemaErr = err
-			return
-		}
-		manuscriptSchema, manuscriptSchemaErr = compiler.Compile(schemaResourceURL)
-	})
-	return manuscriptSchema, manuscriptSchemaErr
-}
-
-func validateManuscript(manuscript []byte) (string, error) {
-	sch, err := compiledManuscriptSchema()
-	if err != nil {
-		return "", infraErr("compile_schema", err)
-	}
-	inst, err := jsonschema.UnmarshalJSON(bytes.NewReader(manuscript))
-	if err != nil {
-		return "", &domainerrors.InvalidManuscript{Err: err}
-	}
-	if err := sch.Validate(inst); err != nil {
-		return "", &domainerrors.InvalidManuscript{Err: err}
-	}
-	var parsed struct {
-		EpisodeID string `json:"episodeId"`
-	}
-	if err := json.Unmarshal(manuscript, &parsed); err != nil {
-		return "", &domainerrors.InvalidManuscript{Err: err}
-	}
-	return parsed.EpisodeID, nil
-}
-
-func (w *EpisodeWriter) refreshToken(ctx context.Context) (string, error) {
-	form := url.Values{}
-	form.Set("grant_type", "refresh_token")
-	res, err := w.client.Do(ctx, agentsecrets.Request{
-		Method:    http.MethodPost,
-		TargetURL: TokenURL,
-		Body:      strings.NewReader(form.Encode()),
-		PassthroughHeaders: map[string]string{
-			"Content-Type": formMIME,
-		},
-		Inject: agentsecrets.Inject{
-			Form: map[string]string{
-				"client_id":     secretnames.GoogleOAuthClientIDName,
-				"client_secret": secretnames.GoogleOAuthClientSecretName,
-				"refresh_token": secretnames.GoogleOAuthRefreshTokenName,
-			},
-		},
-	})
-	if err != nil {
-		return "", infraErr("refresh_token", err)
-	}
-	var parsed struct {
-		AccessToken string `json:"access_token"`
-	}
-	if err := readJSONBody(res, "refresh_token", &parsed, http.StatusOK); err != nil {
-		return "", err
-	}
-	if strings.TrimSpace(parsed.AccessToken) == "" {
-		return "", infraErr("refresh_token_decode", fmt.Errorf("access_token is empty"))
-	}
-	return parsed.AccessToken, nil
 }
 
 func (w *EpisodeWriter) putFile(ctx context.Context, token, name, mime string, content []byte) error {

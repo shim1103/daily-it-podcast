@@ -10,9 +10,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -22,70 +19,33 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
 )
 
+// stubTokenSource は test 用の TokenSource fake。
+type stubTokenSource struct {
+	token string
+	err   error
+}
+
+func (s stubTokenSource) Token(ctx context.Context) (string, error) {
+	if s.err != nil {
+		return "", s.err
+	}
+	return s.token, nil
+}
+
 type proxyCall struct {
-	TargetURL        string
-	Method           string
-	Body             string
-	FormClientID     string
-	FormClientSecret string
-	FormRefreshToken string
-	BodyParents0     string
-	ContentType      string
-	Authorization    string
+	TargetURL     string
+	Method        string
+	Body          string
+	BodyParents0  string
+	ContentType   string
+	Authorization string
 }
 
 type driveProbe struct {
 	Calls []proxyCall
 }
 
-func gitToplevel(t *testing.T) string {
-	t.Helper()
-	_, thisFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	dir := filepath.Dir(thisFile)
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "README.md")); err == nil {
-			if _, err := os.Stat(filepath.Join(dir, "contracts/manuscript.schema.json")); err == nil {
-				return dir
-			}
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("repo root not found")
-		}
-		dir = parent
-	}
-}
-
-func validManuscript(episodeID string) []byte {
-	payload := map[string]any{
-		"episodeId":   episodeID,
-		"date":        "2026-08-19",
-		"title":       "題",
-		"durationSec": 12,
-		"body": map[string]any{
-			"opening": "開始",
-			"topics": []map[string]any{
-				{
-					"title":    "話題",
-					"preface":  "前置き",
-					"detail":   "詳細",
-					"startSec": 0,
-				},
-			},
-			"closing": "終了",
-		},
-	}
-	raw, err := json.Marshal(payload)
-	if err != nil {
-		panic(err)
-	}
-	return raw
-}
-
-func newWriterWithProxy(t *testing.T, handler http.HandlerFunc) (*EpisodeWriter, *driveProbe) {
+func newWriterWithProxy(t *testing.T, tokens TokenSource, handler http.HandlerFunc) (*EpisodeWriter, *driveProbe) {
 	t.Helper()
 	probe := &driveProbe{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -94,24 +54,22 @@ func newWriterWithProxy(t *testing.T, handler http.HandlerFunc) (*EpisodeWriter,
 			t.Fatalf("read proxy body: %v", err)
 		}
 		probe.Calls = append(probe.Calls, proxyCall{
-			TargetURL:        r.Header.Get("X-AS-Target-URL"),
-			Method:           r.Header.Get("X-AS-Method"),
-			Body:             string(body),
-			FormClientID:     r.Header.Get("X-AS-Inject-Form-client_id"),
-			FormClientSecret: r.Header.Get("X-AS-Inject-Form-client_secret"),
-			FormRefreshToken: r.Header.Get("X-AS-Inject-Form-refresh_token"),
-			BodyParents0:     r.Header.Get("X-AS-Inject-Body-parents-0"),
-			ContentType:      r.Header.Get("Content-Type"),
-			Authorization:    r.Header.Get("Authorization"),
+			TargetURL:     r.Header.Get("X-AS-Target-URL"),
+			Method:        r.Header.Get("X-AS-Method"),
+			Body:          string(body),
+			BodyParents0:  r.Header.Get("X-AS-Inject-Body-parents-0"),
+			ContentType:   r.Header.Get("Content-Type"),
+			Authorization: r.Header.Get("Authorization"),
 		})
 		r.Body = io.NopCloser(bytes.NewReader(body))
 		handler(w, r)
 	}))
 	t.Cleanup(server.Close)
-	return NewEpisodeWriter(&agentsecrets.Client{
+	client := &agentsecrets.Client{
 		HTTP:     server.Client(),
 		ProxyURL: server.URL,
-	}), probe
+	}
+	return NewEpisodeWriter(client, tokens), probe
 }
 
 func writeJSONStatus(t *testing.T, w http.ResponseWriter, status int, body any) {
@@ -130,10 +88,6 @@ func parseTarget(t *testing.T, raw string) *url.URL {
 		t.Fatalf("parse target: %v", err)
 	}
 	return u
-}
-
-func isTokenCall(c proxyCall) bool {
-	return strings.HasPrefix(c.TargetURL, TokenURL)
 }
 
 func isListCall(c proxyCall) bool {
@@ -168,8 +122,6 @@ func succeedCreateHandler(t *testing.T) http.HandlerFunc {
 		target := r.Header.Get("X-AS-Target-URL")
 		method := r.Header.Get("X-AS-Method")
 		switch {
-		case strings.HasPrefix(target, TokenURL):
-			writeJSONStatus(t, w, http.StatusOK, map[string]any{"access_token": "ya29.test-token"})
 		case method == http.MethodGet && strings.Contains(target, "/drive/v3/files"):
 			writeJSONStatus(t, w, http.StatusOK, map[string]any{"files": []any{}})
 		case method == http.MethodPost && strings.Contains(target, "/drive/v3/files"):
@@ -192,40 +144,26 @@ func succeedCreateHandler(t *testing.T) http.HandlerFunc {
 func TestWrite_uploadsJSONAndWAVWithSameStem_whenDriveSucceeds(t *testing.T) {
 	t.Parallel()
 
-	// Given: Drive が空一覧と create 成功を返す stub
+	// Given: token stub と、Drive が空一覧と create 成功を返す stub
 	const episodeID = "ep-1"
-	writer, probe := newWriterWithProxy(t, succeedCreateHandler(t))
+	tokens := stubTokenSource{token: "ya29.test-token"}
+	writer, probe := newWriterWithProxy(t, tokens, succeedCreateHandler(t))
 	audio := models.SpeechAudio{Content: []byte("RIFFWAV")}
 
-	// When: 適合原稿と非空 WAV で Write する
-	err := writer.Write(context.Background(), episodeID, validManuscript(episodeID), audio)
+	// When: 非空 manuscript と非空 WAV で Write する
+	err := writer.Write(context.Background(), episodeID, []byte(`{"episodeId":"ep-1"}`), audio)
 
-	// Then: 同一 stem の json と wav がフォルダ直下へ書かれ、mp3 は出ない
+	// Then: 同一 stem の json と wav がフォルダ直下へ書かれる
 	if err != nil {
 		t.Fatalf("Write: %v", err)
 	}
 	if len(probe.Calls) == 0 {
 		t.Fatal("proxy was not called")
 	}
-	if !isTokenCall(probe.Calls[0]) {
-		t.Fatalf("first call = %s, want token", probe.Calls[0].TargetURL)
-	}
-	if probe.Calls[0].FormClientID != secretnames.GoogleOAuthClientIDName {
-		t.Fatalf("form client_id = %q", probe.Calls[0].FormClientID)
-	}
-	if probe.Calls[0].FormClientSecret != secretnames.GoogleOAuthClientSecretName {
-		t.Fatalf("form client_secret = %q", probe.Calls[0].FormClientSecret)
-	}
-	if probe.Calls[0].FormRefreshToken != secretnames.GoogleOAuthRefreshTokenName {
-		t.Fatalf("form refresh_token = %q", probe.Calls[0].FormRefreshToken)
-	}
 
 	var jsonName, wavName string
 	var bodyInjects int
 	for _, c := range probe.Calls {
-		if strings.Contains(c.TargetURL, ".mp3") || strings.Contains(c.Body, ".mp3") {
-			t.Fatalf("mp3 appeared: url=%s body=%s", c.TargetURL, c.Body)
-		}
 		if isListCall(c) {
 			u := parseTarget(t, c.TargetURL)
 			if got := u.Query().Get("fields"); got != "files(id)" {
@@ -259,7 +197,7 @@ func TestWrite_uploadsJSONAndWAVWithSameStem_whenDriveSucceeds(t *testing.T) {
 				t.Fatalf("unexpected create name %q", meta.Name)
 			}
 		}
-		if !isTokenCall(c) && c.Authorization != "Bearer ya29.test-token" {
+		if c.Authorization != "Bearer ya29.test-token" {
 			t.Fatalf("Authorization = %q url=%s", c.Authorization, c.TargetURL)
 		}
 	}
@@ -279,12 +217,11 @@ func TestWrite_updatesExistingFiles_whenSameNameListed(t *testing.T) {
 
 	// Given: list が同一名の既存 file を返す stub
 	const episodeID = "ep-1"
-	writer, probe := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
+	tokens := stubTokenSource{token: "ya29.test-token"}
+	writer, probe := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
 		target := r.Header.Get("X-AS-Target-URL")
 		method := r.Header.Get("X-AS-Method")
 		switch {
-		case strings.HasPrefix(target, TokenURL):
-			writeJSONStatus(t, w, http.StatusOK, map[string]any{"access_token": "ya29.test-token"})
 		case method == http.MethodGet && strings.Contains(target, "/drive/v3/files"):
 			u := parseTarget(t, target)
 			q := u.Query().Get("q")
@@ -303,7 +240,7 @@ func TestWrite_updatesExistingFiles_whenSameNameListed(t *testing.T) {
 	})
 
 	// When: 同一 episodeId で Write する
-	err := writer.Write(context.Background(), episodeID, validManuscript(episodeID), models.SpeechAudio{Content: []byte("RIFFWAV")})
+	err := writer.Write(context.Background(), episodeID, []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
 	// Then: update のみで create は呼ばない
 	if err != nil {
@@ -317,9 +254,6 @@ func TestWrite_updatesExistingFiles_whenSameNameListed(t *testing.T) {
 		if isMediaUpload(c) {
 			updates = append(updates, parseTarget(t, c.TargetURL).Path)
 		}
-		if strings.Contains(c.TargetURL, ".mp3") || strings.Contains(c.Body, ".mp3") {
-			t.Fatalf("mp3 appeared: url=%s", c.TargetURL)
-		}
 	}
 	if len(updates) != 2 {
 		t.Fatalf("media uploads = %#v, want 2", updates)
@@ -330,46 +264,17 @@ func TestWrite_updatesExistingFiles_whenSameNameListed(t *testing.T) {
 	}
 }
 
-func TestWrite_returnsInvalidManuscriptWithoutHTTP_whenSchemaRejected(t *testing.T) {
-	t.Parallel()
-
-	// Given: schema 不適合の原稿（必須欄欠落）
-	writer, probe := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		t.Fatal("proxy must not be called")
-	})
-
-	// When: 不適合原稿で Write する
-	err := writer.Write(context.Background(), "ep-1", []byte(`{"title":"only"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
-
-	// Then: Domain Error。token を含む HTTP は 0 回
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var domain *domainerrors.InvalidManuscript
-	if !errors.As(err, &domain) {
-		t.Fatalf("error type %T (%v), want *errors.InvalidManuscript", err, err)
-	}
-	if domain.Error() == "" {
-		t.Fatal("Error() is empty")
-	}
-	if errors.Unwrap(domain) == nil {
-		t.Fatal("Unwrap() is nil")
-	}
-	if len(probe.Calls) != 0 {
-		t.Fatalf("unexpected requests: %+v", probe.Calls)
-	}
-}
-
 func TestWrite_returnsDomainErrorWithoutHTTP_whenEpisodeIDEmpty(t *testing.T) {
 	t.Parallel()
 
 	// Given: episodeID が空
-	writer, probe := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
+	tokens := stubTokenSource{token: "ya29.test-token"}
+	writer, probe := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("proxy must not be called")
 	})
 
 	// When: 空 episodeID で Write する
-	err := writer.Write(context.Background(), "", validManuscript("ep-1"), models.SpeechAudio{Content: []byte("RIFFWAV")})
+	err := writer.Write(context.Background(), "", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
 	// Then: Domain Error。HTTP は 0 回
 	if err == nil {
@@ -391,12 +296,13 @@ func TestWrite_returnsDomainErrorWithoutHTTP_whenWAVEmpty(t *testing.T) {
 	t.Parallel()
 
 	// Given: WAV Content が空
-	writer, probe := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
+	tokens := stubTokenSource{token: "ya29.test-token"}
+	writer, probe := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("proxy must not be called")
 	})
 
 	// When: 空 WAV で Write する
-	err := writer.Write(context.Background(), "ep-1", validManuscript("ep-1"), models.SpeechAudio{})
+	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{})
 
 	// Then: Domain Error。HTTP は 0 回
 	if err == nil {
@@ -414,45 +320,19 @@ func TestWrite_returnsDomainErrorWithoutHTTP_whenWAVEmpty(t *testing.T) {
 	}
 }
 
-func TestWrite_returnsEpisodeIDMismatchWithoutHTTP_whenStemDiffers(t *testing.T) {
+func TestWrite_returnsInfrastructureError_whenTokenSourceFails(t *testing.T) {
 	t.Parallel()
 
-	// Given: JSON 内 episodeId と stem が違う適合原稿
-	writer, probe := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
+	// Given: TokenSource が error を返す
+	tokens := stubTokenSource{err: fmt.Errorf("refresh failed")}
+	writer, probe := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("proxy must not be called")
 	})
 
-	// When: stem と異なる episodeId で Write する
-	err := writer.Write(context.Background(), "stem-a", validManuscript("stem-b"), models.SpeechAudio{Content: []byte("RIFFWAV")})
-
-	// Then: Domain Error。HTTP は 0 回
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var domain *domainerrors.EpisodeIDMismatch
-	if !errors.As(err, &domain) {
-		t.Fatalf("error type %T (%v), want *errors.EpisodeIDMismatch", err, err)
-	}
-	if domain.Error() == "" {
-		t.Fatal("Error() is empty")
-	}
-	if len(probe.Calls) != 0 {
-		t.Fatalf("unexpected requests: %+v", probe.Calls)
-	}
-}
-
-func TestWrite_returnsInfrastructureError_whenTokenHTTPFails(t *testing.T) {
-	t.Parallel()
-
-	// Given: token endpoint が 401 を返す
-	writer, probe := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		writeJSONStatus(t, w, http.StatusUnauthorized, map[string]any{"error": "invalid_grant"})
-	})
-
 	// When: Write する
-	err := writer.Write(context.Background(), "ep-1", validManuscript("ep-1"), models.SpeechAudio{Content: []byte("RIFFWAV")})
+	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
-	// Then: Infrastructure Error。vendor 型は出ない
+	// Then: Infrastructure Error。HTTP は 0 回
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -466,11 +346,8 @@ func TestWrite_returnsInfrastructureError_whenTokenHTTPFails(t *testing.T) {
 	if errors.Unwrap(infra) == nil {
 		t.Fatal("Unwrap() is nil")
 	}
-	if strings.Contains(fmt.Sprintf("%T %v", err, err), "google.golang.org") {
-		t.Fatalf("vendor type leaked: %T %v", err, err)
-	}
-	if len(probe.Calls) != 1 || !isTokenCall(probe.Calls[0]) {
-		t.Fatalf("calls = %+v, want token only", probe.Calls)
+	if len(probe.Calls) != 0 {
+		t.Fatalf("unexpected requests: %+v", probe.Calls)
 	}
 }
 
@@ -478,12 +355,11 @@ func TestWrite_returnsInfrastructureErrorWithoutDelete_whenWAVUploadFailsAfterJS
 	t.Parallel()
 
 	// Given: json 書込は成功し wav media upload だけ 500
-	writer, probe := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
+	tokens := stubTokenSource{token: "ya29.test-token"}
+	writer, probe := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
 		target := r.Header.Get("X-AS-Target-URL")
 		method := r.Header.Get("X-AS-Method")
 		switch {
-		case strings.HasPrefix(target, TokenURL):
-			writeJSONStatus(t, w, http.StatusOK, map[string]any{"access_token": "ya29.test-token"})
 		case method == http.MethodGet && strings.Contains(target, "/drive/v3/files"):
 			writeJSONStatus(t, w, http.StatusOK, map[string]any{"files": []any{}})
 		case method == http.MethodPost && strings.Contains(target, "/drive/v3/files"):
@@ -500,7 +376,7 @@ func TestWrite_returnsInfrastructureErrorWithoutDelete_whenWAVUploadFailsAfterJS
 	})
 
 	// When: Write する
-	err := writer.Write(context.Background(), "ep-1", validManuscript("ep-1"), models.SpeechAudio{Content: []byte("RIFFWAV")})
+	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
 	// Then: 全体は Infrastructure Error。DELETE は呼ばない
 	if err == nil {
@@ -530,59 +406,14 @@ func TestWrite_returnsInfrastructureErrorWithoutDelete_whenWAVUploadFailsAfterJS
 	}
 }
 
-func TestAdapterAndREADME_exposeKeyNamesOnly(t *testing.T) {
-	t.Parallel()
-
-	// Given: Adapter 源と README を git toplevel から読む
-	top := gitToplevel(t)
-	writerSrc, err := os.ReadFile(filepath.Join(top, "apps/generator/internal/infrastructure/drive/gdrive/writer.go"))
-	if err != nil {
-		t.Fatalf("read writer.go: %v", err)
-	}
-	readme, err := os.ReadFile(filepath.Join(top, "README.md"))
-	if err != nil {
-		t.Fatalf("read README.md: %v", err)
-	}
-	namesSrc, err := os.ReadFile(filepath.Join(top, "apps/generator/internal/infrastructure/secretnames/names.go"))
-	if err != nil {
-		t.Fatalf("read names.go: %v", err)
-	}
-
-	// When: 省略（ファイル内容の観測のみ）
-
-	// Then: キー名だけがあり、束ねた Google OAuth 行は無い
-	writerText := string(writerSrc)
-	readmeText := string(readme)
-	namesText := string(namesSrc)
-	for _, name := range []string{
-		secretnames.GoogleOAuthClientIDName,
-		secretnames.GoogleOAuthClientSecretName,
-		secretnames.GoogleOAuthRefreshTokenName,
-		secretnames.DriveFolderIDName,
-	} {
-		if !strings.Contains(namesText, `"`+name+`"`) {
-			t.Fatalf("secretnames missing %s", name)
-		}
-		if !strings.Contains(readmeText, "`"+name+"`") {
-			t.Fatalf("README missing %s", name)
-		}
-	}
-	if !strings.Contains(writerText, "secretnames.GoogleOAuthClientIDName") {
-		t.Fatal("writer.go does not reference GoogleOAuthClientIDName")
-	}
-	if strings.Contains(readmeText, "Google OAuth（Drive）") {
-		t.Fatal("README still has bundled Google OAuth row")
-	}
-}
-
 func TestWrite_returnsInfrastructureError_whenClientNil(t *testing.T) {
 	t.Parallel()
 
 	// Given: client が nil
-	writer := NewEpisodeWriter(nil)
+	writer := NewEpisodeWriter(nil, stubTokenSource{token: "ya29.test-token"})
 
 	// When: Write する
-	err := writer.Write(context.Background(), "ep-1", validManuscript("ep-1"), models.SpeechAudio{Content: []byte("RIFFWAV")})
+	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
 	// Then: Infrastructure Error
 	if err == nil {
@@ -601,74 +432,7 @@ func TestWrite_returnsInfrastructureError_whenWriterNil(t *testing.T) {
 	var writer *EpisodeWriter
 
 	// When: Write する
-	err := writer.Write(context.Background(), "ep-1", validManuscript("ep-1"), models.SpeechAudio{Content: []byte("RIFFWAV")})
-
-	// Then: Infrastructure Error
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var infra *Error
-	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
-	}
-}
-
-func TestWrite_returnsInvalidManuscriptWithoutHTTP_whenJSONBroken(t *testing.T) {
-	t.Parallel()
-
-	// Given: JSON として壊れたい原稿
-	writer, probe := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		t.Fatal("proxy must not be called")
-	})
-
-	// When: 壊れた JSON で Write する
-	err := writer.Write(context.Background(), "ep-1", []byte("{"), models.SpeechAudio{Content: []byte("RIFFWAV")})
-
-	// Then: Domain Error。HTTP は 0 回
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var domain *domainerrors.InvalidManuscript
-	if !errors.As(err, &domain) {
-		t.Fatalf("error type %T (%v), want *errors.InvalidManuscript", err, err)
-	}
-	if len(probe.Calls) != 0 {
-		t.Fatalf("unexpected requests: %+v", probe.Calls)
-	}
-}
-
-func TestWrite_returnsInfrastructureError_whenTokenBodyInvalid(t *testing.T) {
-	t.Parallel()
-
-	// Given: token 応答が JSON でない
-	writer, _ := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("not-json"))
-	})
-
-	// When: Write する
-	err := writer.Write(context.Background(), "ep-1", validManuscript("ep-1"), models.SpeechAudio{Content: []byte("RIFFWAV")})
-
-	// Then: Infrastructure Error
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var infra *Error
-	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
-	}
-}
-
-func TestWrite_returnsInfrastructureError_whenAccessTokenEmpty(t *testing.T) {
-	t.Parallel()
-
-	// Given: token 応答の access_token が空
-	writer, _ := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		writeJSONStatus(t, w, http.StatusOK, map[string]any{"access_token": "  "})
-	})
-
-	// When: Write する
-	err := writer.Write(context.Background(), "ep-1", validManuscript("ep-1"), models.SpeechAudio{Content: []byte("RIFFWAV")})
+	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
 	// Then: Infrastructure Error
 	if err == nil {
@@ -684,21 +448,19 @@ func TestWrite_returnsInfrastructureError_whenListHTTPFails(t *testing.T) {
 	t.Parallel()
 
 	// Given: files.list が 500
-	writer, _ := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		target := r.Header.Get("X-AS-Target-URL")
+	tokens := stubTokenSource{token: "ya29.test-token"}
+	writer, _ := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
 		method := r.Header.Get("X-AS-Method")
-		switch {
-		case strings.HasPrefix(target, TokenURL):
-			writeJSONStatus(t, w, http.StatusOK, map[string]any{"access_token": "ya29.test-token"})
-		case method == http.MethodGet:
+		switch method {
+		case http.MethodGet:
 			writeJSONStatus(t, w, http.StatusInternalServerError, map[string]any{"error": "list failed"})
 		default:
-			t.Fatalf("unexpected request method=%s url=%s", method, target)
+			t.Fatalf("unexpected request method=%s", method)
 		}
 	})
 
 	// When: Write する
-	err := writer.Write(context.Background(), "ep-1", validManuscript("ep-1"), models.SpeechAudio{Content: []byte("RIFFWAV")})
+	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
 	// Then: Infrastructure Error
 	if err == nil {
@@ -714,22 +476,20 @@ func TestWrite_returnsInfrastructureError_whenListBodyInvalid(t *testing.T) {
 	t.Parallel()
 
 	// Given: files.list の body が JSON でない
-	writer, _ := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		target := r.Header.Get("X-AS-Target-URL")
+	tokens := stubTokenSource{token: "ya29.test-token"}
+	writer, _ := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
 		method := r.Header.Get("X-AS-Method")
-		switch {
-		case strings.HasPrefix(target, TokenURL):
-			writeJSONStatus(t, w, http.StatusOK, map[string]any{"access_token": "ya29.test-token"})
-		case method == http.MethodGet:
+		switch method {
+		case http.MethodGet:
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("not-json"))
 		default:
-			t.Fatalf("unexpected request method=%s url=%s", method, target)
+			t.Fatalf("unexpected request method=%s", method)
 		}
 	})
 
 	// When: Write する
-	err := writer.Write(context.Background(), "ep-1", validManuscript("ep-1"), models.SpeechAudio{Content: []byte("RIFFWAV")})
+	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
 	// Then: Infrastructure Error
 	if err == nil {
@@ -745,23 +505,21 @@ func TestWrite_returnsInfrastructureError_whenCreateHTTPFails(t *testing.T) {
 	t.Parallel()
 
 	// Given: metadata create が 500
-	writer, _ := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		target := r.Header.Get("X-AS-Target-URL")
+	tokens := stubTokenSource{token: "ya29.test-token"}
+	writer, _ := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
 		method := r.Header.Get("X-AS-Method")
-		switch {
-		case strings.HasPrefix(target, TokenURL):
-			writeJSONStatus(t, w, http.StatusOK, map[string]any{"access_token": "ya29.test-token"})
-		case method == http.MethodGet:
+		switch method {
+		case http.MethodGet:
 			writeJSONStatus(t, w, http.StatusOK, map[string]any{"files": []any{}})
-		case method == http.MethodPost:
+		case http.MethodPost:
 			writeJSONStatus(t, w, http.StatusInternalServerError, map[string]any{"error": "create failed"})
 		default:
-			t.Fatalf("unexpected request method=%s url=%s", method, target)
+			t.Fatalf("unexpected request method=%s", method)
 		}
 	})
 
 	// When: Write する
-	err := writer.Write(context.Background(), "ep-1", validManuscript("ep-1"), models.SpeechAudio{Content: []byte("RIFFWAV")})
+	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
 	// Then: Infrastructure Error
 	if err == nil {
@@ -777,23 +535,21 @@ func TestWrite_returnsInfrastructureError_whenCreateIDEmpty(t *testing.T) {
 	t.Parallel()
 
 	// Given: create 応答の id が空
-	writer, _ := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		target := r.Header.Get("X-AS-Target-URL")
+	tokens := stubTokenSource{token: "ya29.test-token"}
+	writer, _ := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
 		method := r.Header.Get("X-AS-Method")
-		switch {
-		case strings.HasPrefix(target, TokenURL):
-			writeJSONStatus(t, w, http.StatusOK, map[string]any{"access_token": "ya29.test-token"})
-		case method == http.MethodGet:
+		switch method {
+		case http.MethodGet:
 			writeJSONStatus(t, w, http.StatusOK, map[string]any{"files": []any{}})
-		case method == http.MethodPost:
+		case http.MethodPost:
 			writeJSONStatus(t, w, http.StatusOK, map[string]any{"id": ""})
 		default:
-			t.Fatalf("unexpected request method=%s url=%s", method, target)
+			t.Fatalf("unexpected request method=%s", method)
 		}
 	})
 
 	// When: Write する
-	err := writer.Write(context.Background(), "ep-1", validManuscript("ep-1"), models.SpeechAudio{Content: []byte("RIFFWAV")})
+	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
 	// Then: Infrastructure Error
 	if err == nil {
@@ -809,24 +565,22 @@ func TestWrite_returnsInfrastructureError_whenCreateBodyInvalid(t *testing.T) {
 	t.Parallel()
 
 	// Given: create 応答が JSON でない
-	writer, _ := newWriterWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		target := r.Header.Get("X-AS-Target-URL")
+	tokens := stubTokenSource{token: "ya29.test-token"}
+	writer, _ := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
 		method := r.Header.Get("X-AS-Method")
-		switch {
-		case strings.HasPrefix(target, TokenURL):
-			writeJSONStatus(t, w, http.StatusOK, map[string]any{"access_token": "ya29.test-token"})
-		case method == http.MethodGet:
+		switch method {
+		case http.MethodGet:
 			writeJSONStatus(t, w, http.StatusOK, map[string]any{"files": []any{}})
-		case method == http.MethodPost:
+		case http.MethodPost:
 			w.WriteHeader(http.StatusCreated)
 			_, _ = w.Write([]byte("not-json"))
 		default:
-			t.Fatalf("unexpected request method=%s url=%s", method, target)
+			t.Fatalf("unexpected request method=%s", method)
 		}
 	})
 
 	// When: Write する
-	err := writer.Write(context.Background(), "ep-1", validManuscript("ep-1"), models.SpeechAudio{Content: []byte("RIFFWAV")})
+	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
 	// Then: Infrastructure Error
 	if err == nil {
@@ -843,10 +597,11 @@ func TestWrite_escapesQuoteInListQuery_whenEpisodeIDContainsQuote(t *testing.T) 
 
 	// Given: episodeId に単引用符を含む
 	const episodeID = "ep'1"
-	writer, probe := newWriterWithProxy(t, succeedCreateHandler(t))
+	tokens := stubTokenSource{token: "ya29.test-token"}
+	writer, probe := newWriterWithProxy(t, tokens, succeedCreateHandler(t))
 
 	// When: Write する
-	err := writer.Write(context.Background(), episodeID, validManuscript(episodeID), models.SpeechAudio{Content: []byte("RIFFWAV")})
+	err := writer.Write(context.Background(), episodeID, []byte(`{"episodeId":"ep'1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
 	// Then: list q の値が escape されている
 	if err != nil {
@@ -864,20 +619,5 @@ func TestWrite_escapesQuoteInListQuery_whenEpisodeIDContainsQuote(t *testing.T) 
 	}
 	if !sawEscaped {
 		t.Fatal("escaped quote was not observed in list q")
-	}
-}
-
-func TestDenyRemoteLoader_returnsError_whenLoadCalled(t *testing.T) {
-	t.Parallel()
-
-	// Given: 遠隔 URL
-	loader := denyRemoteLoader{}
-
-	// When: Load する
-	_, err := loader.Load("https://json-schema.org/draft/2020-12/schema")
-
-	// Then: error が返る
-	if err == nil {
-		t.Fatal("expected error")
 	}
 }

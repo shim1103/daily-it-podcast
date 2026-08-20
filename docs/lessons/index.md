@@ -47,6 +47,10 @@
 85：2026-08-19 [refactor/generator-source-port] 一意性の保証は返す側の義務である。下流が同一主体を推論するための識別子は、必須 schema ではなく余りへ載せてよい  # → layer:terms
 86：2026-08-19 [feature/generator-drive-adapter-redo2] `log-session` を読んだだけで daily だけ書いて終えると、shim 指摘や agent の誤読が `lessons` へ残らない。logging の振り分けでは、実装説明から確認論点が誤解・判断ミスへ移った時点で、その誤り自体を `docs/lessons/` 候補として先に切り出す  # → layer:workflow
 87：2026-08-19 [feature/generator-drive-adapter-redo2] KISS/DRY 指摘で doc を薄くする時も、情報を消すのではなく記録先を分ける。README / DESIGN / decision / Issue / daily / lessons の責務を混ぜると、修正後の agent が transcript なしで再現できなくなる  # → layer:0:meta
+88：2026-08-19 [feature/generator-drive-storage-adapter] 呼び出し元が対象 branch・起点を明示指定している時、既存 branch が対象 Issue に関連する commit を持っているという状況証拠だけで、その branch を対象と決め打ちしない。明示指定と状況証拠が食い違う場合は明示指定を優先し、決め打ち前に対象の実在（起点 branch・commit）を裏取りする  # → layer:workflow
+89：2026-08-19 [feature/generator-drive-storage-adapter] 確認 tool が deny され、deny 理由に「自律判断で完遂し、質問は stdout へ出力せよ」と明記された後は、同種の判断が再度必要になっても同じ tool を再試行しない。1 回の deny 理由を以降の全判断の運用方針として引き継ぐ  # → layer:workflow
+90：2026-08-19 [feature/generator-drive-storage-adapter] 公開契約文書に書かれた invariant は、書かれているという理由だけで現行仕様と断定しない。契約文言も実装同様に変更履歴を持つ。文言が指す語彙が実装から消えている・別 Port が同種語彙を新しい語彙へ改訂済みである等の兆候があれば、契約を書いた commit まで遡り、旧設計の残骸か恒久 invariant かを先に切り分ける  # → layer:terms
+91：2026-08-19 [feature/generator-drive-storage-adapter] 秘密値を注入する proxy 越し通信を「実際に HTTP を飛ばす」とだけ説明すると、外部 API へ接続していると誤解される。宛先 URL がヘッダ等の値として運ばれるだけで、実接続先は迂回用の代役 endpoint という構造は、消費先が本物か代役かを明示して初めて正確になる  # → layer:terms
 88：2026-08-19 [feature/playback-worker-http-refactor] `non-edit` roleを理由に、明示されたexecutor委譲・検証・完了処理まで止めてはいけない。roleの権限境界とuserが要求した作業範囲を分け、委譲可能な実装はexecutorへ渡す  # → layer:workflow
 89：2026-08-19 [feature/playback-worker-http-refactor] 完了済みtodoの削除と未完了follow-upの保持を同じ判断に混ぜない。完了契約を満たしたfileだけを削除し、未完了作業は別todoとして残す  # → layer:workflow
 90：2026-08-19 [tmp-branch] agentを自立実行させるpromptでは、最初のbranch作成・実行権限・確認待ちを明示し、managerの非編集責務とexecutorの編集責務を混ぜない  # → layer:workflow
