@@ -73,3 +73,5 @@
 105：2026-08-20 [playback-web-api-client] 実装済みcodeを持たない領域へは「今修正する」分類が成立しない。分類軸は変更対象の有無ではなく、決定の固定先がcodeか別sessionかで決める  # → layer:workflow
 106：2026-08-20 [playback-web-api-client] sandboxがbuild cacheへの書き込みを禁じると、compile済み言語のlintを呼ぶcommit hookが失敗する。hook失敗を変更内容の欠陥と同一視せず、権限側の原因を切り分ける  # → layer:platform
 107：2026-08-20 [playback-web-api-client] 作業tree上の未整理差分が上流branchと完全一致する時、それは作業ではなく上流へ戻す逆差分である。commitせず捨ててよいかは、打ち消される側のcommitがremoteにあるかで判定する  # → layer:workflow
+108：2026-08-20 [playback-runtime-config-http-contract] workflowの仮branch名はtaskのpropertyから機械的に導出し、作成直後に現在branch名を検査する。placeholderを正式branchとして残さない  # → layer:workflow
+109：2026-08-20 [playback-runtime-config-http-contract] ApiErrorはUI表示文ではなく操作判断用の中間語彙として保つ。server内部障害と外部service一時不能は、UI表示が同じでもretry意味が違うためcodeを統合しない  # → layer:terms
