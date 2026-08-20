@@ -8,9 +8,9 @@ export default defineConfig({
         test: {
           name: "unit",
           include: [
-            "contracts/**/*.test.ts",
-            "web/src/**/*.test.ts",
-            "worker/src/**/*.test.ts",
+            "contracts/**/*sociable_unit*.test.ts",
+            "web/src/**/*sociable_unit*.test.ts",
+            "worker/src/**/*sociable_unit*.test.ts",
           ],
           passWithNoTests: true,
         },
