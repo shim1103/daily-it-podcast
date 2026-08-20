@@ -19,6 +19,7 @@ runtime config不備を`configuration_error`としてHTTP contractへ追加し�
 5. 旧decisionへ後続taskによるsuperseding decisionを追記した。
 6. Unit `118 passed`、Integration `1 passed`、static check、format、lint、typecheckを検証した。
 7. `feat(playback): runtime configのHTTP error contractを分離する` と `docs(playback): HTTP contractの正準記録を更新する` を作成した。
+8. PR #38を`develop`向けに作成し、integration 2件とstatic-and-unit 2件がpassした。
 
 ### Commits
 
