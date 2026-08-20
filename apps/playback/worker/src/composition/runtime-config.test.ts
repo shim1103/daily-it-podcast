@@ -78,9 +78,9 @@ describe("validatePlaybackEnv", () => {
   it("診断 message に secret の値を含めない", () => {
     // Given: secret 値を含む不完全な env
     const env = {
-      GOOGLE_OAUTH_CLIENT_ID: "client-id-secret",
-      GOOGLE_OAUTH_CLIENT_SECRET: "client-secret-value",
-      GOOGLE_OAUTH_REFRESH_TOKEN: "refresh-token-value",
+      GOOGLE_OAUTH_CLIENT_ID: "設定済み",
+      GOOGLE_OAUTH_CLIENT_SECRET: "設定済み",
+      GOOGLE_OAUTH_REFRESH_TOKEN: "設定済み",
     };
 
     // When: runtime config を検証する
@@ -88,8 +88,6 @@ describe("validatePlaybackEnv", () => {
 
     // Then: Error は内部型で、secret 値を診断へ出さない
     expect(act).toThrow(PlaybackRuntimeConfigError);
-    expect(act).toThrowError(expect.not.stringContaining("client-id-secret"));
-    expect(act).toThrowError(expect.not.stringContaining("client-secret-value"));
-    expect(act).toThrowError(expect.not.stringContaining("refresh-token-value"));
+    expect(act).toThrowError(expect.not.stringContaining("設定済み"));
   });
 });
