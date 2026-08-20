@@ -4,13 +4,14 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/google/oauth"
 )
 
 // NewGoogleDriveWriteEpisode は Google Drive を保存先とする UseCase を組み立てる。
 //
-// @require tokens != nil
 // @ensure 戻りは validation 後にだけ raw adapter を呼ぶ。
-func NewGoogleDriveWriteEpisode(tokens gdrive.TokenSource) *application.WriteEpisode {
-	rawWriter := gdrive.NewRawEpisodeWriter(&agentsecrets.Client{}, tokens)
+func NewGoogleDriveWriteEpisode() *application.WriteEpisode {
+	client := &agentsecrets.Client{}
+	rawWriter := gdrive.NewRawEpisodeWriter(client, oauth.NewTokenSource(client))
 	return application.NewWriteEpisode(rawWriter)
 }

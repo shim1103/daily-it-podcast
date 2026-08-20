@@ -12,7 +12,7 @@ type: `feat` / scope: `playback-web`
 
 1. `apps/playback/web/src/api/` に型・写像表・factory と `*.sociable_unit.test.ts` が既にある。3 method は URL を組んで `deps.fetch` を呼ぶところまで動く
 2. 3 method の応答処理部分に `todo:` tag 付き comment が置いてある。この Issue はその箇所を実装する
-3. worker 側（`apps/playback/worker/`）は実装済み。status と `code` を 1 対 1 で返す
+3. worker 側（`apps/playback/worker/`）は実装済み。status と `code` を 1 対 1 で返す。runtime config 不備は `500 / configuration_error`、外部service一時不能は `503 / unavailable`
 4. `toApiErrorCode` は export 済みだが、まだどの method からも呼ばれていない
 5. 失敗 body の JSON を読まない方針は決定済み（`docs/decisions/2026-08-20T13-44-08-playback-web-api-client.md`）
 
@@ -82,11 +82,12 @@ type: `feat` / scope: `playback-web`
 4. [ ] 404 の応答で `error` が `episode_not_found` になる
 5. [ ] 400 の応答で `error` が `validation_error` になる
 6. [ ] 503 の応答で `error` が `unavailable` になる
-7. [ ] `classifyHttpStatus` が `client_error` と分類する status で `error` が `client_error` になる
-8. [ ] `deps.fetch` が reject する時、`error` が `network_error` になる
-9. [ ] 200 だが schema に合わない JSON で `ok: true` にならず `error` が `invalid_response` になる
-10. [ ] 失敗応答の body を読まずに `error` が決まる
-11. [ ] 公開 method がどの経路でも throw しない
+7. [ ] 500 の応答で `error` が `configuration_error` になる
+8. [ ] `classifyHttpStatus` が `client_error` と分類する status で `error` が `client_error` になる
+9. [ ] `deps.fetch` が reject する時、`error` が `network_error` になる
+10. [ ] 200 だが schema に合わない JSON で `ok: true` にならず `error` が `invalid_response` になる
+11. [ ] 失敗応答の body を読まずに `error` が決まる
+12. [ ] 公開 method がどの経路でも throw しない
 
 ## 8. Verification
 

@@ -27,6 +27,20 @@ export class NotFoundError extends Error {
 }
 
 /**
+ * server 自身の runtime config が不備の時の External Error。
+ *
+ * @require message は診断用であり応答 JSON には載せない
+ * @ensure name は ConfigurationError。cause で元の内部 Error を保持できる
+ * @invariant 独自 field を持たない
+ */
+export class ConfigurationError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = "ConfigurationError";
+  }
+}
+
+/**
  * 依存先が一時的に使えない時の External Error。
  *
  * @require message は診断用であり応答 JSON には載せない
