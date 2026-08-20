@@ -29,7 +29,7 @@
 2. `undefined`と空文字を含むconfig completenessの判定を確定する。
 3. Production Workerとlocal / unit testのrepository選択経路を分離する。
 4. Composition Rootがconfig completenessを検証し、Route HandlerとControllerへsecret責務を漏らさない。
-5. Playback Web ClientがWorkerの`baseUrl`を使ってHTTPを呼び、Drive secretを受け取らない境界を確定する。
+5. Playback Webが`baseUrl`をどこから受け取りClientへ注入するかを確定する。Client側の受け口は実装済み（`playback-web-api-client.md`）。
 6. Worker設定不足、明示的なInMemory選択、Drive選択、Clientのendpoint呼び出しを検証する。
 
 ### Out of Scope
@@ -63,9 +63,9 @@
 3. [ ] Production Workerの設定不足がInMemoryの正常応答へfallbackしない。
 4. [ ] InMemory選択がlocal development / unit testの明示経路に限定されている。
 5. [ ] OAuth tokenの有効性確認がComposition RootではなくAdapter / Integration境界にある。
-6. [ ] Playback Web ClientがDrive secretなしでWorker endpointを呼べる。
+6. [ ] Playback Webの`baseUrl`注入元が確定し、Drive secretを経由しない。
 7. [ ] Generator・Playback Worker・Playback Webのruntime別secret責務が重複定義されていない。
-8. [ ] Worker unit test、Playback Web Client unit test、typecheckがpassする。
+8. [ ] Worker unit test、typecheckがpassする。
 
 ## 8. Verification
 
@@ -73,8 +73,6 @@
 ./scripts/playback/test-unit.sh
 ./scripts/playback/check-static.sh
 ```
-
-Playback Web Clientのtest commandは、実装済みtoolchainに合わせて確定する。
 
 ## 9. Dependencies
 

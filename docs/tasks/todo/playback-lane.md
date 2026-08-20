@@ -25,7 +25,7 @@ HTTP 境界での Domain Error → External `{ code }` 写像、および client
 | `playback-worker-drive-adapter.md` | Google Drive API 本番読取 Adapter（json + wav） |
 | `playback-worker-http.md` | Route / Controller / Domain Error → External `{ code }` 写像、client 向け表示文。**済（完了により削除済み）** |
 | `playback-worker-http-refactor.md` | `fetch.ts` 責務分離・複雑性削減（Route抽象化 / error mapping / logging / audio body 作法を分離） |
-| `playback-web-api-client.md` | web API Client（Result 型） |
+| `playback-web-api-client.md` | web API Client の応答処理（型・写像・factory は実装済み） |
 
 ### 依存（実装順）
 
@@ -34,7 +34,7 @@ contracts（済）
   → worker-episodes（済・Fake）
       → worker-http
       → worker-drive-adapter（本番・WAV。http と並行可）
-  → web-api-client（Stub で worker-http と並行可）
+  → web-api-client（型・写像・factory は実装済み。応答処理が残り）
   → UI（未切り出し。api-client 後）
 ```
 
