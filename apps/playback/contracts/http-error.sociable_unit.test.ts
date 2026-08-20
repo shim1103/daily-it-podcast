@@ -46,6 +46,17 @@ describe("classifyHttpStatus", () => {
     expect(got).toEqual({ kind: "error", code: "unavailable" });
   });
 
+  it("500 の時 configuration_error を返す", () => {
+    // Given: runtime config 不備を表す 500
+    const status = 500;
+
+    // When: 分類する
+    const got = classifyHttpStatus(status);
+
+    // Then: configuration_error
+    expect(got).toEqual({ kind: "error", code: "configuration_error" });
+  });
+
   it("表に無い 2xx の時 success を返す", () => {
     // Given: 宣言表に無い 201
     const status = 201;
