@@ -16,8 +16,7 @@ export type {
   ListEpisodesResponse,
   PlaybackHttpErrorCode,
 } from "./http.ts";
-export { classifyHttpStatus } from "./http-error.ts";
-export type { HttpStatusClassification } from "./http-error.ts";
+export { mapHttpStatusToError } from "./http-error.ts";
 export {
   ConfigurationError,
   NotFoundError,

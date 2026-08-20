@@ -1,4 +1,5 @@
-import type { HttpStatusClassification, PlaybackHttpErrorCode } from "../../../contracts/index.ts";
+import { mapHttpStatusToError } from "../../../contracts/index.ts";
+import type { PlaybackHttpErrorCode } from "../../../contracts/index.ts";
 
 /** worker との HTTP 契約に現れる失敗を、web 側の語彙で言い直した code。 */
 export const contractOriginErrorCodes = [
@@ -39,26 +40,19 @@ export const contractErrorCodeMapping: {
 };
 
 /**
- * 非成功の HTTP status 分類を、web 側で閉じた API error code へ写す。
+ * 非成功 HTTP status を web 側で閉じた API error code へ写す。
  *
- * @require classification は classifyHttpStatus が返した success 以外の分類
- * @ensure 契約 code は contractErrorCodeMapping を通した web 側 code、client_error は client_error を返す。
- *   契約に無い kind では TypeError を throw し、既存 code へ倒さない
- * @invariant status 番号を再判定しない
+ * @require status は Response.ok が false の HTTP 応答の status
+ * @ensure 契約 code は web 側 code、未知の 4xx は client_error、その他は unavailable を返す
+ * @invariant status 番号を契約側で再判定しない
  */
-export function toApiErrorCode(
-  classification: Exclude<HttpStatusClassification, { kind: "success" }>,
-): PlaybackApiErrorCode {
-  switch (classification.kind) {
-    case "error":
-      return contractErrorCodeMapping[classification.code];
-    case "client_error":
-      return "client_error";
-    default: {
-      const exhaustive: never = classification;
-      // why: caller は code ごとに retry・再入力・報告を選ぶ。未知の kind を既存 code へ倒すと
-      //   起きていない失敗を伝え、誤った操作を選ばせる。前提違反として大域脱出する
-      throw new TypeError(`未知の HTTP status 分類: ${JSON.stringify(exhaustive)}`);
-    }
+export function mapHttpStatusToApiError(status: number): PlaybackApiErrorCode {
+  const contractCode = mapHttpStatusToError(status);
+  if (contractCode !== undefined) {
+    return contractErrorCodeMapping[contractCode];
   }
+  if (status >= 400 && status < 500) {
+    return "client_error";
+  }
+  return "unavailable";
 }

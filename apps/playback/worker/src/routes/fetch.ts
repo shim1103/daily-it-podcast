@@ -22,7 +22,7 @@ function mapRuntimeConfigErrorToExternal(error: unknown): unknown {
  * @ensure 成功時は 200。失敗 JSON は ErrorResponse（code のみ）。音声成功時は episodeAudioContentType の byte。
  *   env に Drive の OAuth 値と DRIVE_FOLDER_ID が揃う時は GoogleDriveEpisodeRepository を使う。
  *   設定不備は Composition Root の Error を HTTP boundary へ委譲する
- * @invariant Controller に unknown を渡す。classifyHttpStatus を呼ばない
+ * @invariant Controller に unknown を渡す。HTTP status を分類しない
  */
 export async function fetch(request: Request, env: PlaybackEnv): Promise<Response> {
   const requestId = crypto.randomUUID();
