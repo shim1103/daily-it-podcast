@@ -4,6 +4,7 @@ import type { HttpStatusClassification, PlaybackHttpErrorCode } from "../../../c
 export const contractOriginErrorCodes = [
   "episode_not_found",
   "validation_error",
+  "configuration_error",
   "unavailable",
 ] as const;
 
@@ -33,6 +34,7 @@ export const contractErrorCodeMapping: {
 } = {
   episode_not_found: "episode_not_found",
   validation_error: "validation_error",
+  configuration_error: "configuration_error",
   unavailable: "unavailable",
 };
 

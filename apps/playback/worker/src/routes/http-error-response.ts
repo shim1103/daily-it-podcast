@@ -1,6 +1,10 @@
 import type { PlaybackHttpErrorCode } from "../../../contracts/index.ts";
 
-type ExternalErrorName = "ValidationError" | "NotFoundError" | "UnavailableError";
+type ExternalErrorName =
+  | "ValidationError"
+  | "NotFoundError"
+  | "ConfigurationError"
+  | "UnavailableError";
 
 type HttpErrorMapping = {
   readonly status: number;
@@ -12,6 +16,7 @@ const externalHttpErrorMapping: {
 } = {
   ValidationError: { status: 400, code: "validation_error" },
   NotFoundError: { status: 404, code: "episode_not_found" },
+  ConfigurationError: { status: 500, code: "configuration_error" },
   UnavailableError: { status: 503, code: "unavailable" },
 };
 
@@ -74,6 +79,6 @@ export function createHttpErrorResponse(error: unknown, requestId: string): Resp
   }
 
   logUnmappedError(error, requestId);
-  // why: UnmappedError を JSON の code にすると契約 enum を破る。
+  // why: 未知 Error は契約外のため、unavailable へ誤分類せず契約 enum を捏造しない。
   return new Response(null, { status: 500 });
 }

@@ -19,6 +19,7 @@ export type {
 export { classifyHttpStatus } from "./http-error.ts";
 export type { HttpStatusClassification } from "./http-error.ts";
 export {
+  ConfigurationError,
   NotFoundError,
   UnavailableError,
   ValidationError,

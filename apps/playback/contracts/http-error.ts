@@ -9,6 +9,7 @@ const knownHttpStatus = {
   200: { kind: "success" },
   400: { kind: "error", code: "validation_error" },
   404: { kind: "error", code: "episode_not_found" },
+  500: { kind: "error", code: "configuration_error" },
   503: { kind: "error", code: "unavailable" },
 } as const satisfies Record<number, HttpStatusClassification>;
 

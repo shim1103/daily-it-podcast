@@ -27,3 +27,7 @@ branch: feature/playback-runtime-config-boundary
 3. `README.md`のsecret inventoryをruntimeの実行時検証へ流用する案。READMEは運用一覧であり、Workerの注入契約を所有しない。
 4. config不備の詳細messageをHTTP response bodyへ返す案。runtimeの設定構造を外部へ露出する。
 5. `configuration_error`など新しいHTTP error codeを今回追加する案。既存のPlayback HTTP contract変更を伴うため、別Issueで扱う。
+
+## 4. Superseding Decision
+
+後続のHTTP contract taskで`configuration_error`を追加し、runtime config不備を`500 / configuration_error`として公開する。内部の`PlaybackRuntimeConfigError`は維持し、HTTP Route Handlerで`ConfigurationError`へ変換する。`unavailable`は外部service一時不能専用として維持する。
