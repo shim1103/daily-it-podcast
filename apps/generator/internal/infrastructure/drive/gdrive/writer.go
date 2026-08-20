@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
-	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
@@ -30,23 +29,17 @@ type EpisodeWriter struct {
 	tokens TokenSource
 }
 
-// NewEpisodeWriter は Google Drive 書込 Adapter を返す。
+// NewRawEpisodeWriter は validation 前の Google Drive 書込 Adapter を返す。
 //
 // @require client != nil。tokens != nil。
 // @ensure 秘密値は保持しない。
-func NewEpisodeWriter(client *agentsecrets.Client, tokens TokenSource) *EpisodeWriter {
+func NewRawEpisodeWriter(client *agentsecrets.Client, tokens TokenSource) *EpisodeWriter {
 	return &EpisodeWriter{client: client, tokens: tokens}
 }
 
 func (w *EpisodeWriter) Write(ctx context.Context, episodeID string, manuscript []byte, audio models.SpeechAudio) error {
 	if w == nil || w.client == nil {
 		return infraErr("write", fmt.Errorf("client is nil"))
-	}
-	if strings.TrimSpace(episodeID) == "" {
-		return &domainerrors.EmptyEpisodeID{}
-	}
-	if len(audio.Content) == 0 {
-		return &domainerrors.EmptyAudio{}
 	}
 
 	token, err := w.tokens.Token(ctx)

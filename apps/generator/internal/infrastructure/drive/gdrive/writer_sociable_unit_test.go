@@ -13,7 +13,6 @@ import (
 	"strings"
 	"testing"
 
-	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
@@ -69,7 +68,7 @@ func newWriterWithProxy(t *testing.T, tokens TokenSource, handler http.HandlerFu
 		HTTP:     server.Client(),
 		ProxyURL: server.URL,
 	}
-	return NewEpisodeWriter(client, tokens), probe
+	return NewRawEpisodeWriter(client, tokens), probe
 }
 
 func writeJSONStatus(t *testing.T, w http.ResponseWriter, status int, body any) {
@@ -264,62 +263,6 @@ func TestWrite_updatesExistingFiles_whenSameNameListed(t *testing.T) {
 	}
 }
 
-func TestWrite_returnsDomainErrorWithoutHTTP_whenEpisodeIDEmpty(t *testing.T) {
-	t.Parallel()
-
-	// Given: episodeID が空
-	tokens := stubTokenSource{token: "ya29.test-token"}
-	writer, probe := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
-		t.Fatal("proxy must not be called")
-	})
-
-	// When: 空 episodeID で Write する
-	err := writer.Write(context.Background(), "", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
-
-	// Then: Domain Error。HTTP は 0 回
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var domain *domainerrors.EmptyEpisodeID
-	if !errors.As(err, &domain) {
-		t.Fatalf("error type %T (%v), want *errors.EmptyEpisodeID", err, err)
-	}
-	if domain.Error() == "" {
-		t.Fatal("Error() is empty")
-	}
-	if len(probe.Calls) != 0 {
-		t.Fatalf("unexpected requests: %+v", probe.Calls)
-	}
-}
-
-func TestWrite_returnsDomainErrorWithoutHTTP_whenWAVEmpty(t *testing.T) {
-	t.Parallel()
-
-	// Given: WAV Content が空
-	tokens := stubTokenSource{token: "ya29.test-token"}
-	writer, probe := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
-		t.Fatal("proxy must not be called")
-	})
-
-	// When: 空 WAV で Write する
-	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{})
-
-	// Then: Domain Error。HTTP は 0 回
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var domain *domainerrors.EmptyAudio
-	if !errors.As(err, &domain) {
-		t.Fatalf("error type %T (%v), want *errors.EmptyAudio", err, err)
-	}
-	if domain.Error() == "" {
-		t.Fatal("Error() is empty")
-	}
-	if len(probe.Calls) != 0 {
-		t.Fatalf("unexpected requests: %+v", probe.Calls)
-	}
-}
-
 func TestWrite_returnsInfrastructureError_whenTokenSourceFails(t *testing.T) {
 	t.Parallel()
 
@@ -410,7 +353,7 @@ func TestWrite_returnsInfrastructureError_whenClientNil(t *testing.T) {
 	t.Parallel()
 
 	// Given: client が nil
-	writer := NewEpisodeWriter(nil, stubTokenSource{token: "ya29.test-token"})
+	writer := NewRawEpisodeWriter(nil, stubTokenSource{token: "ya29.test-token"})
 
 	// When: Write する
 	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
