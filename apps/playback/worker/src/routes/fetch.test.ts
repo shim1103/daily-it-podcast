@@ -16,18 +16,19 @@ const listEpisodesController = vi.fn();
 const getEpisodeController = vi.fn();
 const getEpisodeAudioController = vi.fn();
 
-vi.mock("../composition/root.ts", () => ({
-  createPlaybackControllers: vi.fn(() => ({
-    kind: "ready",
-    controllers: {
+vi.mock("../composition/root.ts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../composition/root.ts")>();
+  return {
+    ...actual,
+    createPlaybackControllers: vi.fn(() => ({
       listEpisodesController,
       getEpisodeController,
       getEpisodeAudioController,
-    },
-  })),
-}));
+    })),
+  };
+});
 
-import { createPlaybackControllers } from "../composition/root.ts";
+import { createPlaybackControllers, PlaybackRuntimeConfigError } from "../composition/root.ts";
 import { fetch as handleFetch } from "./fetch.ts";
 
 const origin = "http://example.test";
@@ -254,22 +255,36 @@ describe("fetch", () => {
     expect(body).toEqual({ code: "validation_error" });
   });
 
-  it("Composition Root が misconfigured を返す時、503 と unavailable を返す", async () => {
-    // Given: Drive env が一部だけ欠けた状態（無言で Fake へは逃げない）
-    vi.mocked(createPlaybackControllers).mockReturnValueOnce({
-      kind: "misconfigured",
-      missing: ["DRIVE_FOLDER_ID"],
+  it("runtime config の内部 Error を External unavailable に変換し、診断を cause へ残す", async () => {
+    // Given: Composition Root が設定不足を内部 Error として throw する
+    vi.mocked(createPlaybackControllers).mockImplementationOnce(() => {
+      throw new PlaybackRuntimeConfigError(
+        "GOOGLE_OAUTH_CLIENT_SECRET が未設定です; DRIVE_FOLDER_ID が未設定です",
+      );
     });
 
     // When: 一覧 path へ GET する
     const got = await handleFetch(new Request(`${origin}${listEpisodesPath}`), emptyEnv);
 
-    // Then: 503 と契約 code のみ。Controller は呼ばれない
+    // Then: HTTP boundary が 503 と契約 code へ変換する
     expect(got.status).toBe(503);
     const body: unknown = await got.json();
     expect(ErrorResponseSchema.safeParse(body).success).toBe(true);
     expect(body).toEqual({ code: "unavailable" });
     expect(listEpisodesController).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "UnavailableError",
+        message: "利用できない",
+        cause: {
+          name: "PlaybackRuntimeConfigError",
+          message: "GOOGLE_OAUTH_CLIENT_SECRET が未設定です; DRIVE_FOLDER_ID が未設定です",
+        },
+      }),
+    );
+    expect(JSON.stringify(errorSpy.mock.calls[0]?.[0])).not.toContain("client-secret-value");
+    expect(JSON.stringify(errorSpy.mock.calls[0]?.[0])).not.toContain("refresh-token-value");
   });
 
   it("ValidationError を structured payload で log し Error object 自体は渡さない", async () => {
