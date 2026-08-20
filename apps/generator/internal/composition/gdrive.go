@@ -1,16 +1,17 @@
 package composition
 
 import (
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/google/oauth"
 )
 
-// NewGoogleDriveEpisodeWriter は Google Drive 書込 Adapter を組み立てる。
+// NewGoogleDriveWriteEpisode は Google Drive を保存先とする UseCase を組み立てる。
 //
-// @ensure 戻りは port.EpisodeWriter。
-func NewGoogleDriveEpisodeWriter() port.EpisodeWriter {
+// @ensure 戻りは validation 後にだけ raw adapter を呼ぶ。
+func NewGoogleDriveWriteEpisode() *application.WriteEpisode {
 	client := &agentsecrets.Client{}
-	return gdrive.NewEpisodeWriter(client, oauth.NewTokenSource(client))
+	rawWriter := gdrive.NewRawEpisodeWriter(client, oauth.NewTokenSource(client))
+	return application.NewWriteEpisode(rawWriter)
 }

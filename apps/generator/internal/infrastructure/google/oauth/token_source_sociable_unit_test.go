@@ -117,3 +117,51 @@ func TestToken_returnsInfrastructureError_whenAccessTokenIsEmpty(t *testing.T) {
 		t.Fatalf("error = %T, want *oauth.Error", err)
 	}
 }
+
+func TestToken_returnsInfrastructureError_whenClientIsNil(t *testing.T) {
+	t.Parallel()
+
+	// Given: client が nil
+	source := NewTokenSource(nil)
+
+	// When: OAuth refresh を実行する
+	_, err := source.Token(context.Background())
+
+	// Then: OAuth 固有の Infrastructure Error を返す
+	var oauthErr *Error
+	if !errors.As(err, &oauthErr) {
+		t.Fatalf("error = %T, want *oauth.Error", err)
+	}
+}
+
+func TestToken_returnsInfrastructureError_whenResponseIsInvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	// Given: token endpoint stub が JSON でない応答を返す
+	source, _ := newTokenSourceWithStub(t, http.StatusOK, "not-json")
+
+	// When: OAuth refresh を実行する
+	_, err := source.Token(context.Background())
+
+	// Then: OAuth 固有の Infrastructure Error を返す
+	var oauthErr *Error
+	if !errors.As(err, &oauthErr) {
+		t.Fatalf("error = %T, want *oauth.Error", err)
+	}
+}
+
+func TestToken_returnsInfrastructureError_whenProxyRequestCannotBeBuilt(t *testing.T) {
+	t.Parallel()
+
+	// Given: proxy URL が不正
+	source := NewTokenSource(&agentsecrets.Client{ProxyURL: "://invalid"})
+
+	// When: OAuth refresh を実行する
+	_, err := source.Token(context.Background())
+
+	// Then: OAuth 固有の Infrastructure Error を返す
+	var oauthErr *Error
+	if !errors.As(err, &oauthErr) {
+		t.Fatalf("error = %T, want *oauth.Error", err)
+	}
+}
