@@ -52,6 +52,17 @@ describe("toApiErrorCode", () => {
     expect(got).toBe("validation_error");
   });
 
+  it("契約 code が configuration_error の時も、そのまま返す", () => {
+    // Given: runtime config 不備を表す分類
+    const classification = { kind: "error", code: "configuration_error" } as const;
+
+    // When: API error code へ写す
+    const got = toApiErrorCode(classification);
+
+    // Then: configuration_error
+    expect(got).toBe("configuration_error");
+  });
+
   it("契約に未知の kind が来た時、既存 code へ倒さず throw する", () => {
     // Given: 契約 enum の拡張で増え、型検査を通さずに届いた未知の分類
     const unknown = { kind: "server_error" } as unknown as Parameters<typeof toApiErrorCode>[0];
