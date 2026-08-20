@@ -1,15 +1,16 @@
 package composition
 
 import (
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
 )
 
-// NewGoogleDriveEpisodeWriter は Google Drive 書込 Adapter を組み立てる。
+// NewGoogleDriveWriteEpisode は Google Drive を保存先とする UseCase を組み立てる。
 //
 // @require tokens != nil
-// @ensure 戻りは port.EpisodeWriter。
-func NewGoogleDriveEpisodeWriter(tokens gdrive.TokenSource) port.EpisodeWriter {
-	return gdrive.NewEpisodeWriter(&agentsecrets.Client{}, tokens)
+// @ensure 戻りは validation 後にだけ raw adapter を呼ぶ。
+func NewGoogleDriveWriteEpisode(tokens gdrive.TokenSource) *application.WriteEpisode {
+	rawWriter := gdrive.NewRawEpisodeWriter(&agentsecrets.Client{}, tokens)
+	return application.NewWriteEpisode(rawWriter)
 }
