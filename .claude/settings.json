@@ -25,6 +25,9 @@
         "**/.env",
         "**/.env.*",
         "**/secrets/**"
+      ],
+      "allowRead": [
+        "**/.env.example"
       ]
     }
   }
