@@ -1,6 +1,6 @@
 # DESIGN
 
-最終更新: 2026-08-19（generator の `contracts/` 読み手を Application へ）
+最終更新: 2026-08-20（情報取得 Port 名を `ItemSource` へ／web の role ↔ dir 対応を明示）
 
 地図・使い方・受け入れ・秘密の名前は `README.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive / HTTP 契約の写しは置かない）。
 
@@ -31,7 +31,7 @@
 | `generator/internal/composition` | Composition Root |
 | `generator/cmd/generator` | 起動入口 |
 | `playback/worker/src/entities` 等 | 上に同じ（BFF） |
-| `playback/web/src/{pages,components,api,utils}` | frontend skill |
+| `playback/web/src/{pages,components,view-models,api,utils,lib}` | frontend skill（role と dir は 1 対 1。`docs/decisions/2026-08-20T19-29-21-playback-web-layer-layout.md`） |
 | `playback/contracts` | web↔worker HTTP 境界共有型（API Client と Route / Controller のみ import） |
 
 `playback/web` は Vite + TypeScript（vanilla）+ Pico.css classless。React / Next.js / shadcn は使わない（`docs/decisions/2026-08-18T11-12-00-feature-playback-web.md`）。
@@ -57,7 +57,7 @@ repo 根 `contracts/` は Drive 上の表現（配置・`manuscript.schema.json`
 
 | 役割 | 接続 |
 |------|------|
-| 情報取得 | TwitterAPI.io（試作）/ GetXAPI（本運用）。Port は `PostSource`。詳細は `docs/decisions/` の x-api-adoption |
+| 情報取得 | TwitterAPI.io（試作）/ GetXAPI（本運用）。Port は `ItemSource`。詳細は `docs/decisions/` の x-api-adoption |
 | 原稿 | Cursor CLI（Port は `TextWriter`） |
 | TTS | Gemini |
 | Drive | Google Drive + OAuth refresh |
