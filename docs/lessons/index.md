@@ -47,6 +47,10 @@
 85：2026-08-19 [refactor/generator-source-port] 一意性の保証は返す側の義務である。下流が同一主体を推論するための識別子は、必須 schema ではなく余りへ載せてよい  # → layer:terms
 86：2026-08-19 [feature/generator-drive-adapter-redo2] `log-session` を読んだだけで daily だけ書いて終えると、shim 指摘や agent の誤読が `lessons` へ残らない。logging の振り分けでは、実装説明から確認論点が誤解・判断ミスへ移った時点で、その誤り自体を `docs/lessons/` 候補として先に切り出す  # → layer:workflow
 87：2026-08-19 [feature/generator-drive-adapter-redo2] KISS/DRY 指摘で doc を薄くする時も、情報を消すのではなく記録先を分ける。README / DESIGN / decision / Issue / daily / lessons の責務を混ぜると、修正後の agent が transcript なしで再現できなくなる  # → layer:0:meta
+88：2026-08-19 [feature/generator-drive-storage-adapter] 呼び出し元が対象 branch・起点を明示指定している時、既存 branch が対象 Issue に関連する commit を持っているという状況証拠だけで、その branch を対象と決め打ちしない。明示指定と状況証拠が食い違う場合は明示指定を優先し、決め打ち前に対象の実在（起点 branch・commit）を裏取りする  # → layer:workflow
+89：2026-08-19 [feature/generator-drive-storage-adapter] 確認 tool が deny され、deny 理由に「自律判断で完遂し、質問は stdout へ出力せよ」と明記された後は、同種の判断が再度必要になっても同じ tool を再試行しない。1 回の deny 理由を以降の全判断の運用方針として引き継ぐ  # → layer:workflow
+90：2026-08-19 [feature/generator-drive-storage-adapter] 公開契約文書に書かれた invariant は、書かれているという理由だけで現行仕様と断定しない。契約文言も実装同様に変更履歴を持つ。文言が指す語彙が実装から消えている・別 Port が同種語彙を新しい語彙へ改訂済みである等の兆候があれば、契約を書いた commit まで遡り、旧設計の残骸か恒久 invariant かを先に切り分ける  # → layer:terms
+91：2026-08-19 [feature/generator-drive-storage-adapter] 秘密値を注入する proxy 越し通信を「実際に HTTP を飛ばす」とだけ説明すると、外部 API へ接続していると誤解される。宛先 URL がヘッダ等の値として運ばれるだけで、実接続先は迂回用の代役 endpoint という構造は、消費先が本物か代役かを明示して初めて正確になる  # → layer:terms
 88：2026-08-19 [feature/playback-worker-http-refactor] `non-edit` roleを理由に、明示されたexecutor委譲・検証・完了処理まで止めてはいけない。roleの権限境界とuserが要求した作業範囲を分け、委譲可能な実装はexecutorへ渡す  # → layer:workflow
 89：2026-08-19 [feature/playback-worker-http-refactor] 完了済みtodoの削除と未完了follow-upの保持を同じ判断に混ぜない。完了契約を満たしたfileだけを削除し、未完了作業は別todoとして残す  # → layer:workflow
 90：2026-08-19 [tmp-branch] agentを自立実行させるpromptでは、最初のbranch作成・実行権限・確認待ちを明示し、managerの非編集責務とexecutorの編集責務を混ぜない  # → layer:workflow
@@ -54,3 +58,18 @@
 92：2026-08-19 [tmp-branch] constants fileへの分割は定数の存在だけで決めず、共有範囲と責務の独立性で決める。test差し替えが必要なmutable設定は定数群へ混ぜない  # → layer:terms
 93：2026-08-20 [feature/playback-runtime-config-boundary] 内部Errorを外部Errorへ変換する境界と、外部ErrorをHTTP responseへ直列化する境界を分ける。HTTP status・codeを内部層へ逆流させない  # → layer:terms
 94：2026-08-20 [feature/playback-runtime-config-boundary] Broad Integrationは対象boundaryのobservableな協調を検証する。外部実通信を含む正常系まで無理に通すとscopeとdouble境界を壊すため、別Integrationへ分離する  # → layer:terms
+93：2026-08-20 [playback-web-api-client] 網羅性検査の`never`代入と、到達時のfallback値は別責務。前者を消すと分岐欠落がcompileを通るため、fallbackの形を変える時も代入自体は残す  # → layer:terms
+94：2026-08-20 [playback-web-api-client] callerが失敗codeごとに操作を変える境界では、未知の分類を既存codeへ倒すと起きていない失敗を伝える。想定外の前提違反はResultへ畳まずthrowで大域脱出させる  # → layer:terms
+95：2026-08-20 [playback-web-api-client] 隣接層が同名の識別子集合を持つ時、上位の型をそのまま再exportせず、別layerの型として宣言し写像表で1対1に変換する。写像表を全数対応の形にすると上位の追加をcompileが強制する  # → layer:terms
+96：2026-08-20 [playback-web-api-client] 応答のstatusとbodyが同じ失敗を1対1で表す時、両方を読むと情報源が二重になる。片方を単一情報源に決め、もう片方は読まない  # → layer:terms
+97：2026-08-20 [playback-web-api-client] 外部境界から運ぶ値は、metadataごと保持する器を選ぶと下位層がその知識を書かずに済む。生の値だけを渡すと、下位層がmetadataを再指定する責務を負う  # → layer:terms
+98：2026-08-20 [playback-web-api-client] 接続先の位置情報は隠すべき具体値であり、各操作の引数に置くとcallerが同じ値を持ち回る。組み立て時に1度だけ受け取ると正規化規則も構造的に1箇所へ集まる  # → layer:terms
+99：2026-08-20 [playback-web-api-client] 決定済みの契約・定数・interfaceを自然言語のIssueへ書き写して別sessionへ渡すと、決定が二重管理になる。契約はcodeで固定し、Issueには残る実装だけを書く  # → layer:workflow
+100：2026-08-20 [playback-web-api-client] 分類名をfile名へ持たせる規約は、runnerの収集条件も同じ分類名で絞って初めて機械的に守られる。命名規約だけでは命名忘れを検出できない  # → layer:workflow
+101：2026-08-20 [playback-web-api-client] 既存fileが規約違反の状態にある時、新規fileを既存へ揃えるのは違反の追認である。規約と既存のどちらが正かを先に判定する  # → layer:workflow
+102：2026-08-20 [playback-web-api-client] 委譲先の報告は実物と独立検証で裏を取る。検証commandの再実行と、報告に無い生成物の確認を両方行う  # → layer:workflow
+103：2026-08-20 [playback-web-api-client] 非編集の指示で作業を止める範囲は、成果物の作成有無ではなく編集の有無で決まる。計画fileの作成も編集であり、指示されていなければ行わない  # → layer:workflow
+104：2026-08-20 [playback-web-api-client] 質問toolがdenyされる環境では、判断材料が揃う限り自律で確定し、不可逆な変更に関わる時だけ質問事項をstdoutへ出して停止する  # → layer:workflow
+105：2026-08-20 [playback-web-api-client] 実装済みcodeを持たない領域へは「今修正する」分類が成立しない。分類軸は変更対象の有無ではなく、決定の固定先がcodeか別sessionかで決める  # → layer:workflow
+106：2026-08-20 [playback-web-api-client] sandboxがbuild cacheへの書き込みを禁じると、compile済み言語のlintを呼ぶcommit hookが失敗する。hook失敗を変更内容の欠陥と同一視せず、権限側の原因を切り分ける  # → layer:platform
+107：2026-08-20 [playback-web-api-client] 作業tree上の未整理差分が上流branchと完全一致する時、それは作業ではなく上流へ戻す逆差分である。commitせず捨ててよいかは、打ち消される側のcommitがremoteにあるかで判定する  # → layer:workflow
