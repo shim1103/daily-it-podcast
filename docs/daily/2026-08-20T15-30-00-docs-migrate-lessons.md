@@ -20,3 +20,6 @@ prev: 2026-08-20T14-20-00-feature-playback-runtime-config-boundary.md
 6. `docs/tasks/todo/create-new-skill.md` を削除した。
 7. dotfiles側で `shim check-contracts` を実行し、新設・編集した全fileで違反ゼロを確認した。
 8. session外の変更（Go系build cacheのsandbox許可、issue-managerのbranch操作強化）を意図を推測して6 commitへ分割し、pushした。
+9. PR #40 を `gh pr create` で作成した。作成後に `CONFLICTING` を検出し、develop側で追加された lesson 4件（108〜111）との競合を、上流の追加分だけ残す形で解消した。解消後 `MERGEABLE`、CI 4件すべて SUCCESS。
+10. `scope-split` の C へ worktree 作成 step を追加し、`issue-manager` の `@require` を現行 do-first の command へ揃えた。
+11. `install/bootstrap.sh` を実行し、新設4 skill を claude / codex / cursor の各 runtime へ登録した。
