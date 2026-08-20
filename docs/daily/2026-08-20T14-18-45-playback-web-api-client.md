@@ -25,8 +25,11 @@ prev: 2026-08-19T18-52-00-tmp-branch.md
 11. `playback-runtime-config-boundary.md` がClient実装へ踏み込んでいた範囲を、baseUrl注入元へ絞った
 12. 応答処理の実装Issueを `create-issue` templateの11章構成で書き直した
 13. Unit `107 passed`、typecheck、lint、formatを実行
+14. PR #35 を `develop` へ向けて作成し、`static-and-unit` と `integration` の両checkがpassした
+15. AgentReviewはこのrepoに存在せず、review検証はCI checkのみで完了した
 
 ### Commits
 
 1. `9fa7f35` — test file分類記法の統一
 2. `03d98b1` — API Clientの型・error写像・factory
+3. `8bd5fe9` — 境界判断とsessionの記録
