@@ -56,6 +56,8 @@
 90：2026-08-19 [tmp-branch] agentを自立実行させるpromptでは、最初のbranch作成・実行権限・確認待ちを明示し、managerの非編集責務とexecutorの編集責務を混ぜない  # → layer:workflow
 91：2026-08-19 [tmp-branch] 複数Adapterが同じ意味の識別子を返す時は共有境界の定数を使い、変換testは部分文字列ではなく必須値・時刻・全出力を検証する  # → layer:terms
 92：2026-08-19 [tmp-branch] constants fileへの分割は定数の存在だけで決めず、共有範囲と責務の独立性で決める。test差し替えが必要なmutable設定は定数群へ混ぜない  # → layer:terms
+93：2026-08-20 [feature/playback-runtime-config-boundary] 内部Errorを外部Errorへ変換する境界と、外部ErrorをHTTP responseへ直列化する境界を分ける。HTTP status・codeを内部層へ逆流させない  # → layer:terms
+94：2026-08-20 [feature/playback-runtime-config-boundary] Broad Integrationは対象boundaryのobservableな協調を検証する。外部実通信を含む正常系まで無理に通すとscopeとdouble境界を壊すため、別Integrationへ分離する  # → layer:terms
 93：2026-08-20 [playback-web-api-client] 網羅性検査の`never`代入と、到達時のfallback値は別責務。前者を消すと分岐欠落がcompileを通るため、fallbackの形を変える時も代入自体は残す  # → layer:terms
 94：2026-08-20 [playback-web-api-client] callerが失敗codeごとに操作を変える境界では、未知の分類を既存codeへ倒すと起きていない失敗を伝える。想定外の前提違反はResultへ畳まずthrowで大域脱出させる  # → layer:terms
 95：2026-08-20 [playback-web-api-client] 隣接層が同名の識別子集合を持つ時、上位の型をそのまま再exportせず、別layerの型として宣言し写像表で1対1に変換する。写像表を全数対応の形にすると上位の追加をcompileが強制する  # → layer:terms

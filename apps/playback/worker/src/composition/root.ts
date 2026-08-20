@@ -10,68 +10,52 @@ import type { ListEpisodesController } from "../controllers/list-episodes-contro
 import { createListEpisodesController } from "../controllers/list-episodes-controller.ts";
 import { GoogleDriveEpisodeRepository } from "../infrastructure/drive/google-drive-episode-repository.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/drive/in-memory-episode-repository.ts";
+import {
+  validatePlaybackEnv,
+  type PlaybackEnv,
+  type PlaybackRepositoryOptions,
+} from "./runtime-config.ts";
 
-/**
- * Cloudflare Workers native secrets/vars から受け取る、Drive 接続に必要な env の形。
- *
- * why: 本番 Adapter（GoogleDriveEpisodeRepository）を選択するには OAuth 値と
- * DRIVE_FOLDER_ID が要る。全て揃う時は本番 Adapter、全て未設定の時はローカル開発・test 用の
- * 意図的な Fake 利用とみなす。一部だけ設定されている状態は設定漏れとみなし区別する
- * （`createEpisodeRepository` を参照）。
- */
-export type PlaybackEnv = {
-  GOOGLE_OAUTH_CLIENT_ID?: string;
-  GOOGLE_OAUTH_CLIENT_SECRET?: string;
-  GOOGLE_OAUTH_REFRESH_TOKEN?: string;
-  DRIVE_FOLDER_ID?: string;
-};
+export type {
+  PlaybackEnv,
+  PlaybackRepositoryMode,
+  PlaybackRepositoryOptions,
+} from "./runtime-config.ts";
+export { PlaybackRuntimeConfigError } from "./runtime-config-error.ts";
 
-type PlaybackControllers = {
+export type PlaybackControllers = {
   listEpisodesController: ListEpisodesController;
   getEpisodeController: GetEpisodeController;
   getEpisodeAudioController: GetEpisodeAudioController;
 };
 
 /**
- * env から `EpisodeRepository` を選ぶ判定結果。
- *
- * why: OAuth 値の一部だけが欠ける状態（本番相当の環境での設定漏れ）と、
- * 全て空の状態（ローカル開発・test で意図的に Fake を使う状態）を区別して呼び出し元へ渡す。
- * 判定結果を返すだけに留め、判定自体の合否判断（throw するか等）は呼び出し元に委ねる。
+ * env から `EpisodeRepository` を選ぶ結果。
  */
 export type EpisodeRepositorySelection =
   | { kind: "drive"; repository: EpisodeRepository }
-  | { kind: "in-memory"; repository: EpisodeRepository }
-  | { kind: "misconfigured"; missing: readonly string[] };
-
-export type PlaybackControllersResult =
-  | { kind: "ready"; controllers: PlaybackControllers }
-  | { kind: "misconfigured"; missing: readonly string[] };
-
-const driveEnvKeys = [
-  "GOOGLE_OAUTH_CLIENT_ID",
-  "GOOGLE_OAUTH_CLIENT_SECRET",
-  "GOOGLE_OAUTH_REFRESH_TOKEN",
-  "DRIVE_FOLDER_ID",
-] as const satisfies readonly (keyof PlaybackEnv)[];
+  | { kind: "in-memory"; repository: EpisodeRepository };
 
 /**
  * env から `EpisodeRepository` を選ぶ。
  *
  * @require env は Cloudflare Workers native secrets/vars（`.env` は読まない）
- * @ensure OAuth 値と DRIVE_FOLDER_ID が全て揃う時は "drive"、全て未設定の時は "in-memory"、
- *   一部だけ設定されている時は "misconfigured"（missing に欠落 key 名一覧）を返す
+ * @ensure OAuth 値と DRIVE_FOLDER_ID が全て揃う時は "drive"、明示的 local / unit test mode の時は
+ *   "in-memory"。設定不足は runtime config module が throw する
  */
-export function createEpisodeRepository(env: PlaybackEnv): EpisodeRepositorySelection {
-  const missing = driveEnvKeys.filter((key) => env[key] === undefined);
+export function createEpisodeRepository(
+  env: PlaybackEnv,
+  options: PlaybackRepositoryOptions = {},
+): EpisodeRepositorySelection {
+  const validated = validatePlaybackEnv(env, options);
 
-  if (missing.length === 0) {
+  if (validated.mode === "drive") {
     const {
       GOOGLE_OAUTH_CLIENT_ID: clientId,
       GOOGLE_OAUTH_CLIENT_SECRET: clientSecret,
       GOOGLE_OAUTH_REFRESH_TOKEN: refreshToken,
       DRIVE_FOLDER_ID: folderId,
-    } = env as Required<PlaybackEnv>;
+    } = validated.env;
 
     return {
       kind: "drive",
@@ -83,38 +67,29 @@ export function createEpisodeRepository(env: PlaybackEnv): EpisodeRepositorySele
     };
   }
 
-  if (missing.length === driveEnvKeys.length) {
-    return { kind: "in-memory", repository: new InMemoryEpisodeRepository() };
-  }
-
-  return { kind: "misconfigured", missing };
+  return { kind: "in-memory", repository: new InMemoryEpisodeRepository() };
 }
 
 /**
  * env から Playback worker の Controller 一式を組み立てる。
  *
  * @require env は Cloudflare Workers native secrets/vars
- * @ensure repository 選定が "drive" または "in-memory" の時は "ready"（Controller 一式）を返す。
- *   "misconfigured" の時は Controller を組み立てず "misconfigured"（missing に欠落 key 名一覧）を返す
+ * @ensure repository を選べる時は "ready"（Controller 一式）を返す。設定不足は throw する
  */
-export function createPlaybackControllers(env: PlaybackEnv): PlaybackControllersResult {
-  const selection = createEpisodeRepository(env);
-
-  if (selection.kind === "misconfigured") {
-    return { kind: "misconfigured", missing: selection.missing };
-  }
+export function createPlaybackControllers(
+  env: PlaybackEnv,
+  options: PlaybackRepositoryOptions = {},
+): PlaybackControllers {
+  const selection = createEpisodeRepository(env, options);
 
   const { repository } = selection;
   return {
-    kind: "ready",
-    controllers: {
-      listEpisodesController: createListEpisodesController(() => listEpisodes(repository)),
-      getEpisodeController: createGetEpisodeController((episodeId) =>
-        getEpisode(repository, episodeId),
-      ),
-      getEpisodeAudioController: createGetEpisodeAudioController((episodeId) =>
-        getEpisodeAudio(repository, episodeId),
-      ),
-    },
+    listEpisodesController: createListEpisodesController(() => listEpisodes(repository)),
+    getEpisodeController: createGetEpisodeController((episodeId) =>
+      getEpisode(repository, episodeId),
+    ),
+    getEpisodeAudioController: createGetEpisodeAudioController((episodeId) =>
+      getEpisodeAudio(repository, episodeId),
+    ),
   };
 }
