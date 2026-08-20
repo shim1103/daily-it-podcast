@@ -77,3 +77,5 @@
 109：2026-08-20 [generator-google-oauth-adapter] workflow が起点branchを指定している時、既存branchが同じcommitを指す状況証拠で代用せず、指定されたbranch作成手順をそのまま実行する  # → layer:workflow
 110：2026-08-20 [playback-runtime-config-http-contract] workflowの仮branch名はtaskのpropertyから機械的に導出し、作成直後に現在branch名を検査する。placeholderを正式branchとして残さない  # → layer:workflow
 111：2026-08-20 [playback-runtime-config-http-contract] ApiErrorはUI表示文ではなく操作判断用の中間語彙として保つ。server内部障害と外部service一時不能は、UI表示が同じでもretry意味が違うためcodeを統合しない  # → layer:terms
+112：2026-08-20 [issue/playback-web-api-client] Sociable Unit Testは協調先の判定結果を再assertせず、必要な協調先をdoubleにして対象unitの入力伝播・戻り値伝播だけを検証する  # → layer:terms
+113：2026-08-20 [issue/playback-web-api-client] 同じ公開failureへ収束する内部経路は重複testにせず、異なるobservableなfailureや後続処理の失敗だけを別caseとして所有する  # → layer:terms
