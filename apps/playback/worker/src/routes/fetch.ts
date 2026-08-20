@@ -1,4 +1,4 @@
-import { UnavailableError, ValidationError } from "../../../contracts/index.ts";
+import { ConfigurationError, ValidationError } from "../../../contracts/index.ts";
 import {
   createPlaybackControllers,
   PlaybackRuntimeConfigError,
@@ -10,7 +10,7 @@ import { matchPlaybackRoute } from "./match-playback-route.ts";
 
 function mapRuntimeConfigErrorToExternal(error: unknown): unknown {
   if (error instanceof PlaybackRuntimeConfigError) {
-    return new UnavailableError("利用できない", { cause: error });
+    return new ConfigurationError("設定を確認できません", { cause: error });
   }
   return error;
 }

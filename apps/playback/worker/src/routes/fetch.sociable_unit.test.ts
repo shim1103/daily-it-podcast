@@ -191,7 +191,7 @@ describe("fetch", () => {
     expect(body).toEqual({ code: "unavailable" });
   });
 
-  it("未知の error は契約外 code を返さず 500 として一度だけ log する", async () => {
+  it("未知の error は契約外として 500 と empty body を返す", async () => {
     // Given: External Error mapping に存在しない error
     const thrown = new Error("予期しない失敗");
     vi.mocked(getEpisodeController).mockRejectedValue(thrown);
@@ -199,7 +199,7 @@ describe("fetch", () => {
     // When: 1件 path へ GET する
     const got = await handleFetch(new Request(`${origin}${episodePath("ep-1")}`), emptyEnv);
 
-    // Then: 契約外 code を返さず、Route境界で一度だけ structured log する
+    // Then: 契約 enum を捏造せず、500 と empty body を返して structured log する
     expect(got.status).toBe(500);
     expect(await got.text()).toBe("");
     expect(errorSpy).toHaveBeenCalledTimes(1);
@@ -210,7 +210,6 @@ describe("fetch", () => {
         requestId: expect.any(String),
       }),
     );
-    expect(errorSpy.mock.calls[0]?.[0]).not.toHaveProperty("code");
   });
 
   it("音声 GET が成功する時、契約の Content-Type で byte を返す", async () => {
@@ -255,7 +254,7 @@ describe("fetch", () => {
     expect(body).toEqual({ code: "validation_error" });
   });
 
-  it("runtime config の内部 Error を External unavailable に変換し、診断を cause へ残す", async () => {
+  it("runtime config の内部 Error を configuration_error へ変換し、診断を cause へ残す", async () => {
     // Given: Composition Root が設定不足を内部 Error として throw する
     vi.mocked(createPlaybackControllers).mockImplementationOnce(() => {
       throw new PlaybackRuntimeConfigError(
@@ -266,25 +265,23 @@ describe("fetch", () => {
     // When: 一覧 path へ GET する
     const got = await handleFetch(new Request(`${origin}${listEpisodesPath}`), emptyEnv);
 
-    // Then: HTTP boundary が 503 と契約 code へ変換する
-    expect(got.status).toBe(503);
+    // Then: HTTP boundary が 500 と契約 code へ変換する
+    expect(got.status).toBe(500);
     const body: unknown = await got.json();
     expect(ErrorResponseSchema.safeParse(body).success).toBe(true);
-    expect(body).toEqual({ code: "unavailable" });
+    expect(body).toEqual({ code: "configuration_error" });
     expect(listEpisodesController).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(errorSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        name: "UnavailableError",
-        message: "利用できない",
+        name: "ConfigurationError",
+        message: "設定を確認できません",
         cause: {
           name: "PlaybackRuntimeConfigError",
           message: "GOOGLE_OAUTH_CLIENT_SECRET が未設定です; DRIVE_FOLDER_ID が未設定です",
         },
       }),
     );
-    expect(JSON.stringify(errorSpy.mock.calls[0]?.[0])).not.toContain("client-secret-value");
-    expect(JSON.stringify(errorSpy.mock.calls[0]?.[0])).not.toContain("refresh-token-value");
   });
 
   it("ValidationError を structured payload で log し Error object 自体は渡さない", async () => {

@@ -3,6 +3,7 @@ import { z } from "zod";
 export const playbackHttpErrorCodes = [
   "episode_not_found",
   "validation_error",
+  "configuration_error",
   "unavailable",
 ] as const;
 
