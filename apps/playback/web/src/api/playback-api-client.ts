@@ -1,6 +1,12 @@
+import {
+  episodePath,
+  GetEpisodeResponseSchema,
+  ListEpisodesResponseSchema,
+  listEpisodesPath,
+} from "../../../contracts/index.ts";
 import type { GetEpisodeResponse, ListEpisodesResponse } from "../../../contracts/index.ts";
-import { episodePath, listEpisodesPath } from "../../../contracts/index.ts";
 import type { ApiResult } from "./api-result.ts";
+import { requestBlob, requestJson } from "./playback-api-response.ts";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -41,21 +47,23 @@ export function createPlaybackApiClient(deps: PlaybackApiClientDeps): PlaybackAp
 
   return {
     async listEpisodes(): Promise<ApiResult<ListEpisodesResponse>> {
-      await fetch(buildRequestUrl(baseUrl, listEpisodesPath));
-      // todo: 応答の status 分類・parse・schema 検証は別 issue で実装する
-      return { ok: false, error: "invalid_response" };
+      return requestJson(
+        fetch,
+        buildRequestUrl(baseUrl, listEpisodesPath),
+        ListEpisodesResponseSchema,
+      );
     },
     async getEpisode(episodeId: string): Promise<ApiResult<GetEpisodeResponse>> {
-      await fetch(buildRequestUrl(baseUrl, episodePath(episodeId)));
-      // todo: 応答の status 分類・parse・schema 検証は別 issue で実装する
-      return { ok: false, error: "invalid_response" };
+      return requestJson(
+        fetch,
+        buildRequestUrl(baseUrl, episodePath(episodeId)),
+        GetEpisodeResponseSchema,
+      );
     },
     async fetchAudio(audioRef: string): Promise<ApiResult<Blob>> {
       // why: audioRef は GetEpisodeResponse が持つ契約 path なので、web 側で episodeId から
       //   組み直さずそのまま繋ぐ
-      await fetch(buildRequestUrl(baseUrl, audioRef));
-      // todo: 応答の status 分類・blob 取得は別 issue で実装する
-      return { ok: false, error: "invalid_response" };
+      return requestBlob(fetch, buildRequestUrl(baseUrl, audioRef));
     },
   };
 }
