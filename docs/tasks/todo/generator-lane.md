@@ -23,6 +23,10 @@
 | file | 内容 |
 |---|---|
 | `generator-cursor-text-writer.md` | Cursor CLI `TextWriter` |
+| `generator-test-time-determinism.md` | X API Adapter Unit Test の current wall-clock 依存除去 |
+| `generator-condition-coverage-report.md` | local condition coverage report |
+| `generator-mutation-testing.md` | local mutation testing |
+| `generator-pcm-fuzzing.md` | PCM to WAV の local bounded fuzzing |
 
 ### 依存（実装順）
 

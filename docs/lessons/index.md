@@ -33,3 +33,5 @@
 132：2026-08-22 [playback-ui-detail-design-boundary] test runnerのdefault excludeが対象fileの命名patternと衝突すると、testは0件収集のまま無言でsuccess終了し、実行結果のtest数だけでは検出できない。新規test fileを追加したら、runnerのlist/verboseで対象fileが実際に収集されたことを個別に確認する  # → layer:platform
 133：2026-08-22 [playback-ui-detail-design-boundary] 本番route handlerと同型のrouting/switchロジックをdev-only tooling側に複製すると、命名・配置は正しくてもDRY違反が残る。複製に気づいたら、production側のexport可能な関数へ委譲できないか先に検討し、不可能な場合のみ複製を許容してdocsへ理由を明記する  # → layer:terms
 134：2026-08-22 [playback-ui-detail-design-boundary] workflow skillのflowが「/skill-name」を短く言及するだけの時、skill fileを実際にreadせず文字列から実行方法を推測しない。読まずに実行すると、Investigation・template・完了条件をすべて飛ばして表面だけ真似ることになる  # → layer:workflow
+129：2026-08-22 [chore/generator-ci-test-configuration-hardening] scope 分割の B は実装後の doc 同期だけで完了しない。同じ問いへ再利用する判断は logging の Decision Record として保存する  # → layer:workflow
+130：2026-08-22 [chore/generator-ci-test-configuration-hardening] coverage、mutation、fuzzing は検出する品質特性と実行 cost が異なる。1つの gate へ統合せず、各 metric の能力境界と実行場所を個別に決める  # → layer:terms
