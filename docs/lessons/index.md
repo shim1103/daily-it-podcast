@@ -37,3 +37,6 @@
 130：2026-08-22 [chore/generator-ci-test-configuration-hardening] coverage、mutation、fuzzing は検出する品質特性と実行 cost が異なる。1つの gate へ統合せず、各 metric の能力境界と実行場所を個別に決める  # → layer:terms
 131：2026-08-22 [test/generator-time-determinism] Unit Test の入力が現在時刻に依存しない仕様では、固定した時刻を明示して渡す。実行時の外部状態を入力にすると同じ契約を毎回同じ条件で検証できない  # → layer:terms
 135：2026-08-22 [chore/generator-condition-coverage-report] 動的な文字列を正規表現や置換式へ渡す時は、shell quote だけで安全と判断しない。対象文字列を literal として扱う API を選び、特殊文字を含む値で変換結果を検証する  # → layer:platform
+136：2026-08-22 [feature-generator-infras-all-narrow-integration] 後続Issueが守るinterface・定数・dir・責務境界は、実装Issueへ残さず先にcontract artifactとして固定する。実装Issueはそのartifactを参照し、新しい境界判断を持ち込まない  # → layer:workflow
+137：2026-08-22 [feature-generator-infras-all-narrow-integration] 未決定・未実測の内容をDecisionや実装Issueへ書くと、仮定が契約として固定される。決定済みの事実と不足している決定を分け、不足側は再分類条件とともにlaneへだけ残す  # → layer:workflow
+138：2026-08-22 [feature-generator-infras-all-narrow-integration] runtime名が共通でも、外部境界・contract・検証方法が異なる実装は別Issueに分ける。共有するruntime名ではなく、独立して完了・検証できる境界をIssue単位にする  # → layer:workflow
