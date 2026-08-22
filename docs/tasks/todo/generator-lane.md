@@ -26,6 +26,10 @@
 |---|---|
 | `generator-processenv-http-transport.md` | production process-env HTTP transport |
 | `generator-processenv-command-launcher.md` | production process-env Cursor command launcher |
+| `generator-test-time-determinism.md` | X API Adapter Unit Test の current wall-clock 依存除去 |
+| `generator-condition-coverage-report.md` | local condition coverage report |
+| `generator-mutation-testing.md` | local mutation testing |
+| `generator-pcm-fuzzing.md` | PCM to WAV の local bounded fuzzing |
 
 ### 依存（実装順）
 

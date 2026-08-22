@@ -7,8 +7,10 @@ export default defineConfig({
       {
         test: {
           name: "unit",
+          environment: "happy-dom",
           include: [
             "contracts/**/*sociable_unit*.test.ts",
+            "web/vite-config.sociable_unit.test.ts",
             "web/src/**/*sociable_unit*.test.ts",
             "worker/src/**/*sociable_unit*.test.ts",
           ],

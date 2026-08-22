@@ -25,6 +25,10 @@ Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う 
 |---|---|
 | `playback-web-api-client.md` | API Client の応答処理（status 分類 → parse → schema 検証 → `ApiResult`） |
 
+### 未確定仕様
+
+- [ ] DAST / penetration test は、test deployment URL、Cloudflare Access を通る test identity、許可された攻撃対象が未決定。これらを決定するまで Issue 化しない
+
 ### 依存（実装順）
 
 ```text
