@@ -1,10 +1,20 @@
-import { describe, expect, it } from "vitest";
-import { listEpisodesPath } from "../../../contracts/index.ts";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  GetEpisodeResponseSchema,
+  ListEpisodesResponseSchema,
+  listEpisodesPath,
+} from "../../../contracts/index.ts";
+import type { ApiResult } from "./api-result.ts";
 import { buildRequestUrl, createPlaybackApiClient } from "./playback-api-client.ts";
+import { requestBlob, requestJson } from "./playback-api-response.ts";
 
-function stubFetch(): (input: string, init?: RequestInit) => Promise<Response> {
-  return () => Promise.resolve(new Response(null, { status: 200 }));
-}
+vi.mock("./playback-api-response.ts", () => ({
+  requestBlob: vi.fn(),
+  requestJson: vi.fn(),
+}));
+
+const requestJsonStub = vi.mocked(requestJson);
+const requestBlobStub = vi.mocked(requestBlob);
 
 describe("buildRequestUrl", () => {
   it("baseUrl の末尾に / が無い時、そのまま path を続ける", () => {
@@ -53,70 +63,69 @@ describe("buildRequestUrl", () => {
 });
 
 describe("createPlaybackApiClient", () => {
-  it("deps を渡した時、3 つの method を持つ client を返す", () => {
-    // Given: baseUrl と注入する fetch
-    const deps = { baseUrl: "https://example.test", fetch: stubFetch() };
-
-    // When: client を組み立てる
-    const client = createPlaybackApiClient(deps);
-
-    // Then: 契約の 3 method が生えている
-    expect(typeof client.listEpisodes).toBe("function");
-    expect(typeof client.getEpisode).toBe("function");
-    expect(typeof client.fetchAudio).toBe("function");
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("listEpisodes を呼んだ時、baseUrl と一覧 path を繋いだ URL を fetch へ渡す", async () => {
-    // Given: 呼ばれた URL を記録する fetch
-    const calledUrls: string[] = [];
+  it("listEpisodes は一覧 URL と一覧 schema を response module へ渡し Result を返す", async () => {
+    // Given: response module が返す一覧 Result
+    const fetch = vi.fn();
+    const result: ApiResult<{ episodes: never[] }> = { ok: true, data: { episodes: [] } };
+    requestJsonStub.mockResolvedValue(result);
     const client = createPlaybackApiClient({
       baseUrl: "https://example.test/",
-      fetch: (input) => {
-        calledUrls.push(input);
-        return Promise.resolve(new Response(null, { status: 200 }));
-      },
+      fetch,
     });
 
-    // When: 一覧を取る
-    await client.listEpisodes();
+    // When: 一覧 endpoint を呼ぶ
+    const got = await client.listEpisodes();
 
-    // Then: 契約 path が 1 度だけ叩かれる
-    expect(calledUrls).toEqual(["https://example.test/episodes"]);
+    // Then: URL・schema を委譲し、Result をそのまま返す
+    expect(requestJsonStub).toHaveBeenCalledWith(
+      fetch,
+      "https://example.test/episodes",
+      ListEpisodesResponseSchema,
+    );
+    expect(got).toBe(result);
   });
 
-  it("getEpisode を呼んだ時、episodeId を載せた URL を fetch へ渡す", async () => {
-    // Given: 呼ばれた URL を記録する fetch
-    const calledUrls: string[] = [];
+  it("getEpisode は episode URL と 1 件 schema を response module へ渡し Result を返す", async () => {
+    // Given: response module が返す endpoint Result
+    const fetch = vi.fn();
+    const result: ApiResult<never> = { ok: false, error: "episode_not_found" };
+    requestJsonStub.mockResolvedValue(result);
     const client = createPlaybackApiClient({
       baseUrl: "https://example.test",
-      fetch: (input) => {
-        calledUrls.push(input);
-        return Promise.resolve(new Response(null, { status: 200 }));
-      },
+      fetch,
     });
 
-    // When: 1 件を取る
-    await client.getEpisode("ep-1");
+    // When: 1 件 endpoint を呼ぶ
+    const got = await client.getEpisode("ep 1");
 
-    // Then: 契約 path が 1 度だけ叩かれる
-    expect(calledUrls).toEqual(["https://example.test/episodes/ep-1"]);
+    // Then: URL・schema を委譲し、Result をそのまま返す
+    expect(requestJsonStub).toHaveBeenCalledWith(
+      fetch,
+      "https://example.test/episodes/ep%201",
+      GetEpisodeResponseSchema,
+    );
+    expect(got).toBe(result);
   });
 
-  it("fetchAudio を呼んだ時、受け取った audioRef を baseUrl へ繋いで fetch へ渡す", async () => {
-    // Given: 呼ばれた URL を記録する fetch
-    const calledUrls: string[] = [];
+  it("fetchAudio は audioRef URL を Blob response module へ渡し Result を返す", async () => {
+    // Given: response module が返す音声 Result
+    const fetch = vi.fn();
+    const result: ApiResult<Blob> = { ok: false, error: "invalid_response" };
+    requestBlobStub.mockResolvedValue(result);
     const client = createPlaybackApiClient({
-      baseUrl: "https://example.test",
-      fetch: (input) => {
-        calledUrls.push(input);
-        return Promise.resolve(new Response(null, { status: 200 }));
-      },
+      baseUrl: "https://example.test/",
+      fetch,
     });
 
-    // When: 音声を取る
-    await client.fetchAudio("/episodes/ep-1/audio");
+    // When: 音声 endpoint を呼ぶ
+    const got = await client.fetchAudio("/episodes/ep-1/audio");
 
-    // Then: audioRef をそのまま繋いだ URL が 1 度だけ叩かれる
-    expect(calledUrls).toEqual(["https://example.test/episodes/ep-1/audio"]);
+    // Then: audioRef URL を委譲し、Result をそのまま返す
+    expect(requestBlobStub).toHaveBeenCalledWith(fetch, "https://example.test/episodes/ep-1/audio");
+    expect(got).toBe(result);
   });
 });

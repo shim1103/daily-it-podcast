@@ -136,8 +136,10 @@ func TestWrite_passesExplicitMinimalEnv_whenExecSucceeds(t *testing.T) {
 	if got == nil {
 		t.Fatal("env = nil, want explicitly built minimal env (nil delegates to parent environ)")
 	}
-	if len(got) != len(minimalEnvNames) {
-		t.Fatalf("env = %v, want %d entries built from %v", got, len(minimalEnvNames), minimalEnvNames)
+	// why: 親が定義していない名前は entry ごと落とすため、件数は環境で変わる。
+	// 上限だけを固定し、下限は「宣言に無い名前が混ざらない」ことで担保する。
+	if len(got) > len(minimalEnvNames) {
+		t.Fatalf("env = %v, want at most %d entries built from %v", got, len(minimalEnvNames), minimalEnvNames)
 	}
 	for _, entry := range got {
 		name, _, found := strings.Cut(entry, "=")

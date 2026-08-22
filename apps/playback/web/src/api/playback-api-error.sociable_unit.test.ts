@@ -3,72 +3,27 @@ import { playbackHttpErrorCodes } from "../../../contracts/index.ts";
 import {
   clientOnlyErrorCodes,
   contractErrorCodeMapping,
+  mapHttpStatusToApiError,
   playbackApiErrorCodes,
-  toApiErrorCode,
 } from "./playback-api-error.ts";
 
-describe("toApiErrorCode", () => {
-  it("kind が error の時、契約の code をそのまま返す", () => {
-    // Given: 契約 code を持つ分類
-    const classification = { kind: "error", code: "episode_not_found" } as const;
+describe("mapHttpStatusToApiError", () => {
+  it("表に無い 4xx の時、client_error を返す", () => {
+    // Given: 契約に定義されていない 4xx
+    // When: web 側 error へ写す
+    const got = mapHttpStatusToApiError(418);
 
-    // When: API error code へ写す
-    const got = toApiErrorCode(classification);
-
-    // Then: 契約 code がそのまま出る
-    expect(got).toBe("episode_not_found");
-  });
-
-  it("kind が client_error の時、client_error を返す", () => {
-    // Given: 契約 code を持たない client 側分類
-    const classification = { kind: "client_error" } as const;
-
-    // When: API error code へ写す
-    const got = toApiErrorCode(classification);
-
-    // Then: client 専用 code
+    // Then: web 専用 error
     expect(got).toBe("client_error");
   });
 
-  it("契約 code が unavailable の時も、そのまま返す", () => {
-    // Given: 契約 code のうち unavailable を持つ分類
-    const classification = { kind: "error", code: "unavailable" } as const;
+  it.each([101, 301, 502, 600])("%i の時、unavailable を返す", (status) => {
+    // Given: 契約に定義されていない非 2xx status
+    // When: web 側 error へ写す
+    const got = mapHttpStatusToApiError(status);
 
-    // When: API error code へ写す
-    const got = toApiErrorCode(classification);
-
-    // Then: 契約 code がそのまま出る
+    // Then: web 側の unavailable
     expect(got).toBe("unavailable");
-  });
-
-  it("契約 code が validation_error の時も、そのまま返す", () => {
-    // Given: 契約 code のうち validation_error を持つ分類
-    const classification = { kind: "error", code: "validation_error" } as const;
-
-    // When: API error code へ写す
-    const got = toApiErrorCode(classification);
-
-    // Then: 契約 code がそのまま出る
-    expect(got).toBe("validation_error");
-  });
-
-  it("契約 code が configuration_error の時も、そのまま返す", () => {
-    // Given: runtime config 不備を表す分類
-    const classification = { kind: "error", code: "configuration_error" } as const;
-
-    // When: API error code へ写す
-    const got = toApiErrorCode(classification);
-
-    // Then: configuration_error
-    expect(got).toBe("configuration_error");
-  });
-
-  it("契約に未知の kind が来た時、既存 code へ倒さず throw する", () => {
-    // Given: 契約 enum の拡張で増え、型検査を通さずに届いた未知の分類
-    const unknown = { kind: "server_error" } as unknown as Parameters<typeof toApiErrorCode>[0];
-
-    // Then: caller の分岐を誤らせる code を返さない
-    expect(() => toApiErrorCode(unknown)).toThrow(TypeError);
   });
 });
 
