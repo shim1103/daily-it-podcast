@@ -1,4 +1,11 @@
 import { describe, expect, it } from "vitest";
+import {
+  createFakeGetEpisodeAudioUseCase,
+  createFakeGetEpisodeUseCase,
+  createFakeListEpisodesUseCase,
+  validGetEpisodeResponse,
+  validListEpisodesResponse,
+} from "../controllers/fake-use-cases.ts";
 import { GoogleDriveEpisodeRepository } from "../infrastructure/drive/google-drive-episode-repository.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/drive/in-memory-episode-repository.ts";
 import { PlaybackRuntimeConfigError } from "./runtime-config-error.ts";
@@ -138,5 +145,24 @@ describe("createPlaybackControllers", () => {
 
     // When / Then: 設定不足を返さず、Controller も組み立てない
     expect(() => createPlaybackControllers(env)).toThrow(PlaybackRuntimeConfigError);
+  });
+
+  it("useCases override がある時、env の Drive 設定不足を無視して stub use case を使う", async () => {
+    // Given: 設定不足の env と、stub use case 一式の override
+    const env = {};
+    const useCases = {
+      listEpisodes: createFakeListEpisodesUseCase(),
+      getEpisode: createFakeGetEpisodeUseCase(),
+      getEpisodeAudio: createFakeGetEpisodeAudioUseCase(),
+    };
+
+    // When: override 付きで Controller 一式を組み立てる
+    const got = createPlaybackControllers(env, {}, { useCases });
+
+    // Then: repository 解決を経由せず、stub use case の応答をそのまま返す
+    await expect(got.listEpisodesController({})).resolves.toEqual(validListEpisodesResponse);
+    await expect(got.getEpisodeController({ episodeId: "ep-1" })).resolves.toEqual(
+      validGetEpisodeResponse,
+    );
   });
 });
