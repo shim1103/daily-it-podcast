@@ -26,6 +26,7 @@ need_exec() {
 test_per_system_entries_are_executable_when_layout_is_split() {
   need_exec "$root/scripts/generator/check-static.sh" || return
   need_exec "$root/scripts/generator/test-unit.sh" || return
+  need_exec "$root/scripts/generator/test-race.sh" || return
   need_exec "$root/scripts/generator/test-integration.sh" || return
   need_exec "$root/scripts/playback/test-unit.sh" || return
   need_exec "$root/scripts/playback/test-integration.sh" || return
@@ -93,12 +94,26 @@ test_hooks_call_root_scripts_only() {
   fi
 }
 
+# Given: generator の static / Unit / race 入口
+# When: 実行 command を読む
+# Then: build、順序非依存 Unit、Unit scope の race を実行する
+test_generator_entrypoints_enforce_ci_contracts() {
+  local static="$root/scripts/generator/check-static.sh"
+  local unit="$root/scripts/generator/test-unit.sh"
+  local race="$root/scripts/generator/test-race.sh"
+  need_named "$static" 'go build ./...' || return
+  need_named "$unit" 'go test ./cmd/... ./internal/... -shuffle=on -count=1 -covermode=atomic "-coverprofile=$profile"' || return
+  need_named "$race" 'go test -race ./cmd/... ./internal/...' || return
+}
+
 # Given: GHA Unit workflow
 # When: 実行 step を読む
-# Then: check-static と test-unit を呼び、Integration workflow は test-integration だけを呼ぶ
+# Then: check-static、Unit、race を順に呼び、両 workflow は Go 1.26.6 を使う
 test_gha_calls_same_scripts_as_hooks() {
   local unit_wf="$root/.github/workflows/test-unit.yml"
   local integration_wf="$root/.github/workflows/test-integration.yml"
+  local unit_line
+  local race_line
   if [[ ! -f "$unit_wf" ]]; then
     fail "Unit workflow が無い: $unit_wf" || return
   fi
@@ -107,6 +122,14 @@ test_gha_calls_same_scripts_as_hooks() {
   fi
   if ! grep -q './scripts/test-unit.sh' "$unit_wf"; then
     fail "Unit workflow が test-unit.sh を呼ばない" || return
+  fi
+  if ! grep -q './scripts/generator/test-race.sh' "$unit_wf"; then
+    fail "Unit workflow が generator test-race.sh を呼ばない" || return
+  fi
+  unit_line="$(grep -n -m1 './scripts/test-unit.sh' "$unit_wf" | cut -d: -f1)"
+  race_line="$(grep -n -m1 './scripts/generator/test-race.sh' "$unit_wf" | cut -d: -f1)"
+  if (( race_line <= unit_line )); then
+    fail "Unit workflow の race が Unit gate より先に実行される" || return
   fi
   if grep -Eq 'golangci-lint[[:space:]]+run|npm[[:space:]]+run[[:space:]]+test' "$unit_wf"; then
     fail "Unit workflow が toolchain を直接実行している" || return
@@ -117,10 +140,25 @@ test_gha_calls_same_scripts_as_hooks() {
   if grep -Eq 'golangci-lint[[:space:]]+run|npm[[:space:]]+run[[:space:]]+test' "$integration_wf"; then
     fail "Integration workflow が toolchain を直接実行している" || return
   fi
+  if ! grep -q 'go-version: "1.26.6"' "$unit_wf"; then
+    fail "Unit workflow が Go 1.26.6 を使わない" || return
+  fi
+  if ! grep -q 'go-version: "1.26.6"' "$integration_wf"; then
+    fail "Integration workflow が Go 1.26.6 を使わない" || return
+  fi
+}
+
+test_generator_go_modules_use_pinned_toolchain() {
+  local module="$root/apps/generator/go.mod"
+  if ! grep -qx 'go 1.26.6' "$module"; then
+    fail "Generator module が Go 1.26.6 を宣言しない: $module" || return
+  fi
 }
 
 test_per_system_entries_are_executable_when_layout_is_split
 test_root_composers_name_per_system_scripts_when_delegating
 test_root_composer_does_not_invoke_toolchain_directly
 test_hooks_call_root_scripts_only
+test_generator_entrypoints_enforce_ci_contracts
 test_gha_calls_same_scripts_as_hooks
+test_generator_go_modules_use_pinned_toolchain

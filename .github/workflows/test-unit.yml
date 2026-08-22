@@ -1,8 +1,8 @@
 # scope: Unit（CI 上の static + Unit gate）
-# 実物: scripts/check-static.sh と scripts/test-unit.sh
+# 実物: scripts/check-static.sh、scripts/test-unit.sh、scripts/generator/test-race.sh
 # double: なし（外部 API は叩かない）
-# @require Go 1.22+ と Node と golangci-lint が使える runner。
-# @ensure static と Unit 入口が exit 0。
+# @require Go 1.26.6 と Node と golangci-lint が使える runner。
+# @ensure static、Unit、generator race 入口が exit 0。
 # @invariant 本番 credential を使わない。Integration 専用 suite をこの workflow の必須条件にしない。
 # @invariant toolchain の test command を YAML に直書きしない。
 name: test-unit
@@ -19,7 +19,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22.x"
+          go-version: "1.26.6"
 
       - uses: actions/setup-node@v4
         with:
@@ -43,3 +43,6 @@ jobs:
 
       - name: Unit を実行
         run: ./scripts/test-unit.sh
+
+      - name: generator race を実行
+        run: ./scripts/generator/test-race.sh
