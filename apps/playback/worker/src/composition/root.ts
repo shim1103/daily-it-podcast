@@ -1,3 +1,4 @@
+import type { GetEpisodeResponse, ListEpisodesResponse } from "../../../contracts/index.ts";
 import type { EpisodeRepository } from "../application/ports/episode-repository.ts";
 import { getEpisode } from "../application/use-cases/get-episode.ts";
 import { getEpisodeAudio } from "../application/use-cases/get-episode-audio.ts";
@@ -27,6 +28,19 @@ export type PlaybackControllers = {
   listEpisodesController: ListEpisodesController;
   getEpisodeController: GetEpisodeController;
   getEpisodeAudioController: GetEpisodeAudioController;
+};
+
+/**
+ * local development / unit test 用に use case 一式を丸ごと差し替える override。
+ *
+ * @invariant repository 解決（`createEpisodeRepository`）を経由しない。env の Drive 設定不足を無視する
+ */
+export type PlaybackUseCaseOverrides = {
+  useCases: {
+    listEpisodes: () => Promise<ListEpisodesResponse>;
+    getEpisode: (episodeId: string) => Promise<GetEpisodeResponse>;
+    getEpisodeAudio: (episodeId: string) => Promise<Uint8Array>;
+  };
 };
 
 /**
@@ -74,12 +88,24 @@ export function createEpisodeRepository(
  * env から Playback worker の Controller 一式を組み立てる。
  *
  * @require env は Cloudflare Workers native secrets/vars
- * @ensure repository を選べる時は "ready"（Controller 一式）を返す。設定不足は throw する
+ * @ensure useCaseOverrides がある時は repository 解決を経由せず、渡された use case を Controller
+ *   へ直結する。無い時は従来通り repository を選べれば Controller 一式を返し、設定不足は throw する
+ * @invariant useCaseOverrides は既存の Drive / in-memory 分岐（`createEpisodeRepository`）を変更しない
  */
 export function createPlaybackControllers(
   env: PlaybackEnv,
   options: PlaybackRepositoryOptions = {},
+  useCaseOverrides?: PlaybackUseCaseOverrides,
 ): PlaybackControllers {
+  if (useCaseOverrides) {
+    const { useCases } = useCaseOverrides;
+    return {
+      listEpisodesController: createListEpisodesController(useCases.listEpisodes),
+      getEpisodeController: createGetEpisodeController(useCases.getEpisode),
+      getEpisodeAudioController: createGetEpisodeAudioController(useCases.getEpisodeAudio),
+    };
+  }
+
   const selection = createEpisodeRepository(env, options);
 
   const { repository } = selection;
