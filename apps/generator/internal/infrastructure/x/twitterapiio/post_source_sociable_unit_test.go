@@ -119,7 +119,7 @@ func TestList_returnsError_whenVendorStatusIsError(t *testing.T) {
 	source := twitterapiio.NewPostSource(&agentsecrets.Client{HTTP: server.Client(), ProxyURL: server.URL})
 
 	// When: List を呼ぶ
-	got, err := source.List(context.Background(), time.Now().UTC())
+	got, err := source.List(context.Background(), time.Date(2024, 12, 10, 0, 0, 0, 0, time.UTC))
 
 	// Then: 部分結果なしで error
 	if got != nil || err == nil {
