@@ -29,12 +29,6 @@ type TextWriter struct {
 	runFn   runFunc // why: test の並列実行と共存するため package global に置かない
 }
 
-// projectName は Cursor 専用 AgentSecrets project の名前。
-//
-// why: どの project を使うかは「Cursor を呼ぶ」という Adapter の責務に属する。dir の
-// 配置規約と home の解決は agentsecrets が所有するため、ここは名前だけを持つ。
-const projectName = "cursor"
-
 // NewTextWriter は Cursor CLI を実行する TextWriter Adapter を返す。
 //
 // why: 既存 adapter が `&agentsecrets.Client{}` をゼロ値で受け取り、接続先の解決を
@@ -46,7 +40,7 @@ const projectName = "cursor"
 func NewTextWriter() *TextWriter {
 	return &TextWriter{
 		wrapper: agentsecrets.EnvWrapper{
-			ProjectDir: agentsecrets.DefaultProjectDir(projectName),
+			ProjectDir: agentsecrets.DefaultProjectDir(agentsecrets.CursorProjectName),
 			// why: 既存 5 adapter が Inject へ key 名を渡して依存を明示するのと同型に、
 			// CLI 境界でも依存する秘密を code へ残す。実注入は project 分離が担うため、
 			// この宣言は実行時の入力にはならない（EnvWrapper.SecretKeys の warn を参照）。
