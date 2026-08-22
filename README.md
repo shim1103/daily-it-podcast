@@ -66,8 +66,11 @@ Playback HTTP 契約 → `apps/playback/contracts/`
 7. **hook 導入:** `./scripts/install-hooks.sh`
 8. **static（commit / GHA）:** `./scripts/check-static.sh`（片系: `./scripts/generator/check-static.sh`）
 9. **Unit（commit / GHA）:** `./scripts/test-unit.sh`（composer 契約のあと片系: `./scripts/generator/test-unit.sh`、`./scripts/playback/test-unit.sh`）
-9. **generator race（GHA）:** `./scripts/generator/test-race.sh`
-10. **Integration（push / GHA）:** `./scripts/test-integration.sh`（片系: `./scripts/generator/test-integration.sh`、`./scripts/playback/test-integration.sh`）
+10. **generator condition coverage（local のみ）:** `./scripts/generator/report-condition-coverage.sh`。`gobco v1.3.4` で generator Unit package（`./cmd/...`、`./internal/...`）の Boolean condition を report する。threshold はなく、hard gate ではない。既存の statement coverage gate はこの report と別に維持する
+11. **generator race（GHA）:** `./scripts/generator/test-race.sh`
+12. **Integration（push / GHA）:** `./scripts/test-integration.sh`（片系: `./scripts/generator/test-integration.sh`、`./scripts/playback/test-integration.sh`）
+
+condition coverage report は、構文として認識できる Boolean condition を対象にする。未使用 function は検出できず、`select` も対象外である。したがって完全な branch coverage ではない。
 
 test 配置・gate の規則は `DESIGN.md`。
 
