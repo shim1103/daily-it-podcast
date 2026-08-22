@@ -87,6 +87,9 @@ func (w EnvWrapper) Validate() error {
 // clone 状態と結びつき、clone していない環境で絞り込みが黙って外れる。
 const ProjectsRootName = ".agentsecrets-projects"
 
+// CursorProjectName は Cursor 専用 AgentSecrets project の識別子。
+const CursorProjectName = "cursor"
+
 // ProjectDir は home 配下の目的別 project 設定 dir の path を組み立てる。
 //
 // why: dir の配置規約は AgentSecrets の知識であり、これを呼び出し側が組み立てると

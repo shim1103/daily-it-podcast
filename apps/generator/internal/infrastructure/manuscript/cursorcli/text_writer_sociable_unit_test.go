@@ -614,7 +614,7 @@ func TestNewTextWriter_resolvesCursorProjectDir_whenConstructedForProduction(t *
 	writer := NewTextWriter()
 
 	// Then: Cursor 専用 project の設定 dir が wrapper へ結線される
-	want := agentsecrets.DefaultProjectDir(projectName)
+	want := agentsecrets.DefaultProjectDir(agentsecrets.CursorProjectName)
 	if writer.wrapper.ProjectDir != want {
 		t.Fatalf("wrapper.ProjectDir = %q, want %q", writer.wrapper.ProjectDir, want)
 	}
