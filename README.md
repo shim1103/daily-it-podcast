@@ -60,11 +60,17 @@ Playback HTTP 契約 → `apps/playback/contracts/`
 1. **再生:** Access（メール OTP）→ 一覧 → 再生・原稿表示（意味検索なし）
 2. **生成:** GHA cron / 手動。UI からは起動しない。成果物は `contracts/` に従う
 3. **Playback 依存:** `cd apps/playback && npm ci`
-4. **generator lint:** `golangci-lint` を PATH に入れる（例: `brew install golangci-lint`）
-5. **hook 導入:** `./scripts/install-hooks.sh`
-6. **static（commit / GHA）:** `./scripts/check-static.sh`（片系: `./scripts/generator/check-static.sh`）
-7. **Unit（commit / GHA）:** `./scripts/test-unit.sh`（composer 契約のあと片系: `./scripts/generator/test-unit.sh`、`./scripts/playback/test-unit.sh`）
-8. **Integration（push / GHA）:** `./scripts/test-integration.sh`（片系: `./scripts/generator/test-integration.sh`、`./scripts/playback/test-integration.sh`）
+4. **Playback 起動:** `cd apps/playback && npm run dev` で `localhost:3000` の再生 UI が立つ
+5. **generator Go:** Go `1.26.6`
+6. **generator lint:** `golangci-lint` を PATH に入れる（例: `brew install golangci-lint`）
+7. **hook 導入:** `./scripts/install-hooks.sh`
+8. **static（commit / GHA）:** `./scripts/check-static.sh`（片系: `./scripts/generator/check-static.sh`）
+9. **Unit（commit / GHA）:** `./scripts/test-unit.sh`（composer 契約のあと片系: `./scripts/generator/test-unit.sh`、`./scripts/playback/test-unit.sh`）
+10. **generator condition coverage（local のみ）:** `./scripts/generator/report-condition-coverage.sh`。`gobco v1.3.4` で generator Unit package（`./cmd/...`、`./internal/...`）の Boolean condition を report する。threshold はなく、hard gate ではない。既存の statement coverage gate はこの report と別に維持する
+11. **generator race（GHA）:** `./scripts/generator/test-race.sh`
+12. **Integration（push / GHA）:** `./scripts/test-integration.sh`（片系: `./scripts/generator/test-integration.sh`、`./scripts/playback/test-integration.sh`）
+
+condition coverage report は、構文として認識できる Boolean condition を対象にする。未使用 function は検出できず、`select` も対象外である。したがって完全な branch coverage ではない。
 
 test 配置・gate の規則は `DESIGN.md`。
 

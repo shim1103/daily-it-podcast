@@ -27,6 +27,16 @@
 126：2026-08-22 [feature-generator-cursor-text-writer] 査読者が複数いて所見が食い違う時、報告の説得力ではなく自分で再現した実測で採否を決める。検出力の主張は特に、対応するmutationを自分で打ってから転送する  # → layer:workflow
 127：2026-08-22 [feature-generator-cursor-text-writer] 既存実装に倣えという指示は、対象を1件見て倣うのではなく同種を全数数えてから多数派を採る。1件だけを参照すると、その1件が例外だった場合に誤った前例を複製する  # → layer:workflow
 128：2026-08-22 [feature-generator-cursor-text-writer] 完了指示の「finish」が成果物の作成完了か、その成果物が定める作業の実行完了かを、着手前に対象の状態を実測して切り分ける  # → layer:workflow
-129：2026-08-22 [feature-generator-infras-all-narrow-integration] 後続Issueが守るinterface・定数・dir・責務境界は、実装Issueへ残さず先にcontract artifactとして固定する。実装Issueはそのartifactを参照し、新しい境界判断を持ち込まない  # → layer:workflow
-130：2026-08-22 [feature-generator-infras-all-narrow-integration] 未決定・未実測の内容をDecisionや実装Issueへ書くと、仮定が契約として固定される。決定済みの事実と不足している決定を分け、不足側は再分類条件とともにlaneへだけ残す  # → layer:workflow
-131：2026-08-22 [feature-generator-infras-all-narrow-integration] runtime名が共通でも、外部境界・contract・検証方法が異なる実装は別Issueに分ける。共有するruntime名ではなく、独立して完了・検証できる境界をIssue単位にする  # → layer:workflow
+129：2026-08-22 [playback-ui-detail-design-boundary] 質問tool（AskUserQuestion相当）がpermission規約でdenyされた時、代替として自分でstdoutへ質問文を出力し、次のuser inputを待つ。tool不通=判断放棄の理由にしない  # → layer:workflow
+130：2026-08-22 [playback-ui-detail-design-boundary] user inputが質問形式（例:「Plan」を含む）の時、質問への回答提示だけが許可範囲であり、editやsubagentへの委譲実行までは許可されない。「git履歴で復元できるから自律進行してよい」という一般規約は、明示的な非edit宣言や質問形式のinputには適用しない。両者が衝突したら、より個別具体的なsession内指示を優先する  # → layer:workflow
+131：2026-08-22 [playback-ui-detail-design-boundary] 越権実行に気づいたら、正当化や取り繕いをせず、何を逸脱したか・なぜ逸脱したかを最初の一文で明示してから状況を提示し、次の指示を待つ  # → layer:workflow
+132：2026-08-22 [playback-ui-detail-design-boundary] test runnerのdefault excludeが対象fileの命名patternと衝突すると、testは0件収集のまま無言でsuccess終了し、実行結果のtest数だけでは検出できない。新規test fileを追加したら、runnerのlist/verboseで対象fileが実際に収集されたことを個別に確認する  # → layer:platform
+133：2026-08-22 [playback-ui-detail-design-boundary] 本番route handlerと同型のrouting/switchロジックをdev-only tooling側に複製すると、命名・配置は正しくてもDRY違反が残る。複製に気づいたら、production側のexport可能な関数へ委譲できないか先に検討し、不可能な場合のみ複製を許容してdocsへ理由を明記する  # → layer:terms
+134：2026-08-22 [playback-ui-detail-design-boundary] workflow skillのflowが「/skill-name」を短く言及するだけの時、skill fileを実際にreadせず文字列から実行方法を推測しない。読まずに実行すると、Investigation・template・完了条件をすべて飛ばして表面だけ真似ることになる  # → layer:workflow
+129：2026-08-22 [chore/generator-ci-test-configuration-hardening] scope 分割の B は実装後の doc 同期だけで完了しない。同じ問いへ再利用する判断は logging の Decision Record として保存する  # → layer:workflow
+130：2026-08-22 [chore/generator-ci-test-configuration-hardening] coverage、mutation、fuzzing は検出する品質特性と実行 cost が異なる。1つの gate へ統合せず、各 metric の能力境界と実行場所を個別に決める  # → layer:terms
+131：2026-08-22 [test/generator-time-determinism] Unit Test の入力が現在時刻に依存しない仕様では、固定した時刻を明示して渡す。実行時の外部状態を入力にすると同じ契約を毎回同じ条件で検証できない  # → layer:terms
+135：2026-08-22 [chore/generator-condition-coverage-report] 動的な文字列を正規表現や置換式へ渡す時は、shell quote だけで安全と判断しない。対象文字列を literal として扱う API を選び、特殊文字を含む値で変換結果を検証する  # → layer:platform
+136：2026-08-22 [feature-generator-infras-all-narrow-integration] 後続Issueが守るinterface・定数・dir・責務境界は、実装Issueへ残さず先にcontract artifactとして固定する。実装Issueはそのartifactを参照し、新しい境界判断を持ち込まない  # → layer:workflow
+137：2026-08-22 [feature-generator-infras-all-narrow-integration] 未決定・未実測の内容をDecisionや実装Issueへ書くと、仮定が契約として固定される。決定済みの事実と不足している決定を分け、不足側は再分類条件とともにlaneへだけ残す  # → layer:workflow
+138：2026-08-22 [feature-generator-infras-all-narrow-integration] runtime名が共通でも、外部境界・contract・検証方法が異なる実装は別Issueに分ける。共有するruntime名ではなく、独立して完了・検証できる境界をIssue単位にする  # → layer:workflow
