@@ -10,3 +10,15 @@
 111：2026-08-20 [generator-google-oauth-adapter] workflow が起点branchを指定している時、既存branchが同じcommitを指す状況証拠で代用せず、指定されたbranch作成手順をそのまま実行する  # → layer:workflow
 112：2026-08-20 [playback-runtime-config-http-contract] workflowの仮branch名はtaskのpropertyから機械的に導出し、作成直後に現在branch名を検査する。placeholderを正式branchとして残さない  # → layer:workflow
 113：2026-08-20 [playback-runtime-config-http-contract] ApiErrorはUI表示文ではなく操作判断用の中間語彙として保つ。server内部障害と外部service一時不能は、UI表示が同じでもretry意味が違うためcodeを統合しない  # → layer:terms
+114：2026-08-22 [feature-generator-cursor-text-writer] mutationでtestが落ちたことを有効性の十分条件にしない。注入した差分が仕様変更（定数SSoTの値変更）ならそのtestは将来の正当な更新を止める側であり、bugを止める側ではない  # → layer:terms
+115：2026-08-22 [feature-generator-cursor-text-writer] 定数がSSoTである層の値を、testが同じ定数参照で書き写しても値の誤りは検出できない。期待値が実装と同時に変わるため常に一致する。値の正しさは消費側の振る舞いで検証する  # → layer:terms
+116：2026-08-22 [feature-generator-cursor-text-writer] mutationが生存したという判定も、compileが通った上での生存かを確認してから下す。未使用importなどでbuildが落ちた場合はmutationとして無効であり、検出力の証明にも反証にもならない  # → layer:terms
+117：2026-08-22 [feature-generator-cursor-text-writer] 依存の位置情報は提供側が既定値まで解決し、呼び出し側へ組み立てを要求しない。組み立てを呼び出し側へ置くと解決規則がcallerの数だけ散り、同種の依存を増やすたびに規約が写経される  # → layer:terms
+118：2026-08-22 [feature-generator-cursor-text-writer] 組み立て層が環境変数を読み始めたら、既存の同種factoryが環境を読んでいるか数える。1つだけ環境依存になっているなら、その知識は提供側が持つべき既定値である  # → layer:terms
+119：2026-08-22 [feature-generator-cursor-text-writer] 秘密を扱う機構の「値を見てはいけない主体」に、agentだけでなく自分のprocessも含める。取得して渡す実装は、取得後の値がlog・error message・trace へ漏れる経路を作る  # → layer:terms
+120：2026-08-22 [feature-generator-cursor-text-writer] 権限を絞る判断軸は「相手が漏らすか」ではなく「相手の正当な目的に必要か」。信頼できる相手にも不要な資格情報は渡さない。信頼は現時点の評価であり恒久保証ではない  # → layer:terms
+121：2026-08-22 [feature-generator-cursor-text-writer] 外部CLIの機能有無は、library APIの範囲だけを見て断定しない。同じvendorがCLI subcommandとして別経路を持つことがあり、実binaryのhelpを読むまで「その機構は使えない」と結論しない  # → layer:platform
+122：2026-08-22 [feature-generator-cursor-text-writer] 子processへ渡す環境変数は明示構築する。環境変数の集合を未設定のまま起動すると親の全環境を継承する言語runtimeがあり、空の集合を渡すこととは意味が異なる  # → layer:platform
+123：2026-08-22 [feature-generator-cursor-text-writer] 査読者が複数いて所見が食い違う時、報告の説得力ではなく自分で再現した実測で採否を決める。検出力の主張は特に、対応するmutationを自分で打ってから転送する  # → layer:workflow
+124：2026-08-22 [feature-generator-cursor-text-writer] 既存実装に倣えという指示は、対象を1件見て倣うのではなく同種を全数数えてから多数派を採る。1件だけを参照すると、その1件が例外だった場合に誤った前例を複製する  # → layer:workflow
+125：2026-08-22 [feature-generator-cursor-text-writer] 完了指示の「finish」が成果物の作成完了か、その成果物が定める作業の実行完了かを、着手前に対象の状態を実測して切り分ける  # → layer:workflow
