@@ -10,7 +10,14 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "types": ["vite/client"]
   },
-  "include": ["web/src/**/*.ts", "worker/src/**/*.ts", "contracts/**/*.ts", "test/**/*.ts"]
+  "include": [
+    "web/*.ts",
+    "web/src/**/*.ts",
+    "worker/src/**/*.ts",
+    "contracts/**/*.ts",
+    "test/**/*.ts"
+  ]
 }
