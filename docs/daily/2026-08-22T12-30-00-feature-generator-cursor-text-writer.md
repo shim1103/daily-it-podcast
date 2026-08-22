@@ -22,9 +22,15 @@ prev: 2026-08-18T08-10-53-feature-generator-cursor-manuscript.md
 8. CLI境界の秘密供給を定めるdecisionを追加した。先行decisionは書き換えず、§4のみを上書きする形にした。
 9. generator static check、generator unit coverage `91.1%`、`go build` / `go vet` / `gofmt`を検証した。
 
+10. PR #43 を `gh pr create` で作成した。作成後に CI failure と `CONFLICTING` を検出した。
+11. CI failure は env 検査が entry 数を固定していたことが原因で、`TMPDIR` を持たない Linux runner では件数が変わる。上限のみ固定し、下限は宣言外の名前が混ざらないことで担保する形へ直した。`TMPDIR` を外した環境で再実行して確認した。
+12. conflict は `docs/lessons/index.md` で develop 側の追記と番号が衝突したもの。develop 側を先に置き、本 session 分を `117`〜`128` へ採番し直した。`108`〜`113` の重複は develop 側に元からあるため触っていない。
+13. 解消後 `MERGEABLE` / `CLEAN`、CI 4 件すべて pass。
+
 ### Commits
 
 1. `ff6f4c3`
 2. `7271d2f`
 3. `8454596`
 4. `41897c0`
+5. `1903c67`
