@@ -35,3 +35,4 @@
 134：2026-08-22 [playback-ui-detail-design-boundary] workflow skillのflowが「/skill-name」を短く言及するだけの時、skill fileを実際にreadせず文字列から実行方法を推測しない。読まずに実行すると、Investigation・template・完了条件をすべて飛ばして表面だけ真似ることになる  # → layer:workflow
 129：2026-08-22 [chore/generator-ci-test-configuration-hardening] scope 分割の B は実装後の doc 同期だけで完了しない。同じ問いへ再利用する判断は logging の Decision Record として保存する  # → layer:workflow
 130：2026-08-22 [chore/generator-ci-test-configuration-hardening] coverage、mutation、fuzzing は検出する品質特性と実行 cost が異なる。1つの gate へ統合せず、各 metric の能力境界と実行場所を個別に決める  # → layer:terms
+131：2026-08-22 [test/generator-time-determinism] Unit Test の入力が現在時刻に依存しない仕様では、固定した時刻を明示して渡す。実行時の外部状態を入力にすると同じ契約を毎回同じ条件で検証できない  # → layer:terms
