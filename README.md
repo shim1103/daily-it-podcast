@@ -61,11 +61,13 @@ Playback HTTP 契約 → `apps/playback/contracts/`
 2. **生成:** GHA cron / 手動。UI からは起動しない。成果物は `contracts/` に従う
 3. **Playback 依存:** `cd apps/playback && npm ci`
 4. **Playback 起動:** `cd apps/playback && npm run dev` で `localhost:3000` の再生 UI が立つ
-5. **generator lint:** `golangci-lint` を PATH に入れる（例: `brew install golangci-lint`）
-6. **hook 導入:** `./scripts/install-hooks.sh`
-7. **static（commit / GHA）:** `./scripts/check-static.sh`（片系: `./scripts/generator/check-static.sh`）
-8. **Unit（commit / GHA）:** `./scripts/test-unit.sh`（composer 契約のあと片系: `./scripts/generator/test-unit.sh`、`./scripts/playback/test-unit.sh`）
-9. **Integration（push / GHA）:** `./scripts/test-integration.sh`（片系: `./scripts/generator/test-integration.sh`、`./scripts/playback/test-integration.sh`）
+5. **generator Go:** Go `1.26.6`
+6. **generator lint:** `golangci-lint` を PATH に入れる（例: `brew install golangci-lint`）
+7. **hook 導入:** `./scripts/install-hooks.sh`
+8. **static（commit / GHA）:** `./scripts/check-static.sh`（片系: `./scripts/generator/check-static.sh`）
+9. **Unit（commit / GHA）:** `./scripts/test-unit.sh`（composer 契約のあと片系: `./scripts/generator/test-unit.sh`、`./scripts/playback/test-unit.sh`）
+9. **generator race（GHA）:** `./scripts/generator/test-race.sh`
+10. **Integration（push / GHA）:** `./scripts/test-integration.sh`（片系: `./scripts/generator/test-integration.sh`、`./scripts/playback/test-integration.sh`）
 
 test 配置・gate の規則は `DESIGN.md`。
 
