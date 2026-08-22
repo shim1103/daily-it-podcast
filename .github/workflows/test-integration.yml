@@ -1,7 +1,7 @@
 # scope: Narrow Integration（CI 上の Integration gate）
 # 実物: scripts/test-integration.sh
 # double: なし（外部 API は叩かない）
-# @require Go 1.22+ と Node が使える runner。
+# @require Go 1.26.6 と Node が使える runner。
 # @ensure Integration 入口が exit 0。
 # @invariant 本番 credential を使わない。Unit 専用 suite をこの workflow の必須条件にしない。
 # @invariant toolchain の test command を YAML に直書きしない。
@@ -19,7 +19,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22.x"
+          go-version: "1.26.6"
 
       - uses: actions/setup-node@v4
         with:
