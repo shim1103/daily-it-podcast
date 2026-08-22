@@ -27,3 +27,6 @@
 126：2026-08-22 [feature-generator-cursor-text-writer] 査読者が複数いて所見が食い違う時、報告の説得力ではなく自分で再現した実測で採否を決める。検出力の主張は特に、対応するmutationを自分で打ってから転送する  # → layer:workflow
 127：2026-08-22 [feature-generator-cursor-text-writer] 既存実装に倣えという指示は、対象を1件見て倣うのではなく同種を全数数えてから多数派を採る。1件だけを参照すると、その1件が例外だった場合に誤った前例を複製する  # → layer:workflow
 128：2026-08-22 [feature-generator-cursor-text-writer] 完了指示の「finish」が成果物の作成完了か、その成果物が定める作業の実行完了かを、着手前に対象の状態を実測して切り分ける  # → layer:workflow
+129：2026-08-22 [feature-generator-infras-all-narrow-integration] 後続Issueが守るinterface・定数・dir・責務境界は、実装Issueへ残さず先にcontract artifactとして固定する。実装Issueはそのartifactを参照し、新しい境界判断を持ち込まない  # → layer:workflow
+130：2026-08-22 [feature-generator-infras-all-narrow-integration] 未決定・未実測の内容をDecisionや実装Issueへ書くと、仮定が契約として固定される。決定済みの事実と不足している決定を分け、不足側は再分類条件とともにlaneへだけ残す  # → layer:workflow
+131：2026-08-22 [feature-generator-infras-all-narrow-integration] runtime名が共通でも、外部境界・contract・検証方法が異なる実装は別Issueに分ける。共有するruntime名ではなく、独立して完了・検証できる境界をIssue単位にする  # → layer:workflow
