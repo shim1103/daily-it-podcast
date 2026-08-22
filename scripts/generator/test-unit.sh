@@ -15,7 +15,7 @@ trap 'rm -f "$profile" "$filtered"' EXIT
 echo "unit: generator (go + coverage)"
 (
   cd "$root/apps/generator"
-  go test ./cmd/... ./internal/... -covermode=atomic "-coverprofile=$profile"
+  go test ./cmd/... ./internal/... -shuffle=on -count=1 -covermode=atomic "-coverprofile=$profile"
 )
 
 # why: Composition Root は結線だけ。error.go / names.go / constants.go は名前では除外しない。
