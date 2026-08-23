@@ -40,3 +40,5 @@
 136：2026-08-22 [feature-generator-infras-all-narrow-integration] 後続Issueが守るinterface・定数・dir・責務境界は、実装Issueへ残さず先にcontract artifactとして固定する。実装Issueはそのartifactを参照し、新しい境界判断を持ち込まない  # → layer:workflow
 137：2026-08-22 [feature-generator-infras-all-narrow-integration] 未決定・未実測の内容をDecisionや実装Issueへ書くと、仮定が契約として固定される。決定済みの事実と不足している決定を分け、不足側は再分類条件とともにlaneへだけ残す  # → layer:workflow
 138：2026-08-22 [feature-generator-infras-all-narrow-integration] runtime名が共通でも、外部境界・contract・検証方法が異なる実装は別Issueに分ける。共有するruntime名ではなく、独立して完了・検証できる境界をIssue単位にする  # → layer:workflow
+139：2026-08-22 [test/generator-mutation-testing] Decision Record が tool名だけを固定し module path を書いていない時、名前の類似から推測した path で `go install` しない。web検索で実配布元（作者・repository）を確認してから固定 version を install する  # → layer:workflow
+140：2026-08-22 [test/generator-mutation-testing] reviewer の懸念が「ツールの内部挙動」に関するものである時、挙動を再現するテストケースを作れなくても、tool の source（module cache 配下）を直接読んで反証・確証できる。憶測で採否を決めない  # → layer:workflow
