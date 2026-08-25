@@ -211,5 +211,70 @@ describe("createEpisodeListViewModel", () => {
       // Then: state は loading のまま
       expect(viewModel.getState()).toEqual({ status: "loading" });
     });
+
+    it("詳細取得中に一覧が再読込された時、古い応答で state を上書きしない", async () => {
+      // Given: 詳細取得が未解決の間に一覧の再読込が未解決のまま進む ViewModel
+      let resolveGetEpisode:
+        | ((value: Awaited<ReturnType<PlaybackApiClient["getEpisode"]>>) => void)
+        | undefined;
+      const getEpisode: PlaybackApiClient["getEpisode"] = vi.fn(
+        () =>
+          new Promise<Awaited<ReturnType<PlaybackApiClient["getEpisode"]>>>((resolve) => {
+            resolveGetEpisode = resolve;
+          }),
+      );
+      const listEpisodes: PlaybackApiClient["listEpisodes"] = vi
+        .fn()
+        .mockImplementationOnce(async () => ({
+          ok: true as const,
+          data: validListEpisodesResponse,
+        }))
+        .mockImplementationOnce(() => new Promise<never>(() => {}));
+      const apiClient = createStubApiClient({ getEpisode, listEpisodes });
+      const viewModel = createEpisodeListViewModel(apiClient);
+      await viewModel.load();
+      const selectPromise = viewModel.select("ep-1");
+
+      // When: 詳細取得が未解決のまま一覧を再読込し（loading へ遷移）、その後で詳細取得が解決する
+      void viewModel.load();
+      resolveGetEpisode?.({ ok: true, data: validGetEpisodeResponse });
+      await selectPromise;
+
+      // Then: 古い詳細応答で state を上書きせず、再読込後の loading のまま
+      expect(viewModel.getState()).toEqual({ status: "loading" });
+    });
+
+    it("詳細取得中に別の episode が選択された時、古い応答で selectedEpisode を上書きしない", async () => {
+      // Given: 詳細取得が未解決の間に別 episode が選択される ViewModel
+      let resolveFirstGetEpisode:
+        | ((value: Awaited<ReturnType<PlaybackApiClient["getEpisode"]>>) => void)
+        | undefined;
+      const getEpisode: PlaybackApiClient["getEpisode"] = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveFirstGetEpisode = resolve;
+            }),
+        )
+        .mockImplementationOnce(async () => ({ ok: true as const, data: validGetEpisodeResponse }));
+      const apiClient = createStubApiClient({ getEpisode });
+      const viewModel = createEpisodeListViewModel(apiClient);
+      await viewModel.load();
+      const firstSelectPromise = viewModel.select("ep-1");
+
+      // When: 1件目の詳細取得が未解決のまま別 episode を選択し、その後で1件目が解決する
+      await viewModel.select("ep-2");
+      resolveFirstGetEpisode?.({ ok: true, data: validGetEpisodeResponse });
+      await firstSelectPromise;
+
+      // Then: 古い ep-1 の応答で state を上書きせず、ep-2 の選択が保たれる
+      expect(viewModel.getState()).toEqual({
+        status: "success",
+        episodes: validListEpisodesResponse.episodes,
+        selectedEpisodeId: "ep-2",
+        selectedEpisode: { status: "success", episode: validGetEpisodeResponse },
+      });
+    });
   });
 });
