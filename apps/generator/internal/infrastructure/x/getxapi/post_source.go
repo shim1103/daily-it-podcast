@@ -12,23 +12,23 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
 	xinfra "github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/x"
 )
 
 var _ port.ItemSource = (*PostSource)(nil)
 
 type PostSource struct {
-	client *agentsecrets.Client
+	client       secrettransport.Client
+	apiKeySecret secrettransport.SecretRef
 }
 
 // NewPostSource は GetXAPI 向け ItemSource を返す。
 //
 // @require client != nil
-// @ensure 秘密値は保持しない。
-func NewPostSource(client *agentsecrets.Client) *PostSource {
-	return &PostSource{client: client}
+// @ensure 秘密値は保持しない。secret 名の知識は持たず、apiKeySecret の参照だけを保持する。
+func NewPostSource(client secrettransport.Client, apiKeySecret secrettransport.SecretRef) *PostSource {
+	return &PostSource{client: client, apiKeySecret: apiKeySecret}
 }
 
 func (s *PostSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
@@ -77,10 +77,10 @@ func (s *PostSource) listByUser(ctx context.Context, userID string, since time.T
 }
 
 func (s *PostSource) fetchPage(ctx context.Context, userID, cursor string) (userTweetsResponse, error) {
-	res, err := s.client.Do(ctx, agentsecrets.Request{
+	res, err := s.client.Do(ctx, secrettransport.Request{
 		Method:    http.MethodGet,
 		TargetURL: userTweetsURL(userID, cursor),
-		Inject:    agentsecrets.Inject{Bearer: secretnames.GetXAPIKeyName},
+		Inject:    secrettransport.Inject{Bearer: &s.apiKeySecret},
 	})
 	if err != nil {
 		return userTweetsResponse{}, infraErr("do", err)

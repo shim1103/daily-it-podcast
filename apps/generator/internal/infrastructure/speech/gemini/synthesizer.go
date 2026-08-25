@@ -1,7 +1,6 @@
 package gemini
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -13,8 +12,7 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
 )
 
 const geminiAPIKeyHeader = "x-goog-api-key"
@@ -22,23 +20,24 @@ const geminiAPIKeyHeader = "x-goog-api-key"
 var _ port.SpeechSynthesizer = (*SpeechSynthesizer)(nil)
 
 type SpeechSynthesizer struct {
-	client         *agentsecrets.Client
+	client         secrettransport.Client
+	apiKeySecret   secrettransport.SecretRef
 	backoffSleepFn func(time.Duration) // why: test の並列実行と共存するため package global に置かない
 }
 
 // NewSpeechSynthesizer は Gemini TTS Adapter を返す。
 //
 // @require client != nil
-// @ensure 秘密値は保持しない。
-func NewSpeechSynthesizer(client *agentsecrets.Client) *SpeechSynthesizer {
-	return newSpeechSynthesizerForTest(client, time.Sleep)
+// @ensure 秘密値は保持しない。secret 名の知識は持たず、apiKeySecret の参照だけを保持する。
+func NewSpeechSynthesizer(client secrettransport.Client, apiKeySecret secrettransport.SecretRef) *SpeechSynthesizer {
+	return newSpeechSynthesizerForTest(client, apiKeySecret, time.Sleep)
 }
 
-func newSpeechSynthesizerForTest(client *agentsecrets.Client, backoffSleepFn func(time.Duration)) *SpeechSynthesizer {
+func newSpeechSynthesizerForTest(client secrettransport.Client, apiKeySecret secrettransport.SecretRef, backoffSleepFn func(time.Duration)) *SpeechSynthesizer {
 	if backoffSleepFn == nil {
 		backoffSleepFn = time.Sleep
 	}
-	return &SpeechSynthesizer{client: client, backoffSleepFn: backoffSleepFn}
+	return &SpeechSynthesizer{client: client, apiKeySecret: apiKeySecret, backoffSleepFn: backoffSleepFn}
 }
 
 func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models.SpeechAudio, error) {
@@ -95,12 +94,12 @@ func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]
 		return nil, false, infraErr("marshal_request", err)
 	}
 
-	res, err := s.client.Do(ctx, agentsecrets.Request{
+	res, err := s.client.Do(ctx, secrettransport.Request{
 		Method:    http.MethodPost,
 		TargetURL: EndpointURL,
-		Body:      bytes.NewReader(body),
-		Inject: agentsecrets.Inject{
-			Headers: map[string]string{geminiAPIKeyHeader: secretnames.GeminiAPIKeyName},
+		Body:      body,
+		Inject: secrettransport.Inject{
+			Headers: []secrettransport.FieldInjection{{Field: geminiAPIKeyHeader, Secret: s.apiKeySecret}},
 		},
 	})
 	if err != nil {

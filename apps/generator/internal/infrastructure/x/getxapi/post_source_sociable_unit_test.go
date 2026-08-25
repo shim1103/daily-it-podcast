@@ -2,29 +2,59 @@ package getxapi_test
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport/processenv"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/x"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/x/getxapi"
 )
 
+// stubBindings は test 用の BindingResolver fake。
+type stubBindings map[secrettransport.SecretRef]string
+
+func (b stubBindings) ResolveSecret(ref secrettransport.SecretRef) (string, bool) {
+	name, ok := b[ref]
+	return name, ok
+}
+
+const getXAPITestSecretName = "GETXAPI_TEST_API_KEY"
+
+// newTestSecretTransportClient は固定 upstream URL への接続を test TLS server へ差し替えた processenv.Client を返す。
+// why: Adapter は本番 host を定数として持つため、DialTLSContext で接続先だけを test server へ redirect する。
+func newTestSecretTransportClient(t *testing.T, server *httptest.Server, apiKeySecret secrettransport.SecretRef) secrettransport.Client {
+	t.Helper()
+	t.Setenv(getXAPITestSecretName, "getxapi-test-real-value")
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				// why: test 用 TLS server の自己署名証明書を明示的に信頼する。
+				return tls.Dial(network, server.Listener.Addr().String(), &tls.Config{InsecureSkipVerify: true})
+			},
+		},
+	}
+	return processenv.NewClient(stubBindings{apiKeySecret: getXAPITestSecretName}, httpClient, nil)
+}
+
 func TestList_returnsSourceItems_forAllWatchedUsers(t *testing.T) {
-	// Given: watch user と vendor response を返す proxy double
+	// Given: watch user と vendor response を返す upstream double
 	previous := x.WatchUserIDs
 	x.WatchUserIDs = []string{"user-1"}
 	t.Cleanup(func() { x.WatchUserIDs = previous })
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, `{"tweets":[{"id":"tweet-1","url":"https://x.example/tweet-1","text":"本文","createdAt":"Wed Aug 19 10:00:00 +0000 2026","author":{"id":"author-1","name":"表示名"},"entities":{"urls":[{"expanded_url":"https://example.com"}]},"media":[{"url":"https://img.example/a.jpg"}]}],"has_more":false}`)
 	}))
 	t.Cleanup(server.Close)
-	source := getxapi.NewPostSource(&agentsecrets.Client{HTTP: server.Client(), ProxyURL: server.URL})
+	apiKeySecret := secrettransport.NewSecretRef()
+	source := getxapi.NewPostSource(newTestSecretTransportClient(t, server, apiKeySecret), apiKeySecret)
 	since := time.Date(2024, 12, 10, 0, 0, 0, 0, time.UTC)
 
 	// When: List を呼ぶ
@@ -61,7 +91,7 @@ func TestList_paginates_and_stops_atSince(t *testing.T) {
 	x.WatchUserIDs = []string{"user-1"}
 	t.Cleanup(func() { x.WatchUserIDs = previous })
 	calls := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		if calls == 1 {
 			_, _ = io.WriteString(w, `{"tweets":[{"id":"new","createdAt":"Wed Aug 19 10:00:00 +0000 2026"}],"has_more":true,"next_cursor":"next"}`)
@@ -70,7 +100,8 @@ func TestList_paginates_and_stops_atSince(t *testing.T) {
 		_, _ = io.WriteString(w, `{"tweets":[{"id":"old","createdAt":"Tue Aug 18 10:00:00 +0000 2026"}],"has_more":false}`)
 	}))
 	t.Cleanup(server.Close)
-	source := getxapi.NewPostSource(&agentsecrets.Client{HTTP: server.Client(), ProxyURL: server.URL})
+	apiKeySecret := secrettransport.NewSecretRef()
+	source := getxapi.NewPostSource(newTestSecretTransportClient(t, server, apiKeySecret), apiKeySecret)
 
 	// When: since を指定して List を呼ぶ
 	got, err := source.List(context.Background(), time.Date(2026, 8, 19, 0, 0, 0, 0, time.UTC))
@@ -83,7 +114,7 @@ func TestList_paginates_and_stops_atSince(t *testing.T) {
 
 func TestList_returnsInfrastructureError_whenClientNil(t *testing.T) {
 	// Given: client が nil
-	source := getxapi.NewPostSource(nil)
+	source := getxapi.NewPostSource(nil, secrettransport.NewSecretRef())
 	since := time.Date(2024, 12, 10, 0, 0, 0, 0, time.UTC)
 
 	// When: List を呼ぶ
@@ -106,15 +137,16 @@ func TestList_returnsInfrastructureError_whenClientNil(t *testing.T) {
 }
 
 func TestList_returnsError_whenVendorStatusIsNotOK(t *testing.T) {
-	// Given: watch user と HTTP error を返す proxy double
+	// Given: watch user と HTTP error を返す upstream double
 	previous := x.WatchUserIDs
 	x.WatchUserIDs = []string{"user-1"}
 	t.Cleanup(func() { x.WatchUserIDs = previous })
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "失敗", http.StatusBadGateway)
 	}))
 	t.Cleanup(server.Close)
-	source := getxapi.NewPostSource(&agentsecrets.Client{HTTP: server.Client(), ProxyURL: server.URL})
+	apiKeySecret := secrettransport.NewSecretRef()
+	source := getxapi.NewPostSource(newTestSecretTransportClient(t, server, apiKeySecret), apiKeySecret)
 
 	// When: List を呼ぶ
 	got, err := source.List(context.Background(), time.Date(2024, 12, 10, 0, 0, 0, 0, time.UTC))

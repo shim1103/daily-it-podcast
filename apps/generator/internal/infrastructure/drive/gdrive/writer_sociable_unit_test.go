@@ -3,10 +3,12 @@ package gdrive
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -14,8 +16,8 @@ import (
 	"testing"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport/processenv"
 )
 
 // stubTokenSource は test 用の TokenSource fake。
@@ -31,32 +33,44 @@ func (s stubTokenSource) Token(ctx context.Context) (string, error) {
 	return s.token, nil
 }
 
-type proxyCall struct {
+// stubBindings は test 用の BindingResolver fake。
+type stubBindings map[secrettransport.SecretRef]string
+
+func (b stubBindings) ResolveSecret(ref secrettransport.SecretRef) (string, bool) {
+	name, ok := b[ref]
+	return name, ok
+}
+
+const driveTestFolderIDSecretName = "GDRIVE_TEST_FOLDER_ID"
+
+type driveCall struct {
 	TargetURL     string
+	Host          string
 	Method        string
 	Body          string
-	BodyParents0  string
 	ContentType   string
 	Authorization string
 }
 
 type driveProbe struct {
-	Calls []proxyCall
+	Calls []driveCall
 }
 
+// newWriterWithProxy は本番 host（www.googleapis.com）への接続を test TLS server へ差し替えた EpisodeWriter を返す。
+// why: Adapter は FilesURL / UploadURL を定数として持つため、DialTLSContext で接続先だけを test server へ redirect する。
 func newWriterWithProxy(t *testing.T, tokens TokenSource, handler http.HandlerFunc) (*EpisodeWriter, *driveProbe) {
 	t.Helper()
 	probe := &driveProbe{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			t.Fatalf("read proxy body: %v", err)
+			t.Fatalf("read upstream body: %v", err)
 		}
-		probe.Calls = append(probe.Calls, proxyCall{
-			TargetURL:     r.Header.Get("X-AS-Target-URL"),
-			Method:        r.Header.Get("X-AS-Method"),
+		probe.Calls = append(probe.Calls, driveCall{
+			TargetURL:     r.URL.String(),
+			Host:          r.Host,
+			Method:        r.Method,
 			Body:          string(body),
-			BodyParents0:  r.Header.Get("X-AS-Inject-Body-parents-0"),
 			ContentType:   r.Header.Get("Content-Type"),
 			Authorization: r.Header.Get("Authorization"),
 		})
@@ -64,11 +78,18 @@ func newWriterWithProxy(t *testing.T, tokens TokenSource, handler http.HandlerFu
 		handler(w, r)
 	}))
 	t.Cleanup(server.Close)
-	client := &agentsecrets.Client{
-		HTTP:     server.Client(),
-		ProxyURL: server.URL,
+	t.Setenv(driveTestFolderIDSecretName, "gdrive-test-folder-id-real-value")
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				// why: test 用 TLS server の自己署名証明書を明示的に信頼する。
+				return tls.Dial(network, server.Listener.Addr().String(), &tls.Config{InsecureSkipVerify: true})
+			},
+		},
 	}
-	return NewRawEpisodeWriter(client, tokens), probe
+	folderIDSecret := secrettransport.NewSecretRef()
+	client := processenv.NewClient(stubBindings{folderIDSecret: driveTestFolderIDSecretName}, httpClient, nil)
+	return NewRawEpisodeWriter(client, tokens, folderIDSecret), probe
 }
 
 func writeJSONStatus(t *testing.T, w http.ResponseWriter, status int, body any) {
@@ -89,37 +110,37 @@ func parseTarget(t *testing.T, raw string) *url.URL {
 	return u
 }
 
-func isListCall(c proxyCall) bool {
+func isListCall(c driveCall) bool {
 	u, err := url.Parse(c.TargetURL)
 	if err != nil {
 		return false
 	}
-	return c.Method == http.MethodGet && u.Host == "www.googleapis.com" && u.Path == "/drive/v3/files"
+	return c.Method == http.MethodGet && c.Host == "www.googleapis.com" && u.Path == "/drive/v3/files"
 }
 
-func isMetadataCreate(c proxyCall) bool {
+func isMetadataCreate(c driveCall) bool {
 	u, err := url.Parse(c.TargetURL)
 	if err != nil {
 		return false
 	}
-	return c.Method == http.MethodPost && u.Host == "www.googleapis.com" && u.Path == "/drive/v3/files"
+	return c.Method == http.MethodPost && c.Host == "www.googleapis.com" && u.Path == "/drive/v3/files"
 }
 
-func isMediaUpload(c proxyCall) bool {
+func isMediaUpload(c driveCall) bool {
 	u, err := url.Parse(c.TargetURL)
 	if err != nil {
 		return false
 	}
 	return c.Method == http.MethodPatch &&
-		u.Host == "www.googleapis.com" &&
+		c.Host == "www.googleapis.com" &&
 		strings.HasPrefix(u.Path, "/upload/drive/v3/files/")
 }
 
 func succeedCreateHandler(t *testing.T) http.HandlerFunc {
 	t.Helper()
 	return func(w http.ResponseWriter, r *http.Request) {
-		target := r.Header.Get("X-AS-Target-URL")
-		method := r.Header.Get("X-AS-Method")
+		target := r.URL.String()
+		method := r.Method
 		switch {
 		case method == http.MethodGet && strings.Contains(target, "/drive/v3/files"):
 			writeJSONStatus(t, w, http.StatusOK, map[string]any{"files": []any{}})
@@ -141,7 +162,6 @@ func succeedCreateHandler(t *testing.T) http.HandlerFunc {
 }
 
 func TestWrite_uploadsJSONAndWAVWithSameStem_whenDriveSucceeds(t *testing.T) {
-	t.Parallel()
 
 	// Given: token stub と、Drive が空一覧と create 成功を返す stub
 	const episodeID = "ep-1"
@@ -157,11 +177,11 @@ func TestWrite_uploadsJSONAndWAVWithSameStem_whenDriveSucceeds(t *testing.T) {
 		t.Fatalf("Write: %v", err)
 	}
 	if len(probe.Calls) == 0 {
-		t.Fatal("proxy was not called")
+		t.Fatal("upstream was not called")
 	}
 
 	var jsonName, wavName string
-	var bodyInjects int
+	var parentInjected int
 	for _, c := range probe.Calls {
 		if isListCall(c) {
 			u := parseTarget(t, c.TargetURL)
@@ -172,21 +192,19 @@ func TestWrite_uploadsJSONAndWAVWithSameStem_whenDriveSucceeds(t *testing.T) {
 			if strings.Contains(q, "in parents") {
 				t.Fatalf("list q contains parents: %q", q)
 			}
-			if strings.Contains(q, secretnames.DriveFolderIDName) {
-				t.Fatalf("list q contains folder key name: %q", q)
-			}
 		}
 		if isMetadataCreate(c) {
-			if c.BodyParents0 != secretnames.DriveFolderIDName {
-				t.Fatalf("body inject parents.0 = %q, want %q", c.BodyParents0, secretnames.DriveFolderIDName)
-			}
-			bodyInjects++
 			var meta struct {
-				Name string `json:"name"`
+				Name    string   `json:"name"`
+				Parents []string `json:"parents"`
 			}
 			if err := json.Unmarshal([]byte(c.Body), &meta); err != nil {
 				t.Fatalf("create metadata: %v body=%s", err, c.Body)
 			}
+			if len(meta.Parents) != 1 || meta.Parents[0] != "gdrive-test-folder-id-real-value" {
+				t.Fatalf("parents = %#v, want folder id real value", meta.Parents)
+			}
+			parentInjected++
 			switch {
 			case strings.HasSuffix(meta.Name, ".json"):
 				jsonName = meta.Name
@@ -200,8 +218,8 @@ func TestWrite_uploadsJSONAndWAVWithSameStem_whenDriveSucceeds(t *testing.T) {
 			t.Fatalf("Authorization = %q url=%s", c.Authorization, c.TargetURL)
 		}
 	}
-	if bodyInjects != 2 {
-		t.Fatalf("body inject count = %d, want 2", bodyInjects)
+	if parentInjected != 2 {
+		t.Fatalf("parent inject count = %d, want 2", parentInjected)
 	}
 	if jsonName != episodeID+".json" {
 		t.Fatalf("json name = %q", jsonName)
@@ -212,14 +230,13 @@ func TestWrite_uploadsJSONAndWAVWithSameStem_whenDriveSucceeds(t *testing.T) {
 }
 
 func TestWrite_updatesExistingFiles_whenSameNameListed(t *testing.T) {
-	t.Parallel()
 
 	// Given: list が同一名の既存 file を返す stub
 	const episodeID = "ep-1"
 	tokens := stubTokenSource{token: "ya29.test-token"}
 	writer, probe := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
-		target := r.Header.Get("X-AS-Target-URL")
-		method := r.Header.Get("X-AS-Method")
+		target := r.URL.String()
+		method := r.Method
 		switch {
 		case method == http.MethodGet && strings.Contains(target, "/drive/v3/files"):
 			u := parseTarget(t, target)
@@ -264,12 +281,11 @@ func TestWrite_updatesExistingFiles_whenSameNameListed(t *testing.T) {
 }
 
 func TestWrite_returnsInfrastructureError_whenTokenSourceFails(t *testing.T) {
-	t.Parallel()
 
 	// Given: TokenSource が error を返す
 	tokens := stubTokenSource{err: fmt.Errorf("refresh failed")}
 	writer, probe := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
-		t.Fatal("proxy must not be called")
+		t.Fatal("upstream must not be called")
 	})
 
 	// When: Write する
@@ -295,13 +311,12 @@ func TestWrite_returnsInfrastructureError_whenTokenSourceFails(t *testing.T) {
 }
 
 func TestWrite_returnsInfrastructureErrorWithoutDelete_whenWAVUploadFailsAfterJSON(t *testing.T) {
-	t.Parallel()
 
 	// Given: json 書込は成功し wav media upload だけ 500
 	tokens := stubTokenSource{token: "ya29.test-token"}
 	writer, probe := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
-		target := r.Header.Get("X-AS-Target-URL")
-		method := r.Header.Get("X-AS-Method")
+		target := r.URL.String()
+		method := r.Method
 		switch {
 		case method == http.MethodGet && strings.Contains(target, "/drive/v3/files"):
 			writeJSONStatus(t, w, http.StatusOK, map[string]any{"files": []any{}})
@@ -353,7 +368,7 @@ func TestWrite_returnsInfrastructureError_whenClientNil(t *testing.T) {
 	t.Parallel()
 
 	// Given: client が nil
-	writer := NewRawEpisodeWriter(nil, stubTokenSource{token: "ya29.test-token"})
+	writer := NewRawEpisodeWriter(nil, stubTokenSource{token: "ya29.test-token"}, secrettransport.NewSecretRef())
 
 	// When: Write する
 	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
@@ -388,12 +403,11 @@ func TestWrite_returnsInfrastructureError_whenWriterNil(t *testing.T) {
 }
 
 func TestWrite_returnsInfrastructureError_whenListHTTPFails(t *testing.T) {
-	t.Parallel()
 
 	// Given: files.list が 500
 	tokens := stubTokenSource{token: "ya29.test-token"}
 	writer, _ := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
-		method := r.Header.Get("X-AS-Method")
+		method := r.Method
 		switch method {
 		case http.MethodGet:
 			writeJSONStatus(t, w, http.StatusInternalServerError, map[string]any{"error": "list failed"})
@@ -416,12 +430,11 @@ func TestWrite_returnsInfrastructureError_whenListHTTPFails(t *testing.T) {
 }
 
 func TestWrite_returnsInfrastructureError_whenListBodyInvalid(t *testing.T) {
-	t.Parallel()
 
 	// Given: files.list の body が JSON でない
 	tokens := stubTokenSource{token: "ya29.test-token"}
 	writer, _ := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
-		method := r.Header.Get("X-AS-Method")
+		method := r.Method
 		switch method {
 		case http.MethodGet:
 			w.WriteHeader(http.StatusOK)
@@ -445,12 +458,11 @@ func TestWrite_returnsInfrastructureError_whenListBodyInvalid(t *testing.T) {
 }
 
 func TestWrite_returnsInfrastructureError_whenCreateHTTPFails(t *testing.T) {
-	t.Parallel()
 
 	// Given: metadata create が 500
 	tokens := stubTokenSource{token: "ya29.test-token"}
 	writer, _ := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
-		method := r.Header.Get("X-AS-Method")
+		method := r.Method
 		switch method {
 		case http.MethodGet:
 			writeJSONStatus(t, w, http.StatusOK, map[string]any{"files": []any{}})
@@ -475,12 +487,11 @@ func TestWrite_returnsInfrastructureError_whenCreateHTTPFails(t *testing.T) {
 }
 
 func TestWrite_returnsInfrastructureError_whenCreateIDEmpty(t *testing.T) {
-	t.Parallel()
 
 	// Given: create 応答の id が空
 	tokens := stubTokenSource{token: "ya29.test-token"}
 	writer, _ := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
-		method := r.Header.Get("X-AS-Method")
+		method := r.Method
 		switch method {
 		case http.MethodGet:
 			writeJSONStatus(t, w, http.StatusOK, map[string]any{"files": []any{}})
@@ -505,12 +516,11 @@ func TestWrite_returnsInfrastructureError_whenCreateIDEmpty(t *testing.T) {
 }
 
 func TestWrite_returnsInfrastructureError_whenCreateBodyInvalid(t *testing.T) {
-	t.Parallel()
 
 	// Given: create 応答が JSON でない
 	tokens := stubTokenSource{token: "ya29.test-token"}
 	writer, _ := newWriterWithProxy(t, tokens, func(w http.ResponseWriter, r *http.Request) {
-		method := r.Header.Get("X-AS-Method")
+		method := r.Method
 		switch method {
 		case http.MethodGet:
 			writeJSONStatus(t, w, http.StatusOK, map[string]any{"files": []any{}})
@@ -536,7 +546,6 @@ func TestWrite_returnsInfrastructureError_whenCreateBodyInvalid(t *testing.T) {
 }
 
 func TestWrite_escapesQuoteInListQuery_whenEpisodeIDContainsQuote(t *testing.T) {
-	t.Parallel()
 
 	// Given: episodeId に単引用符を含む
 	const episodeID = "ep'1"

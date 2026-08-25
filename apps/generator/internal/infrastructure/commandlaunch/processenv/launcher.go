@@ -21,23 +21,29 @@ type Launcher struct {
 	bindings              secrettransport.BindingResolver
 	secretRef             secrettransport.SecretRef
 	inheritedEnvNameAllow []string
+	lookupEnv             func(key string) (string, bool)
 }
 
 // NewLauncher は process-env 実装の Launcher を返す。
 //
 // @require bindings は非 nil。inheritedEnvNameAllow は Composition 所有の名前集合。
-// @ensure 戻りは commandlaunch.Launcher。
+// @ensure 戻りは commandlaunch.Launcher。lookupEnv が nil のとき os.LookupEnv を使う。
 func NewLauncher(
 	bindings secrettransport.BindingResolver,
 	secretRef secrettransport.SecretRef,
 	inheritedEnvNameAllow []string,
+	lookupEnv func(key string) (string, bool),
 ) *Launcher {
 	allow := make([]string, len(inheritedEnvNameAllow))
 	copy(allow, inheritedEnvNameAllow)
+	if lookupEnv == nil {
+		lookupEnv = os.LookupEnv
+	}
 	return &Launcher{
 		bindings:              bindings,
 		secretRef:             secretRef,
 		inheritedEnvNameAllow: allow,
+		lookupEnv:             lookupEnv,
 	}
 }
 
@@ -48,29 +54,29 @@ func NewLauncher(
 // @ensure child env は allowlist で親から拾った entry と Cursor secret だけであり、親環境を全継承しない。
 func (l *Launcher) Launch(ctx context.Context, command commandlaunch.Command) ([]byte, error) {
 	if l == nil {
-		return nil, fmt.Errorf("processenv: launcher is nil")
+		return nil, infraErr("launch", fmt.Errorf("launcher is nil"))
 	}
 	if ctx == nil {
-		return nil, fmt.Errorf("processenv: ctx is nil")
+		return nil, infraErr("launch", fmt.Errorf("ctx is nil"))
 	}
 	program := strings.TrimSpace(command.Program)
 	if program == "" {
-		return nil, fmt.Errorf("processenv: program is empty")
+		return nil, infraErr("launch", fmt.Errorf("program is empty"))
 	}
 	if l.bindings == nil {
-		return nil, fmt.Errorf("processenv: bindings is nil")
+		return nil, infraErr("launch", fmt.Errorf("bindings is nil"))
 	}
 
 	secretName, ok := l.bindings.ResolveSecret(l.secretRef)
 	if !ok || strings.TrimSpace(secretName) == "" {
-		return nil, fmt.Errorf("processenv: secret binding is unresolved")
+		return nil, infraErr("resolve_secret_binding", fmt.Errorf("secret binding is unresolved"))
 	}
-	secretValue, ok := os.LookupEnv(secretName)
+	secretValue, ok := l.lookupEnv(secretName)
 	if !ok || secretValue == "" {
-		return nil, fmt.Errorf("processenv: secret is unset")
+		return nil, infraErr("resolve_secret_value", fmt.Errorf("secret is unset"))
 	}
 
-	env := buildChildEnv(l.inheritedEnvNameAllow, secretName, secretValue, os.LookupEnv)
+	env := buildChildEnv(l.inheritedEnvNameAllow, secretName, secretValue, l.lookupEnv)
 
 	cmd := exec.CommandContext(ctx, program, command.Args...)
 	// why: nil Env は親環境の全継承を意味する。空でも非 nil を渡して継承を断つ。
@@ -81,7 +87,7 @@ func (l *Launcher) Launch(ctx context.Context, command commandlaunch.Command) ([
 	// why: stderr 本文を読まず error へ写さない契約を、未読 buffer ではなく Discard で明示する。
 	cmd.Stderr = io.Discard
 	if err := cmd.Run(); err != nil {
-		return nil, err
+		return nil, infraErr("run", err)
 	}
 	return stdout.Bytes(), nil
 }
