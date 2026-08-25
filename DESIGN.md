@@ -1,6 +1,6 @@
 # DESIGN
 
-最終更新: 2026-08-25（deploy・Access 運用を `DEPLOY.md` へ分離）
+最終更新: 2026-08-25（playback Feature/Primitive dir 分割と dependency-cruiser 層 gate／deploy・Access 運用を `DEPLOY.md` へ分離）
 
 地図・使い方・受け入れ・秘密の名前は `README.md`。deploy・Access・公開境界は `DEPLOY.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive / HTTP 契約・運用方針の写しは置かない）。
 
@@ -33,8 +33,8 @@
 | `generator/internal/composition` | Composition Root |
 | `generator/cmd/generator` | 起動入口 |
 | `playback/worker/src/entities` 等 | 上に同じ（BFF） |
-| `playback/web/src/{pages,components,view-models,api,utils,lib}` | frontend skill（role と dir は 1 対 1。`docs/decisions/2026-08-20T19-29-21-playback-web-layer-layout.md`） |
-| `playback/contracts` | web↔worker HTTP 境界共有型（API Client と Route / Controller のみ import） |
+| `playback/web/src/{pages,components/feature,components/primitive,view-models,api,utils,lib}` | frontend skill（role と dir は 1 対 1。Feature/Primitive 分割と層 gate は `docs/decisions/2026-08-25T18-42-00-chore-playback-worker-web-layer.md`） |
+| `playback/contracts` | web↔worker HTTP 境界共有型（API Client・Route・Controller・Application・Composition が import。Infrastructure は禁止） |
 
 `playback/web` は Vite + TypeScript（vanilla）+ Pico.css classless。React / Next.js / shadcn は使わない（`docs/decisions/2026-08-18T11-12-00-feature-playback-web.md`）。
 
@@ -63,6 +63,8 @@ repo 根 `contracts/` は Drive 上の表現（配置・`manuscript.schema.json`
 | 原稿 | Cursor CLI（Port は `TextWriter`） |
 | TTS | Gemini |
 | Drive | Google Drive + OAuth refresh |
+
+秘密の HTTP / command 出口は vendor Adapter が持たない。出口契約は `secrettransport` / `commandlaunch`、置き場 runtime と結線は Composition。2軸と配置の正は `docs/decisions/2026-08-25T13-53-55-feature-generator-processenv-command-launcher.md`。HTTP × AgentSecrets の正本吸収は `docs/decisions/2026-08-25T19-36-11-feature-generator-agentsecrets-http-transport.md`（本文は写さない）。
 
 ブラウザに Drive の長期秘密を置かない。フォルダ ID・OAuth の値は実行設定（`contracts/` 外）。
 

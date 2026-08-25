@@ -15,11 +15,11 @@
 - [x] Application 原稿検証 + WriteEpisode（`application.WriteEpisode`。PR #39 で完了）
 - [x] Cursor CLI の Infrastructure（`TextWriter` Adapter）
 - [x] process-env command launcher — production Cursor path 完了（todo file 削除済み）
-- [ ] process-env HTTP transport — `generator-processenv-http-transport.md`
+- [x] process-env HTTP transport — production process-env HTTP 完了（todo file 削除済み）
 - [ ] local AgentSecrets Cursor command launcher — `generator-agentsecrets-cursor-command-launcher.md`
-- [ ] local AgentSecrets HTTP transport — `generator-agentsecrets-http-transport.md`
 - [ ] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）— **D / 未切り出し**（入口契約は `generator-cmd-entrypoint.md`）
 - [ ] cmd 入口 — `generator-cmd-entrypoint.md`
+- [ ] AgentSecrets HTTP proxy 正本吸収（philosophy 再設計） — `generator-agentsecrets-http-proxy-absorb.md`
 - [ ] GHA workflow で定期または手動実行 — **未切り出し**
 
 ### Issue 化待ち（詳細は各 file）
@@ -29,7 +29,7 @@
 | `generator-cmd-entrypoint.md` | cmd Driving Adapter 完了 + 既存境界の A/B 整合（`ProduceEpisode.Run` 本体は外） |
 | `generator-processenv-http-transport.md` | production process-env HTTP transport + Adapter の `secrettransport` 切替 |
 | `generator-agentsecrets-cursor-command-launcher.md` | local AgentSecrets × command（Cursor 専用 project） |
-| `generator-agentsecrets-http-transport.md` | local AgentSecrets × HTTP（`secrettransport.Client`） |
+| `generator-agentsecrets-http-proxy-absorb.md` | HTTP proxy 正本を `secrettransport/agentsecrets` へ再設計吸収（mv/rename ではなく philosophy 設計が主眼） |
 
 ### 依存（実装順）
 

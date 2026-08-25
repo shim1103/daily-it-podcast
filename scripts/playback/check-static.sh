@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # name: playback-check-static
-# description: playback の静的検査（Biome + tsc --noEmit）を実行する。
+# description: playback の静的検査（Biome + tsc --noEmit + dependency-cruiser）を実行する。
 # @require リポジトリ内から呼ぶ。playback は npm 依存が install 済み。
-# @ensure package.json が無ければ成功。あれば Biome format/lint と tsc --noEmit が exit 0 のときだけ成功する。
+# @ensure package.json が無ければ成功。あれば Biome format/lint・tsc --noEmit・層 import 検査が exit 0 のときだけ成功する。
 # @invariant Unit / Integration を実行しない。generator を触らない。
 set -euo pipefail
 
@@ -20,4 +20,6 @@ root="$(git rev-parse --show-toplevel)"
   npm run lint
   echo "typecheck: playback (tsc)"
   npm run typecheck
+  echo "layers: playback (dependency-cruiser)"
+  npm run lint:layers
 )
