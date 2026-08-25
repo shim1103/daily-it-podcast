@@ -17,6 +17,7 @@ playback の web / worker に dependency-cruiser による層違反検知を sta
 3. `ManuscriptSchema` を Ajv + repo 根 `manuscript.schema.json` へ切り替え、sociable_unit を追加した。
 4. Decision / DESIGN / playback-lane を code SSOT に同期した。
 5. `.cursor/cli.json` に `Delete(*)` を allow へ追加した（Write だけでは Delete 承認待ちになる）。
+6. PR #56 を `develop` 向けに作成した。create-pr 完了条件照合で conflict を検出し、`origin/develop` を merge して DESIGN / lane / lessons を解消した。
 
 ### Commits
 
@@ -25,3 +26,4 @@ playback の web / worker に dependency-cruiser による層違反検知を sta
 3. `4819f74`
 4. `7c041fd`
 5. `bac5429`
+6. `1b24c8e`
