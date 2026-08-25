@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { GetEpisodeResponse } from "../../../contracts/index.ts";
+import type { GetEpisodeResponse } from "../../../../contracts/index.ts";
 import { createEpisodeTopic } from "./episode-topic.ts";
 
 type Topic = GetEpisodeResponse["body"]["topics"][number];

@@ -76,3 +76,11 @@
 172：2026-08-25 [feature-generator-cmd-usecase-boundary] scope-split の C は local Issue file で足りる。remote Issue 作成は別指示がない限り自動でやらない  # → layer:workflow
 173：2026-08-25 [feature-generator-cmd-usecase-boundary] Decision の戻り型や層置きが後から誤りと分かったら、本文を黙って書き換えず superseded を明示して新 Decision を正にする  # → layer:workflow
 174：2026-08-25 [feature-generator-cmd-usecase-boundary] lane の checkbox 順は実装メモであり最終境界の正ではない。正は philosophy / architecture と確定した Decision である  # → layer:workflow
+165：2026-08-25 [feature-generator-agentsecrets-http-transport] Acceptance Criteria 通過のための一時 wrap を最終形とみなさない。契約実装の正本がどこか、という再発判断は Decision に残し、到達手段の完了と最終配置の完了を混同しない  # → layer:workflow
+166：2026-08-25 [feature-generator-agentsecrets-http-transport] Issue が既存実装を Canonical Source に挙げても wrap 義務ではない。正本の単一化が必要な時は設計原則（DRY / DIP）で最終形を決め、手段を契約へ昇格させない  # → layer:workflow
+167：2026-08-25 [feature-generator-agentsecrets-http-transport] 「移管」を path の移動・改名と同一視しない。所有境界・契約充足・正本の単一化を設計し直すのが本体であり、path 変更はその結果にすぎない  # → layer:terms
+168：2026-08-25 [feature-generator-agentsecrets-http-transport] manager が Issue 本文に無い実装選択を freeze した時、その選択が恒久形かどうかを同じ session で判定し、恒久でないなら Rejected と対になる最終形判断を残す。AC 通過だけで閉じない  # → layer:workflow
+169：2026-08-25 [chore/playback-worker-web-layer] scope-split の A は境界契約を code（dir・設定・型）として固定する工程であり、契約を説明した markdown を別途作ることではない。B は A の code を正として Decision / 運用方針文書を更新する  # → layer:workflow
+170：2026-08-25 [chore/playback-worker-web-layer] allowlist の Write 許可は Delete を含まない。別名の tool は個別に allow へ書かない限り承認待ちになる  # → layer:platform
+171：2026-08-25 [chore/playback-worker-web-layer] git mv は rename を index に載せる。意図した path だけ add したつもりでも、既に staged の rename が同じ commit に混ざる。commit 直前に staged 一覧を確認し、無関係な staged を外してから commit する  # → layer:platform
+172：2026-08-25 [chore/playback-worker-web-layer] Feature と Primitive は import 規則が異なる。同一 dir のまま file 名例外で enforce すると新 file 追加で穴が開く。role が違うなら dir 境界へ昇格させて機械検査する  # → layer:terms

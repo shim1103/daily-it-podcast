@@ -8,10 +8,12 @@
     "test:integration": "vitest run --project integration",
     "typecheck": "tsc --noEmit",
     "lint": "biome lint .",
-    "format:check": "biome format ."
+    "format:check": "biome format .",
+    "lint:layers": "depcruise --config .dependency-cruiser.mjs --ts-pre-compilation-deps \"worker/src/**/*.ts\" \"web/src/**/*.ts\""
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.9",
+    "dependency-cruiser": "^16.10.4",
     "happy-dom": "^20.11.6",
     "typescript": "^5.9.3",
     "vite": "^7.3.6",
@@ -19,6 +21,7 @@
   },
   "dependencies": {
     "@picocss/pico": "^2.1.1",
+    "ajv": "^8.17.1",
     "zod": "^4.4.3"
   }
 }

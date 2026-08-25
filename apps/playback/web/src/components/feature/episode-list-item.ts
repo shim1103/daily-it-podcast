@@ -1,5 +1,5 @@
-import type { EpisodeListItemData } from "../view-models/episode-list-view-model.ts";
-import { createLabeledText } from "./labeled-text.ts";
+import type { EpisodeListItemData } from "../../view-models/episode-list-view-model.ts";
+import { createLabeledText } from "../primitive/labeled-text.ts";
 
 /**
  * EpisodeListItem 1件を、field をそのまま描画する要素として組み立てる（Contract Freeze）。
