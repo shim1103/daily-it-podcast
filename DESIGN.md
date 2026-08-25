@@ -92,7 +92,7 @@ Scope × Sociability: [levels](file:///Users/shim0729/.claude/skills/testing-str
 5. static と Unit は commit と GHA。Integration は push と GHA。Generator race は GHA の Unit 後に実行する。手順の正は `scripts/`。hook と GHA は同じ入口を呼ぶ caller であり、command を YAML や hook へ写さない
 6. 片系は `scripts/generator/` と `scripts/playback/` から単独実行できる。root の `check-static.sh` / `test-integration.sh` は片系を呼ぶだけ。root の `test-unit.sh` は composer 契約を実行してから片系 unit を呼ぶ
 7. runner は Playback = Vitest（`apps/playback`）、Generator = `go test`
-8. generator Unit gate は **statement coverage 90%**（`covermode=atomic`、`-shuffle=on`、`-count=1`）。除外は Composition Root のみ。`error.go` / `names.go` / `constants.go` を名前では除外しない。Integration に Unit 閾値を載せない
+8. generator Unit gate は **statement coverage 90%**（`covermode=atomic`、`-shuffle=on`、`-count=1`）。除外は Composition Root（`internal/composition/**`）と CLI Driving Adapter（`cmd/**`）のみ。`error.go` / `names.go` / `constants.go` を名前では除外しない。Integration に Unit 閾値を載せない
 9. generator static は `go build ./...` と **depguard** / `errcheck` / `govet` / `gofmt`（`golangci-lint`、`strict` allow）で build・層 import・静的な誤用を block する。Infrastructure が Application から import してよいのは **Port** のみ。playback 側の同等 gate は置かない
 10. generator race gate は `go test -race` で Unit package を実行する。Integration package・Playback・本番 credential を使わない
 11. generator module と GitHub Actions runner の Go version は **1.26.6** に固定する
