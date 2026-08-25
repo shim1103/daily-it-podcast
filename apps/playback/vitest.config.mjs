@@ -1,8 +1,29 @@
-import { defineConfig } from "vitest/config";
+import { coverageConfigDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
     passWithNoTests: true,
+    coverage: {
+      provider: "v8",
+      include: ["contracts/**/*.ts", "web/src/**/*.ts", "worker/src/**/*.ts"],
+      exclude: [
+        ...coverageConfigDefaults.exclude,
+        "web/main.ts",
+        "web/src/api/api-result.ts",
+        "worker/src/application/ports/**",
+      ],
+      thresholds: {
+        branches: 100,
+        "worker/src/routes/**": { branches: 90 },
+        "worker/src/composition/**": { branches: 90 },
+        "worker/src/infrastructure/drive/google-drive-episode-repository.ts": {
+          branches: 90,
+        },
+        "worker/src/controllers/map-internal-error.ts": { branches: 90 },
+        "web/src/pages/**": { branches: 90 },
+        "web/src/view-models/**": { branches: 90 },
+      },
+    },
     projects: [
       {
         test: {
