@@ -14,9 +14,9 @@ Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う 
 - [x] 実 Google Drive adapter（`GoogleDriveEpisodeRepository`。OAuth・folder ID・Drive API 読取・WAV）
 - [x] playback 静的検査（Biome + tsc）導入。`pr-c-playback-biome-tsc` で完了
 - [x] worker runtime config 境界と `configuration_error` の HTTP contract（PR #36 / PR #38）
+- [x] UI で一覧・再生・原稿表示（一覧 page 1 つに統合。component 構成・audio 取得方式・URL 同期は `docs/decisions/2026-08-25T05-10-48-feature-playback-ui-structure.md`）
 - [x] deploy / Access 方針の A/B（`wrangler.jsonc`・`worker-entry`・`DEPLOY.md`・decision 2本）
 - [ ] web API Client の応答処理 — `playback-web-api-client.md`（file 欠落なら再切り出し）
-- [ ] UI で一覧・再生・原稿表示 — **未切り出し**
 - [ ] deploy 前実装・設定（下記 C）— **Issue 未作成**
 - [ ] 初回手動 deploy 以降（下記 D）— **Issue 化しない／後で決める**
 
@@ -28,10 +28,9 @@ Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う 
 
 1. wrangler toolchain（package・script・`wrangler types`・Vite build → `web/dist`）
 2. 同一 origin 配信の実装完成（assets + `/episodes*`）
-3. UI 完成（一覧・再生・原稿）。deploy 前完成条件に含む
-4. Workers secret 4 key の投入
-5. Access Application / Allow（自分 email・session 30d）の dashboard 設定
-6. `wrangler deploy --dry-run` と Access Verification（本番 traffic は載せない）
+3. Workers secret 4 key の投入
+4. Access Application / Allow（自分 email・session 30d）の dashboard 設定
+5. `wrangler deploy --dry-run` と Access Verification（本番 traffic は載せない）
 
 ### D: これから決める／後回し
 
@@ -51,13 +50,13 @@ Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う 
 ### 依存（実装順）
 
 ```text
-contracts / worker（済）
-  → web-api-client ┐
-  → UI            ┴→ deploy 前 C（toolchain・secret・Access dashboard・dry-run）
-                        → 初回手動 deploy（D）
+contracts / worker / UI（済）
+  → web-api-client
+  → deploy 前 C（toolchain・secret・Access dashboard・dry-run）
+      → 初回手動 deploy（D）
 ```
 
-web-api-client の AC は Stub `fetch`、UI の AC は Stub API Client で完結できる。音声は wav。generator 書込とは共有しない。
+web-api-client の AC は Stub `fetch` で完結できる。音声は wav。generator 書込とは共有しない。
 
 web の role ↔ dir 対応と Pico.css の導入方式は `docs/decisions/2026-08-20T19-29-21-playback-web-layer-layout.md`。
 
