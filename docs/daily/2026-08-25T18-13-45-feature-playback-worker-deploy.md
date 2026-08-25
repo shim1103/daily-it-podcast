@@ -18,6 +18,7 @@ Playback Worker の初回手動 deploy に向けて、同一 origin・Access・s
 4. `playback-lane` に deploy 前 C と後続 D を短く残した。Issue file は作っていない。
 5. shared skill 側で logging/decisions の書き方と scope-split の 4 種 SSOT 分けを通るよう直した（本 repo 外）。
 6. PR 前に `origin/develop` を merge し、UI 完了と deploy A/B の lane conflict を両意図で解消した。`worker-entry` unit と playback unit は merge 後も pass。
+7. PR #54 を `develop` 向けに作成した。base との merge conflict なし。
 
 ### Commits
 
@@ -27,3 +28,4 @@ Playback Worker の初回手動 deploy に向けて、同一 origin・Access・s
 - `c2422cd`
 - `34d1c7a`
 - `385ba7f`
+- `d4001e9`
