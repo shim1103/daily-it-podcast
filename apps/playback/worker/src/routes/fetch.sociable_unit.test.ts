@@ -28,8 +28,12 @@ vi.mock("../composition/root.ts", async (importOriginal) => {
   };
 });
 
+vi.mock("./match-playback-route.ts", { spy: true });
+
 import { createPlaybackControllers, PlaybackRuntimeConfigError } from "../composition/root.ts";
 import { fetch as handleFetch } from "./fetch.ts";
+import { matchPlaybackRoute } from "./match-playback-route.ts";
+import type { MatchedRoute } from "./match-playback-route.ts";
 
 const origin = "http://example.test";
 const emptyEnv = {};
@@ -76,6 +80,7 @@ afterEach(() => {
   vi.mocked(getEpisodeController).mockReset();
   vi.mocked(getEpisodeAudioController).mockReset();
   vi.mocked(createPlaybackControllers).mockClear();
+  vi.mocked(matchPlaybackRoute).mockClear();
   errorSpy.mockClear();
 });
 
@@ -310,5 +315,20 @@ describe("fetch", () => {
         },
       }),
     );
+  });
+
+  it("MatchedRoute が既知 kind のいずれでもない時、method または path が契約に無いとして扱う", async () => {
+    // Given: 契約に無い未知 kind を返す match 結果
+    vi.mocked(matchPlaybackRoute).mockReturnValueOnce({
+      kind: "unknown",
+    } as unknown as MatchedRoute);
+
+    // When: 任意の path へ GET する
+    const got = await handleFetch(new Request(`${origin}${listEpisodesPath}`), emptyEnv);
+
+    // Then: 400 と validation_error を返す
+    expect(got.status).toBe(400);
+    const body: unknown = await got.json();
+    expect(body).toEqual({ code: "validation_error" });
   });
 });

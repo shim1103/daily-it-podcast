@@ -27,10 +27,10 @@ export function matchPlaybackRoute(method: string, pathname: string): MatchedRou
   }
   const segments = pathname.slice(prefix.length).split("/");
   if (segments.length === 1) {
-    return { kind: "get", episodeId: decodePathSegment(segments[0] ?? "") };
+    return { kind: "get", episodeId: decodePathSegment(segments[0]) };
   }
   if (segments.length === 2 && segments[1] === "audio") {
-    return { kind: "audio", episodeId: decodePathSegment(segments[0] ?? "") };
+    return { kind: "audio", episodeId: decodePathSegment(segments[0]) };
   }
   return { kind: "unmatched" };
 }

@@ -1,6 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GetEpisodeResponse, ListEpisodesResponse } from "../../../contracts/index.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
+import type { EpisodeListViewModel } from "../view-models/episode-list-view-model.ts";
+
+vi.mock("../view-models/episode-list-view-model.ts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../view-models/episode-list-view-model.ts")>();
+  return {
+    ...actual,
+    createEpisodeListViewModel: vi.fn(actual.createEpisodeListViewModel),
+  };
+});
+
+import { createEpisodeListViewModel } from "../view-models/episode-list-view-model.ts";
 import { createEpisodeListPage } from "./episode-list-page.ts";
 
 const validListEpisodesResponse: ListEpisodesResponse = {
@@ -39,6 +50,7 @@ async function flushMicrotasks(): Promise<void> {
 describe("createEpisodeListPage", () => {
   afterEach(() => {
     window.location.hash = "";
+    vi.mocked(createEpisodeListViewModel).mockClear();
   });
 
   it("mount 時に location.hash に episodeId があれば、その episode を選択した状態で描画する", async () => {
@@ -82,5 +94,71 @@ describe("createEpisodeListPage", () => {
 
     // Then: 選択中 episode の詳細が描画される
     expect(page.querySelector("[data-episode-title]")).not.toBeNull();
+  });
+
+  it("mount 時に location.hash が空の時、episode を選択せず描画する", async () => {
+    // Given: hash が未設定
+    const apiClient = createStubApiClient();
+
+    // When: page を組み立てる
+    const page = createEpisodeListPage(apiClient, "https://example.test");
+    await flushMicrotasks();
+
+    // Then: 選択中 episode の詳細（manuscript）は描画されない
+    expect(page.querySelector("[data-manuscript-opening]")).toBeNull();
+  });
+
+  it("一覧が success になる前に hashchange が起きた時、選択状態を変えない", async () => {
+    // Given: 一覧取得が未解決のまま mount した page
+    const apiClient = createStubApiClient({
+      listEpisodes: vi.fn(() => new Promise<never>(() => {})),
+    });
+    const page = createEpisodeListPage(apiClient, "https://example.test");
+    await flushMicrotasks();
+
+    // When: hash を変更し hashchange を発火する
+    window.location.hash = "#ep-1";
+    window.dispatchEvent(new Event("hashchange"));
+    await flushMicrotasks();
+
+    // Then: 一覧が未取得のため選択中 episode の詳細（manuscript）は描画されない
+    expect(page.querySelector("[data-manuscript-opening]")).toBeNull();
+  });
+
+  it("load() 完了時点で hash が空のままにならない ViewModel の時、mount 時の hash で select する", async () => {
+    // Given: load() 完了後も selectedEpisodeId を持つ success state を最初から返す ViewModel
+    //   （実装の ViewModel は load() 完了直後に selectedEpisodeId を null に戻すため hash が一旦消えるが、
+    //   ここでは mount 時の hash 復元ロジック（L62-67）だけを独立して検証する）
+    window.location.hash = "#ep-1";
+    const listeners = new Set<(state: ReturnType<EpisodeListViewModel["getState"]>) => void>();
+    const state: ReturnType<EpisodeListViewModel["getState"]> = {
+      status: "success",
+      episodes: validListEpisodesResponse.episodes,
+      selectedEpisodeId: "ep-1",
+      selectedEpisode: { status: "success", episode: validGetEpisodeResponse },
+    };
+    const select = vi.fn(async () => {});
+    const fakeViewModel: EpisodeListViewModel = {
+      getState: () => state,
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      load: async () => {
+        for (const listener of listeners) {
+          listener(state);
+        }
+      },
+      select,
+    };
+    vi.mocked(createEpisodeListViewModel).mockReturnValueOnce(fakeViewModel);
+    const apiClient = createStubApiClient();
+
+    // When: page を組み立てる
+    createEpisodeListPage(apiClient, "https://example.test");
+    await flushMicrotasks();
+
+    // Then: mount 時の hash（ep-1）で select() を呼ぶ
+    expect(select).toHaveBeenCalledWith("ep-1");
   });
 });
