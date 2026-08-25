@@ -1,4 +1,4 @@
-import { buildRequestUrl } from "../utils/build-request-url.ts";
+import { buildRequestUrl } from "../../utils/build-request-url.ts";
 
 /**
  * baseUrl と audioRef から `<audio controls src>` を組み立てるだけの要素を作る（Contract Freeze）。

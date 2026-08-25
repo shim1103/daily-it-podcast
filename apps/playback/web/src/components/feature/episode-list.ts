@@ -1,7 +1,7 @@
+import type { EpisodeListState } from "../../view-models/episode-list-view-model.ts";
 import { createEpisodeListItem } from "./episode-list-item.ts";
 import { createEpisodeManuscript } from "./episode-manuscript.ts";
 import { createEpisodePlayer } from "./episode-player.ts";
-import type { EpisodeListState } from "../view-models/episode-list-view-model.ts";
 
 /**
  * 選択中 episode の詳細 state から、manuscript・player を組み合わせた要素を組み立てる。
