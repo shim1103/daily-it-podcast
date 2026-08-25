@@ -1,6 +1,6 @@
 # DESIGN
 
-最終更新: 2026-08-25（deploy・Access 運用を `DEPLOY.md` へ分離）
+最終更新: 2026-08-25（playback Feature/Primitive dir 分割と dependency-cruiser 層 gate／deploy・Access 運用を `DEPLOY.md` へ分離）
 
 地図・使い方・受け入れ・秘密の名前は `README.md`。deploy・Access・公開境界は `DEPLOY.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive / HTTP 契約・運用方針の写しは置かない）。
 
@@ -33,8 +33,8 @@
 | `generator/internal/composition` | Composition Root |
 | `generator/cmd/generator` | 起動入口 |
 | `playback/worker/src/entities` 等 | 上に同じ（BFF） |
-| `playback/web/src/{pages,components,view-models,api,utils,lib}` | frontend skill（role と dir は 1 対 1。`docs/decisions/2026-08-20T19-29-21-playback-web-layer-layout.md`） |
-| `playback/contracts` | web↔worker HTTP 境界共有型（API Client と Route / Controller のみ import） |
+| `playback/web/src/{pages,components/feature,components/primitive,view-models,api,utils,lib}` | frontend skill（role と dir は 1 対 1。Feature/Primitive 分割と層 gate は `docs/decisions/2026-08-25T18-42-00-chore-playback-worker-web-layer.md`） |
+| `playback/contracts` | web↔worker HTTP 境界共有型（API Client・Route・Controller・Application・Composition が import。Infrastructure は禁止） |
 
 `playback/web` は Vite + TypeScript（vanilla）+ Pico.css classless。React / Next.js / shadcn は使わない（`docs/decisions/2026-08-18T11-12-00-feature-playback-web.md`）。
 
@@ -95,7 +95,7 @@ Scope × Sociability: [levels](file:///Users/shim0729/.claude/skills/testing-str
 6. 片系は `scripts/generator/` と `scripts/playback/` から単独実行できる。root の `check-static.sh` / `test-integration.sh` は片系を呼ぶだけ。root の `test-unit.sh` は composer 契約を実行してから片系 unit を呼ぶ
 7. runner は Playback = Vitest（`apps/playback`）、Generator = `go test`
 8. generator Unit gate は **statement coverage 90%**（`covermode=atomic`、`-shuffle=on`、`-count=1`）。除外は Composition Root のみ。`error.go` / `names.go` / `constants.go` を名前では除外しない。Integration に Unit 閾値を載せない
-9. generator static は `go build ./...` と **depguard** / `errcheck` / `govet` / `gofmt`（`golangci-lint`、`strict` allow）で build・層 import・静的な誤用を block する。Infrastructure が Application から import してよいのは **Port** のみ。playback 側の同等 gate は置かない
+9. generator static は `go build ./...` と **depguard** / `errcheck` / `govet` / `gofmt`（`golangci-lint`、`strict` allow）で build・層 import・静的な誤用を block する。Infrastructure が Application から import してよいのは **Port** のみ。playback static は Biome / tsc に加え **dependency-cruiser**（`apps/playback/.dependency-cruiser.mjs`）で層 import を block する
 10. generator race gate は `go test -race` で Unit package を実行する。Integration package・Playback・本番 credential を使わない
 11. generator module と GitHub Actions runner の Go version は **1.26.6** に固定する
 
