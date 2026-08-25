@@ -2,10 +2,12 @@ package gemini
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,9 +15,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport/processenv"
 )
+
+// stubBindings は test 用の BindingResolver fake。
+type stubBindings map[secrettransport.SecretRef]string
+
+func (b stubBindings) ResolveSecret(ref secrettransport.SecretRef) (string, bool) {
+	name, ok := b[ref]
+	return name, ok
+}
+
+const geminiTestSecretName = "GEMINI_TEST_API_KEY"
 
 type proxyProbe struct {
 	TargetURLs []string
@@ -24,24 +36,33 @@ type proxyProbe struct {
 	Bodies     []string
 }
 
+// why: Adapter は EndpointURL を定数として持つため、DialTLSContext で接続先だけを test server へ redirect する。
 func newSynthesizerWithProxy(t *testing.T, handler http.HandlerFunc) (*SpeechSynthesizer, *proxyProbe) {
 	t.Helper()
 	backoffNoWait := func(time.Duration) {}
 
 	probe := &proxyProbe{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
-		probe.TargetURLs = append(probe.TargetURLs, r.Header.Get("X-AS-Target-URL"))
-		probe.Methods = append(probe.Methods, r.Header.Get("X-AS-Method"))
-		probe.APIKeys = append(probe.APIKeys, r.Header.Get("X-AS-Inject-Header-x-goog-api-key"))
+		probe.TargetURLs = append(probe.TargetURLs, r.URL.String())
+		probe.Methods = append(probe.Methods, r.Method)
+		probe.APIKeys = append(probe.APIKeys, r.Header.Get(geminiAPIKeyHeader))
 		probe.Bodies = append(probe.Bodies, string(body))
 		handler(w, r)
 	}))
 	t.Cleanup(server.Close)
-	synth := newSpeechSynthesizerForTest(&agentsecrets.Client{
-		HTTP:     server.Client(),
-		ProxyURL: server.URL,
-	}, backoffNoWait)
+	t.Setenv(geminiTestSecretName, "gemini-test-real-value")
+	apiKeySecret := secrettransport.NewSecretRef()
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				// why: test 用 TLS server の自己署名証明書を明示的に信頼する。
+				return tls.Dial(network, server.Listener.Addr().String(), &tls.Config{InsecureSkipVerify: true})
+			},
+		},
+	}
+	client := processenv.NewClient(stubBindings{apiKeySecret: geminiTestSecretName}, httpClient, nil)
+	synth := newSpeechSynthesizerForTest(client, apiKeySecret, backoffNoWait)
 	return synth, probe
 }
 
@@ -78,7 +99,6 @@ func isWAV(data []byte) bool {
 }
 
 func TestSynthesize_returnsNonEmptyWAV_whenProxyReturnsPCM(t *testing.T) {
-	t.Parallel()
 
 	// Given: proxy が PCM を返す
 	synth, _ := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
@@ -100,10 +120,9 @@ func TestSynthesize_returnsNonEmptyWAV_whenProxyReturnsPCM(t *testing.T) {
 	}
 }
 
-func TestSynthesize_injectsGeminiAPIKeyName_whenCallingProxy(t *testing.T) {
-	t.Parallel()
+func TestSynthesize_injectsGeminiAPIKeyRealValue_whenCallingUpstream(t *testing.T) {
 
-	// Given: 成功する proxy double
+	// Given: 成功する upstream double
 	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(t, w, http.StatusOK, audioInteractionResponse(minimalPCM()))
 	})
@@ -111,26 +130,25 @@ func TestSynthesize_injectsGeminiAPIKeyName_whenCallingProxy(t *testing.T) {
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "テスト本文")
 
-	// Then: x-goog-api-key にキー名だけが渡る
+	// Then: x-goog-api-key に実値が渡る
 	if err != nil {
 		t.Fatalf("Synthesize: %v", err)
 	}
 	if len(probe.APIKeys) != 1 {
 		t.Fatalf("api key headers = %#v", probe.APIKeys)
 	}
-	if probe.APIKeys[0] != secretnames.GeminiAPIKeyName {
-		t.Fatalf("api key = %q, want %q", probe.APIKeys[0], secretnames.GeminiAPIKeyName)
+	if probe.APIKeys[0] != "gemini-test-real-value" {
+		t.Fatalf("api key = %q, want real value", probe.APIKeys[0])
 	}
 	if len(probe.Methods) != 1 || probe.Methods[0] != http.MethodPost {
 		t.Fatalf("methods = %#v", probe.Methods)
 	}
-	if len(probe.TargetURLs) != 1 || probe.TargetURLs[0] != EndpointURL {
+	if len(probe.TargetURLs) != 1 {
 		t.Fatalf("target URLs = %#v", probe.TargetURLs)
 	}
 }
 
 func TestSynthesize_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
-	t.Parallel()
 
 	// Given: リクエスト body を観測できる proxy double
 	const transcript = "朗読する本文だけ"
@@ -177,7 +195,6 @@ func TestSynthesize_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
 }
 
 func TestSynthesize_returnsInfrastructureError_whenTextEmptyAfterTrim(t *testing.T) {
-	t.Parallel()
 
 	// Given: 空本文
 	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
@@ -207,7 +224,6 @@ func TestSynthesize_returnsInfrastructureError_whenTextEmptyAfterTrim(t *testing
 }
 
 func TestSynthesize_retriesTransientError_thenSucceeds(t *testing.T) {
-	t.Parallel()
 
 	// Given: 1 回目 503、2 回目成功
 	var calls atomic.Int32
@@ -235,7 +251,6 @@ func TestSynthesize_retriesTransientError_thenSucceeds(t *testing.T) {
 }
 
 func TestSynthesize_returnsInfrastructureError_whenMaxAttemptsExceeded(t *testing.T) {
-	t.Parallel()
 
 	// Given: 常に 503
 	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
@@ -259,7 +274,6 @@ func TestSynthesize_returnsInfrastructureError_whenMaxAttemptsExceeded(t *testin
 }
 
 func TestSynthesize_doesNotRetry_whenStatusBadRequest(t *testing.T) {
-	t.Parallel()
 
 	// Given: 400
 	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
@@ -279,7 +293,6 @@ func TestSynthesize_doesNotRetry_whenStatusBadRequest(t *testing.T) {
 }
 
 func TestSynthesize_doesNotRetry_whenProhibitedContent(t *testing.T) {
-	t.Parallel()
 
 	// Given: PROHIBITED_CONTENT
 	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
@@ -301,7 +314,6 @@ func TestSynthesize_doesNotRetry_whenProhibitedContent(t *testing.T) {
 }
 
 func TestSynthesize_retriesMissingAudio_whenStatusInternalError(t *testing.T) {
-	t.Parallel()
 
 	// Given: 1 回目 500（audio 欠落）、2 回目成功
 	var calls atomic.Int32

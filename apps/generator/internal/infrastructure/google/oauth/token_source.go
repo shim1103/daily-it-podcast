@@ -8,22 +8,34 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
 )
 
 const tokenURL = "https://oauth2.googleapis.com/token"
 
 // TokenSource は Google OAuth refresh で access token を取得する。
 type TokenSource struct {
-	client *agentsecrets.Client
+	client             secrettransport.Client
+	clientIDSecret     secrettransport.SecretRef
+	clientSecretSecret secrettransport.SecretRef
+	refreshTokenSecret secrettransport.SecretRef
 }
 
-// NewTokenSource は AgentSecrets proxy を使う Google OAuth TokenSource を返す。
+// NewTokenSource は Google OAuth TokenSource を返す。
 //
-// @ensure OAuth secret の実値を保持しない。
-func NewTokenSource(client *agentsecrets.Client) *TokenSource {
-	return &TokenSource{client: client}
+// @ensure OAuth secret の実値を保持しない。secret 名の知識は持たず、各 SecretRef の参照だけを保持する。
+func NewTokenSource(
+	client secrettransport.Client,
+	clientIDSecret secrettransport.SecretRef,
+	clientSecretSecret secrettransport.SecretRef,
+	refreshTokenSecret secrettransport.SecretRef,
+) *TokenSource {
+	return &TokenSource{
+		client:             client,
+		clientIDSecret:     clientIDSecret,
+		clientSecretSecret: clientSecretSecret,
+		refreshTokenSecret: refreshTokenSecret,
+	}
 }
 
 // Token は refresh token を使って非空の access token を返す。
@@ -35,18 +47,18 @@ func (s *TokenSource) Token(ctx context.Context) (string, error) {
 		return "", infraErr("refresh", fmt.Errorf("client is nil"))
 	}
 
-	res, err := s.client.Do(ctx, agentsecrets.Request{
+	res, err := s.client.Do(ctx, secrettransport.Request{
 		Method:    http.MethodPost,
 		TargetURL: tokenURL,
-		Body:      strings.NewReader("grant_type=refresh_token"),
-		PassthroughHeaders: map[string]string{
-			"Content-Type": "application/x-www-form-urlencoded",
+		Body:      []byte("grant_type=refresh_token"),
+		PassthroughHeaders: []secrettransport.Header{
+			{Name: "Content-Type", Value: "application/x-www-form-urlencoded"},
 		},
-		Inject: agentsecrets.Inject{
-			Form: map[string]string{
-				"client_id":     secretnames.GoogleOAuthClientIDName,
-				"client_secret": secretnames.GoogleOAuthClientSecretName,
-				"refresh_token": secretnames.GoogleOAuthRefreshTokenName,
+		Inject: secrettransport.Inject{
+			Form: []secrettransport.FieldInjection{
+				{Field: "client_id", Secret: s.clientIDSecret},
+				{Field: "client_secret", Secret: s.clientSecretSecret},
+				{Field: "refresh_token", Secret: s.refreshTokenSecret},
 			},
 		},
 	})

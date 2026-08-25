@@ -9,6 +9,8 @@
       "Mcp(*:*)"
     ],
     "deny": [
+      "WebSearch(*)",
+      "WebSearch",
       "Read(**/.env)",
       "Read(**/.env.*)",
       "Read(**/secrets/**)",
