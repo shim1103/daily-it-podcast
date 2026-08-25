@@ -1,25 +1,70 @@
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 import { createEpisodeList } from "../components/episode-list.ts";
+import { getLocationHash, onLocationHashChange, setLocationHash } from "../lib/location-hash.ts";
 import { createEpisodeListViewModel } from "../view-models/episode-list-view-model.ts";
 
 /**
- * 一覧 page。ViewModel と Feature Component を組み立てるだけ。
+ * 一覧 page。ViewModel と Feature Component、hash 同期用 Driven Adapter を組み立てるだけ。
  *
- * @require apiClient は `listEpisodes()` を持つ
- * @ensure ViewModel の state 変化のたび、一覧 Feature Component を再描画する。mount 時に load() を開始する
+ * @require apiClient は `listEpisodes()` と `getEpisode(episodeId)` を持つ。baseUrl は audio 直結先の origin相当
+ * @ensure ViewModel の state 変化のたび、一覧 Feature Component を再描画し、location.hash を
+ *   selectedEpisodeId へ同期する。mount 時に load() を開始し、hash に episodeId があればその episode を選択する。
+ *   hashchange 時は対応する episodeId を選択する。episode 選択は ViewModel の select() を呼ぶ
  * @invariant ここに表示ロジック・API 呼び出しの詳細を書かない
  */
-export function createEpisodeListPage(apiClient: PlaybackApiClient): HTMLElement {
+export function createEpisodeListPage(apiClient: PlaybackApiClient, baseUrl: string): HTMLElement {
   const container = document.createElement("div");
   const viewModel = createEpisodeListViewModel(apiClient);
 
+  // why: hashchange listener 由来の select() が setState を発火させ、そのまま同じ値を
+  //   setLocationHash へ書き戻すと無限ループになりうる。書き込み直前の値と比較して抑止する
+  let lastSyncedHash = getLocationHash();
+
   function render(): void {
-    container.replaceChildren(createEpisodeList(viewModel.getState()));
+    container.replaceChildren(
+      createEpisodeList(viewModel.getState(), baseUrl, (episodeId) => {
+        void viewModel.select(episodeId);
+      }),
+    );
+
+    const state = viewModel.getState();
+    const nextHash = state.status === "success" ? (state.selectedEpisodeId ?? "") : lastSyncedHash;
+    if (nextHash !== lastSyncedHash) {
+      lastSyncedHash = nextHash;
+      setLocationHash(nextHash);
+    }
   }
 
   viewModel.subscribe(render);
   render();
-  void viewModel.load();
+
+  onLocationHashChange(() => {
+    const hash = getLocationHash();
+    if (hash === lastSyncedHash) {
+      return;
+    }
+    lastSyncedHash = hash;
+
+    const state = viewModel.getState();
+    if (state.status !== "success") {
+      return;
+    }
+
+    // why: hash が空になった場合は、選択中 episode を select() で選択解除させる
+    //   （select() は同じ episodeId を渡すと選択解除する契約）
+    if (hash !== "") {
+      void viewModel.select(hash);
+    } else if (state.selectedEpisodeId !== null) {
+      void viewModel.select(state.selectedEpisodeId);
+    }
+  });
+
+  void viewModel.load().then(() => {
+    const initialHash = getLocationHash();
+    if (initialHash !== "") {
+      void viewModel.select(initialHash);
+    }
+  });
 
   return container;
 }
