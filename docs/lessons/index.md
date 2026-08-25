@@ -42,3 +42,9 @@
 138：2026-08-22 [feature-generator-infras-all-narrow-integration] runtime名が共通でも、外部境界・contract・検証方法が異なる実装は別Issueに分ける。共有するruntime名ではなく、独立して完了・検証できる境界をIssue単位にする  # → layer:workflow
 139：2026-08-22 [test/generator-mutation-testing] Decision Record が tool名だけを固定し module path を書いていない時、名前の類似から推測した path で `go install` しない。web検索で実配布元（作者・repository）を確認してから固定 version を install する  # → layer:workflow
 140：2026-08-22 [test/generator-mutation-testing] reviewer の懸念が「ツールの内部挙動」に関するものである時、挙動を再現するテストケースを作れなくても、tool の source（module cache 配下）を直接読んで反証・確証できる。憶測で採否を決めない  # → layer:workflow
+141：2026-08-25 [feature-generator-processenv-command-launcher] 起動や注入の入出力を定義する契約 package は結線ではない。結線オンリーなのは Composition Root であり、契約と組み立てを同名にすると次の読み手が契約を移動・削除しやすい  # → layer:terms
+142：2026-08-25 [feature-generator-processenv-command-launcher] 同じ外側 ring 内で、変わり方の軸が違う境界を抽象へ依存させるのは DIP であり Dependency Rule 違反ではない。Application Port には UseCase の語彙だけを上げ、手段語彙の契約を Application へ持ち上げない  # → layer:terms
+143：2026-08-25 [feature-generator-processenv-command-launcher] ある runtime path の YAGNI で Composition 所有の設定を削る時、別 runtime が同じ設定を必要とするなら follow-up task を残す。削ることと思想の撤回を同一視しない  # → layer:workflow
+144：2026-08-25 [feature-generator-processenv-command-launcher] 秘密の置き場と外部出口は独立軸である。同じ置き場名でも出口の契約・失敗モード・検証境界が違うなら Issue を分け、runtime 名だけで束ねない  # → layer:workflow
+145：2026-08-25 [feature-generator-processenv-command-launcher] 同じ出口でも local と remote で Least Privilege の手段が異なりうる。片方の path の実装を外しても、他方 path の決定を黙って無効化しない  # → layer:terms
+146：2026-08-25 [feature-generator-processenv-command-launcher] hook が変更範囲外の系統を動かし、その系統の依存が未導入で起動に失敗した時は実行環境起因である。product code へ回避を書き込まず、依存導入側で通す  # → layer:platform
