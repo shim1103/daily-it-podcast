@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
+
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
 )
 
 // what: AgentSecrets CLI の既定 proxy URL（port 8765）。
@@ -58,12 +59,8 @@ func (c *Client) Do(ctx context.Context, req Request) (*http.Response, error) {
 		return nil, fmt.Errorf("agentsecrets: ctx is nil")
 	}
 	targetURL := strings.TrimSpace(req.TargetURL)
-	if targetURL == "" {
-		return nil, fmt.Errorf("agentsecrets: TargetURL is empty")
-	}
-	u, err := url.Parse(targetURL)
-	if err != nil || u.Scheme != "https" || u.Host == "" {
-		return nil, fmt.Errorf("agentsecrets: TargetURL must be absolute https URL with host")
+	if err := secrettransport.ValidateAbsoluteHTTPSURL(targetURL); err != nil {
+		return nil, fmt.Errorf("agentsecrets: %w", err)
 	}
 	method := strings.TrimSpace(req.Method)
 	if method == "" {
