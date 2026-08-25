@@ -29,10 +29,10 @@ func NewTextWriter(launcher commandlaunch.Launcher) *TextWriter {
 // 以下は Cursor CLI 起動という実行手段に固有の追加契約だけを示す。
 //
 // @require launcher が非 nil。brief は trim 後に非空。
-// @ensure 失敗時は必ず *cursorcli.Error を返し、断片は空文字列。
+// @ensure 失敗時は必ず *cursorcli.Error を返し、断片は空文字。
 // @ensure Launch へ渡す Command は Program・Args・Stdin のみで、秘密・project・runtime を含まない。
 // @ensure ctx の cancel は launcher へ伝播する。
-// @invariant stderr の内容文字列を戻り error へ写さない。
+// @invariant stderr の内容文字列を戻り error へ写さない。ManuscriptDraft へ変換しない（Application の責務）。
 func (w *TextWriter) Write(ctx context.Context, brief string) (string, error) {
 	if w == nil || w.launcher == nil {
 		return "", infraErr("write", fmt.Errorf("launcher is nil"))

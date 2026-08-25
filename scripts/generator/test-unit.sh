@@ -18,10 +18,11 @@ echo "unit: generator (go + coverage)"
   go test ./cmd/... ./internal/... -shuffle=on -count=1 -covermode=atomic "-coverprofile=$profile"
 )
 
-# why: Composition Root は結線だけ。error.go / names.go / constants.go は名前では除外しない。
+# why: Composition Root と CLI Driving Adapter（cmd）は結線・入口だけ。error.go / names.go / constants.go は名前では除外しない。
 awk -v out="$filtered" '
   NR == 1 { print > out; next }
   $0 ~ /\/internal\/composition\// { next }
+  $0 ~ /\/cmd\// { next }
   { print > out }
 ' "$profile"
 
