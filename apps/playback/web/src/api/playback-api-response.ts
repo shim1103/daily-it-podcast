@@ -41,14 +41,3 @@ export function requestJson<T>(
 ): Promise<ApiResult<T>> {
   return request(fetch, url, async (response) => schema.parse(await response.json()));
 }
-
-/**
- * Blob response を成功 body として読み、ApiResult へ変換する。
- *
- * @require fetch は Fetch API 互換
- * @ensure fetch reject・非成功 response・body failure を throw せず ApiResult へ変換する
- * @invariant 非成功 response の body は読まない
- */
-export function requestBlob(fetch: FetchLike, url: string): Promise<ApiResult<Blob>> {
-  return request(fetch, url, (response) => response.blob());
-}
