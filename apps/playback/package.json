@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config web/vite.config.ts",
-    "test:unit": "vitest run --project unit",
+    "test:unit": "vitest run --project unit --coverage",
     "test:integration": "vitest run --project integration",
     "typecheck": "tsc --noEmit",
     "lint": "biome lint .",
@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.9",
+    "@vitest/coverage-v8": "^3.2.7",
     "dependency-cruiser": "^16.10.4",
     "happy-dom": "^20.11.6",
     "typescript": "^5.9.3",
