@@ -47,6 +47,7 @@ function validateFolderId(env: PlaybackEnv): string | undefined {
 }
 
 function configuredValue(value: string | undefined, key: string): string {
+  /* v8 ignore next 3 -- 呼び出し前に missingReasons で同条件を検証済みのため、この分岐は実行時に到達しない。型上 string | undefined のままの value を narrow するための防御 */
   if (!value?.trim()) {
     throw new PlaybackRuntimeConfigError(`${key} が未設定です`);
   }

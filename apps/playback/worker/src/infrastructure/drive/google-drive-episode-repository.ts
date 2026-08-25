@@ -67,6 +67,7 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
     const manuscripts = await Promise.all(
       jsonEntries.map((entry) => {
         const stem = stemOf(entry.name, jsonExtension);
+        /* v8 ignore next 3 -- jsonEntries は直前で同じ jsonExtension の endsWith 判定を通過済みのため、この分岐は実行時に到達しない */
         if (stem === undefined) {
           return undefined;
         }
