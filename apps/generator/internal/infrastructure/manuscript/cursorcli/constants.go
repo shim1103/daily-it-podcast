@@ -1,11 +1,10 @@
 package cursorcli
 
 // Cursor CLI（非SDK）の argv 構成に必要な確定値だけを定義する。
-// 詳細な呼び出し方（exec、parse、error変換）は Adapter が実装する（このファイルは定数のみ）。
+// 詳細な呼び出し方（Launch、parse、error変換）は Adapter が実装する（このファイルは定数のみ）。
 //
-// why not: 秘密供給 wrapper の binary・subcommand・separator はここに置かない。
-// それは AgentSecrets の知識であって Cursor CLI の知識ではないため、
-// `infrastructure/agentsecrets` が所有する。
+// why not: 秘密名・project dir・child env allowlist・runtime 選択はここに置かない。
+// それらは Composition と command launcher 実装の知識であるため、Adapter は持たない。
 const (
 	BinaryName = "agent"
 

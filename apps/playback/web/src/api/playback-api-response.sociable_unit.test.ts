@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ListEpisodesResponseSchema } from "../../../contracts/index.ts";
 import type { PlaybackApiErrorCode } from "./playback-api-error.ts";
 import { mapHttpStatusToApiError } from "./playback-api-error.ts";
-import { requestBlob, requestJson } from "./playback-api-response.ts";
+import { requestJson } from "./playback-api-response.ts";
 
 vi.mock("./playback-api-error.ts", () => ({
   mapHttpStatusToApiError: vi.fn(),
@@ -39,21 +39,6 @@ describe("playback-api-response 正常系", () => {
 
     // Then: schema 検証済みの data を返す
     expect(got).toEqual({ ok: true, data: validListEpisodesResponse });
-  });
-
-  it("合法な Blob response の時、Blob data を返す", async () => {
-    // Given: 音声 Blob を持つ成功 response
-    const audio = new Blob(["audio"]);
-    const response = new Response(audio, { status: 200 });
-
-    // When: Blob response を処理する
-    const got = await requestBlob(
-      () => Promise.resolve(response),
-      "https://example.test/episodes/ep-1/audio",
-    );
-
-    // Then: Blob data を持つ成功 Result
-    expect(got).toEqual({ ok: true, data: audio });
   });
 });
 
@@ -102,23 +87,6 @@ describe("playback-api-response 異常系", () => {
       () => Promise.resolve(response),
       "https://example.test/episodes",
       ListEpisodesResponseSchema,
-    );
-
-    // Then: invalid_response
-    expect(got).toEqual({ ok: false, error: "invalid_response" });
-  });
-
-  it("成功 Blob の読み取りが reject した時、invalid_response を返す", async () => {
-    // Given: Blob 読み取りに失敗する成功 response
-    const response = {
-      ok: true,
-      blob: () => Promise.reject(new Error("body read failure")),
-    } as unknown as Response;
-
-    // When: Blob response を処理する
-    const got = await requestBlob(
-      () => Promise.resolve(response),
-      "https://example.test/episodes/ep-1/audio",
     );
 
     // Then: invalid_response

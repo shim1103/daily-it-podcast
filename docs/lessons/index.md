@@ -42,3 +42,17 @@
 138：2026-08-22 [feature-generator-infras-all-narrow-integration] runtime名が共通でも、外部境界・contract・検証方法が異なる実装は別Issueに分ける。共有するruntime名ではなく、独立して完了・検証できる境界をIssue単位にする  # → layer:workflow
 139：2026-08-22 [test/generator-mutation-testing] Decision Record が tool名だけを固定し module path を書いていない時、名前の類似から推測した path で `go install` しない。web検索で実配布元（作者・repository）を確認してから固定 version を install する  # → layer:workflow
 140：2026-08-22 [test/generator-mutation-testing] reviewer の懸念が「ツールの内部挙動」に関するものである時、挙動を再現するテストケースを作れなくても、tool の source（module cache 配下）を直接読んで反証・確証できる。憶測で採否を決めない  # → layer:workflow
+141：2026-08-25 [feature/playback-ui-structure] goalの「finished /skill-name」は最終到達点の宣言であり、そのturnで実行すべき作業内容ではない。同時に書かれたflowが「調査してまとめよ」の性質なら、goalの語だけでskillの実行フェーズ（decision確定・file作成）まで進めない。goalとflowが揃っている時はflowの動詞で着手範囲を決める  # → layer:workflow
+142：2026-08-25 [feature/playback-ui-structure] `non-edit`が明示されたturnでも、後続に別skill（scope-split等）への参照があると「そのskillを今回実行してよい」と読み違えやすい。non-edit宣言はskill参照の有無に関わらず最優先の制約として維持し、file書き込みを伴う工程はskillの名前だけで判定せず、宣言と矛盾しないかを個別に確認してから着手する  # → layer:workflow
+143：2026-08-25 [feature/playback-ui-structure] forkへ複数論点（一般調査＋UI具体案のように独立した2つ）を1つのpromptへ混在させると、forkが片方だけを実行して完了報告することがある。異なる調査対象を1つのfork呼び出しに詰め込まず、依頼した論点が全て報告に含まれているかを受信時に照合する。欠けていれば同じagentへ再送し、新規に別forkを立てない  # → layer:workflow
+144：2026-08-25 [feature/playback-ui-structure] 「executorに委譲するんだけどね」という念押しは、直前の作業配分が単純作業を自分で抱え込んでいたことへの訂正。TDDのRed-Green-Refactorのうち、設計判断を要するRedまでを自分で書き、分量のあるGreen実装・配線をexecutorへ渡す境界を、指摘を受ける前に自分で引く  # → layer:workflow
+145：2026-08-25 [feature/playback-ui-structure] 複数fileへ同型の追記（層境界の定義など）をする時、file間の相互参照（他fileの節番号を名指しする文言）を貼った直後に、参照先の実際の節番号と一致するか照合する。追記した節番号を先に決め打ちすると、他fileの追記位置とずれて誤参照が残る  # → layer:terms
+146：2026-08-25 [feature/playback-ui-structure] 委譲先の完了報告で追加された実装判断（指示に無かった分岐の実装等）は、報告文の主張をそのまま信じず、対応するsource（型定義・契約関数の挙動）を自分で読んで、既存契約の範囲内かを検証してから承認する  # → layer:workflow
+147：2026-08-25 [feature/playback-ui-structure] DRY指摘を受けた時、「同じコード片の重複」と「同じ値の画面上の重複表示」は別種のDRY違反であり、対処法も異なる（前者は共通関数への抽出、後者はcomponentの契約自体から重複箇所を除去）。指摘の対象がどちらかを、既存実装のどの層（構文 or 表示結果）を指しているか本人に確認せず先走って直さない場合は、両方の可能性を実装を見てから判定する  # → layer:terms
+148：2026-08-25 [feature/playback-ui-structure] pre-commit hookがrepo全体の静的検査・testを実行する構成では、system標準の一時dir書き込みがsandbox制限で失敗することがある。commitがtmpfile権限エラーで止まったら、変更内容の欠陥ではなくsandbox実行環境の制約を先に疑い、sandbox解除で原因を切り分けてから対応する  # → layer:platform
+149：2026-08-25 [feature-generator-processenv-command-launcher] 起動や注入の入出力を定義する契約 package は結線ではない。結線オンリーなのは Composition Root であり、契約と組み立てを同名にすると次の読み手が契約を移動・削除しやすい  # → layer:terms
+150：2026-08-25 [feature-generator-processenv-command-launcher] 同じ外側 ring 内で、変わり方の軸が違う境界を抽象へ依存させるのは DIP であり Dependency Rule 違反ではない。Application Port には UseCase の語彙だけを上げ、手段語彙の契約を Application へ持ち上げない  # → layer:terms
+151：2026-08-25 [feature-generator-processenv-command-launcher] ある runtime path の YAGNI で Composition 所有の設定を削る時、別 runtime が同じ設定を必要とするなら follow-up task を残す。削ることと思想の撤回を同一視しない  # → layer:workflow
+152：2026-08-25 [feature-generator-processenv-command-launcher] 秘密の置き場と外部出口は独立軸である。同じ置き場名でも出口の契約・失敗モード・検証境界が違うなら Issue を分け、runtime 名だけで束ねない  # → layer:workflow
+153：2026-08-25 [feature-generator-processenv-command-launcher] 同じ出口でも local と remote で Least Privilege の手段が異なりうる。片方の path の実装を外しても、他方 path の決定を黙って無効化しない  # → layer:terms
+154：2026-08-25 [feature-generator-processenv-command-launcher] hook が変更範囲外の系統を動かし、その系統の依存が未導入で起動に失敗した時は実行環境起因である。product code へ回避を書き込まず、依存導入側で通す  # → layer:platform
