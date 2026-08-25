@@ -16,9 +16,11 @@ Generator の production Cursor path に processenv command launcher を結線�
 2. reviewer 指摘（未使用 project・allowlist SSOT・stderr Discard・Unit/Narrow 重複）を裏取り後に re-execute した。
 3. 秘密境界の説明議論を Decision 2件へ固定し、local AgentSecrets を出口軸で分離した todo を整えた。
 4. pre-commit は playback の `node_modules` 未導入で biome 起動失敗したため、依存導入後に commit した（変更内容の欠陥ではなかった）。
+5. PR #51（base: `develop`）を作成した。
 
 ### Commits
 
 1. `27e3ec6`
 2. `e071abd`
 3. `4ec10a8`
+4. `bdabefd`
