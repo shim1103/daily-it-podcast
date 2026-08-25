@@ -18,14 +18,15 @@
 - [ ] process-env HTTP transport — `generator-processenv-http-transport.md`
 - [ ] local AgentSecrets Cursor command launcher — `generator-agentsecrets-cursor-command-launcher.md`
 - [ ] local AgentSecrets HTTP transport — `generator-agentsecrets-http-transport.md`
-- [ ] 原稿 → TTS → 書込 を束ねる UseCase — **未切り出し**
-- [ ] cmd 入口（`cmd/generator` は `.gitkeep` のみ）— **未切り出し**
+- [ ] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）— **D / 未切り出し**（入口契約は `generator-cmd-entrypoint.md`）
+- [ ] cmd 入口 — `generator-cmd-entrypoint.md`
 - [ ] GHA workflow で定期または手動実行 — **未切り出し**
 
 ### Issue 化待ち（詳細は各 file）
 
 | file | 内容 |
 |---|---|
+| `generator-cmd-entrypoint.md` | cmd Driving Adapter 完了 + 既存境界の A/B 整合（`ProduceEpisode.Run` 本体は外） |
 | `generator-processenv-http-transport.md` | production process-env HTTP transport + Adapter の `secrettransport` 切替 |
 | `generator-agentsecrets-cursor-command-launcher.md` | local AgentSecrets × command（Cursor 専用 project） |
 | `generator-agentsecrets-http-transport.md` | local AgentSecrets × HTTP（`secrettransport.Client`） |
@@ -38,12 +39,13 @@ Drive 保存 / OAuth / 原稿検証 / Cursor CLI / secret transport contract（�
   │     └→ local AgentSecrets Cursor command launcher
   ├→ process-env HTTP transport
   │     └→ local AgentSecrets HTTP transport
-  └→ 原稿→TTS→書込 UseCase
-      └→ cmd / GHA
+  └→ cmd 入口（`generator-cmd-entrypoint.md`。契約 stub で可）
+        ├→ ProduceEpisode.Run 本体（D）
+        └→ GHA
 ```
 
+cmd 入口の正: `docs/tasks/todo/generator-cmd-entrypoint.md`  
+cmd 責務 Decision: `docs/decisions/2026-08-25T23-12-31-feature-generator-cmd-usecase-boundary.md`  
 Issue 分割の正: `docs/decisions/2026-08-25T14-20-18-feature-generator-processenv-command-launcher.md`  
 2軸の正: `docs/decisions/2026-08-25T13-53-55-feature-generator-processenv-command-launcher.md`  
 方針: `docs/decisions/2026-08-19T15-00-00-feature-generator-drive-adapter-layer-split.md`
-
-playback の読取 Adapter とは共有しない。音声は wav。
