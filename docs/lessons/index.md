@@ -74,3 +74,7 @@
 170：2026-08-25 [chore/playback-worker-web-layer] allowlist の Write 許可は Delete を含まない。別名の tool は個別に allow へ書かない限り承認待ちになる  # → layer:platform
 171：2026-08-25 [chore/playback-worker-web-layer] git mv は rename を index に載せる。意図した path だけ add したつもりでも、既に staged の rename が同じ commit に混ざる。commit 直前に staged 一覧を確認し、無関係な staged を外してから commit する  # → layer:platform
 172：2026-08-25 [chore/playback-worker-web-layer] Feature と Primitive は import 規則が異なる。同一 dir のまま file 名例外で enforce すると新 file 追加で穴が開く。role が違うなら dir 境界へ昇格させて機械検査する  # → layer:terms
+173：2026-08-25 [chore/playback-unit-coverage] gate 設定（threshold・lint rule等）を追加した直後の exit code だけで成功と判断しない。設定が実際に評価対象へ効いているかを、期待される違反時に出るはずの ERROR/WARNING ログの有無で確認する。無視された設定は exit=0 を返し続け、成功に見える  # → layer:terms
+174：2026-08-25 [chore/playback-unit-coverage] coverage の全体 threshold と層別 threshold を併用する時、層別 threshold の対象 file が全体 threshold の合算対象から自動的に除外されるとは限らない。tool の仕様として全体集計に含まれるなら、層別で緩めた分だけ全体閾値も緩めるか、層別対象を全体閾値の水準まで引き上げるかを選ぶ  # → layer:terms
+175：2026-08-25 [chore/playback-unit-coverage] 到達不能に見える分岐へ test を書く前に、型検査で実際に到達可能か検証する。型上も到達不能なら理由付き comment で計測から除外し、型が緩いだけで実は到達可能なら分岐自体を削除するか test で埋める。判断せず test 追加だけで済ませない  # → layer:terms
+176：2026-08-25 [chore/playback-unit-coverage] test runner が複数 test 単位（unit/integration 等）を1 process 内の階層構成で束ねる時、集計系の設定（coverage・reporter 等）は階層の末端ではなく最上位でしか有効にならない場合がある。末端に書いて無視されていないか、実際に閾値違反を起こして確認する  # → layer:platform
