@@ -95,9 +95,10 @@ Scope × Sociability: [levels](file:///Users/shim0729/.claude/skills/testing-str
 6. 片系は `scripts/generator/` と `scripts/playback/` から単独実行できる。root の `check-static.sh` / `test-integration.sh` は片系を呼ぶだけ。root の `test-unit.sh` は composer 契約を実行してから片系 unit を呼ぶ
 7. runner は Playback = Vitest（`apps/playback`）、Generator = `go test`
 8. generator Unit gate は **statement coverage 90%**（`covermode=atomic`、`-shuffle=on`、`-count=1`）。除外は Composition Root のみ。`error.go` / `names.go` / `constants.go` を名前では除外しない。Integration に Unit 閾値を載せない
-9. generator static は `go build ./...` と **depguard** / `errcheck` / `govet` / `gofmt`（`golangci-lint`、`strict` allow）で build・層 import・静的な誤用を block する。Infrastructure が Application から import してよいのは **Port** のみ。playback static は Biome / tsc に加え **dependency-cruiser**（`apps/playback/.dependency-cruiser.mjs`）で層 import を block する
-10. generator race gate は `go test -race` で Unit package を実行する。Integration package・Playback・本番 credential を使わない
-11. generator module と GitHub Actions runner の Go version は **1.26.6** に固定する
+9. playback Unit gate は **branch coverage**（`@vitest/coverage-v8`）。全体は 100%、外部境界・状態分岐を持つ層（`worker/src/routes/**` 等）は個別 glob で 90% に緩める。global threshold は個別 glob 該当 file も合算した全体値で判定されるため、両者は独立に閾値未達へならない設計にする。型安全のためだけに残る到達不能分岐は `v8 ignore` と理由 comment で除外し、test を書いて無理に通さない。設定は `apps/playback/vitest.config.mjs` の root top-level `test.coverage`（`projects` 配下の個別 project には coverage 設定を持てない Vitest の制約）。Integration に Unit 閾値を載せない
+10. generator static は `go build ./...` と **depguard** / `errcheck` / `govet` / `gofmt`（`golangci-lint`、`strict` allow）で build・層 import・静的な誤用を block する。Infrastructure が Application から import してよいのは **Port** のみ。playback static は Biome / tsc に加え **dependency-cruiser**（`apps/playback/.dependency-cruiser.mjs`）で層 import を block する
+11. generator race gate は `go test -race` で Unit package を実行する。Integration package・Playback・本番 credential を使わない
+12. generator module と GitHub Actions runner の Go version は **1.26.6** に固定する
 
 実行手順（hook 導入・コマンド）は `README.md`。
 
