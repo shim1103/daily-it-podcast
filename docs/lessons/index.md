@@ -66,3 +66,13 @@
 162：2026-08-25 [feature-generator-processenv-http-transport] DIPの充足はconstructorで抽象をDIしていることだけでは判定できない。構造体がinterfaceを持っていても、内部methodが具体的なruntime関数を直書きしていればその箇所はDIされていない。DI済みかは「その値がconstructor経由で差し替え可能か」を実装内部まで辿って確認する  # → layer:terms
 163：2026-08-25 [feature-generator-processenv-http-transport] 同じ役割を持つ複数の実装のうちどちらが規範か判断する時、「後から書かれた方」「直近で自分が触った方」を規範だと推測せず、両方の実装を実際に読んで契約充足度を比較してから決める。時系列や記憶の新しさは正しさの根拠にならない  # → layer:workflow
 164：2026-08-25 [feature-generator-processenv-http-transport] 自動review（複数観点の並列agent）が"borderline"として見送った指摘は、レビュー対象の規約docと直接照合し、規約に明文で違反していれば人間の確認を待たず修正対象へ格上げする。自動reviewの見送り判定をそのまま最終判断として扱わない  # → layer:workflow
+165：2026-08-25 [feature-generator-cmd-usecase-boundary] Port の戻り型は外部能力の形に留め、業務上の構造化・解釈は Application が行い Domain Error で失敗を表す。能力の外側に業務型を載せるのは Port ではない  # → layer:terms
+166：2026-08-25 [feature-generator-cmd-usecase-boundary] 完成成果物の永続では、構築方針を持つ Builder と検査してから書く Gate を分ける。名前が「書く」でも構築・呼び出し順・集約を Gate へ移さない  # → layer:terms
+167：2026-08-25 [feature-generator-cmd-usecase-boundary] 対称性や層の見た目のために、方針のない空洞 UseCase を増やさない。方針の所有者を空洞化して下位へ移す分割もしない  # → layer:terms
+168：2026-08-25 [feature-generator-cmd-usecase-boundary] 機械的な分解・結合 helper は完成契約の公開 Entities API に押し上げず、方針 UseCase の非公開 helper に置いてよい  # → layer:terms
+169：2026-08-25 [feature-generator-cmd-usecase-boundary] Composition Root の factory は Port でも UseCase でも返してよい。結線単位は製品入口が必要とする境界に合わせ、Port だけに揃えない  # → layer:terms
+170：2026-08-25 [feature-generator-cmd-usecase-boundary] coverage gate で結線専用の入口 package が未実行のまま閾値を割る時は、製品ロジックを歪めず除外対象へ寄せてよい。除外した事実は coverage SSOT に残す  # → layer:platform
+171：2026-08-25 [feature-generator-cmd-usecase-boundary] panic だけの stub でも statement を実行する観測 test（recover）を置けば、未実装のまま coverage と契約存在を両立できる  # → layer:platform
+172：2026-08-25 [feature-generator-cmd-usecase-boundary] scope-split の C は local Issue file で足りる。remote Issue 作成は別指示がない限り自動でやらない  # → layer:workflow
+173：2026-08-25 [feature-generator-cmd-usecase-boundary] Decision の戻り型や層置きが後から誤りと分かったら、本文を黙って書き換えず superseded を明示して新 Decision を正にする  # → layer:workflow
+174：2026-08-25 [feature-generator-cmd-usecase-boundary] lane の checkbox 順は実装メモであり最終境界の正ではない。正は philosophy / architecture と確定した Decision である  # → layer:workflow
