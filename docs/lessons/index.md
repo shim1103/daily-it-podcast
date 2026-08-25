@@ -62,3 +62,7 @@
 158：2026-08-25 [feature/playback-worker-deploy] datetime 付きの記録 dir は latest 運用の入口にしない。同じ問いに日付なしで答える運用方針は、地図・層規則と並べる恒久文書へ置く  # → layer:workflow
 159：2026-08-25 [feature/playback-worker-deploy] logging の decision は「どう書くか」、scope-split は「何をどの SSOT に固定するか」の 4 分けである。片方を直しても他方が曖昧なままだと、薄い Decision と契約複製が再発する  # → layer:workflow
 160：2026-08-25 [feature/playback-worker-deploy] user が lane file 名を誤って指定しても、作業の所属 domain を優先して正しい lane を更新する。誤った系統の lane を汚さない  # → layer:workflow
+161：2026-08-25 [feature-generator-processenv-http-transport] 小さい重複や不整合を見つけた時、修正コストがKISSの範囲に収まるなら follow-up 候補として先送りせず、その場で直す。先送りは「今すぐ直せない規模の変更」のためにあり、数行の共通化にまで適用しない  # → layer:terms
+162：2026-08-25 [feature-generator-processenv-http-transport] DIPの充足はconstructorで抽象をDIしていることだけでは判定できない。構造体がinterfaceを持っていても、内部methodが具体的なruntime関数を直書きしていればその箇所はDIされていない。DI済みかは「その値がconstructor経由で差し替え可能か」を実装内部まで辿って確認する  # → layer:terms
+163：2026-08-25 [feature-generator-processenv-http-transport] 同じ役割を持つ複数の実装のうちどちらが規範か判断する時、「後から書かれた方」「直近で自分が触った方」を規範だと推測せず、両方の実装を実際に読んで契約充足度を比較してから決める。時系列や記憶の新しさは正しさの根拠にならない  # → layer:workflow
+164：2026-08-25 [feature-generator-processenv-http-transport] 自動review（複数観点の並列agent）が"borderline"として見送った指摘は、レビュー対象の規約docと直接照合し、規約に明文で違反していれば人間の確認を待たず修正対象へ格上げする。自動reviewの見送り判定をそのまま最終判断として扱わない  # → layer:workflow

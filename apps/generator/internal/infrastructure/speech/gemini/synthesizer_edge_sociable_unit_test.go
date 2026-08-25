@@ -2,18 +2,20 @@ package gemini
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport/processenv"
 )
 
 func TestSynthesize_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *testing.T) {
-	t.Parallel()
 
 	// Given: HTTP 200 だが output_audio が無い
 	var calls int
@@ -38,7 +40,6 @@ func TestSynthesize_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *tes
 }
 
 func TestSynthesize_returnsInfrastructureError_whenResponseBodyInvalidJSON(t *testing.T) {
-	t.Parallel()
 
 	// Given: 壊れた JSON
 	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +63,7 @@ func TestSynthesize_returnsInfrastructureError_whenClientNil(t *testing.T) {
 	t.Parallel()
 
 	// Given: nil client
-	synth := NewSpeechSynthesizer(nil)
+	synth := NewSpeechSynthesizer(nil, secrettransport.NewSecretRef())
 
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "本文")
@@ -74,7 +75,6 @@ func TestSynthesize_returnsInfrastructureError_whenClientNil(t *testing.T) {
 }
 
 func TestSynthesize_retriesTooManyRequests_thenSucceeds(t *testing.T) {
-	t.Parallel()
 
 	// Given: 1 回目 429、2 回目成功
 	var calls int
@@ -103,7 +103,6 @@ func TestSynthesize_retriesTooManyRequests_thenSucceeds(t *testing.T) {
 }
 
 func TestSynthesize_doesNotRetry_whenStatusForbidden(t *testing.T) {
-	t.Parallel()
 
 	// Given: 403
 	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +122,6 @@ func TestSynthesize_doesNotRetry_whenStatusForbidden(t *testing.T) {
 }
 
 func TestSynthesize_returnsInfrastructureError_whenUnexpectedStatus(t *testing.T) {
-	t.Parallel()
 
 	// Given: 404
 	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +141,6 @@ func TestSynthesize_returnsInfrastructureError_whenUnexpectedStatus(t *testing.T
 }
 
 func TestSynthesize_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
-	t.Parallel()
 
 	// Given: 不正 base64
 	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
@@ -165,7 +162,6 @@ func TestSynthesize_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
 }
 
 func TestSynthesize_returnsInfrastructureError_whenPCMLengthOdd(t *testing.T) {
-	t.Parallel()
 
 	// Given: 奇数 byte の PCM
 	oddPCM := []byte{0x00, 0x01, 0x02}
@@ -208,22 +204,26 @@ func TestSynthesize_returnsInfrastructureError_whenReceiverNil(t *testing.T) {
 	}
 }
 
-func TestSynthesize_returnsInfrastructureError_whenProxyDoFails(t *testing.T) {
-	t.Parallel()
+func TestSynthesize_returnsInfrastructureError_whenUpstreamDoFails(t *testing.T) {
 
-	// Given: 閉じた proxy
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Given: 閉じた upstream server への接続
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(t, w, http.StatusServiceUnavailable, map[string]any{"error": "UNAVAILABLE"})
 	}))
-	client := server.Client()
-	proxyURL := server.URL
+	addr := server.Listener.Addr().String()
 	server.Close()
 
-	synth := newSpeechSynthesizerForTest(&agentsecrets.Client{
-		HTTP:     client,
-		ProxyURL: proxyURL,
-	}, func(time.Duration) {})
+	apiKeySecret := secrettransport.NewSecretRef()
+	t.Setenv("GEMINI_TEST_PROXY_DO_FAILS_KEY", "gemini-test-real-value")
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			DialTLSContext: func(ctx context.Context, network, addrIgnored string) (net.Conn, error) {
+				return tls.Dial(network, addr, &tls.Config{InsecureSkipVerify: true})
+			},
+		},
+	}
+	client := processenv.NewClient(stubBindings{apiKeySecret: "GEMINI_TEST_PROXY_DO_FAILS_KEY"}, httpClient, nil)
+	synth := newSpeechSynthesizerForTest(client, apiKeySecret, func(time.Duration) {})
 
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "network 失敗")

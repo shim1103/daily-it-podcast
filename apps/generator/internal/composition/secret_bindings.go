@@ -3,6 +3,7 @@ package composition
 import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport/processenv"
 )
 
 type secretBindings map[secrettransport.SecretRef]string
@@ -62,4 +63,11 @@ func CursorCommandInheritedEnvNameAllow() []string {
 func (bindings secretBindings) ResolveSecret(ref secrettransport.SecretRef) (string, bool) {
 	name, ok := bindings[ref]
 	return name, ok
+}
+
+// processenvSecretTransportClient は process environment 実装の secrettransport.Client を返す。
+//
+// @ensure 戻りは generatorSecretBindings で解決する secrettransport.Client。
+func processenvSecretTransportClient() secrettransport.Client {
+	return processenv.NewClient(generatorSecretBindings, nil, nil)
 }

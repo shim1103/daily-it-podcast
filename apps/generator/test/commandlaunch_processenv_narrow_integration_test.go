@@ -44,6 +44,7 @@ func newNarrowLauncher(t *testing.T) *processenv.Launcher {
 		narrowBindings{ref: secretnames.CursorAPIKeyName},
 		ref,
 		composition.CursorCommandInheritedEnvNameAllow(),
+		nil,
 	)
 }
 
