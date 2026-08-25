@@ -152,6 +152,25 @@ describe("GoogleDriveEpisodeRepository", () => {
       expect(got).toHaveLength(0);
     });
 
+    it("download した json 自体が不正 JSON の件は一覧に出ない", async () => {
+      // Given: フォルダ直下の json download が JSON として解析できない
+      const fetchStub = stubFetch({
+        files: [{ id: "file-json-1", name: "ep-1.json" }],
+        downloads: { "file-json-1": "not json" },
+      });
+      const repository = new GoogleDriveEpisodeRepository({
+        fetch: fetchStub,
+        oauth: dummyOAuthConfig,
+        folderId: dummyFolderId,
+      });
+
+      // When: 一覧を取得する
+      const got = await repository.listEpisodes();
+
+      // Then: 出ない
+      expect(got).toHaveLength(0);
+    });
+
     it("stem と JSON 内 episodeId が不一致の件は一覧に出ない", async () => {
       // Given: stem が ep-1、中身の episodeId が別物
       const fetchStub = stubFetch({
@@ -544,6 +563,48 @@ describe("GoogleDriveEpisodeRepository", () => {
       await expect(act).rejects.toHaveProperty("cause", networkError);
     });
 
+    it("token endpoint の応答が不正 JSON の時、DriveError になる", async () => {
+      // Given: token endpoint が 2xx だが body が JSON として解析できない
+      const fetchStub: FetchLike = vi.fn(async (input: string) => {
+        if (input === "https://oauth2.googleapis.com/token") {
+          return new Response("not json", { status: 200 });
+        }
+        throw new Error(`想定外の呼び出し: ${input}`);
+      });
+      const repository = new GoogleDriveEpisodeRepository({
+        fetch: fetchStub,
+        oauth: dummyOAuthConfig,
+        folderId: dummyFolderId,
+      });
+
+      // When: 一覧を取得する
+      const act = repository.listEpisodes();
+
+      // Then: 応答解析の失敗として DriveError になる
+      await expect(act).rejects.toBeInstanceOf(DriveError);
+    });
+
+    it("token endpoint の応答に access_token が無い時、DriveError になる", async () => {
+      // Given: token endpoint は 2xx で JSON も解析できるが access_token が無い
+      const fetchStub: FetchLike = vi.fn(async (input: string) => {
+        if (input === "https://oauth2.googleapis.com/token") {
+          return new Response(JSON.stringify({}), { status: 200 });
+        }
+        throw new Error(`想定外の呼び出し: ${input}`);
+      });
+      const repository = new GoogleDriveEpisodeRepository({
+        fetch: fetchStub,
+        oauth: dummyOAuthConfig,
+        folderId: dummyFolderId,
+      });
+
+      // When: 一覧を取得する
+      const act = repository.listEpisodes();
+
+      // Then: token 欠落として DriveError になる
+      await expect(act).rejects.toBeInstanceOf(DriveError);
+    });
+
     it("files.list が非 2xx を返す時、DriveError になる", async () => {
       // Given: token 取得は成功、一覧取得が失敗
       const fetchStub: FetchLike = vi.fn(async (input: string) => {
@@ -596,6 +657,32 @@ describe("GoogleDriveEpisodeRepository", () => {
       await expect(act).rejects.toSatisfy((error: unknown) => {
         return error instanceof DriveError && !error.message.includes(dummyFolderId);
       });
+    });
+
+    it("files.list の応答が不正 JSON の時、DriveError になる", async () => {
+      // Given: token 取得は成功、files.list が 2xx だが body が JSON として解析できない
+      const fetchStub: FetchLike = vi.fn(async (input: string) => {
+        if (input === "https://oauth2.googleapis.com/token") {
+          return new Response(JSON.stringify({ access_token: "dummy-access-token" }), {
+            status: 200,
+          });
+        }
+        if (input.startsWith("https://www.googleapis.com/drive/v3/files?")) {
+          return new Response("not json", { status: 200 });
+        }
+        throw new Error(`想定外の呼び出し: ${input}`);
+      });
+      const repository = new GoogleDriveEpisodeRepository({
+        fetch: fetchStub,
+        oauth: dummyOAuthConfig,
+        folderId: dummyFolderId,
+      });
+
+      // When: 一覧を取得する
+      const act = repository.listEpisodes();
+
+      // Then: 応答解析の失敗として DriveError になる
+      await expect(act).rejects.toBeInstanceOf(DriveError);
     });
 
     it("files.list の要素に name が無い時、DriveError になる", async () => {
