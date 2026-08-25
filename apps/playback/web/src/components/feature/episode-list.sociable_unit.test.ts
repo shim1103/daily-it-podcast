@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { EpisodeListState } from "../view-models/episode-list-view-model.ts";
+import type { EpisodeListState } from "../../view-models/episode-list-view-model.ts";
 import { createEpisodeList } from "./episode-list.ts";
 
 const baseUrl = "https://example.test";

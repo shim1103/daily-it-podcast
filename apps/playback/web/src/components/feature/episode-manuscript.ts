@@ -1,6 +1,6 @@
-import type { EpisodeData } from "../view-models/episode-list-view-model.ts";
+import type { EpisodeData } from "../../view-models/episode-list-view-model.ts";
+import { createLabeledText } from "../primitive/labeled-text.ts";
 import { createEpisodeTopic } from "./episode-topic.ts";
-import { createLabeledText } from "./labeled-text.ts";
 
 type Body = EpisodeData["body"];
 
