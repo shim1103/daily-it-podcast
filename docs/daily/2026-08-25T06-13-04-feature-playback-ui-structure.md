@@ -25,9 +25,13 @@ prev: なし
 11. DRY指摘（「id, date, titleを既に書いているのだから、詳細pageにそれを書かないでね」）を、当初「component内のDOM生成コードの重複」と誤読した。実際は「同じ値の画面上の重複表示」を指しており、`episode-header` の削除で解決した。
 12. commit工程で `git restore --staged`・`git reset HEAD --` がいずれも「作業ツリーの一時退避・修復」としてhookにdenyされ、意図した粒度でのunstageができなかった。stage済み内容をそのままcommitし、commit messageを実態に合わせて調整する運用で対応した。
 13. pre-commit hookの typecheck が sandbox 内で `mkstemp failed: Operation not permitted` により失敗した。system標準の一時dirへの書き込みがsandbox制限に触れたと判断し、`dangerouslyDisableSandbox: true` で再実行して解消した。
+14. `create-pr` skillに従い、Issue番号0（対応Issueなし）でPR #52（base: `develop`）を作成した。作成直後は `origin/develop` 側で並行して進んでいた別作業（generator の `processenv` command launcher 実装）と `docs/lessons/index.md` の同一行番号への並行appendが衝突し、`mergeStateStatus: CONFLICTING` になった。`git merge origin/develop` で解消し（両側のlesson追記を保持し通し番号を149以降へ振り直した）、typecheck・test:unit（30 file / 158 test）を再確認してから push した。
+15. AgentReview（copilot-pull-request-reviewer）はquota上限のため実質的なreviewを実施できなかった（`COMMENTED` state・review本文はquota超過の通知のみ）。CI（static-and-unit・integration、各2 job）は全て `pass`、`mergeStateStatus: CLEAN` を確認した。
 
 ### Commits
 
 - `2f85af2`
 - `dde93ff`
 - `20302e4`
+- `d0a52aa`
+- `35618cf`（`origin/develop` との merge commit）
