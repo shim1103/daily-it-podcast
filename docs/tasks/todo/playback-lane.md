@@ -15,7 +15,7 @@ Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う 
 - [x] worker runtime config 境界と `configuration_error` の HTTP contract（PR #36 / PR #38）
 - [ ] web API Client の応答処理 — `playback-web-api-client.md`
 - [ ] web / worker の toolchain（Vite / wrangler 等）を入れる — **未切り出し**（Access 未確定）
-- [ ] UI で一覧・再生・原稿表示 — **未切り出し**
+- [x] UI で一覧・再生・原稿表示（一覧 page 1 つに統合。component 構成・audio 取得方式・URL 同期は `docs/decisions/2026-08-25T05-10-48-feature-playback-ui-structure.md`）
 
 `apps/playback/tsconfig.json` の `lib` は暫定で `["ES2022", "DOM"]` にしている（`worker/src` が `Request`/`Response`/`crypto`/`URL` 等の Web 標準 API 型を要求するため）。wrangler 導入時、`worker` の実行 runtime が Cloudflare Workers に確定したら `@cloudflare/workers-types` への置き換えを再検討する（DOM 固有 API の型が worker 側へ誤って混入する余地を塞ぐため）。
 
