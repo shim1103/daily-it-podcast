@@ -1,7 +1,6 @@
 package gdrive
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,8 +11,7 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
 )
 
 var _ port.EpisodeWriter = (*EpisodeWriter)(nil)
@@ -25,16 +23,17 @@ type TokenSource interface {
 }
 
 type EpisodeWriter struct {
-	client *agentsecrets.Client
-	tokens TokenSource
+	client         secrettransport.Client
+	tokens         TokenSource
+	folderIDSecret secrettransport.SecretRef
 }
 
 // NewRawEpisodeWriter は validation 前の Google Drive 書込 Adapter を返す。
 //
 // @require client != nil。tokens != nil。
-// @ensure 秘密値は保持しない。
-func NewRawEpisodeWriter(client *agentsecrets.Client, tokens TokenSource) *EpisodeWriter {
-	return &EpisodeWriter{client: client, tokens: tokens}
+// @ensure 秘密値は保持しない。secret 名の知識は持たず、folderIDSecret の参照だけを保持する。
+func NewRawEpisodeWriter(client secrettransport.Client, tokens TokenSource, folderIDSecret secrettransport.SecretRef) *EpisodeWriter {
+	return &EpisodeWriter{client: client, tokens: tokens, folderIDSecret: folderIDSecret}
 }
 
 func (w *EpisodeWriter) Write(ctx context.Context, episodeID string, manuscript []byte, audio models.SpeechAudio) error {
@@ -73,7 +72,7 @@ func (w *EpisodeWriter) findFileID(ctx context.Context, token, name string) (str
 	q := url.Values{}
 	q.Set("q", "name = '"+escapeDriveQueryValue(name)+"' and trashed = false")
 	q.Set("fields", "files(id)")
-	res, err := w.doDrive(ctx, http.MethodGet, FilesURL+"?"+q.Encode(), token, "", nil, agentsecrets.Inject{})
+	res, err := w.doDrive(ctx, http.MethodGet, FilesURL+"?"+q.Encode(), token, "", nil, secrettransport.Inject{})
 	if err != nil {
 		return "", infraErr("list", err)
 	}
@@ -98,7 +97,7 @@ type fileMetadata struct {
 }
 
 func (w *EpisodeWriter) createMetadata(ctx context.Context, token, name, mime string) (string, error) {
-	// why: parents の値は AgentSecrets の Body inject が埋める。code に folder ID を置かない。
+	// why: parents の値は secrettransport の JSON inject が埋める。code に folder ID を置かない。
 	meta, err := json.Marshal(fileMetadata{
 		Name:     name,
 		MimeType: mime,
@@ -107,8 +106,8 @@ func (w *EpisodeWriter) createMetadata(ctx context.Context, token, name, mime st
 	if err != nil {
 		return "", infraErr("create_marshal", err)
 	}
-	res, err := w.doDrive(ctx, http.MethodPost, FilesURL, token, jsonMIME, bytes.NewReader(meta), agentsecrets.Inject{
-		Body: map[string]string{"parents.0": secretnames.DriveFolderIDName},
+	res, err := w.doDrive(ctx, http.MethodPost, FilesURL, token, jsonMIME, meta, secrettransport.Inject{
+		JSON: []secrettransport.FieldInjection{{Field: "parents.0", Secret: w.folderIDSecret}},
 	})
 	if err != nil {
 		return "", infraErr("create", err)
@@ -127,7 +126,7 @@ func (w *EpisodeWriter) createMetadata(ctx context.Context, token, name, mime st
 
 func (w *EpisodeWriter) uploadMedia(ctx context.Context, token, fileID, mime string, content []byte) error {
 	target := UploadURL + "/" + url.PathEscape(fileID) + "?uploadType=media"
-	res, err := w.doDrive(ctx, http.MethodPatch, target, token, mime, bytes.NewReader(content), agentsecrets.Inject{})
+	res, err := w.doDrive(ctx, http.MethodPatch, target, token, mime, content, secrettransport.Inject{})
 	if err != nil {
 		return infraErr("upload", err)
 	}
@@ -141,14 +140,14 @@ func (w *EpisodeWriter) uploadMedia(ctx context.Context, token, fileID, mime str
 	return nil
 }
 
-func (w *EpisodeWriter) doDrive(ctx context.Context, method, target, token, contentType string, body io.Reader, inject agentsecrets.Inject) (*http.Response, error) {
-	headers := map[string]string{
-		"Authorization": "Bearer " + token,
+func (w *EpisodeWriter) doDrive(ctx context.Context, method, target, token, contentType string, body []byte, inject secrettransport.Inject) (*http.Response, error) {
+	headers := []secrettransport.Header{
+		{Name: "Authorization", Value: "Bearer " + token},
 	}
 	if contentType != "" {
-		headers["Content-Type"] = contentType
+		headers = append(headers, secrettransport.Header{Name: "Content-Type", Value: contentType})
 	}
-	return w.client.Do(ctx, agentsecrets.Request{
+	return w.client.Do(ctx, secrettransport.Request{
 		Method:             method,
 		TargetURL:          target,
 		Body:               body,
