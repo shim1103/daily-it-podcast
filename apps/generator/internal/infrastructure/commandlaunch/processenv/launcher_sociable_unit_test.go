@@ -2,8 +2,10 @@ package processenv_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch"
@@ -32,7 +34,7 @@ func newTestLauncher(t *testing.T, allow ...string) *processenv.Launcher {
 	if len(allow) == 0 {
 		allow = []string{testAllowPATH, testAllowHOME}
 	}
-	return processenv.NewLauncher(bindings, ref, allow)
+	return processenv.NewLauncher(bindings, ref, allow, nil)
 }
 
 func writeMarkerChild(t *testing.T) (program string, marker string) {
@@ -78,7 +80,7 @@ func TestLaunch_failsBeforeChildStart_whenSecretValueIsEmpty(t *testing.T) {
 	// When: Launch する
 	got, err := launcher.Launch(context.Background(), commandlaunch.Command{Program: program})
 
-	// Then: 起動前に失敗し、child は走らない
+	// Then: 起動前に失敗し、child は走らない。error は Infrastructure Error として判別できる
 	if err == nil {
 		t.Fatal("Launch() error = nil, want non-nil")
 	}
@@ -88,13 +90,23 @@ func TestLaunch_failsBeforeChildStart_whenSecretValueIsEmpty(t *testing.T) {
 	if _, statErr := os.Stat(marker); !os.IsNotExist(statErr) {
 		t.Fatalf("marker %q exists, want child not started", marker)
 	}
+	var infra *processenv.Error
+	if !errors.As(err, &infra) {
+		t.Fatalf("error type %T (%v), want *processenv.Error", err, err)
+	}
+	if !strings.HasPrefix(infra.Error(), "processenv:") {
+		t.Fatalf("Error() = %q, want prefix processenv:", infra.Error())
+	}
+	if errors.Unwrap(infra) == nil {
+		t.Fatal("Unwrap() is nil")
+	}
 }
 
 func TestLaunch_failsBeforeChildStart_whenSecretBindingIsUnresolved(t *testing.T) {
 	// Given: BindingResolver が解決できない SecretRef
 	t.Setenv(testSecretName, testSecretValue)
 	unresolved := secrettransport.NewSecretRef()
-	launcher := processenv.NewLauncher(testBindings{}, unresolved, []string{testAllowPATH})
+	launcher := processenv.NewLauncher(testBindings{}, unresolved, []string{testAllowPATH}, nil)
 	program, marker := writeMarkerChild(t)
 
 	// When: Launch する
@@ -109,5 +121,34 @@ func TestLaunch_failsBeforeChildStart_whenSecretBindingIsUnresolved(t *testing.T
 	}
 	if _, statErr := os.Stat(marker); !os.IsNotExist(statErr) {
 		t.Fatalf("marker %q exists, want child not started", marker)
+	}
+}
+
+func TestLaunch_passesClosureResolvedSecretValue_whenLookupEnvInjectedDirectlyAsClosure(t *testing.T) {
+	t.Parallel()
+
+	// Given: t.Setenv を使わず、closure で直接注入した lookupEnv が解決する secret
+	ref := secrettransport.NewSecretRef()
+	const secretName = "PROCESSENV_TEST_CLOSURE_SECRET_KEY"
+	const secretValue = "closure-secret-real-value"
+	bindings := testBindings{ref: secretName}
+	lookupEnv := func(key string) (string, bool) {
+		if key == secretName {
+			return secretValue, true
+		}
+		return "", false
+	}
+	launcher := processenv.NewLauncher(bindings, ref, nil, lookupEnv)
+
+	// When: environ を stdout へ出す実 child を起動する
+	got, err := launcher.Launch(context.Background(), commandlaunch.Command{Program: "env"})
+
+	// Then: closure が返した実値が secret として child environ に渡る
+	if err != nil {
+		t.Fatalf("Launch() error = %v, want nil", err)
+	}
+	out := string(got)
+	if !strings.Contains(out, secretName+"="+secretValue) {
+		t.Fatalf("child environ = %q, want closure-resolved secret entry", out)
 	}
 }

@@ -2,7 +2,8 @@
 
 参照: docs/daily/2026-08-15T16-23-06-develop.md  
 HTTP 契約の正: `apps/playback/contracts/`  
-Drive 読みの正: `contracts/drive-layout.md`
+Drive 読みの正: `contracts/drive-layout.md`  
+deploy・Access の正: `DEPLOY.md`（decision: `docs/decisions/2026-08-25T16-57-00-feature-playback-worker-deploy.md` / `2026-08-25T17-10-00-feature-playback-worker-deploy.md`）
 
 Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う fixture または実 Drive から再生できる状態にする。
 
@@ -14,22 +15,39 @@ Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う 
 - [x] playback 静的検査（Biome + tsc）導入。`pr-c-playback-biome-tsc` で完了
 - [x] worker runtime config 境界と `configuration_error` の HTTP contract（PR #36 / PR #38）
 - [x] web API Client の応答処理（`docs/decisions/2026-08-20T13-44-08-playback-web-api-client.md`）
-- [ ] web / worker の toolchain（Vite / wrangler 等）を入れる — **未切り出し**（Access 未確定）
 - [x] UI で一覧・再生・原稿表示（一覧 page 1 つに統合。component 構成・audio 取得方式・URL 同期は `docs/decisions/2026-08-25T05-10-48-feature-playback-ui-structure.md`）
 - [x] web / worker の層違反検知（`dependency-cruiser`）を static gate で実行。Feature/Primitive dir 分割と Drive 原稿検証の HTTP 切断を含む（`docs/decisions/2026-08-25T18-42-00-chore-playback-worker-web-layer.md`）
+- [x] deploy / Access 方針の A/B（`wrangler.jsonc`・`worker-entry`・`DEPLOY.md`・decision 2本）
+- [ ] deploy 前実装・設定（下記 C）— **Issue 未作成**
+- [ ] 初回手動 deploy 以降（下記 D）— **Issue 化しない／後で決める**
 
-`apps/playback/tsconfig.json` の `lib` は暫定で `["ES2022", "DOM"]` にしている（`worker/src` が `Request`/`Response`/`crypto`/`URL` 等の Web 標準 API 型を要求するため）。wrangler 導入時、`worker` の実行 runtime が Cloudflare Workers に確定したら `@cloudflare/workers-types` への置き換えを再検討する（DOM 固有 API の型が worker 側へ誤って混入する余地を塞ぐため）。
+`apps/playback/tsconfig.json` の `lib` は暫定で `["ES2022", "DOM"]`。wrangler runtime 確定後に `@cloudflare/workers-types` への置き換えを再検討する。
 
-### 未確定仕様
+### C: やっていないこと（deploy 前・Issue 未作成）
 
-- [ ] DAST / penetration test は、test deployment URL、Cloudflare Access を通る test identity、許可された攻撃対象が未決定。これらを決定するまで Issue 化しない
+方針・契約は `DEPLOY.md` / decisions / `wrangler.jsonc` 済み。残りは実装・dashboard・投入。
+
+1. wrangler toolchain（package・script・`wrangler types`・Vite build → `web/dist`）
+2. 同一 origin 配信の実装完成（assets + `/episodes*`）
+3. Workers secret 4 key の投入
+4. Access Application / Allow（自分 email・session 30d）の dashboard 設定
+5. `wrangler deploy --dry-run` と Access Verification（本番 traffic は載せない）
+
+### D: これから決める／後回し
+
+1. 初回手動 `wrangler deploy`（本番 traffic）
+2. rollback 手順の文書化
+3. logging / observability
+4. account の `workers.dev` subdomain 実文字列の確認
+5. DAST / penetration test（test URL・Access test identity・攻撃対象が未決）
+6. CD / hook による自動 deploy（非 scope）
 
 ### 依存（実装順）
 
 ```text
-contracts / worker（済）
-  → web-api-client（済）
-  → toolchain（未切り出し） → wrangler / deploy（Access 確定後）
+contracts / worker / UI / 層検知（済）
+  → deploy 前 C（toolchain・secret・Access dashboard・dry-run）
+      → 初回手動 deploy（D）
 ```
 
 音声ファイルは wav。generator 書込とは共有しない。

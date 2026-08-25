@@ -1,8 +1,8 @@
 # DESIGN
 
-最終更新: 2026-08-25（playback Feature/Primitive dir 分割と dependency-cruiser 層 gate）
+最終更新: 2026-08-25（playback Feature/Primitive dir 分割と dependency-cruiser 層 gate／deploy・Access 運用を `DEPLOY.md` へ分離）
 
-地図・使い方・受け入れ・秘密の名前は `README.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive / HTTP 契約の写しは置かない）。
+地図・使い方・受け入れ・秘密の名前は `README.md`。deploy・Access・公開境界は `DEPLOY.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive / HTTP 契約・運用方針の写しは置かない）。
 
 ## 1. システム境界
 
@@ -10,7 +10,7 @@
 |----|------|------------------|
 | `apps/generator` | 取得 → 原稿 → TTS → Drive 書込 | 外部 API / CLI（Infrastructure） |
 | `apps/playback/web` | 一覧・再生・原稿表示 | `worker` の HTTP のみ |
-| `apps/playback/worker` | Drive 読取 BFF | Drive API（Access 背後） |
+| `apps/playback/worker` | Drive 読取 BFF | Drive API（入場境界は `DEPLOY.md`） |
 
 禁止: `playback` ↔ `generator` の直接依存。二系統の runtime は互いに import しない。つながるのは Drive 上の file だけ。その形の正本が repo 根 `contracts/`。
 
@@ -66,11 +66,11 @@ repo 根 `contracts/` は Drive 上の表現（配置・`manuscript.schema.json`
 
 ブラウザに Drive の長期秘密を置かない。フォルダ ID・OAuth の値は実行設定（`contracts/` 外）。
 
-## 4. 認証
+## 4. 認証の層所有
 
-- UI: Cloudflare Access（メール OTP）。許可 identity は自分のみ（手順の詳細はここに書かない）
+- UI 入場・公開 hostname・Access ポリシーは `DEPLOY.md`（本書へ再掲しない）
 - アプリ内マルチテナント OAuth は作らない
-- Drive credential は worker / generator の Infrastructure が持つ
+- Drive credential は worker / generator の Infrastructure が持つ（Web は持たない）
 
 ## 5. Test 配置
 
@@ -104,7 +104,8 @@ Scope × Sociability: [levels](file:///Users/shim0729/.claude/skills/testing-str
 | 文書 | 書くこと |
 |------|----------|
 | README | 地図・使い方・受け入れ・秘密の名前 |
-| DESIGN | 本ファイル（規則のみ） |
+| DESIGN | 本ファイル（層・依存・所有・test 規則のみ） |
+| DEPLOY | deploy・Access・公開境界（運用方針の SSOT） |
 | contracts/ | Drive 配置・原稿 JSON |
 
-dir 単位の README は置かない。SPEC / PROPOSAL は置かない。
+dir 単位の README は置かない。SPEC / PROPOSAL は置かない。運用方針を README / DESIGN へ写さない。

@@ -15,6 +15,7 @@ func NewCursorTextWriter() port.TextWriter {
 		generatorSecretBindings,
 		cursorCommandRuntime.apiKey,
 		cursorCommandRuntime.inheritedEnvNameAllow[:],
+		nil,
 	)
 	return cursorcli.NewTextWriter(launcher)
 }
