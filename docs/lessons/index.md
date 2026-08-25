@@ -56,3 +56,9 @@
 152：2026-08-25 [feature-generator-processenv-command-launcher] 秘密の置き場と外部出口は独立軸である。同じ置き場名でも出口の契約・失敗モード・検証境界が違うなら Issue を分け、runtime 名だけで束ねない  # → layer:workflow
 153：2026-08-25 [feature-generator-processenv-command-launcher] 同じ出口でも local と remote で Least Privilege の手段が異なりうる。片方の path の実装を外しても、他方 path の決定を黙って無効化しない  # → layer:terms
 154：2026-08-25 [feature-generator-processenv-command-launcher] hook が変更範囲外の系統を動かし、その系統の依存が未導入で起動に失敗した時は実行環境起因である。product code へ回避を書き込まず、依存導入側で通す  # → layer:platform
+155：2026-08-25 [feature/playback-worker-deploy] Decision Record の厚みは値の再掲ではなく Reason と Rejected の対である。正本がある契約値を本文へ写して厚く見せると、更新が二重化し「薄い」指摘の本質を外す  # → layer:workflow
+156：2026-08-25 [feature/playback-worker-deploy] Decision は 1 判断 1 ファイルにする。文書分業とセキュリティ方針のように問いが独立なら分け、束ねた Decision 箇条は Reason が追いつかない  # → layer:workflow
+157：2026-08-25 [feature/playback-worker-deploy] 境界契約 artifact を正とする分類では、決定記録と運用文書は契約字段を参照するだけで写さない。写した瞬間に契約の正本が複数になる  # → layer:workflow
+158：2026-08-25 [feature/playback-worker-deploy] datetime 付きの記録 dir は latest 運用の入口にしない。同じ問いに日付なしで答える運用方針は、地図・層規則と並べる恒久文書へ置く  # → layer:workflow
+159：2026-08-25 [feature/playback-worker-deploy] logging の decision は「どう書くか」、scope-split は「何をどの SSOT に固定するか」の 4 分けである。片方を直しても他方が曖昧なままだと、薄い Decision と契約複製が再発する  # → layer:workflow
+160：2026-08-25 [feature/playback-worker-deploy] user が lane file 名を誤って指定しても、作業の所属 domain を優先して正しい lane を更新する。誤った系統の lane を汚さない  # → layer:workflow
