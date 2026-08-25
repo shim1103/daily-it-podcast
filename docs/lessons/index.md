@@ -50,3 +50,9 @@
 146：2026-08-25 [feature/playback-ui-structure] 委譲先の完了報告で追加された実装判断（指示に無かった分岐の実装等）は、報告文の主張をそのまま信じず、対応するsource（型定義・契約関数の挙動）を自分で読んで、既存契約の範囲内かを検証してから承認する  # → layer:workflow
 147：2026-08-25 [feature/playback-ui-structure] DRY指摘を受けた時、「同じコード片の重複」と「同じ値の画面上の重複表示」は別種のDRY違反であり、対処法も異なる（前者は共通関数への抽出、後者はcomponentの契約自体から重複箇所を除去）。指摘の対象がどちらかを、既存実装のどの層（構文 or 表示結果）を指しているか本人に確認せず先走って直さない場合は、両方の可能性を実装を見てから判定する  # → layer:terms
 148：2026-08-25 [feature/playback-ui-structure] pre-commit hookがrepo全体の静的検査・testを実行する構成では、system標準の一時dir書き込みがsandbox制限で失敗することがある。commitがtmpfile権限エラーで止まったら、変更内容の欠陥ではなくsandbox実行環境の制約を先に疑い、sandbox解除で原因を切り分けてから対応する  # → layer:platform
+149：2026-08-25 [feature-generator-processenv-command-launcher] 起動や注入の入出力を定義する契約 package は結線ではない。結線オンリーなのは Composition Root であり、契約と組み立てを同名にすると次の読み手が契約を移動・削除しやすい  # → layer:terms
+150：2026-08-25 [feature-generator-processenv-command-launcher] 同じ外側 ring 内で、変わり方の軸が違う境界を抽象へ依存させるのは DIP であり Dependency Rule 違反ではない。Application Port には UseCase の語彙だけを上げ、手段語彙の契約を Application へ持ち上げない  # → layer:terms
+151：2026-08-25 [feature-generator-processenv-command-launcher] ある runtime path の YAGNI で Composition 所有の設定を削る時、別 runtime が同じ設定を必要とするなら follow-up task を残す。削ることと思想の撤回を同一視しない  # → layer:workflow
+152：2026-08-25 [feature-generator-processenv-command-launcher] 秘密の置き場と外部出口は独立軸である。同じ置き場名でも出口の契約・失敗モード・検証境界が違うなら Issue を分け、runtime 名だけで束ねない  # → layer:workflow
+153：2026-08-25 [feature-generator-processenv-command-launcher] 同じ出口でも local と remote で Least Privilege の手段が異なりうる。片方の path の実装を外しても、他方 path の決定を黙って無効化しない  # → layer:terms
+154：2026-08-25 [feature-generator-processenv-command-launcher] hook が変更範囲外の系統を動かし、その系統の依存が未導入で起動に失敗した時は実行環境起因である。product code へ回避を書き込まず、依存導入側で通す  # → layer:platform
