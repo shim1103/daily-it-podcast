@@ -56,3 +56,7 @@
 152：2026-08-25 [feature-generator-processenv-command-launcher] 秘密の置き場と外部出口は独立軸である。同じ置き場名でも出口の契約・失敗モード・検証境界が違うなら Issue を分け、runtime 名だけで束ねない  # → layer:workflow
 153：2026-08-25 [feature-generator-processenv-command-launcher] 同じ出口でも local と remote で Least Privilege の手段が異なりうる。片方の path の実装を外しても、他方 path の決定を黙って無効化しない  # → layer:terms
 154：2026-08-25 [feature-generator-processenv-command-launcher] hook が変更範囲外の系統を動かし、その系統の依存が未導入で起動に失敗した時は実行環境起因である。product code へ回避を書き込まず、依存導入側で通す  # → layer:platform
+155：2026-08-25 [chore/playback-worker-web-layer] scope-split の A は境界契約を code（dir・設定・型）として固定する工程であり、契約を説明した markdown を別途作ることではない。B は A の code を正として Decision / 運用方針文書を更新する  # → layer:workflow
+156：2026-08-25 [chore/playback-worker-web-layer] allowlist の Write 許可は Delete を含まない。別名の tool は個別に allow へ書かない限り承認待ちになる  # → layer:platform
+157：2026-08-25 [chore/playback-worker-web-layer] git mv は rename を index に載せる。意図した path だけ add したつもりでも、既に staged の rename が同じ commit に混ざる。commit 直前に staged 一覧を確認し、無関係な staged を外してから commit する  # → layer:platform
+158：2026-08-25 [chore/playback-worker-web-layer] Feature と Primitive は import 規則が異なる。同一 dir のまま file 名例外で enforce すると新 file 追加で穴が開く。role が違うなら dir 境界へ昇格させて機械検査する  # → layer:terms
