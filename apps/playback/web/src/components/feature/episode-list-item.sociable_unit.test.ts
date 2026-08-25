@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ListEpisodesResponse } from "../../../contracts/index.ts";
+import type { ListEpisodesResponse } from "../../../../contracts/index.ts";
 import { createEpisodeListItem } from "./episode-list-item.ts";
 
 type EpisodeListItem = ListEpisodesResponse["episodes"][number];

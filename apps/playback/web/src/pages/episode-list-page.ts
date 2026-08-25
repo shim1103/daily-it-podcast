@@ -1,5 +1,5 @@
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
-import { createEpisodeList } from "../components/episode-list.ts";
+import { createEpisodeList } from "../components/feature/episode-list.ts";
 import { getLocationHash, onLocationHashChange, setLocationHash } from "../lib/location-hash.ts";
 import { createEpisodeListViewModel } from "../view-models/episode-list-view-model.ts";
 
