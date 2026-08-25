@@ -64,6 +64,8 @@ repo 根 `contracts/` は Drive 上の表現（配置・`manuscript.schema.json`
 | TTS | Gemini |
 | Drive | Google Drive + OAuth refresh |
 
+秘密の HTTP / command 出口は vendor Adapter が持たない。出口契約は `secrettransport` / `commandlaunch`、置き場 runtime と結線は Composition。2軸と配置の正は `docs/decisions/2026-08-25T13-53-55-feature-generator-processenv-command-launcher.md`。HTTP × AgentSecrets の正本吸収は `docs/decisions/2026-08-25T19-36-11-feature-generator-agentsecrets-http-transport.md`（本文は写さない）。
+
 ブラウザに Drive の長期秘密を置かない。フォルダ ID・OAuth の値は実行設定（`contracts/` 外）。
 
 ## 4. 認証の層所有
