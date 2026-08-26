@@ -28,3 +28,5 @@
 195：2026-08-26 [feature/playback-web-primitive-component-jsx] 静的 markup では ref が走らない。動的 dataset key を commit 後 mutation に頼らず、browser dataset と同値の data-* へ写像して declarative に渡す  # → layer:platform
 196：2026-08-26 [feature/playback-web-primitive-component-jsx] precondition 違反の test は、その検査自体が公開 postcondition のときだけ足す。throw しない pass-through 部品に異常系を足す根拠は契約に無い。空文字や複数 hump などの境界は別物として最小化して足せる  # → layer:terms
 197：2026-08-26 [feature/playback-web-primitive-component-jsx] 査読の must-fix は報告を転送する前に、委譲元が現物と再現条件を自分で確認してから差し戻す。見送り指摘も設定一貫性など明文の欠落なら格上げする  # → layer:workflow
+193：2026-08-26 [feature/playback-worker-hono-route-definition] skillのroleが「non-edit」と定義されている時、flowの各stepに実行主体（誰がAgent toolで委譲するか）が明記されていないと、managerが自らfileをedit・test実行してしまう。role宣言だけでなくflowの各行に主体を明記しないと、非edit原則は実行時に守られない  # → layer:workflow
+194：2026-08-26 [feature/playback-worker-hono-route-definition] 不可逆性を判断する時、git管理下でcommit前のfile変更は`git diff`/`git checkout`で復元できる可逆操作であり、質問toolで実行を止める理由にならない。既存hookが「git履歴で復元できる範囲は自律判断で進めてよい」と明示している時はそれに従う  # → layer:workflow
