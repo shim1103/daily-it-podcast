@@ -47,21 +47,16 @@ Access + Vite（TS + React + Pico.css）+ Worker（Hono、list/get）で、contr
 
 ### E: React + Hono + Hono RPC 導入（Issue 6本作成済み）
 
-方針は `docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`。A 区分（dependency 追加・`routes/app.ts`・`api/playback-rpc-client.ts` の型契約固定）は完了済み。残りは以下6 Issue（C 区分）。
-
-worker 系（直列）：
+方針は `docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`。A 区分（dependency 追加・`routes/app.ts`・`api/playback-rpc-client.ts` の型契約固定）は完了済み。残りは以下6 Issue（C 区分）。依存順：
 
 1. `docs/tasks/todo/playback-worker-hono-route-definition.md`
 2. `docs/tasks/todo/playback-worker-hono-entry-cutover.md`（1 に依存）
-
-web 系（依存順）：
-
-3. `docs/tasks/todo/playback-web-view-model-react-hooks.md`
-4. `docs/tasks/todo/playback-web-primitive-component-jsx.md`（3 と並行可）
+3. `docs/tasks/todo/playback-web-view-model-react-hooks.md`（1 に依存。`api/playback-rpc-client.ts` の `hc<AppType>()` は route 未定義の間 `unknown` 型を返すため、AC-3 の Hono RPC client 差し替えは 1 の完了が前提。実機 `tsc` で検証済み）
+4. `docs/tasks/todo/playback-web-primitive-component-jsx.md`（1・3 と独立して並行可）
 5. `docs/tasks/todo/playback-web-feature-component-jsx.md`（3・4 に依存）
 6. `docs/tasks/todo/playback-web-page-jsx-mount.md`（5 に依存）
 
-worker 系と web 系は互いに独立して進行できる（`PlaybackApiClient` interface が不変のため）。
+worker 系（1・2）と web 系（3〜6）は独立ではない。3 が 1 に依存するため、web 系全体が worker 系の route 定義完了を前提にする。旧記述「worker 系と web 系は互いに独立して進行できる（`PlaybackApiClient` interface が不変のため）」は、interface の不変性のみを根拠にしており、`playback-rpc-client.ts` の実装可能性（型が `unknown` にならないか）を検証していなかった誤り。独立して進行できるのは 4（`playback-web-primitive-component-jsx`）のみ。
 
 ### 依存（実装順）
 
@@ -82,5 +77,3 @@ PR-A（CI 入口の統一）完了前提
   → worker / web 層検知（済。`apps/playback/.dependency-cruiser.mjs` + `scripts/playback/check-static.sh`）
   → PR-H（unit coverage gate、済）
 ```
-
-- [x] PR-H `chore/playback-unit-coverage`: playback の **Unit coverage gate**（Vitest branch coverage、`@vitest/coverage-v8`）を導入し、落ちる分岐を最小の unit 追加で埋めた。gate 定義は `DESIGN.md` §5（Test 配置）9 項目目を正とする
