@@ -17,8 +17,10 @@ prev: なし
 3. `writer_sociable_unit_test.go` から境界 I/O 観測（processenv・httptest・DialTLSContext）を全て除去し、`secrettransport.Client` を直接満たす境界 I/O なしの Stub へ置換した。
 4. Integration gate（`scripts/generator/test-integration.sh`）と Unit test の両方が exit 0 であることを確認した。
 5. Acceptance Criteria 全項目を manager が現物照合し、Issue file を削除した。
+6. `develop` を base に PR #70 を作成した。CI（integration・static-and-unit）は全て pass、merge state は CLEAN。Copilot review は quota 制限で未実施だった。
 
 ### Commits
 
 - `5def29b`
 - `edf33c2`
+- `7284ffa`
