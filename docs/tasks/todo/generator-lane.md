@@ -4,47 +4,36 @@
 
 取得 → Cursor CLI 原稿 → Gemini TTS → Drive 書込を Go CLI + GHA で通す。
 
+未完了の達成契約は `docs/tasks/todo/generator-*.md` が正。本 lane は進捗 index のみ。decisions は各 task file / 必要時に辿る。
+
 - [x] go.mod（module path）と `ItemSource` / `SourceItem` / 監視定数の境界 stub
-- [x] 情報取得 Adapter（TwitterAPI.io / `ItemSource`。Composition 結線済み。Issue 未作成）
-- [x] 監視 user 一括取得 UseCase（Issue 未作成。`application.FetchSourceItems`）
-- [x] `SpeechSynthesizer` / `SpeechAudio` / Gemini Adapter 定数（空）の境界 stub
-- [x] GetXAPI Adapter（`ItemSource`。Composition 結線済み。Issue 未作成）
-- [x] Gemini TTS Adapter（`SpeechSynthesizer`。Composition 結線済み。Issue 未作成）
-- [x] Drive 保存 Adapter（`gdrive.RawEpisodeWriter`。PR #34 で完了）
-- [x] Google OAuth refresh Adapter（`oauth.TokenSource`。PR #37 で完了）
-- [x] Application 原稿検証 + WriteEpisode（`application.WriteEpisode`。PR #39 で完了）
-- [x] Cursor CLI の Infrastructure（`TextWriter` Adapter）
-- [x] process-env command launcher — production Cursor path 完了（todo file 削除済み）
-- [x] process-env HTTP transport — production process-env HTTP 完了（todo file 削除済み）
-- [x] AgentSecrets HTTP proxy 正本吸収 — `secrettransport/agentsecrets` 単一実装（todo 削除済み）
-- [x] local AgentSecrets Cursor command launcher — `commandlaunch/agentsecrets.Launcher` + Composition `runtime.go` 結線（todo 削除済み）
-- [ ] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）— **D / 未切り出し**（入口契約は cmd 入口の正）
-- [x] cmd 入口 — 薄い Driving Adapter 完了（todo 削除済み）
+- [x] 情報取得 Adapter（TwitterAPI.io / GetXAPI。Composition 結線済み）
+- [x] 監視 user 一括取得 UseCase（`application.FetchSourceItems`）
+- [x] `SpeechSynthesizer` / Gemini Adapter / Drive / OAuth / WriteEpisode / Cursor CLI
+- [x] process-env command launcher / HTTP transport
+- [x] AgentSecrets HTTP proxy 正本吸収 / local AgentSecrets Cursor command launcher
+- [x] cmd 入口（薄い Driving Adapter）
+- [x] Integration 収集境界（A）— gate と `local_real` 分離
+- [ ] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）— **D**
 - [ ] GHA workflow で定期または手動実行 — **未切り出し**
-
-### Issue 化待ち（詳細は file）
-
-| file | 内容 |
-|---|---|
+- [ ] Narrow（C）— `docs/tasks/todo/generator-narrow-*.md` が正（GitHub Issue 化しない）
+- [ ] Broad Integration / System・E2E — **D**（Decision `2026-08-26T17-47-00`）
 
 ### 依存（実装順）
 
 ```text
-Drive 保存 / OAuth / 原稿検証 / Cursor CLI / secret transport contract（済）
-  ├→ process-env command launcher（済）
-  │     └→ local AgentSecrets Cursor command launcher（済）
-  ├→ process-env HTTP transport（済）
-  │     └→ AgentSecrets HTTP proxy 正本吸収（済。`secrettransport/agentsecrets`）
-  └→ cmd 入口（済。Decision: `docs/decisions/2026-08-25T23-12-31-feature-generator-cmd-usecase-boundary.md`）
-        ├→ ProduceEpisode.Run 本体（D）
+Drive / OAuth / 原稿検証 / Cursor CLI / secret transport（済）
+  ├→ process-env command / HTTP（済）
+  │     └→ AgentSecrets command / HTTP（済）
+  └→ cmd 入口（済）
+        ├→ ProduceEpisode.Run（D）
         └→ GHA
 ```
 
-cmd 入口の正: `docs/decisions/2026-08-25T23-12-31-feature-generator-cmd-usecase-boundary.md`  
-cmd 成否観測の正: `docs/decisions/2026-08-26T14-42-16-feature-generator-cmd-entrypoint.md`  
-Issue 分割の正: `docs/decisions/2026-08-25T14-20-18-feature-generator-processenv-command-launcher.md`  
-2軸の正: `docs/decisions/2026-08-25T13-53-55-feature-generator-processenv-command-launcher.md`  
-HTTP proxy 正本: `docs/decisions/2026-08-25T19-36-11-feature-generator-agentsecrets-http-transport.md`  
-command 素材の置き場: `docs/decisions/2026-08-26T12-14-00-feature-generator-agentsecrets-http-proxy-absorb.md`  
-Composition 内 bindings/runtime 分割: `docs/decisions/2026-08-26T14-58-45-feature-generator-agentsecrets-cursor-command-launcher.md`  
-方針: `docs/decisions/2026-08-19T15-00-00-feature-generator-drive-adapter-layer-split.md`
+### Integration test 方針
+
+```text
+A/B 済: gate = secret なし Narrow / local_real 除外 / System 非 CI / CDC 非導入
+C: docs/tasks/todo/generator-narrow-*.md（local_real + vendor gate）。実装は各 file の AC
+D: Broad / System・E2E / vendor 実 API
+```
