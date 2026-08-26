@@ -57,8 +57,8 @@ worker 系（直列）：
 web 系（依存順）：
 
 3. `docs/tasks/todo/playback-web-view-model-react-hooks.md`
-4. `docs/tasks/todo/playback-web-primitive-component-jsx.md`（3 と並行可）
-5. `docs/tasks/todo/playback-web-feature-component-jsx.md`（3・4 に依存）
+4. ~~`docs/tasks/todo/playback-web-primitive-component-jsx.md`~~（完了。`labeled-text.tsx`）
+5. `docs/tasks/todo/playback-web-feature-component-jsx.md`（3・4 に依存。4 は完了済み）
 6. `docs/tasks/todo/playback-web-page-jsx-mount.md`（5 に依存）
 
 worker 系と web 系は互いに独立して進行できる（`PlaybackApiClient` interface が不変のため）。

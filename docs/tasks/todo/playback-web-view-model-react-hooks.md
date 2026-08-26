@@ -68,4 +68,4 @@ test 方針は `testing-strategy` を参照する。hook の検証観点は `fro
 
 ## 11. Notes
 
-`components/primitive/labeled-text.ts` の JSX 化（`playback-web-primitive-component-jsx`）はこの Issue と依存関係が無いため並行して進められる。
+`components/primitive/labeled-text.tsx` の JSX 化（`playback-web-primitive-component-jsx`）はこの Issue と依存関係が無く、完了済み。
