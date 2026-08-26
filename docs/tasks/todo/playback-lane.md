@@ -3,9 +3,10 @@
 参照: docs/daily/2026-08-15T16-23-06-develop.md  
 HTTP 契約の正: `apps/playback/contracts/`  
 Drive 読みの正: `contracts/drive-layout.md`  
-deploy・Access の正: `DEPLOY.md`（decision: `docs/decisions/2026-08-25T16-57-00-feature-playback-worker-deploy.md` / `2026-08-25T17-10-00-feature-playback-worker-deploy.md`）
+deploy・Access の正: `DEPLOY.md`（decision: `docs/decisions/2026-08-25T16-57-00-feature-playback-worker-deploy.md` / `2026-08-25T17-10-00-feature-playback-worker-deploy.md`）  
+React + Hono + Hono RPC 導入の正: `docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`。toolchain version 固定は `docs/decisions/2026-08-26T01-00-00-architecture-reconsider-react-hono.md`
 
-Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う fixture または実 Drive から再生できる状態にする。
+Access + Vite（TS + React + Pico.css）+ Worker（Hono、list/get）で、contracts に合う fixture または実 Drive から再生できる状態にする。
 
 - [x] web↔worker HTTP 契約（List / Get の TS schema・status 級）
 - [x] worker Drive Port + List/Get UseCase + Fake/in-memory Infrastructure（`playback-worker-episodes`。AC は Fake で完了）
@@ -20,6 +21,7 @@ Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う 
 - [x] deploy / Access 方針の A/B（`wrangler.jsonc`・`worker-entry`・`DEPLOY.md`・decision 2本）
 - [ ] deploy 前実装・設定（下記 C）— **Issue 未作成**
 - [ ] 初回手動 deploy 以降（下記 D）— **Issue 化しない／後で決める**
+- [ ] React + Hono + Hono RPC 導入（下記 E）— Issue 6本作成済み
 
 `apps/playback/tsconfig.json` の `lib` は暫定で `["ES2022", "DOM"]`。wrangler runtime 確定後に `@cloudflare/workers-types` への置き換えを再検討する。
 
@@ -41,6 +43,25 @@ Access + Vite（TS + Pico.css）+ Worker（list/get）で、contracts に合う 
 4. account の `workers.dev` subdomain 実文字列の確認
 5. DAST / penetration test（test URL・Access test identity・攻撃対象が未決）
 6. CD / hook による自動 deploy（非 scope）
+7. Dependabot / Renovate 等の dependency 自動更新 PR 機構（後で決めるかもしれない。個人開発の現規模では優先度低）
+
+### E: React + Hono + Hono RPC 導入（Issue 6本作成済み）
+
+方針は `docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`。A 区分（dependency 追加・`routes/app.ts`・`api/playback-rpc-client.ts` の型契約固定）は完了済み。残りは以下6 Issue（C 区分）。
+
+worker 系（直列）：
+
+1. `docs/tasks/todo/playback-worker-hono-route-definition.md`
+2. `docs/tasks/todo/playback-worker-hono-entry-cutover.md`（1 に依存）
+
+web 系（依存順）：
+
+3. `docs/tasks/todo/playback-web-view-model-react-hooks.md`
+4. `docs/tasks/todo/playback-web-primitive-component-jsx.md`（3 と並行可）
+5. `docs/tasks/todo/playback-web-feature-component-jsx.md`（3・4 に依存）
+6. `docs/tasks/todo/playback-web-page-jsx-mount.md`（5 に依存）
+
+worker 系と web 系は互いに独立して進行できる（`PlaybackApiClient` interface が不変のため）。
 
 ### 依存（実装順）
 

@@ -1,7 +1,7 @@
 # scope: Unit（CI 上の static + Unit gate）
 # 実物: scripts/check-static.sh、scripts/test-unit.sh、scripts/generator/test-race.sh
 # double: なし（外部 API は叩かない）
-# @require Go 1.26.6 と Node と golangci-lint が使える runner。
+# @require Go（version は apps/generator/go.mod）と Node（version は apps/playback/.nvmrc）と golangci-lint が使える runner。
 # @ensure static、Unit、generator race 入口が exit 0。
 # @invariant 本番 credential を使わない。Integration 専用 suite をこの workflow の必須条件にしない。
 # @invariant toolchain の test command を YAML に直書きしない。
@@ -19,11 +19,11 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.26.6"
+          go-version-file: apps/generator/go.mod
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version-file: apps/playback/.nvmrc
           cache: npm
           cache-dependency-path: apps/playback/package-lock.json
 

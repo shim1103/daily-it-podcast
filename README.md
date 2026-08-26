@@ -12,8 +12,8 @@ Generator (Go + GitHub Actions cron)
         ↓
   個人 Google Drive（音声 + 原稿）
         ↑
-Playback (Vite + TypeScript + Cloudflare)
-  Access → UI → Workers（Drive 読取の代理）
+Playback (Vite + TypeScript + React + Cloudflare)
+  Access → UI → Workers（Hono、Drive 読取の代理）
 ```
 
 旧実装は `archive/2026-08-15-pre-rewrite` に凍結。本流は Playback + Generator へ作り直し。
@@ -22,8 +22,8 @@ Playback (Vite + TypeScript + Cloudflare)
 
 | 役割 | 選定 |
 |------|------|
-| 再生 UI | Vite + TypeScript + Pico.css（classless） |
-| UI の裏側 | Cloudflare Workers（Drive 代理） |
+| 再生 UI | Vite + TypeScript + React + Pico.css（classless） |
+| UI の裏側 | Cloudflare Workers（Hono、Drive 代理） |
 | UI 入場 | Cloudflare Access（詳細は `DEPLOY.md`） |
 | 生成 | Go CLI + GitHub Actions cron |
 | 保存 | 個人 Google Drive |
@@ -59,9 +59,9 @@ Playback HTTP 契約 → `apps/playback/contracts/`
 
 1. **再生:** Access 入場（`DEPLOY.md`）→ 一覧 → 再生・原稿表示（意味検索なし）
 2. **生成:** GHA cron / 手動。UI からは起動しない。成果物は `contracts/` に従う
-3. **Playback 依存:** `cd apps/playback && npm ci`
+3. **Playback 依存:** `cd apps/playback && npm ci`。Node version は `apps/playback/.nvmrc` を正本にする（`nvm use` 等で合わせる）
 4. **Playback 起動:** `cd apps/playback && npm run dev` で `localhost:3000` の再生 UI が立つ
-5. **generator Go:** Go `1.26.6`
+5. **generator Go:** version は `apps/generator/go.mod` を正本にする（`go version` で確認）
 6. **generator lint:** `golangci-lint` を PATH に入れる（例: `brew install golangci-lint`）
 7. **hook 導入:** `./scripts/install-hooks.sh`
 8. **static（commit / GHA）:** `./scripts/check-static.sh`（片系: `./scripts/generator/check-static.sh`）
