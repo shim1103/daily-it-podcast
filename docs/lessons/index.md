@@ -30,3 +30,5 @@
 197：2026-08-26 [feature/playback-web-primitive-component-jsx] 査読の must-fix は報告を転送する前に、委譲元が現物と再現条件を自分で確認してから差し戻す。見送り指摘も設定一貫性など明文の欠落なら格上げする  # → layer:workflow
 193：2026-08-26 [feature/playback-worker-hono-route-definition] skillのroleが「non-edit」と定義されている時、flowの各stepに実行主体（誰がAgent toolで委譲するか）が明記されていないと、managerが自らfileをedit・test実行してしまう。role宣言だけでなくflowの各行に主体を明記しないと、非edit原則は実行時に守られない  # → layer:workflow
 194：2026-08-26 [feature/playback-worker-hono-route-definition] 不可逆性を判断する時、git管理下でcommit前のfile変更は`git diff`/`git checkout`で復元できる可逆操作であり、質問toolで実行を止める理由にならない。既存hookが「git履歴で復元できる範囲は自律判断で進めてよい」と明示している時はそれに従う  # → layer:workflow
+195：2026-08-26 [feature/playback-worker-hono-entry-cutover] 削除対象を参照するfile一覧は、Issue本文の記載を正本にせず、削除実行前に自分でgrepして確定する。Issueの依存記述は作成時点のsnapshotであり、後続sessionで追加されたfile（test含む）を捕捉できていないことがある  # → layer:workflow
+196：2026-08-26 [feature/playback-worker-hono-entry-cutover] managerが事前調査で見つけたIssue非記載の追加依存は、委譲先への指示に「発見済みの事実」として明記して渡す。委譲先が独自に発見し直す前提に置くと、同じ見落としが再発するか二重調査が発生する  # → layer:workflow
