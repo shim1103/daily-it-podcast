@@ -18,3 +18,8 @@
 185：2026-08-26 [feature/generator-cmd-entrypoint] 設計・実装の議論軌跡（なぜそうした／しなかったか）で code comment に残さなかった判断は Decision の Reason / Rejected へ残す。局所の Why not だけ code に置き、再発する問いへの答えは decisions が持つ  # → layer:meta
 186：2026-08-26 [feature/generator-cmd-entrypoint] CLI の成否観測は runtime 内部状態ではなく OS process の exit code と stderr を正とする。同一 binary の写像を local と CI で分けない  # → layer:platform
 187：2026-08-26 [feature/generator-cmd-entrypoint] 査読必須指摘は委譲先報告をそのまま採用せず、規約原文と現物を委譲元が照合してから修正対象へ格上げする。borderline 見送りも明文違反なら格上げする  # → layer:workflow
+188：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] Composition 内で「表」を名乗る file に runtime factory を同居させると、変更理由が2つ同居して Least Astonishment を破る。対応表と契約実装の組み立ては file を分ける  # → layer:terms
+189：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] 結線層の test で具象型 assert により「実装が間違っていない」ことを見るのは振る舞い検証ではない。分岐の無い結線に構造 guard を増やさない  # → layer:terms
+190：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] external test package と unexported helper の white-box test は同一 file に結合できない。結合するなら公開経路の観測へ吸収する  # → layer:platform
+191：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] Composition の vendor 結線 file と bindings/runtime の責務を片方だけ直すと、次の問いがすぐ再発する。表・runtime・each の3役割を同時に揃える  # → layer:terms
+192：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] 自動 review が必須なしと見送っても、coding-style に明文で違反していれば確認待ちせず修正対象へ格上げする  # → layer:workflow
