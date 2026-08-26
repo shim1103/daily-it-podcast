@@ -6,12 +6,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -37,6 +37,8 @@ type proxyProbe struct {
 }
 
 // why: Adapter は EndpointURL を定数として持つため、DialTLSContext で接続先だけを test server へ redirect する。
+// why: synthesizer_edge_sociable_unit_test.go も参照する境界 I/O helper。Adapter 内分岐 case は
+// fakeSecretTransportClient（境界 I/O なし）へ移行済みだが、edge file の見直しは別 issue の管轄。
 func newSynthesizerWithProxy(t *testing.T, handler http.HandlerFunc) (*SpeechSynthesizer, *proxyProbe) {
 	t.Helper()
 	backoffNoWait := func(time.Duration) {}
@@ -98,62 +100,60 @@ func isWAV(data []byte) bool {
 		data[8] == 'W' && data[9] == 'A' && data[10] == 'V' && data[11] == 'E'
 }
 
-func TestSynthesize_returnsNonEmptyWAV_whenProxyReturnsPCM(t *testing.T) {
-
-	// Given: proxy が PCM を返す
-	synth, _ := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(t, w, http.StatusOK, audioInteractionResponse(minimalPCM()))
-	})
-
-	// When: 本文を渡して Synthesize する
-	got, err := synth.Synthesize(context.Background(), "本日の IT ニュースです。")
-
-	// Then: 非空 WAV が返る
-	if err != nil {
-		t.Fatalf("Synthesize: %v", err)
-	}
-	if len(got.Content) == 0 {
-		t.Fatal("Content is empty")
-	}
-	if !isWAV(got.Content) {
-		t.Fatalf("Content is not wav, head = % x", got.Content[:min(12, len(got.Content))])
-	}
+// fakeClientCall は fakeSecretTransportClient が観測した Do() 呼び出し 1 件分。
+type fakeClientCall struct {
+	Request secrettransport.Request
 }
 
-func TestSynthesize_injectsGeminiAPIKeyRealValue_whenCallingUpstream(t *testing.T) {
+// fakeSecretTransportClient は境界 I/O なしで secrettransport.Client を満たす Spy。
+// 呼び出し順に responses を返し、各呼び出しの Request を記録する。
+type fakeSecretTransportClient struct {
+	responses []fakeClientResponse
+	calls     []fakeClientCall
+}
 
-	// Given: 成功する upstream double
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(t, w, http.StatusOK, audioInteractionResponse(minimalPCM()))
-	})
+type fakeClientResponse struct {
+	status int
+	body   []byte
+}
 
-	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "テスト本文")
+func (c *fakeSecretTransportClient) Do(_ context.Context, request secrettransport.Request) (*http.Response, error) {
+	c.calls = append(c.calls, fakeClientCall{Request: request})
+	index := len(c.calls) - 1
+	if index >= len(c.responses) {
+		return nil, fmt.Errorf("fakeSecretTransportClient: no response configured for call %d", index)
+	}
+	resp := c.responses[index]
+	recorder := httptest.NewRecorder()
+	recorder.WriteHeader(resp.status)
+	if resp.body != nil {
+		_, _ = recorder.Write(resp.body)
+	}
+	return recorder.Result(), nil
+}
 
-	// Then: x-goog-api-key に実値が渡る
+func jsonBody(t *testing.T, v any) []byte {
+	t.Helper()
+	raw, err := json.Marshal(v)
 	if err != nil {
-		t.Fatalf("Synthesize: %v", err)
+		t.Fatalf("json.Marshal: %v", err)
 	}
-	if len(probe.APIKeys) != 1 {
-		t.Fatalf("api key headers = %#v", probe.APIKeys)
-	}
-	if probe.APIKeys[0] != "gemini-test-real-value" {
-		t.Fatalf("api key = %q, want real value", probe.APIKeys[0])
-	}
-	if len(probe.Methods) != 1 || probe.Methods[0] != http.MethodPost {
-		t.Fatalf("methods = %#v", probe.Methods)
-	}
-	if len(probe.TargetURLs) != 1 {
-		t.Fatalf("target URLs = %#v", probe.TargetURLs)
-	}
+	return raw
+}
+
+func newFakeSynthesizer(responses ...fakeClientResponse) (*SpeechSynthesizer, *fakeSecretTransportClient) {
+	client := &fakeSecretTransportClient{responses: responses}
+	synth := newSpeechSynthesizerForTest(client, secrettransport.NewSecretRef(), func(time.Duration) {})
+	return synth, client
 }
 
 func TestSynthesize_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
 
-	// Given: リクエスト body を観測できる proxy double
+	// Given: 成功応答を返す Client Stub
 	const transcript = "朗読する本文だけ"
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(t, w, http.StatusOK, audioInteractionResponse(minimalPCM()))
+	synth, client := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusOK,
+		body:   jsonBody(t, audioInteractionResponse(minimalPCM())),
 	})
 
 	// When: Synthesize する
@@ -163,11 +163,11 @@ func TestSynthesize_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Synthesize: %v", err)
 	}
-	if len(probe.Bodies) != 1 {
-		t.Fatalf("bodies = %d", len(probe.Bodies))
+	if len(client.calls) != 1 {
+		t.Fatalf("calls = %d", len(client.calls))
 	}
 	var req map[string]any
-	if err := json.Unmarshal([]byte(probe.Bodies[0]), &req); err != nil {
+	if err := json.Unmarshal(client.calls[0].Request.Body, &req); err != nil {
 		t.Fatalf("decode request: %v", err)
 	}
 	input, _ := req["input"].(string)
@@ -196,15 +196,13 @@ func TestSynthesize_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
 
 func TestSynthesize_returnsInfrastructureError_whenTextEmptyAfterTrim(t *testing.T) {
 
-	// Given: 空本文
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		t.Fatal("proxy must not be called")
-	})
+	// Given: 空本文。Client は呼ばれない想定なので response 設定は不要
+	synth, client := newFakeSynthesizer()
 
 	// When: trim 後空の text を渡す
 	_, err := synth.Synthesize(context.Background(), "  \t\n  ")
 
-	// Then: Infrastructure Error。HTTP は呼ばない
+	// Then: Infrastructure Error。Client は呼ばない
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -218,22 +216,18 @@ func TestSynthesize_returnsInfrastructureError_whenTextEmptyAfterTrim(t *testing
 	if errors.Unwrap(infra) == nil {
 		t.Fatal("Unwrap() is nil")
 	}
-	if len(probe.TargetURLs) != 0 {
-		t.Fatalf("unexpected requests: %#v", probe.TargetURLs)
+	if len(client.calls) != 0 {
+		t.Fatalf("unexpected calls: %#v", client.calls)
 	}
 }
 
 func TestSynthesize_retriesTransientError_thenSucceeds(t *testing.T) {
 
 	// Given: 1 回目 503、2 回目成功
-	var calls atomic.Int32
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		if calls.Add(1) == 1 {
-			writeJSON(t, w, http.StatusServiceUnavailable, map[string]any{"error": "UNAVAILABLE"})
-			return
-		}
-		writeJSON(t, w, http.StatusOK, audioInteractionResponse(minimalPCM()))
-	})
+	synth, client := newFakeSynthesizer(
+		fakeClientResponse{status: http.StatusServiceUnavailable, body: jsonBody(t, map[string]any{"error": "UNAVAILABLE"})},
+		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
+	)
 
 	// When: Synthesize する
 	got, err := synth.Synthesize(context.Background(), "retry テスト")
@@ -245,17 +239,19 @@ func TestSynthesize_retriesTransientError_thenSucceeds(t *testing.T) {
 	if len(got.Content) == 0 {
 		t.Fatal("Content is empty")
 	}
-	if len(probe.TargetURLs) != 2 {
-		t.Fatalf("request count = %d, want 2", len(probe.TargetURLs))
+	if len(client.calls) != 2 {
+		t.Fatalf("call count = %d, want 2", len(client.calls))
 	}
 }
 
 func TestSynthesize_returnsInfrastructureError_whenMaxAttemptsExceeded(t *testing.T) {
 
 	// Given: 常に 503
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(t, w, http.StatusServiceUnavailable, map[string]any{"error": "UNAVAILABLE"})
-	})
+	responses := make([]fakeClientResponse, MaxAttempts)
+	for i := range responses {
+		responses[i] = fakeClientResponse{status: http.StatusServiceUnavailable, body: jsonBody(t, map[string]any{"error": "UNAVAILABLE"})}
+	}
+	synth, client := newFakeSynthesizer(responses...)
 
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "打ち切りテスト")
@@ -268,16 +264,17 @@ func TestSynthesize_returnsInfrastructureError_whenMaxAttemptsExceeded(t *testin
 	if !errors.As(err, &infra) {
 		t.Fatalf("error type %T (%v), want *gemini.Error", err, err)
 	}
-	if len(probe.TargetURLs) != MaxAttempts {
-		t.Fatalf("request count = %d, want %d", len(probe.TargetURLs), MaxAttempts)
+	if len(client.calls) != MaxAttempts {
+		t.Fatalf("call count = %d, want %d", len(client.calls), MaxAttempts)
 	}
 }
 
 func TestSynthesize_doesNotRetry_whenStatusBadRequest(t *testing.T) {
 
 	// Given: 400
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(t, w, http.StatusBadRequest, map[string]any{"error": "INVALID_ARGUMENT"})
+	synth, client := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusBadRequest,
+		body:   jsonBody(t, map[string]any{"error": "INVALID_ARGUMENT"}),
 	})
 
 	// When: Synthesize する
@@ -287,18 +284,17 @@ func TestSynthesize_doesNotRetry_whenStatusBadRequest(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if len(probe.TargetURLs) != 1 {
-		t.Fatalf("request count = %d, want 1", len(probe.TargetURLs))
+	if len(client.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(client.calls))
 	}
 }
 
 func TestSynthesize_doesNotRetry_whenProhibitedContent(t *testing.T) {
 
 	// Given: PROHIBITED_CONTENT
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(t, w, http.StatusOK, map[string]any{
-			"error": map[string]any{"code": "PROHIBITED_CONTENT"},
-		})
+	synth, client := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusOK,
+		body:   jsonBody(t, map[string]any{"error": map[string]any{"code": "PROHIBITED_CONTENT"}}),
 	})
 
 	// When: Synthesize する
@@ -308,22 +304,18 @@ func TestSynthesize_doesNotRetry_whenProhibitedContent(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if len(probe.TargetURLs) != 1 {
-		t.Fatalf("request count = %d, want 1", len(probe.TargetURLs))
+	if len(client.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(client.calls))
 	}
 }
 
 func TestSynthesize_retriesMissingAudio_whenStatusInternalError(t *testing.T) {
 
 	// Given: 1 回目 500（audio 欠落）、2 回目成功
-	var calls atomic.Int32
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		if calls.Add(1) == 1 {
-			writeJSON(t, w, http.StatusInternalServerError, map[string]any{"error": "internal"})
-			return
-		}
-		writeJSON(t, w, http.StatusOK, audioInteractionResponse(minimalPCM()))
-	})
+	synth, client := newFakeSynthesizer(
+		fakeClientResponse{status: http.StatusInternalServerError, body: jsonBody(t, map[string]any{"error": "internal"})},
+		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
+	)
 
 	// When: Synthesize する
 	got, err := synth.Synthesize(context.Background(), "500 retry")
@@ -335,14 +327,7 @@ func TestSynthesize_retriesMissingAudio_whenStatusInternalError(t *testing.T) {
 	if len(got.Content) == 0 {
 		t.Fatal("Content is empty")
 	}
-	if len(probe.TargetURLs) != 2 {
-		t.Fatalf("request count = %d, want 2", len(probe.TargetURLs))
+	if len(client.calls) != 2 {
+		t.Fatalf("call count = %d, want 2", len(client.calls))
 	}
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
