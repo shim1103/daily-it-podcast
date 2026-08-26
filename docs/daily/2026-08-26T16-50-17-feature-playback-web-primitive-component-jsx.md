@@ -16,8 +16,10 @@ issue-manager で `labeled-text` を JSX 関数コンポーネント化し、Fea
 2. Feature 3 file は本格 JSX 化せず、`mount-labeled-text`（`renderToStaticMarkup`）で Verification を緑に保った。
 3. lane / 依存 Issue / Decision を完了状態へ揃え、完了 Issue file を削除した。
 4. gate（typecheck / unit 201 / lint / lint:layers / integration）を pass 確認した。
+5. PR #65 を `develop` 向けに作成した。base との merge conflict なし。
 
 ### Commits
 
 - `64b8bf7`
 - `62edc13`
+- `2e6c57a`
