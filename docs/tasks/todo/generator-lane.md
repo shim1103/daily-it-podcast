@@ -16,10 +16,10 @@
 - [x] Cursor CLI の Infrastructure（`TextWriter` Adapter）
 - [x] process-env command launcher — production Cursor path 完了（todo file 削除済み）
 - [x] process-env HTTP transport — production process-env HTTP 完了（todo file 削除済み）
-- [ ] local AgentSecrets Cursor command launcher — `generator-agentsecrets-cursor-command-launcher.md`
+- [x] AgentSecrets HTTP proxy 正本吸収 — `secrettransport/agentsecrets` 単一実装（todo 削除済み）
+- [ ] local AgentSecrets Cursor command launcher — `generator-agentsecrets-cursor-command-launcher.md`（素材は `commandlaunch/agentsecrets`）
 - [ ] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）— **D / 未切り出し**（入口契約は `generator-cmd-entrypoint.md`）
 - [ ] cmd 入口 — `generator-cmd-entrypoint.md`
-- [ ] AgentSecrets HTTP proxy 正本吸収（philosophy 再設計） — `generator-agentsecrets-http-proxy-absorb.md`
 - [ ] GHA workflow で定期または手動実行 — **未切り出し**
 
 ### Issue 化待ち（詳細は各 file）
@@ -27,9 +27,7 @@
 | file | 内容 |
 |---|---|
 | `generator-cmd-entrypoint.md` | cmd Driving Adapter 完了 + 既存境界の A/B 整合（`ProduceEpisode.Run` 本体は外） |
-| `generator-processenv-http-transport.md` | production process-env HTTP transport + Adapter の `secrettransport` 切替 |
-| `generator-agentsecrets-cursor-command-launcher.md` | local AgentSecrets × command（Cursor 専用 project） |
-| `generator-agentsecrets-http-proxy-absorb.md` | HTTP proxy 正本を `secrettransport/agentsecrets` へ再設計吸収（mv/rename ではなく philosophy 設計が主眼） |
+| `generator-agentsecrets-cursor-command-launcher.md` | local AgentSecrets × command（`commandlaunch.Launcher`。EnvWrapper 素材は `commandlaunch/agentsecrets`） |
 
 ### 依存（実装順）
 
@@ -37,8 +35,8 @@
 Drive 保存 / OAuth / 原稿検証 / Cursor CLI / secret transport contract（済）
   ├→ process-env command launcher（済）
   │     └→ local AgentSecrets Cursor command launcher
-  ├→ process-env HTTP transport
-  │     └→ local AgentSecrets HTTP transport
+  ├→ process-env HTTP transport（済）
+  │     └→ AgentSecrets HTTP proxy 正本吸収（済。`secrettransport/agentsecrets`）
   └→ cmd 入口（`generator-cmd-entrypoint.md`。契約 stub で可）
         ├→ ProduceEpisode.Run 本体（D）
         └→ GHA
@@ -48,4 +46,6 @@ cmd 入口の正: `docs/tasks/todo/generator-cmd-entrypoint.md`
 cmd 責務 Decision: `docs/decisions/2026-08-25T23-12-31-feature-generator-cmd-usecase-boundary.md`  
 Issue 分割の正: `docs/decisions/2026-08-25T14-20-18-feature-generator-processenv-command-launcher.md`  
 2軸の正: `docs/decisions/2026-08-25T13-53-55-feature-generator-processenv-command-launcher.md`  
+HTTP proxy 正本: `docs/decisions/2026-08-25T19-36-11-feature-generator-agentsecrets-http-transport.md`  
+command 素材の置き場: `docs/decisions/2026-08-26T12-14-00-feature-generator-agentsecrets-http-proxy-absorb.md`  
 方針: `docs/decisions/2026-08-19T15-00-00-feature-generator-drive-adapter-layer-split.md`
