@@ -93,3 +93,8 @@
 178：2026-08-26 [feature/generator-agentsecrets-http-proxy-absorb] path の移動は契約吸収ではない。所有境界の固定と、出口契約を満たす単一実装への再設計を同一の完了条件にしない  # → layer:terms
 179：2026-08-26 [feature/generator-agentsecrets-http-proxy-absorb] default 接続先の test は dial 失敗を証拠にしない。差し込んだ transport が受け取った URL を assert し、port 占有や到達可否に依存しない  # → layer:terms
 180：2026-08-26 [feature/generator-agentsecrets-http-proxy-absorb] 削除 tool の承認 UI の表示対象と実際の削除 path を混同しない。承認前に対象 path を確認し、無関係な lockfile と同一視しない  # → layer:workflow
+181：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] Composition 内で「表」を名乗る file に runtime factory を同居させると、変更理由が2つ同居して Least Astonishment を破る。対応表と契約実装の組み立ては file を分ける  # → layer:terms
+182：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] 結線層の test で具象型 assert により「実装が間違っていない」ことを見るのは振る舞い検証ではない。分岐の無い結線に構造 guard を増やさない  # → layer:terms
+183：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] external test package と unexported helper の white-box test は同一 file に結合できない。結合するなら公開経路の観測へ吸収する  # → layer:platform
+184：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] Composition の vendor 結線 file と bindings/runtime の責務を片方だけ直すと、次の問いがすぐ再発する。表・runtime・each の3役割を同時に揃える  # → layer:terms
+185：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] 自動 review が必須なしと見送っても、coding-style に明文で違反していれば確認待ちせず修正対象へ格上げする  # → layer:workflow
