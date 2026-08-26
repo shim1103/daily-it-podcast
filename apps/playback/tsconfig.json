@@ -17,6 +17,7 @@
   "include": [
     "web/*.ts",
     "web/src/**/*.ts",
+    "web/src/**/*.tsx",
     "worker/src/**/*.ts",
     "contracts/**/*.ts",
     "test/**/*.ts"

@@ -60,12 +60,14 @@ test 方針は `testing-strategy` を参照する。hook の検証観点は `fro
 
 ## 9. Dependencies
 
+- blocked by: `playback-worker-hono-route-definition`（`api/playback-rpc-client.ts` の `hc<AppType>()` は `app.ts` に route が定義されるまで `unknown` 型を返す。実機 `tsc` で検証済み。route 未定義の状態では AC-3 を型 safe に実装できない）
 - blocks: `playback-web-feature-component-jsx`（Feature Component が hook の型に依存する）
 
 ## 10. Risks
 
 1. Hono RPC client のレスポンス型と既存 `ListEpisodesResponse` / `GetEpisodeResponse` 型が完全一致しない場合、型変換が必要になる risk がある。`apps/playback/contracts/` の型を正として一致を確認する。
+2. `playback-lane.md` の「worker 系と web 系は互いに独立して進行できる（`PlaybackApiClient` interface が不変のため）」という記述は、interface の不変性のみを根拠にしており、`playback-rpc-client.ts` の実装可能性（型が `unknown` にならないか）を検証していなかった。この Issue は `playback-worker-hono-route-definition` の完了を前提にしてから着手する。
 
 ## 11. Notes
 
-`components/primitive/labeled-text.ts` の JSX 化（`playback-web-primitive-component-jsx`）はこの Issue と依存関係が無いため並行して進められる。
+`components/primitive/labeled-text.tsx` の JSX 化（`playback-web-primitive-component-jsx`）はこの Issue と依存関係が無く、完了済み。

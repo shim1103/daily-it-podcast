@@ -4,9 +4,10 @@
 
 ## 2. Context
 
-1. `playback-web-view-model-react-hooks.md`（ViewModel の hook 化）と `playback-web-primitive-component-jsx.md`（Primitive の JSX 化）の完了が前提。
+1. `playback-web-view-model-react-hooks.md`（ViewModel の hook 化）の完了と、Primitive JSX 化（`labeled-text.tsx` 済み）が前提。
 2. 5 component は互いに依存し合わない独立した Feature Component であり、この Issue 内で並行して書き換えられる。
 3. `episode-player.ts` は `<audio controls>` 等の標準 HTML 要素を直接記述する契約（`frontend/feature-component.md` §2-3）を持つ。React 化後もこの契約は変わらない。
+4. Primitive 完了時点の暫定橋渡し `mount-labeled-text.ts` は、本 Issue で Feature を JSX 化する過程で削除する（decision: `docs/decisions/2026-08-26T16-48-00-feature-playback-web-primitive-component-jsx.md`）。
 
 ## 3. Canonical Sources
 
@@ -23,6 +24,7 @@
 1. `episode-list-item.ts`, `episode-list.ts`, `episode-manuscript.ts`, `episode-player.ts`, `episode-topic.ts` を `.tsx` へ書き換える。
 2. 各 component の render error 方針を `frontend/feature-component.md` §5（Error Boundary）に合わせる。
 3. 対応する5本の `*.sociable_unit.test.ts` を JSX レンダリング検証へ更新する。
+4. `mount-labeled-text.ts` を削除し、Feature から直接 `LabeledText` を JSX として使う。
 
 ### Out of Scope
 
@@ -46,6 +48,7 @@
 - [ ] AC-2: 各 component の既存 test が JSX レンダリング結果に対する検証として書き換わっている。
 - [ ] AC-3: `episode-player.tsx` が `<audio controls>` を直接描画する。
 - [ ] AC-4: `.ts` 版の5 file が repo に存在しない。
+- [ ] AC-5: `mount-labeled-text.ts` が repo に存在しない。
 
 ## 8. Verification
 
@@ -58,7 +61,7 @@ cd apps/playback && npm run lint:layers
 
 ## 9. Dependencies
 
-- blocked by: `playback-web-view-model-react-hooks.md`, `playback-web-primitive-component-jsx.md`
+- blocked by: `playback-web-view-model-react-hooks.md`（Primitive JSX 化は完了済み）
 - blocks: `playback-web-page-jsx-mount.md`
 
 ## 10. Risks

@@ -23,6 +23,15 @@
 190：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] external test package と unexported helper の white-box test は同一 file に結合できない。結合するなら公開経路の観測へ吸収する  # → layer:platform
 191：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] Composition の vendor 結線 file と bindings/runtime の責務を片方だけ直すと、次の問いがすぐ再発する。表・runtime・each の3役割を同時に揃える  # → layer:terms
 192：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] 自動 review が必須なしと見送っても、coding-style に明文で違反していれば確認待ちせず修正対象へ格上げする  # → layer:workflow
-193：2026-08-26 [docs/infra-test-discussion] sociable unit に processenv と httptest 実到達観測を同居させると Narrow Integration と二重になる。境界 I/O は Narrow、Adapter 内分岐は Unit に分離し、達成契約の AC に責務分離を明示する  # → layer:terms
-194：2026-08-26 [docs/infra-test-discussion] 進捗 lane に Issue 化待ち表や decisions 列挙を置くと、各 task file / Decision Record と SSOT が二重になる。lane は進捗 index だけにし、契約と判断の動線は各 file へ委ねる  # → layer:workflow
-195：2026-08-26 [docs/infra-test-discussion] scope-split の C は docs/tasks/todo の達成契約 file で足りる。GitHub Issue 化は別判断であり、C 作成と同一視しない  # → layer:workflow
+193：2026-08-26 [feature/playback-web-primitive-component-jsx] 下位層だけ先に宣言的 UI へ移し上位が命令的 DOM 組み立てのままだと、削除契約と Verification 緑が衝突する。上位の本格移行 Issue を侵さず機械的追従だけ許すなら、寿命付きの橋を上位側に置き恒久 abstraction にしない  # → layer:terms
+194：2026-08-26 [feature/playback-web-primitive-component-jsx] createRoot で描画した子だけを別 DOM へ移して unmount しないと orphan root が残る。unmount すると管理下の子が壊れる。root を持たない静的 markup 経路を選ぶ  # → layer:platform
+195：2026-08-26 [feature/playback-web-primitive-component-jsx] 静的 markup では ref が走らない。動的 dataset key を commit 後 mutation に頼らず、browser dataset と同値の data-* へ写像して declarative に渡す  # → layer:platform
+196：2026-08-26 [feature/playback-web-primitive-component-jsx] precondition 違反の test は、その検査自体が公開 postcondition のときだけ足す。throw しない pass-through 部品に異常系を足す根拠は契約に無い。空文字や複数 hump などの境界は別物として最小化して足せる  # → layer:terms
+197：2026-08-26 [feature/playback-web-primitive-component-jsx] 査読の must-fix は報告を転送する前に、委譲元が現物と再現条件を自分で確認してから差し戻す。見送り指摘も設定一貫性など明文の欠落なら格上げする  # → layer:workflow
+193：2026-08-26 [feature/playback-worker-hono-route-definition] skillのroleが「non-edit」と定義されている時、flowの各stepに実行主体（誰がAgent toolで委譲するか）が明記されていないと、managerが自らfileをedit・test実行してしまう。role宣言だけでなくflowの各行に主体を明記しないと、非edit原則は実行時に守られない  # → layer:workflow
+194：2026-08-26 [feature/playback-worker-hono-route-definition] 不可逆性を判断する時、git管理下でcommit前のfile変更は`git diff`/`git checkout`で復元できる可逆操作であり、質問toolで実行を止める理由にならない。既存hookが「git履歴で復元できる範囲は自律判断で進めてよい」と明示している時はそれに従う  # → layer:workflow
+195：2026-08-26 [feature/playback-worker-hono-entry-cutover] 削除対象を参照するfile一覧は、Issue本文の記載を正本にせず、削除実行前に自分でgrepして確定する。Issueの依存記述は作成時点のsnapshotであり、後続sessionで追加されたfile（test含む）を捕捉できていないことがある  # → layer:workflow
+196：2026-08-26 [feature/playback-worker-hono-entry-cutover] managerが事前調査で見つけたIssue非記載の追加依存は、委譲先への指示に「発見済みの事実」として明記して渡す。委譲先が独自に発見し直す前提に置くと、同じ見落としが再発するか二重調査が発生する  # → layer:workflow
+198：2026-08-26 [docs/infra-test-discussion] sociable unit に processenv と httptest 実到達観測を同居させると Narrow Integration と二重になる。境界 I/O は Narrow、Adapter 内分岐は Unit に分離し、達成契約の AC に責務分離を明示する  # → layer:terms
+199：2026-08-26 [docs/infra-test-discussion] 進捗 lane に Issue 化待ち表や decisions 列挙を置くと、各 task file / Decision Record と SSOT が二重になる。lane は進捗 index だけにし、契約と判断の動線は各 file へ委ねる  # → layer:workflow
+200：2026-08-26 [docs/infra-test-discussion] scope-split の C は docs/tasks/todo の達成契約 file で足りる。GitHub Issue 化は別判断であり、C 作成と同一視しない  # → layer:workflow
