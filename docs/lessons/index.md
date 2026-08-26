@@ -35,6 +35,8 @@
 198：2026-08-26 [docs/infra-test-discussion] sociable unit に processenv と httptest 実到達観測を同居させると Narrow Integration と二重になる。境界 I/O は Narrow、Adapter 内分岐は Unit に分離し、達成契約の AC に責務分離を明示する  # → layer:terms
 199：2026-08-26 [docs/infra-test-discussion] 進捗 lane に Issue 化待ち表や decisions 列挙を置くと、各 task file / Decision Record と SSOT が二重になる。lane は進捗 index だけにし、契約と判断の動線は各 file へ委ねる  # → layer:workflow
 200：2026-08-26 [docs/infra-test-discussion] scope-split の C は docs/tasks/todo の達成契約 file で足りる。GitHub Issue 化は別判断であり、C 作成と同一視しない  # → layer:workflow
+201：2026-08-26 [feature/generator-narrow-gate-vendor-gemini] Go の httptest.ResponseRecorder は Code フィールドへ直接代入しても、後続の Write() が wroteHeader 未設定を検知して暗黙に WriteHeader(200) を呼び上書きする。status を固定したい fake では WriteHeader() を明示的に呼ぶ  # → layer:platform
+202：2026-08-26 [feature/generator-narrow-gate-vendor-gemini] error message に秘密値が含まれないことを assert する self-validate test は、assert 条件を意図的に反転させて実際に FAIL することを一度確認してから元に戻すと、死んだ assertion（実装のerror経路に秘密値を混ぜる分岐が無いだけで偶然 PASS している状態）でないことを裏取りできる  # → layer:terms
 201：2026-08-26 [feature/playback-web-view-model-react-hooks] HTTP Outbound の response 保証（schema・Result・network 吸収）を framework の typed client に丸投げすると、境界 skill の Outbound 義務と衝突する。typed client は request 組み立てに閉じ、保証は API Client に残す  # → layer:terms
 202：2026-08-26 [feature/playback-web-view-model-react-hooks] typed RPC client が path param を encode しない場合、encode を保証層へ置くと request 知識が漏れる。encode は request 層に閉じ、wire oracle との一致を request 層の test で固定する  # → layer:platform
 203：2026-08-26 [feature/playback-web-view-model-react-hooks] framework の AppType が method chain の戻りに route を積む設計の時、mutation 登録のまま typeof すると client 側が unknown になる。型同期を取るなら登録形を chain に揃える  # → layer:platform
