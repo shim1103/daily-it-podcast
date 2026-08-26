@@ -47,14 +47,14 @@ Access + Vite（TS + React + Pico.css）+ Worker（Hono、list/get）で、contr
 
 ### E: React + Hono + Hono RPC 導入（Issue 6本作成済み）
 
-方針は `docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`。A 区分（dependency 追加・`routes/app.ts`・`api/playback-rpc-client.ts` の型契約固定）は完了済み。残りは以下6 Issue（C 区分）。依存順：
+方針は `docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`。A 区分（dependency 追加・`routes/app.ts`・`api/playback-rpc-client.ts` の型契約固定）は完了済み。Hono RPC 切替後の path / request / warranty 分割は `docs/decisions/2026-08-26T19-27-00-feature-playback-web-view-model-react-hooks.md`。`AppType` の method chain 要件は `docs/decisions/2026-08-26T19-28-00-feature-playback-web-view-model-react-hooks.md`。残りは以下（C 区分）。依存順：
 
 2. `docs/tasks/todo/playback-worker-hono-entry-cutover.md`
-3. `docs/tasks/todo/playback-web-view-model-react-hooks.md`（`api/playback-rpc-client.ts` の `hc<AppType>()` は route 未定義の間 `unknown` 型を返すため、AC-3 の Hono RPC client 差し替えは 1 の完了が前提。実機 `tsc` で検証済み）
-5. `docs/tasks/todo/playback-web-feature-component-jsx.md`（3に依存）
-6. `docs/tasks/todo/playback-web-page-jsx-mount.md`（5 に依存）
+3. ~~`playback-web-view-model-react-hooks`~~（完了。ViewModel hook 化 + API Client の Hono RPC request / warranty 分離。page 一時橋は `playback-web-page-jsx-mount` で削除）
+5. `docs/tasks/todo/playback-web-feature-component-jsx.md`（3 完了済みが前提）
+6. `docs/tasks/todo/playback-web-page-jsx-mount.md`（5 に依存。page 一時橋削除を含む）
 
-worker 系（1・2）と web 系（3〜6）は独立ではない。3 が 1 に依存するため、web 系全体が worker 系の route 定義完了を前提にする。旧記述「worker 系と web 系は互いに独立して進行できる（`PlaybackApiClient` interface が不変のため）」は、interface の不変性のみを根拠にしており、`playback-rpc-client.ts` の実装可能性（型が `unknown` にならないか）を検証していなかった誤り。独立して進行できるのは 4（`playback-web-primitive-component-jsx`）のみ。
+worker 系（1・2）と web 系は独立ではない。3 は 1（route 定義）完了が前提だった。独立して進行できたのは 4（`playback-web-primitive-component-jsx`、完了済み）のみ。
 
 ### 依存（実装順）
 
