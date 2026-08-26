@@ -44,11 +44,10 @@ Access + Vite（TS + React + Pico.css）+ Worker（Hono、list/get）で、contr
 
 ### E: React + Hono 残作業
 
-worker route / entry / primitive JSX は完了（task file 削除済み）。残り依存順：
+方針は `docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`。worker route / entry / primitive JSX / ViewModel hook+RPC 境界は完了（task file 削除済み）。Hono RPC の path / request / warranty 分割は `docs/decisions/2026-08-26T19-27-00-feature-playback-web-view-model-react-hooks.md`。`AppType` の method chain 要件は `docs/decisions/2026-08-26T19-28-00-feature-playback-web-view-model-react-hooks.md`。残り依存順：
 
-1. `docs/tasks/todo/playback-web-view-model-react-hooks.md`（worker route 完了前提。`hc<AppType>()` が `unknown` にならないこと）
-2. `docs/tasks/todo/playback-web-feature-component-jsx.md`（1 に依存）
-3. `docs/tasks/todo/playback-web-page-jsx-mount.md`（2 に依存）
+1. `docs/tasks/todo/playback-web-feature-component-jsx.md`（ViewModel hook 化完了が前提）
+2. `docs/tasks/todo/playback-web-page-jsx-mount.md`（1 に依存。page 一時橋削除を含む）
 
 ### 依存（実装順）
 

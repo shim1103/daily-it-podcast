@@ -1,7 +1,7 @@
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 import { createEpisodeList } from "../components/feature/episode-list.ts";
 import { getLocationHash, onLocationHashChange, setLocationHash } from "../lib/location-hash.ts";
-import { createEpisodeListViewModel } from "../view-models/episode-list-view-model.ts";
+import { mountEpisodeListViewModel } from "./mount-episode-list-view-model.ts";
 
 /**
  * 一覧 page。ViewModel と Feature Component、hash 同期用 Driven Adapter を組み立てるだけ。
@@ -14,7 +14,9 @@ import { createEpisodeListViewModel } from "../view-models/episode-list-view-mod
  */
 export function createEpisodeListPage(apiClient: PlaybackApiClient, baseUrl: string): HTMLElement {
   const container = document.createElement("div");
-  const viewModel = createEpisodeListViewModel(apiClient);
+  // why: ViewModel は hook 化済みだが Page は未 JSX。一時橋で getState/subscribe 面を保つ
+  //   （削除予定: playback-web-page-jsx-mount）
+  const viewModel = mountEpisodeListViewModel(apiClient);
 
   // why: hashchange listener 由来の select() が setState を発火させ、そのまま同じ値を
   //   setLocationHash へ書き戻すと無限ループになりうる。書き込み直前の値と比較して抑止する
