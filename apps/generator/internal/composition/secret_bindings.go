@@ -3,8 +3,6 @@ package composition
 import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport/agentsecrets"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport/processenv"
 )
 
 type secretBindings map[secrettransport.SecretRef]string
@@ -22,13 +20,7 @@ var (
 	driveFolderIDSecret       = secrettransport.NewSecretRef()
 
 	generatorSecretBindings = newSecretBindings()
-	cursorCommandRuntime    = newCursorCommandRuntimeBinding()
 )
-
-type cursorCommandRuntimeBinding struct {
-	apiKey                secrettransport.SecretRef
-	inheritedEnvNameAllow [3]string
-}
 
 func newSecretBindings() secretBindings {
 	return secretBindings{
@@ -43,39 +35,7 @@ func newSecretBindings() secretBindings {
 	}
 }
 
-func newCursorCommandRuntimeBinding() cursorCommandRuntimeBinding {
-	return cursorCommandRuntimeBinding{
-		apiKey: cursorAPIKeySecret,
-		inheritedEnvNameAllow: [3]string{
-			"PATH",
-			"HOME",
-			"TMPDIR",
-		},
-	}
-}
-
-// CursorCommandInheritedEnvNameAllow は Cursor command child へ継承を許す env 名の allowlist を返す。
-//
-// @ensure 戻りは Composition 所有の allowlist のコピーであり、呼び出し側が変更しても SSoT を壊さない。
-func CursorCommandInheritedEnvNameAllow() []string {
-	return append([]string(nil), cursorCommandRuntime.inheritedEnvNameAllow[:]...)
-}
-
 func (bindings secretBindings) ResolveSecret(ref secrettransport.SecretRef) (string, bool) {
 	name, ok := bindings[ref]
 	return name, ok
-}
-
-// processenvSecretTransportClient は process environment 実装の secrettransport.Client を返す。
-//
-// @ensure 戻りは generatorSecretBindings で解決する secrettransport.Client。
-func processenvSecretTransportClient() secrettransport.Client {
-	return processenv.NewClient(generatorSecretBindings, nil, nil)
-}
-
-// agentsecretsSecretTransportClient は local 向け AgentSecrets proxy 実装の secrettransport.Client を返す。
-//
-// @ensure 戻りは generatorSecretBindings で解決する secrettransport.Client。
-func agentsecretsSecretTransportClient() secrettransport.Client {
-	return agentsecrets.NewClient(generatorSecretBindings, nil, "")
 }
