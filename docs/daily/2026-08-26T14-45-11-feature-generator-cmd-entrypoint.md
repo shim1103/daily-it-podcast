@@ -16,8 +16,10 @@ issue-manager で `cmd/generator` を薄い Driving Adapter として完了し�
 2. review 指摘どおり `run` の契約 tag を除去し、lane の未完了 index から完了 Issue を外して todo を削除した。
 3. OS & runtime の成否観測 Decision と DESIGN / lane の最新表記を揃えた。
 4. static / unit gate pass（unit coverage 91.2%）。`ProduceEpisode.Run` 本体は D のまま。
+5. PR #61 を `develop` 向けに作成した。base との merge conflict なし。
 
 ### Commits
 
 - `d1b8b41`
 - `b3343b7`
+- `5bc8e2b`
