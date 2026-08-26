@@ -28,6 +28,7 @@ test_per_system_entries_are_executable_when_layout_is_split() {
   need_exec "$root/scripts/generator/test-unit.sh" || return
   need_exec "$root/scripts/generator/test-race.sh" || return
   need_exec "$root/scripts/generator/test-integration.sh" || return
+  need_exec "$root/scripts/generator/test-integration-local.sh" || return
   need_exec "$root/scripts/playback/test-unit.sh" || return
   need_exec "$root/scripts/playback/test-integration.sh" || return
   need_exec "$root/scripts/check-static.sh" || return
@@ -109,6 +110,26 @@ test_generator_entrypoints_enforce_ci_contracts() {
 # Given: local condition coverage entrypoint と usage documentation
 # When: report の実行方法と呼び出し元を確認する
 # Then: pinned gobco で Unit package を測定し、hook / GHA の品質 gate にしない
+# Given: generator の gate Integration 入口と local-real 入口
+# When: 実行 command と caller を読む
+# Then: gate は -tags / local_real を使わず、hook / GHA は local 入口を呼ばない
+test_generator_integration_collection_freezes_gate_vs_local_real() {
+  local gate="$root/scripts/generator/test-integration.sh"
+  if command_lines "$gate" | grep -Eq 'go[[:space:]]+test.*(-tags|local_real)'; then
+    fail "gate Integration script が -tags または local_real を go test に渡す: $gate" || return
+  fi
+  if command_lines "$root/scripts/git-hooks/pre-commit" | grep -Fq 'test-integration-local.sh'; then
+    fail "pre-commit が test-integration-local.sh を呼ぶ" || return
+  fi
+  if command_lines "$root/scripts/git-hooks/pre-push" | grep -Fq 'test-integration-local.sh'; then
+    fail "pre-push が test-integration-local.sh を呼ぶ" || return
+  fi
+  if grep -Fq 'test-integration-local.sh' "$root/.github/workflows/test-unit.yml" ||
+    grep -Fq 'test-integration-local.sh' "$root/.github/workflows/test-integration.yml"; then
+    fail "GitHub Actions が test-integration-local.sh を呼ぶ" || return
+  fi
+}
+
 test_condition_coverage_report_is_local_and_documented() {
   local report="$root/scripts/generator/report-condition-coverage.sh"
   local readme="$root/README.md"
@@ -207,6 +228,7 @@ test_root_composers_name_per_system_scripts_when_delegating
 test_root_composer_does_not_invoke_toolchain_directly
 test_hooks_call_root_scripts_only
 test_generator_entrypoints_enforce_ci_contracts
+test_generator_integration_collection_freezes_gate_vs_local_real
 test_condition_coverage_report_is_local_and_documented
 test_gha_calls_same_scripts_as_hooks
 test_generator_go_modules_use_pinned_toolchain

@@ -17,6 +17,7 @@ issue-manager で ViewModel を React hooks へ書き換え、API Client を Hon
 3. contracts に route template を置き、worker `app` を method chain 化して `hc<AppType>` を型 safe にした。
 4. Hono 境界・AppType chain・ViewModel 橋の Decision 3本と lane / 依存 Issue を完了状態へ揃えた。
 5. gate（typecheck / unit 219 / lint:layers / integration）を pass 確認した。
+6. PR #68 を `develop` 向けに作成した。base との merge conflict なし。
 
 ### Commits
 
@@ -24,3 +25,4 @@ issue-manager で ViewModel を React hooks へ書き換え、API Client を Hon
 - `359c3da`
 - `f901d0e`
 - `b1743b1`
+- `6c154ff`
