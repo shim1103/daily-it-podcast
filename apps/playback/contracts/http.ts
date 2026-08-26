@@ -34,7 +34,13 @@ const episodeListItemSchema = z.strictObject({
   durationSec: durationSecSchema,
 });
 
-export const listEpisodesPath = "/episodes";
+export const listEpisodesPath = "/episodes" as const;
+
+/** Hono route template。1件 JSON の path パラメータ付き。 */
+export const episodeRoutePath = `${listEpisodesPath}/:episodeId` as const;
+
+/** Hono route template。音声 GET の path パラメータ付き。 */
+export const episodeAudioRoutePath = `${episodeRoutePath}/audio` as const;
 
 /**
  * 1件 JSON の HTTP path。音声バイトの path ではない。

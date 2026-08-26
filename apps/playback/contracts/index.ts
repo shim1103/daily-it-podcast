@@ -5,7 +5,9 @@ export {
   ListEpisodesResponseSchema,
   episodeAudioContentType,
   episodeAudioPath,
+  episodeAudioRoutePath,
   episodePath,
+  episodeRoutePath,
   listEpisodesPath,
   playbackHttpErrorCodes,
 } from "./http.ts";
