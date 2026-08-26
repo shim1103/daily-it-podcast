@@ -139,7 +139,7 @@ test_condition_coverage_report_is_local_and_documented() {
 
 # Given: GHA Unit workflow
 # When: 実行 step を読む
-# Then: check-static、Unit、race を順に呼び、両 workflow は Go 1.26.6 を使う
+# Then: check-static、Unit、race を順に呼び、両 workflow は go.mod / .nvmrc を version の正本にする
 test_gha_calls_same_scripts_as_hooks() {
   local unit_wf="$root/.github/workflows/test-unit.yml"
   local integration_wf="$root/.github/workflows/test-integration.yml"
@@ -171,18 +171,34 @@ test_gha_calls_same_scripts_as_hooks() {
   if grep -Eq 'golangci-lint[[:space:]]+run|npm[[:space:]]+run[[:space:]]+test' "$integration_wf"; then
     fail "Integration workflow が toolchain を直接実行している" || return
   fi
-  if ! grep -q 'go-version: "1.26.6"' "$unit_wf"; then
-    fail "Unit workflow が Go 1.26.6 を使わない" || return
+  if ! grep -q 'go-version-file: apps/generator/go.mod' "$unit_wf"; then
+    fail "Unit workflow が go.mod を version の正本にしない" || return
   fi
-  if ! grep -q 'go-version: "1.26.6"' "$integration_wf"; then
-    fail "Integration workflow が Go 1.26.6 を使わない" || return
+  if ! grep -q 'go-version-file: apps/generator/go.mod' "$integration_wf"; then
+    fail "Integration workflow が go.mod を version の正本にしない" || return
+  fi
+  if ! grep -q 'node-version-file: apps/playback/.nvmrc' "$unit_wf"; then
+    fail "Unit workflow が .nvmrc を version の正本にしない" || return
+  fi
+  if ! grep -q 'node-version-file: apps/playback/.nvmrc' "$integration_wf"; then
+    fail "Integration workflow が .nvmrc を version の正本にしない" || return
   fi
 }
 
 test_generator_go_modules_use_pinned_toolchain() {
   local module="$root/apps/generator/go.mod"
-  if ! grep -qx 'go 1.26.6' "$module"; then
-    fail "Generator module が Go 1.26.6 を宣言しない: $module" || return
+  if ! grep -Eq '^go [0-9]+\.[0-9]+\.[0-9]+$' "$module"; then
+    fail "Generator module が Go version を宣言しない: $module" || return
+  fi
+}
+
+test_playback_nvmrc_declares_node_version() {
+  local nvmrc="$root/apps/playback/.nvmrc"
+  if [[ ! -f "$nvmrc" ]]; then
+    fail ".nvmrc が無い: $nvmrc" || return
+  fi
+  if ! grep -Eq '^[0-9]+$' "$nvmrc"; then
+    fail ".nvmrc が Node major version を宣言しない: $nvmrc" || return
   fi
 }
 
@@ -194,3 +210,4 @@ test_generator_entrypoints_enforce_ci_contracts
 test_condition_coverage_report_is_local_and_documented
 test_gha_calls_same_scripts_as_hooks
 test_generator_go_modules_use_pinned_toolchain
+test_playback_nvmrc_declares_node_version

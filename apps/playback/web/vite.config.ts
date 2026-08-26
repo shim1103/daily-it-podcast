@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 import {
   createFakeGetEpisodeAudioUseCase,
   createFakeGetEpisodeUseCase,
@@ -67,6 +68,7 @@ export default defineConfig({
     middlewareMode: false,
   },
   plugins: [
+    react(),
     {
       name: "dummy-backend-api",
       configureServer(server) {
