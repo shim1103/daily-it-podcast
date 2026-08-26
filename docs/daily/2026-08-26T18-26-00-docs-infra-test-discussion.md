@@ -16,6 +16,8 @@ generator の Integration gate を secret なし Narrow に限定し、local_rea
 2. Decision 6本（gate・tag・秘密供給・System非CI・CDC非導入・Broad/SystemはD）を追加した。
 3. DESIGN / README に地図を足した。
 4. vendor gate 6本と local AgentSecrets 2本の task file を追加し、Unit/Narrow 責務分離を AC に入れた。generator/playback lane を薄くした。
+5. develop を取り込み lessons / playback-lane 衝突を解消した。
+6. PR #67 を `develop` 向けに作成した。base との merge conflict なし。
 
 ### Commits
 
@@ -23,3 +25,5 @@ generator の Integration gate を secret なし Narrow に限定し、local_rea
 - `13ce49d`
 - `b240dc4`
 - `6c93305`
+- `cacd7d4`
+- `1d675c9`
