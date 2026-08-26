@@ -152,3 +152,42 @@ func TestLaunch_passesClosureResolvedSecretValue_whenLookupEnvInjectedDirectlyAs
 		t.Fatalf("child environ = %q, want closure-resolved secret entry", out)
 	}
 }
+
+func TestLaunch_omitsUndefinedAllowlistName_whenLookupMisses(t *testing.T) {
+	t.Parallel()
+
+	// Given: allowlist の 1 名だけが lookup で見つかり、secret も closure で解決する
+	ref := secrettransport.NewSecretRef()
+	const secretName = "PROCESSENV_TEST_OMIT_SECRET_KEY"
+	const secretValue = "omit-secret-dummy-value"
+	bindings := testBindings{ref: secretName}
+	lookupEnv := func(key string) (string, bool) {
+		switch key {
+		case secretName:
+			return secretValue, true
+		case "PATH":
+			return "/processenv-test-bin", true
+		default:
+			return "", false
+		}
+	}
+	launcher := processenv.NewLauncher(bindings, ref, []string{"PATH", "HOME"}, lookupEnv)
+
+	// When: environ を stdout へ出す実 child を起動する
+	got, err := launcher.Launch(context.Background(), commandlaunch.Command{Program: "env"})
+
+	// Then: 未定義名は落ち、定義済みと secret だけが残る
+	if err != nil {
+		t.Fatalf("Launch() error = %v, want nil", err)
+	}
+	out := string(got)
+	if !strings.Contains(out, "PATH=/processenv-test-bin") {
+		t.Fatalf("child environ = %q, want PATH entry", out)
+	}
+	if strings.Contains(out, "HOME=") {
+		t.Fatalf("child environ = %q, want HOME omitted", out)
+	}
+	if !strings.Contains(out, secretName+"="+secretValue) {
+		t.Fatalf("child environ = %q, want secret entry", out)
+	}
+}
