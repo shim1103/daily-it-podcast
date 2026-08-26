@@ -38,6 +38,30 @@ describe("createHttpErrorResponse", () => {
     expect(await got.json()).toEqual({ code: "episode_not_found" });
   });
 
+  it("ValidationError を structured payload で log し Error object 自体は渡さない", async () => {
+    // Given: cause 付き ValidationError
+    const error = new ValidationError("入力が契約に不適合", {
+      cause: new Error("zod"),
+    });
+
+    // When: HTTP Error Response を作る
+    createHttpErrorResponse(error, "req-1");
+
+    // Then: console.error へ渡る payload は Error ではなく structured object
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const payload = errorSpy.mock.calls[0]?.[0];
+    expect(payload).not.toBeInstanceOf(Error);
+    expect(payload).toEqual(
+      expect.objectContaining({
+        name: "ValidationError",
+        message: error.message,
+        stack: error.stack,
+        requestId: "req-1",
+        cause: { name: "Error", message: "zod" },
+      }),
+    );
+  });
+
   it("ConfigurationError の時、500 と configuration_error を返す", async () => {
     // Given: ConfigurationError
     const error = new ConfigurationError("設定を確認できません");

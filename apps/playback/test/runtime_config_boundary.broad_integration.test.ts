@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { ErrorResponseSchema, listEpisodesPath } from "../contracts/index.ts";
-import { fetch as workerFetch } from "../worker/src/routes/fetch.ts";
+import workerEntry from "../worker/src/worker-entry.ts";
 
 /**
  * scope: Broad Integration
@@ -27,7 +27,7 @@ describe("Playback Worker runtime config boundary", () => {
     };
 
     // When: 実際の Worker HTTP 入口を呼ぶ
-    const response = await workerFetch(request, env);
+    const response = await workerEntry.fetch(request, env);
 
     // Then: InMemoryへ暗黙 fallbackせず設定エラー
     expect(response.status).toBe(500);

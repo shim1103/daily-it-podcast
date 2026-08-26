@@ -15,6 +15,7 @@ Access + Vite（TS + React + Pico.css）+ Worker（Hono、list/get）で、contr
 - [x] web API Client / UI 一覧・再生・原稿 / 層違反検知（dependency-cruiser）
 - [x] deploy / Access 方針の A/B（`wrangler.jsonc`・`worker-entry`・`DEPLOY.md`）
 - [x] React + Hono の A（dependency・`routes/app.ts`・RPC client 型契約）
+- [x] worker Hono route 定義 / entry cutover / web primitive JSX
 - [ ] deploy 前実装・設定（下記 C）
 - [ ] 初回手動 deploy 以降（下記 D）
 - [ ] React + Hono 残作業（下記 E）— `docs/tasks/todo/playback-*.md`
@@ -43,7 +44,11 @@ Access + Vite（TS + React + Pico.css）+ Worker（Hono、list/get）で、contr
 
 ### E: React + Hono 残作業
 
-依存順の正は各 `docs/tasks/todo/playback-*.md`。worker 系と web 系は `PlaybackApiClient` 不変のため並行可。
+worker route / entry / primitive JSX は完了（task file 削除済み）。残り依存順：
+
+1. `docs/tasks/todo/playback-web-view-model-react-hooks.md`（worker route 完了前提。`hc<AppType>()` が `unknown` にならないこと）
+2. `docs/tasks/todo/playback-web-feature-component-jsx.md`（1 に依存）
+3. `docs/tasks/todo/playback-web-page-jsx-mount.md`（2 に依存）
 
 ### 依存（実装順）
 
