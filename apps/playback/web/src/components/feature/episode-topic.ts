@@ -1,5 +1,5 @@
 import type { EpisodeData } from "../../view-models/episode-list-view-model.ts";
-import { createLabeledText } from "../primitive/labeled-text.ts";
+import { mountLabeledText } from "./mount-labeled-text.ts";
 
 type Topic = EpisodeData["body"]["topics"][number];
 
@@ -13,9 +13,9 @@ type Topic = EpisodeData["body"]["topics"][number];
 export function createEpisodeTopic(topic: Topic): HTMLElement {
   const section = document.createElement("section");
   section.append(
-    createLabeledText({ tag: "h3", datasetKey: "topicTitle", text: topic.title }),
-    createLabeledText({ tag: "p", datasetKey: "topicPreface", text: topic.preface }),
-    createLabeledText({ tag: "p", datasetKey: "topicDetail", text: topic.detail }),
+    mountLabeledText({ tag: "h3", datasetKey: "topicTitle", text: topic.title }),
+    mountLabeledText({ tag: "p", datasetKey: "topicPreface", text: topic.preface }),
+    mountLabeledText({ tag: "p", datasetKey: "topicDetail", text: topic.detail }),
   );
   return section;
 }
