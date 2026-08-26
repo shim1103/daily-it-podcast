@@ -88,3 +88,10 @@
 174：2026-08-25 [chore/playback-unit-coverage] coverage の全体 threshold と層別 threshold を併用する時、層別 threshold の対象 file が全体 threshold の合算対象から自動的に除外されるとは限らない。tool の仕様として全体集計に含まれるなら、層別で緩めた分だけ全体閾値も緩めるか、層別対象を全体閾値の水準まで引き上げるかを選ぶ  # → layer:terms
 175：2026-08-25 [chore/playback-unit-coverage] 到達不能に見える分岐へ test を書く前に、型検査で実際に到達可能か検証する。型上も到達不能なら理由付き comment で計測から除外し、型が緩いだけで実は到達可能なら分岐自体を削除するか test で埋める。判断せず test 追加だけで済ませない  # → layer:terms
 176：2026-08-25 [chore/playback-unit-coverage] test runner が複数 test 単位（unit/integration 等）を1 process 内の階層構成で束ねる時、集計系の設定（coverage・reporter 等）は階層の末端ではなく最上位でしか有効にならない場合がある。末端に書いて無視されていないか、実際に閾値違反を起こして確認する  # → layer:platform
+177：2026-08-26 [docs/architecture-reconsider-react-hono] 質問tool・plan mode切替toolがpermission規約でdenyされた時、機能停止と扱わず、同じ目的（判断の提示・承認確認）をその場のtext出力とuserの次inputで代替する。tool不通は判断や進行を止める理由にしない  # → layer:workflow
+178：2026-08-26 [docs/architecture-reconsider-react-hono] workflow skillの説明文にある動詞（show等）を、file書き込みを伴う動詞（create・write・fix）と同一視しない。skill本文の分類が「提示」を指す時は、承認前にartifactを実体化しない  # → layer:workflow
+179：2026-08-26 [docs/architecture-reconsider-react-hono] userの短い指示語（remember等）を字面通りの機能呼び出しと解釈する前に、直前の文脈（何を保存すべき情報として提示したか）と照らして意図を確認する。誤った解釈で副作用のある処理を実行すると、後から全体を取り消す作業が発生する  # → layer:workflow
+180：2026-08-26 [docs/architecture-reconsider-react-hono] 委譲先が「成功」と報告した内容でも、実行に使ったtoolchain・package manager・生成物が対象repoの既存の正本（lockfile形式、config file）と一致しているかを個別に確認する。報告の成功可否と、環境への副作用の正しさは別の検証項目である  # → layer:workflow
+181：2026-08-26 [docs/architecture-reconsider-react-hono] 言語・toolchainの設定directiveが期待通り機能するかは、設定を追加した直後に実際のtoolを実行して確認する。ドキュメントの記憶や類推だけでは、同義とみなした値の組み合わせが実行系によって自動的に無効化される仕様を見落とす  # → layer:terms
+182：2026-08-26 [docs/architecture-reconsider-react-hono] 特定の値をハードコードで検証するtestがある状態でその値の重複除去（DRY化）を行うと、実装は正しくなってもtestの断定的assertionが失敗する。値の同期を求めるtestを見つけたら、実装のDRY化とtestの検証方法（直書き値の比較→参照先の存在確認）を同じ単位で直す  # → layer:terms
+183：2026-08-26 [docs/architecture-reconsider-react-hono] git操作（stage解除・reset等）がpolicyでblockされた時、blockされた操作を別コマンドで回避しようとせず、現在stageされている内容をそのまま活かせる単位でcommit粒度を再設計する  # → layer:platform
