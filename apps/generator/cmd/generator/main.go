@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,13 +12,28 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/composition"
 )
 
+// main は generator CLI の Driving Adapter 入口である。
+//
+// @require process が Interrupt / SIGTERM を届けられる。
+// @ensure composition.NewProduceEpisode().Run が nil なら process exit 0。
+// @ensure Run が non-nil error なら stderr へ出し process exit 非0。
+// @invariant internal/infrastructure と application/port を import しない。秘密・env を読まない。生成手順を持たない。
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	uc := composition.NewProduceEpisode()
-	if err := uc.Run(ctx, time.Now()); err != nil {
-		fmt.Fprintf(os.Stderr, "generator: %v\n", err)
-		os.Exit(1)
+	code := run(ctx, time.Now(), os.Stderr, composition.NewProduceEpisode().Run)
+	if code != 0 {
+		os.Exit(code)
 	}
+}
+
+// run は ProduceEpisode.Run の結果を process 終了へ写す。
+func run(ctx context.Context, now time.Time, stderr io.Writer, produce func(context.Context, time.Time) error) int {
+	if err := produce(ctx, now); err != nil {
+		// why: 既に失敗経路。stderr 書込失敗をさらに上位へ持ち出す先が無い。
+		_, _ = fmt.Fprintf(stderr, "generator: %v\n", err)
+		return 1
+	}
+	return 0
 }
