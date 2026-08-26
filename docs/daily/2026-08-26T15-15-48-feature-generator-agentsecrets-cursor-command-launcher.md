@@ -16,6 +16,7 @@ issue-manager で local AgentSecrets Cursor command launcher を実装し、Comp
 2. Composition で production `processenv` を維持しつつ `NewCursorTextWriterLocal` を結線可能にした。bindings/runtime file 分割の Decision を残した。
 3. Composition / processenv の過剰 test を shaving・吸収し、lane と DESIGN を完了状態へ更新した。
 4. static / unit / integration gate を pass 確認した（unit coverage 91.7%）。
+5. PR #63 を `develop` 向けに作成した。base との merge conflict なし。
 
 ### Commits
 
@@ -23,3 +24,4 @@ issue-manager で local AgentSecrets Cursor command launcher を実装し、Comp
 - `6ec1949`
 - `cc7fe0f`
 - `c63bffb`
+- `de8a330`
