@@ -88,3 +88,8 @@
 174：2026-08-25 [chore/playback-unit-coverage] coverage の全体 threshold と層別 threshold を併用する時、層別 threshold の対象 file が全体 threshold の合算対象から自動的に除外されるとは限らない。tool の仕様として全体集計に含まれるなら、層別で緩めた分だけ全体閾値も緩めるか、層別対象を全体閾値の水準まで引き上げるかを選ぶ  # → layer:terms
 175：2026-08-25 [chore/playback-unit-coverage] 到達不能に見える分岐へ test を書く前に、型検査で実際に到達可能か検証する。型上も到達不能なら理由付き comment で計測から除外し、型が緩いだけで実は到達可能なら分岐自体を削除するか test で埋める。判断せず test 追加だけで済ませない  # → layer:terms
 176：2026-08-25 [chore/playback-unit-coverage] test runner が複数 test 単位（unit/integration 等）を1 process 内の階層構成で束ねる時、集計系の設定（coverage・reporter 等）は階層の末端ではなく最上位でしか有効にならない場合がある。末端に書いて無視されていないか、実際に閾値違反を起こして確認する  # → layer:platform
+
+177：2026-08-26 [feature/generator-agentsecrets-http-proxy-absorb] 同じ置き場名でも出口契約が違うなら runtime package を出口ごとに分ける。見た目の重複を DRY 違反とみなし1袋へ畳むと Orthogonality が壊れる  # → layer:terms
+178：2026-08-26 [feature/generator-agentsecrets-http-proxy-absorb] path の移動は契約吸収ではない。所有境界の固定と、出口契約を満たす単一実装への再設計を同一の完了条件にしない  # → layer:terms
+179：2026-08-26 [feature/generator-agentsecrets-http-proxy-absorb] default 接続先の test は dial 失敗を証拠にしない。差し込んだ transport が受け取った URL を assert し、port 占有や到達可否に依存しない  # → layer:terms
+180：2026-08-26 [feature/generator-agentsecrets-http-proxy-absorb] 削除 tool の承認 UI の表示対象と実際の削除 path を混同しない。承認前に対象 path を確認し、無関係な lockfile と同一視しない  # → layer:workflow

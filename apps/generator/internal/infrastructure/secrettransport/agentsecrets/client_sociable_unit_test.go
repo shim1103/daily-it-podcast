@@ -23,12 +23,31 @@ func (b stubBindings) ResolveSecret(ref secrettransport.SecretRef) (string, bool
 type proxyProbe struct {
 	called           bool
 	targetURL        string
+	method           string
 	bearer           string
 	apiKey           string
+	formClientID     string
 	formClientSecret string
+	formRefreshToken string
 	bodyParents0     string
 	contentType      string
+	authorization    string
 	requestBody      string
+}
+
+// urlRecordingRoundTripper は実際の network へ出ず、request URL だけを記録する。
+type urlRecordingRoundTripper struct {
+	url string
+}
+
+func (t *urlRecordingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	t.url = req.URL.String()
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(`{"ok":true}`)),
+		Header:     make(http.Header),
+		Request:    req,
+	}, nil
 }
 
 func newClientWithProxyProbe(t *testing.T, bindings secrettransport.BindingResolver) (*agentsecrets.Client, *proxyProbe) {
@@ -37,11 +56,15 @@ func newClientWithProxyProbe(t *testing.T, bindings secrettransport.BindingResol
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		probe.called = true
 		probe.targetURL = r.Header.Get("X-AS-Target-URL")
+		probe.method = r.Header.Get("X-AS-Method")
 		probe.bearer = r.Header.Get("X-AS-Inject-Bearer")
 		probe.apiKey = r.Header.Get("X-AS-Inject-Header-X-API-Key")
+		probe.formClientID = r.Header.Get("X-AS-Inject-Form-client_id")
 		probe.formClientSecret = r.Header.Get("X-AS-Inject-Form-client_secret")
+		probe.formRefreshToken = r.Header.Get("X-AS-Inject-Form-refresh_token")
 		probe.bodyParents0 = r.Header.Get("X-AS-Inject-Body-parents-0")
 		probe.contentType = r.Header.Get("Content-Type")
+		probe.authorization = r.Header.Get("Authorization")
 		raw, _ := io.ReadAll(r.Body)
 		probe.requestBody = string(raw)
 		w.WriteHeader(http.StatusOK)
@@ -500,8 +523,195 @@ func TestNewClient_returnsNonNil_whenHTTPClientAndProxyURLAreNilOrEmpty(t *testi
 	// When: NewClient する
 	client := agentsecrets.NewClient(bindings, nil, "")
 
-	// Then: nil でも構築できる（proxy 側が DefaultClient / DefaultProxyURL にフォールバック）
+	// Then: nil でも構築できる（DefaultClient / DefaultProxyURL にフォールバック）
 	if client == nil {
 		t.Fatal("NewClient() = nil, want non-nil")
+	}
+}
+
+func TestDo_setsMethodHeaderToGET_whenMethodEmpty(t *testing.T) {
+	t.Parallel()
+
+	// Given: Method が空の Request
+	client, probe := newClientWithProxyProbe(t, stubBindings{})
+
+	// When: Do する
+	res, err := client.Do(context.Background(), secrettransport.Request{
+		TargetURL: "https://api.example.com/v1/posts",
+	})
+
+	// Then: X-AS-Method は GET
+	if err != nil {
+		t.Fatalf("Do() error = %v, want nil", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if probe.method != http.MethodGet {
+		t.Fatalf("X-AS-Method = %q, want GET", probe.method)
+	}
+}
+
+func TestDo_omitsBearerInjectHeader_whenBearerNil(t *testing.T) {
+	t.Parallel()
+
+	// Given: Bearer を付けない Request
+	client, probe := newClientWithProxyProbe(t, stubBindings{})
+
+	// When: Do する
+	res, err := client.Do(context.Background(), secrettransport.Request{
+		TargetURL: "https://api.example.com/v1/posts",
+	})
+
+	// Then: X-AS-Inject-Bearer は付かない
+	if err != nil {
+		t.Fatalf("Do() error = %v, want nil", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if probe.bearer != "" {
+		t.Fatalf("X-AS-Inject-Bearer = %q, want empty", probe.bearer)
+	}
+}
+
+func TestDo_setsMultipleFormInjectHeaders_whenMultipleFormFieldsResolved(t *testing.T) {
+	t.Parallel()
+
+	// Given: OAuth 用 Form の複数 SecretRef
+	clientID := secrettransport.NewSecretRef()
+	clientSecret := secrettransport.NewSecretRef()
+	refreshToken := secrettransport.NewSecretRef()
+	bindings := stubBindings{
+		clientID:     "OAUTH_CLIENT_ID",
+		clientSecret: "OAUTH_CLIENT_SECRET",
+		refreshToken: "OAUTH_REFRESH_TOKEN",
+	}
+	client, probe := newClientWithProxyProbe(t, bindings)
+
+	// When: Form 複数注入して Do する
+	res, err := client.Do(context.Background(), secrettransport.Request{
+		Method:    http.MethodPost,
+		TargetURL: "https://oauth2.googleapis.com/token",
+		Inject: secrettransport.Inject{
+			Form: []secrettransport.FieldInjection{
+				{Field: "client_id", Secret: clientID},
+				{Field: "client_secret", Secret: clientSecret},
+				{Field: "refresh_token", Secret: refreshToken},
+			},
+		},
+	})
+
+	// Then: 各 X-AS-Inject-Form-* に秘密名だけが載る
+	if err != nil {
+		t.Fatalf("Do() error = %v, want nil", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if probe.formClientID != "OAUTH_CLIENT_ID" {
+		t.Fatalf("X-AS-Inject-Form-client_id = %q", probe.formClientID)
+	}
+	if probe.formClientSecret != "OAUTH_CLIENT_SECRET" {
+		t.Fatalf("X-AS-Inject-Form-client_secret = %q", probe.formClientSecret)
+	}
+	if probe.formRefreshToken != "OAUTH_REFRESH_TOKEN" {
+		t.Fatalf("X-AS-Inject-Form-refresh_token = %q", probe.formRefreshToken)
+	}
+}
+
+func TestDo_passthroughsNonSecretHeaders_whenAuthorizationAndContentTypeSet(t *testing.T) {
+	t.Parallel()
+
+	// Given: 非秘密の Content-Type と Authorization
+	client, probe := newClientWithProxyProbe(t, stubBindings{})
+
+	// When: PassthroughHeaders 付きで Do する
+	res, err := client.Do(context.Background(), secrettransport.Request{
+		Method:    http.MethodPost,
+		TargetURL: "https://www.googleapis.com/drive/v3/files",
+		PassthroughHeaders: []secrettransport.Header{
+			{Name: "Content-Type", Value: "application/json"},
+			{Name: "Authorization", Value: "Bearer dummy-access-token"},
+			{Name: "", Value: "IGNORED"},
+			{Name: "X-Empty", Value: "  "},
+		},
+	})
+
+	// Then: 有効な組だけが値ごと渡り、Inject Bearer は付かない
+	if err != nil {
+		t.Fatalf("Do() error = %v, want nil", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if probe.contentType != "application/json" {
+		t.Fatalf("Content-Type = %q, want application/json", probe.contentType)
+	}
+	if probe.authorization != "Bearer dummy-access-token" {
+		t.Fatalf("Authorization = %q", probe.authorization)
+	}
+	if probe.bearer != "" {
+		t.Fatalf("X-AS-Inject-Bearer = %q, want empty", probe.bearer)
+	}
+}
+
+func TestDo_returnsErrorBeforeProxyIO_whenTargetURLSchemeIsNotHTTPS(t *testing.T) {
+	t.Parallel()
+
+	// Given: scheme が https 以外の TargetURL
+	client, probe := newClientWithProxyProbe(t, stubBindings{})
+
+	// When: Do する
+	res, err := client.Do(context.Background(), secrettransport.Request{
+		TargetURL: "http://api.example.com/v1/posts",
+	})
+
+	// Then: 外部 I/O 前に error
+	if err == nil {
+		t.Fatal("Do() error = nil, want non-nil")
+	}
+	if res != nil {
+		t.Fatalf("Do() response = %v, want nil", res)
+	}
+	if probe.called {
+		t.Fatal("proxy was called, want not called")
+	}
+}
+
+func TestDo_returnsErrorBeforeProxyIO_whenTargetURLHostEmpty(t *testing.T) {
+	t.Parallel()
+
+	// Given: host が空の https URL
+	client, probe := newClientWithProxyProbe(t, stubBindings{})
+
+	// When: Do する
+	res, err := client.Do(context.Background(), secrettransport.Request{
+		TargetURL: "https://",
+	})
+
+	// Then: 外部 I/O 前に error
+	if err == nil {
+		t.Fatal("Do() error = nil, want non-nil")
+	}
+	if res != nil {
+		t.Fatalf("Do() response = %v, want nil", res)
+	}
+	if probe.called {
+		t.Fatal("proxy was called, want not called")
+	}
+}
+
+func TestDo_requestsDefaultProxyURL_whenProxyURLEmpty(t *testing.T) {
+	t.Parallel()
+
+	// Given: proxyURL 空で NewClient した Client と、到達 URL を記録する RoundTripper
+	recorder := &urlRecordingRoundTripper{}
+	client := agentsecrets.NewClient(stubBindings{}, &http.Client{Transport: recorder}, "")
+
+	// When: Do する
+	res, err := client.Do(context.Background(), secrettransport.Request{
+		TargetURL: "https://api.example.com/v1/posts",
+	})
+
+	// Then: 実際の request URL は DefaultProxyURL（network / port 占有に依存しない）
+	if err != nil {
+		t.Fatalf("Do() error = %v, want nil", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if recorder.url != agentsecrets.DefaultProxyURL {
+		t.Fatalf("proxy request URL = %q, want %q", recorder.url, agentsecrets.DefaultProxyURL)
 	}
 }
