@@ -1,6 +1,6 @@
 # DESIGN
 
-最終更新: 2026-08-25（playback Feature/Primitive dir 分割と dependency-cruiser 層 gate／deploy・Access 運用を `DEPLOY.md` へ分離）
+最終更新: 2026-08-26（generator Integration gate と local_real 収集境界）
 
 地図・使い方・受け入れ・秘密の名前は `README.md`。deploy・Access・公開境界は `DEPLOY.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive / HTTP 契約・運用方針の写しは置かない）。
 
@@ -99,6 +99,9 @@ Scope × Sociability: [levels](file:///Users/shim0729/.claude/skills/testing-str
 10. generator static は `go build ./...` と **depguard** / `errcheck` / `govet` / `gofmt`（`golangci-lint`、`strict` allow）で build・層 import・静的な誤用を block する。Infrastructure が Application から import してよいのは **Port** のみ。playback static は Biome / tsc に加え **dependency-cruiser**（`apps/playback/.dependency-cruiser.mjs`）で層 import を block する
 11. generator race gate は `go test -race` で Unit package を実行する。Integration package・Playback・本番 credential を使わない
 12. Go version の正本は `apps/generator/go.mod` の `go` directive。Node version の正本は `apps/playback/.nvmrc`。GitHub Actions は両 file を `go-version-file` / `node-version-file` で参照し、YAML に version 文字列を直書きしない。local の Node version 不一致は `apps/playback/package.json` の `engines` + `.npmrc` の `engine-strict=true` が `npm ci` 時点で検知する
+13. generator Integration の **gate**（`scripts/generator/test-integration.sh` → pre-push / GHA）は **secret なし Narrow** のみ。実 AgentSecrets / keychain / 実外部 credential を要する suite は gate に載せない。判断の正は `docs/decisions/2026-08-26T17-42-00-docs-infra-test-discussion.md`
+14. generator の local 実物 suite は Go build tag で gate 収集から除外する。tag 名・local 入口の正本は code（`apps/generator/test/` の tag 契約と `scripts/generator/test-integration-local.sh`）。file 名だけでは除外しない。判断の正は `docs/decisions/2026-08-26T17-43-00-docs-infra-test-discussion.md`
+15. generator の System / E2E は CI gate に載せない。判断の正は `docs/decisions/2026-08-26T17-45-00-docs-infra-test-discussion.md`
 
 実行手順（hook 導入・コマンド）は `README.md`。
 
