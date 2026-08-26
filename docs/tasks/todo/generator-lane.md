@@ -17,7 +17,7 @@
 - [x] process-env command launcher — production Cursor path 完了（todo file 削除済み）
 - [x] process-env HTTP transport — production process-env HTTP 完了（todo file 削除済み）
 - [x] AgentSecrets HTTP proxy 正本吸収 — `secrettransport/agentsecrets` 単一実装（todo 削除済み）
-- [ ] local AgentSecrets Cursor command launcher — `generator-agentsecrets-cursor-command-launcher.md`（素材は `commandlaunch/agentsecrets`）
+- [x] local AgentSecrets Cursor command launcher — `commandlaunch/agentsecrets.Launcher` + Composition `runtime.go` 結線（todo 削除済み）
 - [ ] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）— **D / 未切り出し**（入口契約は `generator-cmd-entrypoint.md`）
 - [ ] cmd 入口 — `generator-cmd-entrypoint.md`
 - [ ] GHA workflow で定期または手動実行 — **未切り出し**
@@ -27,14 +27,13 @@
 | file | 内容 |
 |---|---|
 | `generator-cmd-entrypoint.md` | cmd Driving Adapter 完了 + 既存境界の A/B 整合（`ProduceEpisode.Run` 本体は外） |
-| `generator-agentsecrets-cursor-command-launcher.md` | local AgentSecrets × command（`commandlaunch.Launcher`。EnvWrapper 素材は `commandlaunch/agentsecrets`） |
 
 ### 依存（実装順）
 
 ```text
 Drive 保存 / OAuth / 原稿検証 / Cursor CLI / secret transport contract（済）
   ├→ process-env command launcher（済）
-  │     └→ local AgentSecrets Cursor command launcher
+  │     └→ local AgentSecrets Cursor command launcher（済）
   ├→ process-env HTTP transport（済）
   │     └→ AgentSecrets HTTP proxy 正本吸収（済。`secrettransport/agentsecrets`）
   └→ cmd 入口（`generator-cmd-entrypoint.md`。契約 stub で可）
@@ -48,4 +47,5 @@ Issue 分割の正: `docs/decisions/2026-08-25T14-20-18-feature-generator-proces
 2軸の正: `docs/decisions/2026-08-25T13-53-55-feature-generator-processenv-command-launcher.md`  
 HTTP proxy 正本: `docs/decisions/2026-08-25T19-36-11-feature-generator-agentsecrets-http-transport.md`  
 command 素材の置き場: `docs/decisions/2026-08-26T12-14-00-feature-generator-agentsecrets-http-proxy-absorb.md`  
+Composition 内 bindings/runtime 分割: `docs/decisions/2026-08-26T14-58-45-feature-generator-agentsecrets-cursor-command-launcher.md`  
 方針: `docs/decisions/2026-08-19T15-00-00-feature-generator-drive-adapter-layer-split.md`
