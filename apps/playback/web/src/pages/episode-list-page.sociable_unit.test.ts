@@ -1,17 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GetEpisodeResponse, ListEpisodesResponse } from "../../../contracts/index.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
-import type { EpisodeListViewModel } from "../view-models/episode-list-view-model.ts";
+import type { EpisodeListViewModelHandle } from "./mount-episode-list-view-model.ts";
 
-vi.mock("../view-models/episode-list-view-model.ts", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../view-models/episode-list-view-model.ts")>();
+vi.mock("./mount-episode-list-view-model.ts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./mount-episode-list-view-model.ts")>();
   return {
     ...actual,
-    createEpisodeListViewModel: vi.fn(actual.createEpisodeListViewModel),
+    mountEpisodeListViewModel: vi.fn(actual.mountEpisodeListViewModel),
   };
 });
 
-import { createEpisodeListViewModel } from "../view-models/episode-list-view-model.ts";
+import { mountEpisodeListViewModel } from "./mount-episode-list-view-model.ts";
 import { createEpisodeListPage } from "./episode-list-page.ts";
 
 const validListEpisodesResponse: ListEpisodesResponse = {
@@ -50,7 +50,7 @@ async function flushMicrotasks(): Promise<void> {
 describe("createEpisodeListPage", () => {
   afterEach(() => {
     window.location.hash = "";
-    vi.mocked(createEpisodeListViewModel).mockClear();
+    vi.mocked(mountEpisodeListViewModel).mockClear();
   });
 
   it("mount 時に location.hash に episodeId があれば、その episode を選択した状態で描画する", async () => {
@@ -128,17 +128,19 @@ describe("createEpisodeListPage", () => {
   it("load() 完了時点で hash が空のままにならない ViewModel の時、mount 時の hash で select する", async () => {
     // Given: load() 完了後も selectedEpisodeId を持つ success state を最初から返す ViewModel
     //   （実装の ViewModel は load() 完了直後に selectedEpisodeId を null に戻すため hash が一旦消えるが、
-    //   ここでは mount 時の hash 復元ロジック（L62-67）だけを独立して検証する）
+    //   ここでは mount 時の hash 復元ロジックだけを独立して検証する）
     window.location.hash = "#ep-1";
-    const listeners = new Set<(state: ReturnType<EpisodeListViewModel["getState"]>) => void>();
-    const state: ReturnType<EpisodeListViewModel["getState"]> = {
+    const listeners = new Set<
+      (state: ReturnType<EpisodeListViewModelHandle["getState"]>) => void
+    >();
+    const state: ReturnType<EpisodeListViewModelHandle["getState"]> = {
       status: "success",
       episodes: validListEpisodesResponse.episodes,
       selectedEpisodeId: "ep-1",
       selectedEpisode: { status: "success", episode: validGetEpisodeResponse },
     };
     const select = vi.fn(async () => {});
-    const fakeViewModel: EpisodeListViewModel = {
+    const fakeViewModel: EpisodeListViewModelHandle = {
       getState: () => state,
       subscribe: (listener) => {
         listeners.add(listener);
@@ -151,7 +153,7 @@ describe("createEpisodeListPage", () => {
       },
       select,
     };
-    vi.mocked(createEpisodeListViewModel).mockReturnValueOnce(fakeViewModel);
+    vi.mocked(mountEpisodeListViewModel).mockReturnValueOnce(fakeViewModel);
     const apiClient = createStubApiClient();
 
     // When: page を組み立てる

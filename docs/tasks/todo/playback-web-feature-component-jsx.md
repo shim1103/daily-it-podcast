@@ -4,7 +4,7 @@
 
 ## 2. Context
 
-1. `playback-web-view-model-react-hooks.md`（ViewModel の hook 化）の完了と、Primitive JSX 化（`labeled-text.tsx` 済み）が前提。
+1. ViewModel hook 化（`playback-web-view-model-react-hooks`、完了）と Primitive JSX 化（`labeled-text.tsx` 済み）が前提。
 2. 5 component は互いに依存し合わない独立した Feature Component であり、この Issue 内で並行して書き換えられる。
 3. `episode-player.ts` は `<audio controls>` 等の標準 HTML 要素を直接記述する契約（`frontend/feature-component.md` §2-3）を持つ。React 化後もこの契約は変わらない。
 4. Primitive 完了時点の暫定橋渡し `mount-labeled-text.ts` は、本 Issue で Feature を JSX 化する過程で削除する（decision: `docs/decisions/2026-08-26T16-48-00-feature-playback-web-primitive-component-jsx.md`）。
@@ -61,7 +61,7 @@ cd apps/playback && npm run lint:layers
 
 ## 9. Dependencies
 
-- blocked by: `playback-web-view-model-react-hooks.md`（Primitive JSX 化は完了済み）
+- blocked by: なし（ViewModel hook 化・Primitive JSX 化は完了済み）
 - blocks: `playback-web-page-jsx-mount.md`
 
 ## 10. Risks

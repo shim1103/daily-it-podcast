@@ -66,4 +66,6 @@ cd apps/playback && npm run dev
 
 ## 11. Notes
 
-本 Issue の完了をもって、web 側の React 化（C3〜C6）が完了する。worker 側（C1・C2）とは独立して進行しているため、どちらが先に完了してもよい。
+1. 本 Issue の完了をもって、web 側の React 化（C3〜C6）が完了する。
+2. ViewModel hook 化時の page 一時橋（`mount-episode-list-view-model`）は本 Issue で削除する（decision: `docs/decisions/2026-08-26T19-29-00-feature-playback-web-view-model-react-hooks.md`）。
+3. worker 系（route / entry）と web 系は独立ではない。Hono `AppType` と RPC 境界の正は `docs/decisions/2026-08-26T19-27-00-feature-playback-web-view-model-react-hooks.md` / `2026-08-26T19-28-00-...` を参照する。
