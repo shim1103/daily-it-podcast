@@ -23,3 +23,5 @@
 190：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] external test package と unexported helper の white-box test は同一 file に結合できない。結合するなら公開経路の観測へ吸収する  # → layer:platform
 191：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] Composition の vendor 結線 file と bindings/runtime の責務を片方だけ直すと、次の問いがすぐ再発する。表・runtime・each の3役割を同時に揃える  # → layer:terms
 192：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] 自動 review が必須なしと見送っても、coding-style に明文で違反していれば確認待ちせず修正対象へ格上げする  # → layer:workflow
+193：2026-08-26 [feature/playback-worker-hono-route-definition] skillのroleが「non-edit」と定義されている時、flowの各stepに実行主体（誰がAgent toolで委譲するか）が明記されていないと、managerが自らfileをedit・test実行してしまう。role宣言だけでなくflowの各行に主体を明記しないと、非edit原則は実行時に守られない  # → layer:workflow
+194：2026-08-26 [feature/playback-worker-hono-route-definition] 不可逆性を判断する時、git管理下でcommit前のfile変更は`git diff`/`git checkout`で復元できる可逆操作であり、質問toolで実行を止める理由にならない。既存hookが「git履歴で復元できる範囲は自律判断で進めてよい」と明示している時はそれに従う  # → layer:workflow
