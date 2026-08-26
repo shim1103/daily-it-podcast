@@ -105,8 +105,8 @@ func ProjectDir(home string, name string) string {
 // DefaultProjectDir は目的別 project 設定 dir の既定 path を実行環境から解決する。
 //
 // why: 接続先の位置情報は隠すべき具体値であり、呼び出し側が home を読んで組み立てると
-// 解決規則が呼び出し元の数だけ散る。Client が DefaultProxyURL を自分で解決するのと同じく、
-// 位置の解決を agentsecrets 側へ寄せる。
+// 解決規則が呼び出し元の数だけ散る。secrettransport/agentsecrets.Client が DefaultProxyURL
+// を自分で解決するのと同じく、位置の解決を command 側 agentsecrets へ寄せる。
 //
 // @ensure HOME が絶対 path のとき、戻りも絶対 path。
 // @ensure HOME が未設定のとき Validate が弾く相対 path を返す。環境不備は実行時に現れる。
