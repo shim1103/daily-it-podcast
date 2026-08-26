@@ -1,13 +1,8 @@
-import {
-  episodePath,
-  GetEpisodeResponseSchema,
-  ListEpisodesResponseSchema,
-  listEpisodesPath,
-} from "../../../contracts/index.ts";
+import { GetEpisodeResponseSchema, ListEpisodesResponseSchema } from "../../../contracts/index.ts";
 import type { GetEpisodeResponse, ListEpisodesResponse } from "../../../contracts/index.ts";
-import { buildRequestUrl } from "../utils/build-request-url.ts";
 import type { ApiResult } from "./api-result.ts";
-import { requestJson } from "./playback-api-response.ts";
+import { readJsonResult } from "./playback-api-response.ts";
+import { createPlaybackRpcClient } from "./playback-rpc-client.ts";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -23,6 +18,7 @@ export type PlaybackApiClient = {
 
 /**
  * playback worker の HTTP API を叩く client を組み立てる。
+ * schema + status + network → ApiResult のみ（path / encode は持たない）。
  *
  * @require deps.baseUrl は worker の origin。末尾の `/` は有無どちらでもよい
  * @require deps.fetch は Fetch API 互換の呼び出し
@@ -30,22 +26,14 @@ export type PlaybackApiClient = {
  * @invariant baseUrl は組み立て時に 1 度だけ受け取り、各 method の引数にしない
  */
 export function createPlaybackApiClient(deps: PlaybackApiClientDeps): PlaybackApiClient {
-  const { baseUrl, fetch } = deps;
+  const rpc = createPlaybackRpcClient(deps);
 
   return {
     async listEpisodes(): Promise<ApiResult<ListEpisodesResponse>> {
-      return requestJson(
-        fetch,
-        buildRequestUrl(baseUrl, listEpisodesPath),
-        ListEpisodesResponseSchema,
-      );
+      return readJsonResult(() => rpc.listEpisodes(), ListEpisodesResponseSchema);
     },
     async getEpisode(episodeId: string): Promise<ApiResult<GetEpisodeResponse>> {
-      return requestJson(
-        fetch,
-        buildRequestUrl(baseUrl, episodePath(episodeId)),
-        GetEpisodeResponseSchema,
-      );
+      return readJsonResult(() => rpc.getEpisode(episodeId), GetEpisodeResponseSchema);
     },
   };
 }
