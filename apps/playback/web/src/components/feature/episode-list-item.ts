@@ -1,5 +1,5 @@
 import type { EpisodeListItemData } from "../../view-models/episode-list-view-model.ts";
-import { createLabeledText } from "../primitive/labeled-text.ts";
+import { mountLabeledText } from "./mount-labeled-text.ts";
 
 /**
  * EpisodeListItem 1件を、field をそのまま描画する要素として組み立てる（Contract Freeze）。
@@ -16,10 +16,10 @@ export function createEpisodeListItem(
   item.addEventListener("click", () => onSelect(episode.episodeId));
 
   item.append(
-    createLabeledText({ tag: "span", datasetKey: "episodeId", text: episode.episodeId }),
-    createLabeledText({ tag: "span", datasetKey: "episodeDate", text: episode.date }),
-    createLabeledText({ tag: "span", datasetKey: "episodeTitle", text: episode.title }),
-    createLabeledText({
+    mountLabeledText({ tag: "span", datasetKey: "episodeId", text: episode.episodeId }),
+    mountLabeledText({ tag: "span", datasetKey: "episodeDate", text: episode.date }),
+    mountLabeledText({ tag: "span", datasetKey: "episodeTitle", text: episode.title }),
+    mountLabeledText({
       tag: "span",
       datasetKey: "episodeDurationSec",
       text: String(episode.durationSec),
