@@ -5,7 +5,7 @@ export default defineConfig({
     passWithNoTests: true,
     coverage: {
       provider: "v8",
-      include: ["contracts/**/*.ts", "web/src/**/*.ts", "worker/src/**/*.ts"],
+      include: ["contracts/**/*.ts", "web/src/**/*.ts", "web/src/**/*.tsx", "worker/src/**/*.ts"],
       exclude: [
         ...coverageConfigDefaults.exclude,
         "web/main.ts",

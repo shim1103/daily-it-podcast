@@ -1,6 +1,6 @@
 import type { EpisodeData } from "../../view-models/episode-list-view-model.ts";
-import { createLabeledText } from "../primitive/labeled-text.ts";
 import { createEpisodeTopic } from "./episode-topic.ts";
+import { mountLabeledText } from "./mount-labeled-text.ts";
 
 type Body = EpisodeData["body"];
 
@@ -15,7 +15,7 @@ export function createEpisodeManuscript(body: Body): HTMLElement {
   const container = document.createElement("div");
 
   container.appendChild(
-    createLabeledText({ tag: "p", datasetKey: "manuscriptOpening", text: body.opening }),
+    mountLabeledText({ tag: "p", datasetKey: "manuscriptOpening", text: body.opening }),
   );
 
   for (const topic of body.topics) {
@@ -23,7 +23,7 @@ export function createEpisodeManuscript(body: Body): HTMLElement {
   }
 
   container.appendChild(
-    createLabeledText({ tag: "p", datasetKey: "manuscriptClosing", text: body.closing }),
+    mountLabeledText({ tag: "p", datasetKey: "manuscriptClosing", text: body.closing }),
   );
 
   return container;
