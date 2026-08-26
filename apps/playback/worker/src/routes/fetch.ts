@@ -8,7 +8,7 @@ import { createAudioResponse } from "./audio-response.ts";
 import { createHttpErrorResponse } from "./http-error-response.ts";
 import { matchPlaybackRoute } from "./match-playback-route.ts";
 
-function mapRuntimeConfigErrorToExternal(error: unknown): unknown {
+export function mapRuntimeConfigErrorToExternal(error: unknown): unknown {
   if (error instanceof PlaybackRuntimeConfigError) {
     return new ConfigurationError("設定を確認できません", { cause: error });
   }
