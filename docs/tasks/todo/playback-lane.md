@@ -82,5 +82,3 @@ PR-A（CI 入口の統一）完了前提
   → worker / web 層検知（済。`apps/playback/.dependency-cruiser.mjs` + `scripts/playback/check-static.sh`）
   → PR-H（unit coverage gate、済）
 ```
-
-- [x] PR-H `chore/playback-unit-coverage`: playback の **Unit coverage gate**（Vitest branch coverage、`@vitest/coverage-v8`）を導入し、落ちる分岐を最小の unit 追加で埋めた。gate 定義は `DESIGN.md` §5（Test 配置）9 項目目を正とする
