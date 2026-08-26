@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/agentsecrets"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch/agentsecrets"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secretnames"
 )
 
