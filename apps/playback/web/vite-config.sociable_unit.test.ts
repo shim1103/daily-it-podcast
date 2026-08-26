@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import {
   episodeAudioContentType,
   episodeAudioPath,
   episodePath,
+  ErrorResponseSchema,
   ListEpisodesResponseSchema,
   listEpisodesPath,
 } from "../contracts/index.ts";
@@ -14,6 +15,16 @@ import { createDummyBackendMiddleware } from "./vite.config.ts";
 
 const origin = "http://localhost";
 
+const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+afterEach(() => {
+  errorSpy.mockClear();
+});
+
+afterAll(() => {
+  errorSpy.mockRestore();
+});
+
 describe("createDummyBackendMiddleware", () => {
   it("一覧 path へ GET する時、dummy backend 由来の ListEpisodesResponse を 200 で返す", async () => {
     // Given: dummy backend middleware
@@ -23,8 +34,8 @@ describe("createDummyBackendMiddleware", () => {
     const got = await handle(new Request(`${origin}${listEpisodesPath}`));
 
     // Then: fake-use-cases 由来の schema 準拠 body が 200 で返る
-    expect(got?.status).toBe(200);
-    const body: unknown = await got?.json();
+    expect(got.status).toBe(200);
+    const body: unknown = await got.json();
     expect(ListEpisodesResponseSchema.safeParse(body).success).toBe(true);
   });
 
@@ -36,7 +47,7 @@ describe("createDummyBackendMiddleware", () => {
     const got = await handle(new Request(`${origin}${episodePath("ep-1")}`));
 
     // Then: fake-use-cases が持つ title がそのまま配線される
-    const body = (await got?.json()) as { title?: string };
+    const body = (await got.json()) as { title?: string };
     expect(body.title).toBe(validGetEpisodeResponse.title);
   });
 
@@ -48,19 +59,22 @@ describe("createDummyBackendMiddleware", () => {
     const got = await handle(new Request(`${origin}${episodeAudioPath("ep-1")}`));
 
     // Then: fake-use-cases の byte がそのまま配線される
-    expect(got?.headers.get("Content-Type")).toBe(episodeAudioContentType);
-    const bytes = new Uint8Array((await got?.arrayBuffer()) ?? new ArrayBuffer(0));
+    expect(got.headers.get("Content-Type")).toBe(episodeAudioContentType);
+    const bytes = new Uint8Array(await got.arrayBuffer());
     expect(bytes).toEqual(validAudioBytes);
   });
 
-  it("契約に無い path へ GET する時、undefined を返し next handler へ委ねる", async () => {
+  it("契約に無い path へ GET する時、400 と validation_error を返す", async () => {
     // Given: dummy backend middleware
     const handle = createDummyBackendMiddleware();
 
     // When: 契約に無い path へ GET する
     const got = await handle(new Request(`${origin}/unknown`));
 
-    // Then: 自前で 404 等を作らず undefined を返す
-    expect(got).toBeUndefined();
+    // Then: worker/src/routes/app.ts の notFound 契約と同じ 400 validation_error を返す
+    expect(got.status).toBe(400);
+    const body: unknown = await got.json();
+    expect(ErrorResponseSchema.safeParse(body).success).toBe(true);
+    expect(body).toEqual({ code: "validation_error" });
   });
 });
