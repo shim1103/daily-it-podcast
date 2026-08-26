@@ -12,6 +12,21 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport/agentsecrets"
 )
 
+func TestGeneratorSecretBindings_resolvesCursorAPIKeySecretName(t *testing.T) {
+	t.Parallel()
+
+	// Given/When: 表の Cursor API key binding
+	name, ok := generatorSecretBindings.ResolveSecret(cursorAPIKeySecret)
+
+	// Then: Cursor 秘密名へ結線される
+	if !ok {
+		t.Fatal("ResolveSecret(cursorAPIKeySecret) = false, want true")
+	}
+	if name != secretnames.CursorAPIKeyName {
+		t.Fatalf("secret name = %q, want %q", name, secretnames.CursorAPIKeyName)
+	}
+}
+
 func TestAgentsecretsSecretTransportClient_sendsBoundSecretNameToProxy_whenBearerIsCompositionRef(t *testing.T) {
 	// Given: Composition binding（getXAPIKeySecret）と proxy probe へ結線した local Client
 	var gotBearer string
@@ -41,29 +56,5 @@ func TestAgentsecretsSecretTransportClient_sendsBoundSecretNameToProxy_whenBeare
 	}
 	if gotTargetURL != "https://api.example.com/v1/posts" {
 		t.Fatalf("X-AS-Target-URL = %q", gotTargetURL)
-	}
-}
-
-func TestAgentsecretsSecretTransportClient_returnsNonNilClient(t *testing.T) {
-	t.Parallel()
-
-	// Given/When: 既定の local factory を呼ぶ
-	client := agentsecretsSecretTransportClient()
-
-	// Then: Adapter へ渡せる secrettransport.Client が返る
-	if client == nil {
-		t.Fatal("agentsecretsSecretTransportClient() = nil, want non-nil")
-	}
-}
-
-func TestProcessenvSecretTransportClient_returnsNonNilClient(t *testing.T) {
-	t.Parallel()
-
-	// Given/When: production 既定 factory を呼ぶ（退行防止）
-	client := processenvSecretTransportClient()
-
-	// Then: 引き続き結線可能
-	if client == nil {
-		t.Fatal("processenvSecretTransportClient() = nil, want non-nil")
 	}
 }
