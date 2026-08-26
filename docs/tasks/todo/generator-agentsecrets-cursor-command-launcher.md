@@ -5,13 +5,13 @@
 ## 2. Context
 
 1. production Cursor path は `processenv.Launcher` 結線済み。Composition から project を外したのは processenv path の YAGNI であり、local 専用 project 思想の撤回ではない。
-2. `agentsecrets.EnvWrapper` と `CursorProjectName` は残るが Composition 未結線。
+2. `agentsecrets.EnvWrapper` と `CursorProjectName` は `commandlaunch/agentsecrets` に残るが Composition 未結線。
 3. Issue 分割と依存は `docs/decisions/2026-08-25T14-20-18-feature-generator-processenv-command-launcher.md` を正とする。
 
 ## 3. Canonical Sources
 
 1. `apps/generator/internal/infrastructure/commandlaunch/contract.go` — command launch 契約。
-2. `apps/generator/internal/infrastructure/agentsecrets/env_wrapper.go` — CLI wrapper / project dir 規約。
+2. `apps/generator/internal/infrastructure/commandlaunch/agentsecrets/env_wrapper.go` — CLI wrapper / project dir 規約。
 3. `apps/generator/internal/composition/secret_bindings.go` — Composition binding / allowlist 所有。
 4. `docs/decisions/2026-08-22T11-55-22-feature-generator-cursor-text-writer.md` — CLI は `agentsecrets env --`。
 5. `docs/decisions/2026-08-22T15-08-00-agentsecrets-cursor-project-template-boundary.md` — Cursor 専用 project。
