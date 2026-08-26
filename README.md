@@ -12,8 +12,8 @@ Generator (Go + GitHub Actions cron)
         ↓
   個人 Google Drive（音声 + 原稿）
         ↑
-Playback (Vite + TypeScript + Cloudflare)
-  Access → UI → Workers（Drive 読取の代理）
+Playback (Vite + TypeScript + React + Cloudflare)
+  Access → UI → Workers（Hono、Drive 読取の代理）
 ```
 
 旧実装は `archive/2026-08-15-pre-rewrite` に凍結。本流は Playback + Generator へ作り直し。
@@ -22,8 +22,8 @@ Playback (Vite + TypeScript + Cloudflare)
 
 | 役割 | 選定 |
 |------|------|
-| 再生 UI | Vite + TypeScript + Pico.css（classless） |
-| UI の裏側 | Cloudflare Workers（Drive 代理） |
+| 再生 UI | Vite + TypeScript + React + Pico.css（classless） |
+| UI の裏側 | Cloudflare Workers（Hono、Drive 代理） |
 | UI 入場 | Cloudflare Access（詳細は `DEPLOY.md`） |
 | 生成 | Go CLI + GitHub Actions cron |
 | 保存 | 個人 Google Drive |

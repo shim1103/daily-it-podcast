@@ -23,5 +23,17 @@
     "formatter": {
       "quoteStyle": "double"
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["worker/src/**/*.ts", "contracts/**/*.ts", "test/**/*.ts"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useHookAtTopLevel": "off"
+          }
+        }
+      }
+    }
+  ]
 }
