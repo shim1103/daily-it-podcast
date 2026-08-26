@@ -23,3 +23,6 @@
 190：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] external test package と unexported helper の white-box test は同一 file に結合できない。結合するなら公開経路の観測へ吸収する  # → layer:platform
 191：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] Composition の vendor 結線 file と bindings/runtime の責務を片方だけ直すと、次の問いがすぐ再発する。表・runtime・each の3役割を同時に揃える  # → layer:terms
 192：2026-08-26 [feature/generator-agentsecrets-cursor-command-launcher] 自動 review が必須なしと見送っても、coding-style に明文で違反していれば確認待ちせず修正対象へ格上げする  # → layer:workflow
+193：2026-08-26 [docs/infra-test-discussion] sociable unit に processenv と httptest 実到達観測を同居させると Narrow Integration と二重になる。境界 I/O は Narrow、Adapter 内分岐は Unit に分離し、達成契約の AC に責務分離を明示する  # → layer:terms
+194：2026-08-26 [docs/infra-test-discussion] 進捗 lane に Issue 化待ち表や decisions 列挙を置くと、各 task file / Decision Record と SSOT が二重になる。lane は進捗 index だけにし、契約と判断の動線は各 file へ委ねる  # → layer:workflow
+195：2026-08-26 [docs/infra-test-discussion] scope-split の C は docs/tasks/todo の達成契約 file で足りる。GitHub Issue 化は別判断であり、C 作成と同一視しない  # → layer:workflow
