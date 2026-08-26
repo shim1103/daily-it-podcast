@@ -31,7 +31,7 @@
 | `generator/internal/application` | Application（UseCase + Port IF） |
 | `generator/internal/infrastructure` | Infrastructure |
 | `generator/internal/composition` | Composition Root |
-| `generator/cmd/generator` | 起動入口 |
+| `generator/cmd/generator` | CLI Driving Adapter（薄い入口。成否は OS exit / stderr） |
 | `playback/worker/src/entities` 等 | 上に同じ（BFF） |
 | `playback/web/src/{pages,components/feature,components/primitive,view-models,api,utils,lib}` | frontend skill（role と dir は 1 対 1。Feature/Primitive 分割と層 gate は `docs/decisions/2026-08-25T18-42-00-chore-playback-worker-web-layer.md`） |
 | `playback/contracts` | web↔worker HTTP 境界共有型（API Client・Route・Controller・Application・Composition が import。Infrastructure は禁止） |
