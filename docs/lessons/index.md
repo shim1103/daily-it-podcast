@@ -1,5 +1,12 @@
 # lessons
 
+177：2026-08-26 [docs/architecture-reconsider-react-hono] 質問tool・plan mode切替toolがpermission規約でdenyされた時、機能停止と扱わず、同じ目的（判断の提示・承認確認）をその場のtext出力とuserの次inputで代替する。tool不通は判断や進行を止める理由にしない  # → layer:workflow
+178：2026-08-26 [docs/architecture-reconsider-react-hono] workflow skillの説明文にある動詞（show等）を、file書き込みを伴う動詞（create・write・fix）と同一視しない。skill本文の分類が「提示」を指す時は、承認前にartifactを実体化しない  # → layer:workflow
+179：2026-08-26 [docs/architecture-reconsider-react-hono] userの短い指示語（remember等）を字面通りの機能呼び出しと解釈する前に、直前の文脈（何を保存すべき情報として提示したか）と照らして意図を確認する。誤った解釈で副作用のある処理を実行すると、後から全体を取り消す作業が発生する  # → layer:workflow
+180：2026-08-26 [docs/architecture-reconsider-react-hono] 委譲先が「成功」と報告した内容でも、実行に使ったtoolchain・package manager・生成物が対象repoの既存の正本（lockfile形式、config file）と一致しているかを個別に確認する。報告の成功可否と、環境への副作用の正しさは別の検証項目である  # → layer:workflow
+181：2026-08-26 [docs/architecture-reconsider-react-hono] 言語・toolchainの設定directiveが期待通り機能するかは、設定を追加した直後に実際のtoolを実行して確認する。ドキュメントの記憶や類推だけでは、同義とみなした値の組み合わせが実行系によって自動的に無効化される仕様を見落とす  # → layer:terms
+182：2026-08-26 [docs/architecture-reconsider-react-hono] 特定の値をハードコードで検証するtestがある状態でその値の重複除去（DRY化）を行うと、実装は正しくなってもtestの断定的assertionが失敗する。値の同期を求めるtestを見つけたら、実装のDRY化とtestの検証方法（直書き値の比較→参照先の存在確認）を同じ単位で直す  # → layer:terms
+183：2026-08-26 [docs/architecture-reconsider-react-hono] git操作（stage解除・reset等）がpolicyでblockされた時、blockされた操作を別コマンドで回避しようとせず、現在stageされている内容をそのまま活かせる単位でcommit粒度を再設計する  # → layer:platform
 177：2026-08-26 [feature/generator-agentsecrets-http-proxy-absorb] 同じ置き場名でも出口契約が違うなら runtime package を出口ごとに分ける。見た目の重複を DRY 違反とみなし1袋へ畳むと Orthogonality が壊れる  # → layer:terms
 178：2026-08-26 [feature/generator-agentsecrets-http-proxy-absorb] path の移動は契約吸収ではない。所有境界の固定と、出口契約を満たす単一実装への再設計を同一の完了条件にしない  # → layer:terms
 179：2026-08-26 [feature/generator-agentsecrets-http-proxy-absorb] default 接続先の test は dial 失敗を証拠にしない。差し込んだ transport が受け取った URL を assert し、port 占有や到達可否に依存しない  # → layer:terms

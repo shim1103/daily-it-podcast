@@ -115,7 +115,7 @@ export default {
     },
     tsConfig: { fileName: "tsconfig.json" },
     enhancedResolveOptions: {
-      extensions: [".ts", ".js", ".mjs"],
+      extensions: [".ts", ".tsx", ".js", ".mjs"],
     },
   },
 };

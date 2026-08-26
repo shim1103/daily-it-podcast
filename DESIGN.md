@@ -36,7 +36,7 @@
 | `playback/web/src/{pages,components/feature,components/primitive,view-models,api,utils,lib}` | frontend skill（role と dir は 1 対 1。Feature/Primitive 分割と層 gate は `docs/decisions/2026-08-25T18-42-00-chore-playback-worker-web-layer.md`） |
 | `playback/contracts` | web↔worker HTTP 境界共有型（API Client・Route・Controller・Application・Composition が import。Infrastructure は禁止） |
 
-`playback/web` は Vite + TypeScript（vanilla）+ Pico.css classless。React / Next.js / shadcn は使わない（`docs/decisions/2026-08-18T11-12-00-feature-playback-web.md`）。
+`playback/web` は Vite + TypeScript + React + Pico.css classless。`playback/worker` の HTTP 入口は Hono、web↔worker の型同期は Hono RPC。Next.js / shadcn / TanStack は使わない（`docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`）。
 
 依存は内側へ。Composition Root だけが全層を結線する。
 
@@ -98,7 +98,7 @@ Scope × Sociability: [levels](file:///Users/shim0729/.claude/skills/testing-str
 9. playback Unit gate は **branch coverage**（`@vitest/coverage-v8`）。全体は 100%、外部境界・状態分岐を持つ層（`worker/src/routes/**` 等）は個別 glob で 90% に緩める。global threshold は個別 glob 該当 file も合算した全体値で判定されるため、両者は独立に閾値未達へならない設計にする。型安全のためだけに残る到達不能分岐は `v8 ignore` と理由 comment で除外し、test を書いて無理に通さない。設定は `apps/playback/vitest.config.mjs` の root top-level `test.coverage`（`projects` 配下の個別 project には coverage 設定を持てない Vitest の制約）。Integration に Unit 閾値を載せない
 10. generator static は `go build ./...` と **depguard** / `errcheck` / `govet` / `gofmt`（`golangci-lint`、`strict` allow）で build・層 import・静的な誤用を block する。Infrastructure が Application から import してよいのは **Port** のみ。playback static は Biome / tsc に加え **dependency-cruiser**（`apps/playback/.dependency-cruiser.mjs`）で層 import を block する
 11. generator race gate は `go test -race` で Unit package を実行する。Integration package・Playback・本番 credential を使わない
-12. generator module と GitHub Actions runner の Go version は **1.26.6** に固定する
+12. Go version の正本は `apps/generator/go.mod` の `go` directive。Node version の正本は `apps/playback/.nvmrc`。GitHub Actions は両 file を `go-version-file` / `node-version-file` で参照し、YAML に version 文字列を直書きしない。local の Node version 不一致は `apps/playback/package.json` の `engines` + `.npmrc` の `engine-strict=true` が `npm ci` 時点で検知する
 
 実行手順（hook 導入・コマンド）は `README.md`。
 
