@@ -1,15 +1,15 @@
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import {
   ErrorResponseSchema,
-  GetEpisodeResponseSchema,
-  ListEpisodesResponseSchema,
-  NotFoundError,
-  UnavailableError,
-  ValidationError,
   episodeAudioContentType,
   episodeAudioPath,
   episodePath,
+  GetEpisodeResponseSchema,
+  ListEpisodesResponseSchema,
   listEpisodesPath,
+  NotFoundError,
+  UnavailableError,
+  ValidationError,
 } from "../../../contracts/index.ts";
 
 const listEpisodesController = vi.fn();
@@ -29,7 +29,7 @@ vi.mock("../composition/root.ts", async (importOriginal) => {
 });
 
 import { createPlaybackControllers, PlaybackRuntimeConfigError } from "../composition/root.ts";
-import { app } from "./app.ts";
+import { app, createApp } from "./app.ts";
 
 const origin = "http://example.test";
 const emptyEnv = {};
@@ -89,6 +89,25 @@ describe("app", () => {
     expect(typeof app.fetch).toBe("function");
   });
 
+  it("createApp が useCaseOverrides を渡す時、その override で Hono instance を組み立てる", async () => {
+    // Given: dev-only の fake use case override
+    vi.mocked(listEpisodesController).mockResolvedValue(validList);
+    const overrides = {
+      useCases: {
+        listEpisodes: vi.fn(),
+        getEpisode: vi.fn(),
+        getEpisodeAudio: vi.fn(),
+      },
+    };
+    const devApp = createApp(overrides);
+
+    // When: 一覧 path へ GET する
+    await devApp.request(`${origin}${listEpisodesPath}`, {}, emptyEnv);
+
+    // Then: createPlaybackControllers へ override がそのまま渡る
+    expect(createPlaybackControllers).toHaveBeenCalledWith(emptyEnv, undefined, overrides);
+  });
+
   it("受け取った env をそのまま Composition Root へ渡して Controller を組み立てる", async () => {
     // Given: Drive の env を模した値
     vi.mocked(listEpisodesController).mockResolvedValue(validList);
@@ -103,7 +122,7 @@ describe("app", () => {
     await app.request(`${origin}${listEpisodesPath}`, {}, driveEnv);
 
     // Then: 渡された env がそのまま Composition Root に渡る
-    expect(createPlaybackControllers).toHaveBeenCalledWith(driveEnv);
+    expect(createPlaybackControllers).toHaveBeenCalledWith(driveEnv, undefined, undefined);
   });
 
   it("一覧 GET が成功する時、ListEpisodesResponse schema を満たす JSON を 200 で返す", async () => {
