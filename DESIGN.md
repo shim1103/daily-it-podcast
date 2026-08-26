@@ -14,7 +14,7 @@
 
 禁止: `playback` ↔ `generator` の直接依存。二系統の runtime は互いに import しない。つながるのは Drive 上の file だけ。その形の正本が repo 根 `contracts/`。
 
-例外: `apps/playback/web` の production runtime（`src/` 配下）は `worker` の HTTP のみに依存する。dev-only tooling（`web/vite.config.ts` の dev server middleware）に限り、`worker` の Composition Root を直接 import して dummy backend を local 起動できる。production の HTTP 入口（`worker/src/routes/fetch.ts`）は変更しない。
+例外: `apps/playback/web` の production runtime（`src/` 配下）は `worker` の HTTP のみに依存する。dev-only tooling（`web/vite.config.ts` の dev server middleware）に限り、`worker` の Composition Root を直接 import して dummy backend を local 起動できる。production の HTTP 入口（`worker/src/routes/app.ts` の Hono instance、`worker/src/worker-entry.ts` から export）は変更しない。
 
 ## 2. 層と依存（Clean Arch / DIP）
 
