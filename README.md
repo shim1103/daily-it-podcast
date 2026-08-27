@@ -69,8 +69,6 @@ Playback HTTP 契約 → `apps/playback/contracts/`
 10. **generator condition coverage（local のみ）:** `./scripts/generator/report-condition-coverage.sh`。`gobco v1.3.4` で generator Unit package（`./cmd/...`、`./internal/...`）の Boolean condition を report する。threshold はなく、hard gate ではない。既存の statement coverage gate はこの report と別に維持する
 11. **generator race（GHA）:** `./scripts/generator/test-race.sh`
 12. **Integration（push / GHA）:** `./scripts/test-integration.sh`（片系: `./scripts/generator/test-integration.sh`、`./scripts/playback/test-integration.sh`）。generator gate は secret なし Narrow のみ
-13. **generator Integration local-real（local のみ）:** `./scripts/generator/test-integration-local.sh`。`local_real` build tag 付き suite。hook / GHA からは呼ばない。本番 credential は読まない
-
 condition coverage report は、構文として認識できる Boolean condition を対象にする。未使用 function は検出できず、`select` も対象外である。したがって完全な branch coverage ではない。
 
 test 配置・gate の規則は `DESIGN.md`。
@@ -81,22 +79,23 @@ test 配置・gate の規則は `DESIGN.md`。
 - [ ] Generator 成功後、Playback で一覧・再生・原稿表示できる
 - [ ] Drive 上の形は `contracts/` に従う
 
-## 秘密（名前のみ）
+## Runtime config inventory
 
-| 変数 | 用途 | 置き場所 |
-|------|------|----------|
-| `GOOGLE_OAUTH_CLIENT_ID` | Drive OAuth | Workers / GHA secrets（Playback 注入区分は `DEPLOY.md`） |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Drive OAuth | 同上 |
-| `GOOGLE_OAUTH_REFRESH_TOKEN` | Drive OAuth | 同上 |
-| `DRIVE_FOLDER_ID` | 保存先 | 同上 |
-| `CURSOR_API_KEY` | 原稿 | GHA secrets |
-| `GEMINI_API_KEY` | TTS | GHA secrets |
-| `TWITTER_IO_API_KEY` | X 投稿取得（試作 TwitterAPI.io） | AgentSecrets（local）/ GHA secrets |
-| `GETX_API_KEY` | X 投稿取得（GetXAPI） | AgentSecrets（local）/ GHA secrets |
+| 変数 | 用途 | 区分 | 注入元 |
+|------|------|------|--------|
+| `GOOGLE_OAUTH_CLIENT_ID` | Drive OAuth | Variable | GitHub Actions Variables / Workers Variables |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Drive OAuth | Secret | GitHub Actions Secrets / Workers Secrets |
+| `GOOGLE_OAUTH_REFRESH_TOKEN` | Drive OAuth | Secret | GitHub Actions Secrets / Workers Secrets |
+| `DRIVE_FOLDER_ID` | 保存先 | Variable | GitHub Actions Variables / Workers Variables |
+| `CURSOR_API_KEY` | 原稿 | Secret | GitHub Actions Secrets |
+| `GEMINI_API_KEY` | TTS | Secret | GitHub Actions Secrets |
+| `GETX_API_KEY` | X 投稿取得（GetXAPI） | Secret | GitHub Actions Secrets |
 
-secret名の一覧は運用上のinventoryであり、実行時のSSOTではない。必要なsecretと注入経路の契約は各runtimeが所有する（`docs/decisions/2026-08-19T17-37-00-playback-runtime-secret-boundary.md`）。Playback Worker の Access・secret 注入区分は `DEPLOY.md`。
+この表は運用上のinventoryであり、実行時契約のSSOTではない。必要なkey・型・検証はruntimeごとのconfiguration boundaryが所有する。Playback Workerの注入区分は`DEPLOY.md`。
 
-local 開発時の値は AgentSecrets（OS keychain + zero-knowledge cloud sync）が保持する。agent は `.env` / `secrets/**` / `~/.ssh/**` を読めない（`.claude/settings.json` 等の deny）。値の登録・確認は `agentsecrets` CLI を shim 自身が実行する。
+Generatorのproduction情報源はGetXAPIのみとする。TwitterAPI.ioの旧実装は現在codebaseに残るが、production sourceではない。
+
+credential付き実operationはGitHub Actions runnerだけで実行する。通常のlocal開発と自動testは実serviceを呼ばず、local secretを持たない。
 
 ## 制約
 
@@ -107,7 +106,7 @@ local 開発時の値は AgentSecrets（OS keychain + zero-knowledge cloud sync�
 
 | 文書 | 内容 |
 |------|------|
-| README.md | 地図・使い方・受け入れ（本ファイル） |
+| README.md | 地図・使い方・受け入れ・runtime config inventory（本ファイル） |
 | DESIGN.md | 層・依存・所有・test 方針 |
 | DEPLOY.md | deploy・Access・公開境界 |
 | contracts/ | Drive に載る wav/json |

@@ -11,17 +11,14 @@ import type { ListEpisodesController } from "../controllers/list-episodes-contro
 import { createListEpisodesController } from "../controllers/list-episodes-controller.ts";
 import { GoogleDriveEpisodeRepository } from "../infrastructure/drive/google-drive-episode-repository.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/drive/in-memory-episode-repository.ts";
-import {
-  validatePlaybackEnv,
-  type PlaybackEnv,
-  type PlaybackRepositoryOptions,
-} from "./runtime-config.ts";
+import { validatePlaybackEnv, type PlaybackRepositoryOptions } from "./runtime-config.ts";
+import type { PlaybackEnv } from "./runtime-config-bindings.ts";
 
 export type {
-  PlaybackEnv,
   PlaybackRepositoryMode,
   PlaybackRepositoryOptions,
 } from "./runtime-config.ts";
+export type { PlaybackEnv } from "./runtime-config-bindings.ts";
 export { PlaybackRuntimeConfigError } from "./runtime-config-error.ts";
 
 export type PlaybackControllers = {
