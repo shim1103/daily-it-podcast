@@ -1,19 +1,21 @@
+import { render } from "@testing-library/react";
+import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { EpisodeListState } from "../../view-models/episode-list-view-model.ts";
-import { createEpisodeList } from "./episode-list.ts";
+import { EpisodeList } from "./episode-list.tsx";
 
 const baseUrl = "https://example.test";
 
-describe("createEpisodeList", () => {
+describe("EpisodeList", () => {
   it("loading state の時、episode item を描画しない", () => {
     // Given: loading state
     const state: EpisodeListState = { status: "loading" };
 
-    // When: component を作る
-    const element = createEpisodeList(state, baseUrl, vi.fn());
+    // When: JSX として render する
+    const { container } = render(createElement(EpisodeList, { state, baseUrl, onSelect: vi.fn() }));
 
     // Then: item を含む要素が無い
-    expect(element.querySelectorAll("[data-episode-title]")).toHaveLength(0);
+    expect(container.querySelectorAll("[data-episode-title]")).toHaveLength(0);
   });
 
   it("success state の時、episode 毎に title を 1 つずつ描画する", () => {
@@ -28,11 +30,11 @@ describe("createEpisodeList", () => {
       selectedEpisode: null,
     };
 
-    // When: component を作る
-    const element = createEpisodeList(state, baseUrl, vi.fn());
+    // When: JSX として render する
+    const { container } = render(createElement(EpisodeList, { state, baseUrl, onSelect: vi.fn() }));
 
     // Then: title が episode の数だけ、内容もそのまま描画される
-    const titles = Array.from(element.querySelectorAll("[data-episode-title]")).map(
+    const titles = Array.from(container.querySelectorAll("[data-episode-title]")).map(
       (node) => node.textContent,
     );
     expect(titles).toEqual(["題1", "題2"]);
@@ -42,11 +44,11 @@ describe("createEpisodeList", () => {
     // Given: error state
     const state: EpisodeListState = { status: "error" };
 
-    // When: component を作る
-    const element = createEpisodeList(state, baseUrl, vi.fn());
+    // When: JSX として render する
+    const { container } = render(createElement(EpisodeList, { state, baseUrl, onSelect: vi.fn() }));
 
     // Then: item を含む要素が無い
-    expect(element.querySelectorAll("[data-episode-title]")).toHaveLength(0);
+    expect(container.querySelectorAll("[data-episode-title]")).toHaveLength(0);
   });
 
   it("item をクリックすると onSelect が episodeId 付きで呼ばれる", () => {
@@ -59,11 +61,12 @@ describe("createEpisodeList", () => {
     };
     const onSelect = vi.fn();
 
-    // When: component を作りクリックする
-    const element = createEpisodeList(state, baseUrl, onSelect);
-    element
+    // When: JSX として render しクリックする
+    const { container } = render(createElement(EpisodeList, { state, baseUrl, onSelect }));
+    container
       .querySelector("[data-episode-title]")
       ?.closest("article")
+      ?.querySelector("button")
       ?.dispatchEvent(new Event("click", { bubbles: true }));
 
     // Then: onSelect が呼ばれる
@@ -96,21 +99,21 @@ describe("createEpisodeList", () => {
       },
     };
 
-    // When: component を作る
-    const element = createEpisodeList(state, baseUrl, vi.fn());
+    // When: JSX として render する
+    const { container } = render(createElement(EpisodeList, { state, baseUrl, onSelect: vi.fn() }));
 
     // Then: title・date は item 分の1つだけ（詳細側の重複描画が無い）。manuscript(topic)・player は1つ描画される
-    expect(element.querySelectorAll("[data-episode-title]")).toHaveLength(2);
-    expect(element.querySelectorAll("[data-episode-date]")).toHaveLength(2);
-    expect(element.querySelectorAll("h1[data-episode-title]")).toHaveLength(0);
-    expect(element.querySelectorAll("[data-topic-title]")).toHaveLength(1);
-    expect(element.querySelectorAll("audio")).toHaveLength(1);
-    expect(element.querySelector("audio")?.getAttribute("src")).toBe(
-      "https://example.test/episodes/ep-1/audio",
-    );
+    expect(container.querySelectorAll("[data-episode-title]")).toHaveLength(2);
+    expect(container.querySelectorAll("[data-episode-date]")).toHaveLength(2);
+    expect(container.querySelectorAll("h1[data-episode-title]")).toHaveLength(0);
+    expect(container.querySelectorAll("[data-topic-title]")).toHaveLength(1);
+    // why: audio の src 組み立て（buildRequestUrl）は episode-player.sociable_unit.test.ts で検証済み。
+    //   ここでは EpisodeList の責務（baseUrl・audioRef を EpisodePlayer へ配置したか）だけを見る
+    //   （Fault Isolation境界: testing-strategy/levels.md §3-1）
+    expect(container.querySelectorAll("audio")).toHaveLength(1);
 
     // Then: 選択中 item の直後（次の兄弟）に詳細が展開される
-    const items = Array.from(element.children);
+    const items = Array.from(container.firstElementChild?.children ?? []);
     const selectedItemIndex = items.findIndex(
       (node) => node.querySelector("[data-episode-id]")?.textContent === "ep-1",
     );
@@ -126,13 +129,13 @@ describe("createEpisodeList", () => {
       selectedEpisode: { status: "loading" },
     };
 
-    // When: component を作る
-    const element = createEpisodeList(state, baseUrl, vi.fn());
+    // When: JSX として render する
+    const { container } = render(createElement(EpisodeList, { state, baseUrl, onSelect: vi.fn() }));
 
     // Then: manuscript・player は無く、loading 表示がある
-    expect(element.querySelectorAll("[data-topic-title]")).toHaveLength(0);
-    expect(element.querySelectorAll("audio")).toHaveLength(0);
-    expect(element.querySelector("[data-episode-detail-loading]")).not.toBeNull();
+    expect(container.querySelectorAll("[data-topic-title]")).toHaveLength(0);
+    expect(container.querySelectorAll("audio")).toHaveLength(0);
+    expect(container.querySelector("[data-episode-detail-loading]")).not.toBeNull();
   });
 
   it("selectedEpisode が error の時、選択中 episode の直後に error 相当の要素を出す", () => {
@@ -144,12 +147,12 @@ describe("createEpisodeList", () => {
       selectedEpisode: { status: "error" },
     };
 
-    // When: component を作る
-    const element = createEpisodeList(state, baseUrl, vi.fn());
+    // When: JSX として render する
+    const { container } = render(createElement(EpisodeList, { state, baseUrl, onSelect: vi.fn() }));
 
     // Then: manuscript・player は無く、error 表示がある
-    expect(element.querySelectorAll("[data-topic-title]")).toHaveLength(0);
-    expect(element.querySelectorAll("audio")).toHaveLength(0);
-    expect(element.querySelector("[data-episode-detail-error]")).not.toBeNull();
+    expect(container.querySelectorAll("[data-topic-title]")).toHaveLength(0);
+    expect(container.querySelectorAll("audio")).toHaveLength(0);
+    expect(container.querySelector("[data-episode-detail-error]")).not.toBeNull();
   });
 });
