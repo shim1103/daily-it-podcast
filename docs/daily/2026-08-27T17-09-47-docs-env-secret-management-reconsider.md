@@ -17,8 +17,10 @@ Generatorのcredential付き実operationをGitHub Actionsへ限定し、runtime 
 3. local AgentSecrets廃止、Variables／Secrets分類、Generator configuration boundary、`secrettransport`廃止、TwitterAPI.io削除のDecision Recordを作成し、README、DESIGN、DEPLOYのlatest policyを更新した。
 4. C01〜C04の達成契約を`docs/tasks/todo/`へ作成し、Generator laneへ依存順と並列可能範囲を登録した。Dに属する未実測値と後続実装は変更していない。
 5. commit hookでGenerator static／Unit、Playback format／lint／typecheck／依存層／Unitを確認した。push hookでGenerator／Playback Integrationがpassした。
+6. `develop`を統合してlessons conflictを両側保持で解消し、PR [#72](https://github.com/shim1103/daily-it-podcast/pull/72)を作成した。
 
 ### Commits
 
 1. `843cf30`
 2. `942233e`
+3. `fdfcb80`
