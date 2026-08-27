@@ -1,6 +1,6 @@
 # DEPLOY
 
-最終更新: 2026-08-25
+最終更新: 2026-08-27
 
 Playback の **deploy・Access・公開境界**の latest SSOT。地図は `README.md`、層規則は `DESIGN.md`。判断の Reason / Rejected は `docs/decisions/`（記録）。本書に無い運用方針を README / DESIGN へ書かない。
 
@@ -13,6 +13,7 @@ Playback の **deploy・Access・公開境界**の latest SSOT。地図は `READ
 
 1. 文書分業・本書を SSOT にする — `docs/decisions/2026-08-25T16-57-00-feature-playback-worker-deploy.md`
 2. 同一 origin・Access・secret — `docs/decisions/2026-08-25T17-10-00-feature-playback-worker-deploy.md`
+3. Variables・Secretsの分類 — `docs/decisions/2026-08-27T12-17-01-docs-env-secret-management-reconsider.md`
 
 ## 1. 公開形
 
@@ -36,18 +37,18 @@ Playback の **deploy・Access・公開境界**の latest SSOT。地図は `READ
 
 公開 URL を出す前に Access Application と Allow ポリシーを用意する。
 
-## 3. Secret（Playback Worker）
+## 3. Runtime config（Playback Worker）
 
 実行時 key の正は `PlaybackEnv`（`apps/playback/worker/src/composition/runtime-config.ts`）。inventory 名一覧は `README.md`。
 
-| key | 注入 |
-|-----|------|
-| `GOOGLE_OAUTH_CLIENT_ID` | Workers **secret** |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Workers **secret** |
-| `GOOGLE_OAUTH_REFRESH_TOKEN` | Workers **secret** |
-| `DRIVE_FOLDER_ID` | Workers **secret** |
+| key | 区分 | 注入 |
+|-----|------|------|
+| `GOOGLE_OAUTH_CLIENT_ID` | Variable | Workers **variable** |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Secret | Workers **secret** |
+| `GOOGLE_OAUTH_REFRESH_TOKEN` | Secret | Workers **secret** |
+| `DRIVE_FOLDER_ID` | Variable | Workers **variable** |
 
-production で in-memory repository mode は使わない（4 key 必須）。Drive secret は Worker のみ。Web は持たない。
+productionでin-memory repository modeは使わない（4 key必須）。Drive runtime configはWorkerだけが持ち、Webへ渡さない。
 
 ## 4. 採用しないもの
 

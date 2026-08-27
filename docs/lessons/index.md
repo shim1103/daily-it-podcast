@@ -52,3 +52,6 @@
 213：2026-08-27 [feature/playback-web-feature-component-jsx] sandbox 環境で lint/static 解析 tool（golangci-lint 等）を繰り返し実行すると、cache の書き込みは許可されても既存 cache の削除（unlink）は許可されず cache が破損することがある。エラーメッセージが原因と無関係な文言（no go files to analyze 等）になるため、cache clean を一度試すことを切り分け手順に含める  # → layer:platform
 214：2026-08-27 [feature/playback-web-feature-component-jsx] sandbox の filtering proxy は ALL_PROXY 環境変数経由で HTTP 以外（SSH の git push 等）もルーティングしようとするが、SSH transport はこの proxy 認証形式に対応しておらず接続拒否になる。HTTPS remote への切替でも認証方式（token 等）が伴わなければ解決しない場合があり、sandbox 解除が必要な既知の境界として扱う  # → layer:platform
 215：2026-08-27 [feature/playback-web-feature-component-jsx] sandbox 設定自体を緩める edit（設定 file 内の sandbox 許可範囲拡大）は、auto mode classifier が他の操作より厳格に扱い自動承認されないことがある。安全策が自己免責的な変更を通常操作と区別している時、拒否を bug と捉えず設計意図として扱う  # → layer:meta
+216：2026-08-27 [docs/env-secret-management-reconsider] A・B・C等のartifact分類名をmodule責務名として使わない。契約artifactでも変更理由が複数あるなら、名前・型・loader・error等の責務へfileを分割する  # → layer:terms
+217：2026-08-27 [docs/env-secret-management-reconsider] environment fileとprocess environmentはsecret専用ではなくruntime configのdelivery mechanismである。secret管理規則の配下へ置かず、runtime config分類とsecret保護を直交させる  # → layer:terms
+218：2026-08-27 [docs/env-secret-management-reconsider] 削除完了を文字列scanで検証する時、削除対象名を意図的に記載するIssue契約やlaneを同じscan対象へ含めると自己matchする。current実装面と契約記録面を分けて検証する  # → layer:workflow
