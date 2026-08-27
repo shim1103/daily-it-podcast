@@ -73,7 +73,7 @@ describe("createEpisodeListPage", () => {
     await flushMicrotasks();
 
     // When: 一覧 item をクリックする
-    const item = page.querySelector("article");
+    const item = page.querySelector("article button");
     item?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await flushMicrotasks();
 
