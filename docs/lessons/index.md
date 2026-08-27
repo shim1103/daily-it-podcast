@@ -42,3 +42,6 @@
 203：2026-08-26 [feature/playback-web-view-model-react-hooks] framework の AppType が method chain の戻りに route を積む設計の時、mutation 登録のまま typeof すると client 側が unknown になる。型同期を取るなら登録形を chain に揃える  # → layer:platform
 204：2026-08-26 [feature/playback-web-view-model-react-hooks] stateful な下位 API を先に hooks 化し上位が命令的組み立てのままなら、静的 markup 橋では足りない。寿命付き createRoot 橋を上位側に置き、同期強制は橋に閉じて hooks 本体へ漏らさない  # → layer:terms
 205：2026-08-26 [feature/playback-web-view-model-react-hooks] 査読の encode 退行指摘は、失敗を期待値に書き換えた test が退行を固定していないかを現物で確認してから Must-fix にする。報告文だけを転送しない  # → layer:workflow
+206：2026-08-27 [docs/env-secret-management-reconsider] A・B・C等のartifact分類名をmodule責務名として使わない。契約artifactでも変更理由が複数あるなら、名前・型・loader・error等の責務へfileを分割する  # → layer:terms
+207：2026-08-27 [docs/env-secret-management-reconsider] environment fileとprocess environmentはsecret専用ではなくruntime configのdelivery mechanismである。secret管理規則の配下へ置かず、runtime config分類とsecret保護を直交させる  # → layer:terms
+208：2026-08-27 [docs/env-secret-management-reconsider] 削除完了を文字列scanで検証する時、削除対象名を意図的に記載するIssue契約やlaneを同じscan対象へ含めると自己matchする。current実装面と契約記録面を分けて検証する  # → layer:workflow
