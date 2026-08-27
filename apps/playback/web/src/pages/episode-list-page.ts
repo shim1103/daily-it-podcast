@@ -1,6 +1,6 @@
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
-import { createEpisodeList } from "../components/feature/episode-list.ts";
 import { getLocationHash, onLocationHashChange, setLocationHash } from "../lib/location-hash.ts";
+import { mountEpisodeList } from "./mount-episode-list.ts";
 import { mountEpisodeListViewModel } from "./mount-episode-list-view-model.ts";
 
 /**
@@ -17,17 +17,20 @@ export function createEpisodeListPage(apiClient: PlaybackApiClient, baseUrl: str
   // why: ViewModel は hook 化済みだが Page は未 JSX。一時橋で getState/subscribe 面を保つ
   //   （削除予定: playback-web-page-jsx-mount）
   const viewModel = mountEpisodeListViewModel(apiClient);
+  // why: EpisodeList は JSX 化済みだが Page は未 JSX。mount-episode-list.ts の一時橋で
+  //   HTMLElement 面を保つ（削除予定: playback-web-page-jsx-mount）。root-level イベント委譲を
+  //   保つため、element は container へ1回だけ挿入し、以後は update() で再描画する
+  const episodeList = mountEpisodeList();
+  container.appendChild(episodeList.element);
 
   // why: hashchange listener 由来の select() が setState を発火させ、そのまま同じ値を
   //   setLocationHash へ書き戻すと無限ループになりうる。書き込み直前の値と比較して抑止する
   let lastSyncedHash = getLocationHash();
 
   function render(): void {
-    container.replaceChildren(
-      createEpisodeList(viewModel.getState(), baseUrl, (episodeId) => {
-        void viewModel.select(episodeId);
-      }),
-    );
+    episodeList.update(viewModel.getState(), baseUrl, (episodeId) => {
+      void viewModel.select(episodeId);
+    });
 
     const state = viewModel.getState();
     const nextHash = state.status === "success" ? (state.selectedEpisodeId ?? "") : lastSyncedHash;
