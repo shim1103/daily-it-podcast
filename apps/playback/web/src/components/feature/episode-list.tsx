@@ -1,4 +1,4 @@
-import { Fragment, type ReactElement, type ReactNode } from "react";
+import { Fragment, memo, type ReactElement, type ReactNode } from "react";
 import type { EpisodeListState } from "../../view-models/episode-list-view-model.ts";
 import { EpisodeListItem } from "./episode-list-item.tsx";
 import { EpisodeManuscript } from "./episode-manuscript.tsx";
@@ -51,7 +51,11 @@ export type EpisodeListProps = {
  *   title・date は item が既に描画しているため詳細側では重ねて描画しない。loading / error は何も描画しない
  * @invariant item 以外の field 加工をしない
  */
-export function EpisodeList({ state, baseUrl, onSelect }: EpisodeListProps): ReactElement {
+export const EpisodeList = memo(function EpisodeList({
+  state,
+  baseUrl,
+  onSelect,
+}: EpisodeListProps): ReactElement {
   const children: ReactNode[] = [];
 
   if (state.status === "success") {
@@ -68,4 +72,4 @@ export function EpisodeList({ state, baseUrl, onSelect }: EpisodeListProps): Rea
   }
 
   return <div>{children}</div>;
-}
+});
