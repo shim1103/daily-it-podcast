@@ -20,9 +20,13 @@ issue-manager で `apps/playback/web/src/pages/episode-list-page.ts` を JSX 関
 6. shim との対話で React / JS / ブラウザの基礎（イベントループ、マイクロ/マクロタスク、クロージャと stale closure、`useRef`/`useState` の再 render 挙動、render と mount と commit の違い、`useEffect` の deps 比較と実行タイミング、`React.memo`/`useCallback`/`useMemo`、SSR vs SPA と SEO、`useSyncExternalStore`）を議論した。
 7. Verification（typecheck / test:unit 37 files・211 tests / lint / lint:layers）全て pass、`web/src/pages` `web/src/view-models` カバレッジ 100/100/100/100 を manager が再実行で audit。4 commit（feat・refactor・perf・docs）を push。
 
+7. pr-completion flow で 4 commit（feat・refactor・perf・docs）+ log commit を push し、PR [#73](https://github.com/shim1103/daily-it-podcast/pull/73)（base: develop）を `gh pr` 経由で作成した。`develop` 先行の PR #72 との `docs/lessons/index.md` conflict を両側保持（番号 219〜223 へ振り直し）で解消。CI（static-and-unit / integration）全 pass、mergeStateStatus CLEAN を確認。
+
 ### Commits
 
 - `7693a73`
 - `36da90a`
 - `3692b17`
 - `f55208f`
+- `e5730bd`
+- `84cd6bd`
