@@ -155,4 +155,25 @@ describe("EpisodeList", () => {
     expect(container.querySelectorAll("audio")).toHaveLength(0);
     expect(container.querySelector("[data-episode-detail-error]")).not.toBeNull();
   });
+
+  it("props が同一参照のまま与えられた時、memo の浅い比較で再 render をスキップする", () => {
+    // Given: EpisodeList を同一 element 参照で 2 回 render する
+    const state: EpisodeListState = {
+      status: "success",
+      episodes: [{ episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60 }],
+      selectedEpisodeId: null,
+      selectedEpisode: null,
+    };
+    const onSelect = vi.fn();
+    const element = createElement(EpisodeList, { state, baseUrl, onSelect });
+
+    // When: 同じ props（同一参照）で再 render する
+    const { container, rerender } = render(element);
+    const firstHtml = container.innerHTML;
+    rerender(element);
+
+    // Then: memo コンポーネントである（React が浅い比較で skip 可能な形）。描画結果も不変
+    expect((EpisodeList as { $$typeof?: symbol }).$$typeof).toBe(Symbol.for("react.memo"));
+    expect(container.innerHTML).toBe(firstHtml);
+  });
 });
