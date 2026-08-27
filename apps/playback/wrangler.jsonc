@@ -3,6 +3,8 @@
   "name": "daily-it-podcast",
   "main": "worker/src/worker-entry.ts",
   "compatibility_date": "2026-08-25",
+  // why: production Variables は Cloudflare 側で管理し、deploy 時に未指定値を削除しない。
+  "keep_vars": true,
   // why: UI と `/episodes*` を同一 origin で配信する。Assets は Vite build 出力。
   //   `/episodes*` だけ Worker を先に走らせ、それ以外は静的 file を返す（hash UI のため厚い SPA fallback は不要）。
   "assets": {

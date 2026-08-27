@@ -1,18 +1,5 @@
+import type { PlaybackEnv } from "./runtime-config-bindings.ts";
 import { PlaybackRuntimeConfigError } from "./runtime-config-error.ts";
-
-/**
- * Playback Worker が Cloudflare Workers native secrets/vars から受け取る runtime config。
- *
- * @require `fetch(request, env)` の `env` に Worker binding が注入される
- * @ensure Generator / Web Client の runtime config を含めず、Playback Worker の key だけを扱う
- * @invariant secret の値を Error message や log に含めない
- */
-export type PlaybackEnv = {
-  GOOGLE_OAUTH_CLIENT_ID?: string;
-  GOOGLE_OAUTH_CLIENT_SECRET?: string;
-  GOOGLE_OAUTH_REFRESH_TOKEN?: string;
-  DRIVE_FOLDER_ID?: string;
-};
 
 /** local development / unit test から明示的に選ぶ repository mode。 */
 export type PlaybackRepositoryMode = "in-memory";
