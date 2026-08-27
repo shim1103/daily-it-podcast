@@ -8,8 +8,8 @@ set -euo pipefail
 
 root="$(git rev-parse --show-toplevel)"
 threshold_pct="${GENERATOR_UNIT_COVER_THRESHOLD:-90}"
-profile="$(mktemp)"
-filtered="$(mktemp)"
+profile="$(mktemp "${TMPDIR:-/tmp}/generator-coverage-profile.XXXXXX")"
+filtered="$(mktemp "${TMPDIR:-/tmp}/generator-coverage-filtered.XXXXXX")"
 trap 'rm -f "$profile" "$filtered"' EXIT
 
 echo "unit: generator (go + coverage)"
