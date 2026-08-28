@@ -68,7 +68,7 @@ Playback HTTP 契約 → `apps/playback/contracts/`
 9. **Unit（commit / GHA）:** `./scripts/test-unit.sh`（composer 契約のあと片系: `./scripts/generator/test-unit.sh`、`./scripts/playback/test-unit.sh`）
 10. **generator condition coverage（local のみ）:** `./scripts/generator/report-condition-coverage.sh`。`gobco v1.3.4` で generator Unit package（`./cmd/...`、`./internal/...`）の Boolean condition を report する。threshold はなく、hard gate ではない。既存の statement coverage gate はこの report と別に維持する
 11. **generator race（GHA）:** `./scripts/generator/test-race.sh`
-12. **Integration（push / GHA）:** `./scripts/test-integration.sh`（片系: `./scripts/generator/test-integration.sh`、`./scripts/playback/test-integration.sh`）。generator gate は secret なし Narrow のみ
+12. **Integration（push / GHA）:** `./scripts/test-integration.sh`（片系: `./scripts/generator/test-integration.sh`、`./scripts/playback/test-integration.sh`）。generator gate は secret なし Narrow のみ。HTTP vendor の SU/NI latest 化と Composition HTTP 移行の残作業は `docs/tasks/todo/generator-lane.md`
 condition coverage report は、構文として認識できる Boolean condition を対象にする。未使用 function は検出できず、`select` も対象外である。したがって完全な branch coverage ではない。
 
 test 配置・gate の規則は `DESIGN.md`。
