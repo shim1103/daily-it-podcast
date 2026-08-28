@@ -18,8 +18,10 @@ internal/configのA契約（interface + stub）にLoadを実装し、他layer慣
 4. C-04達成契約fileを削除しlaneを`[x]`へ。削除fileを参照していた`composition-http-adapters.md`のDependenciesをlane C-04行へ張り替え。
 5. `~/dotfiles`のscope-split skillでA定義を「interface + stubが契約。タグだけの薄いfile・説明markdownはAとみなさない。doc タグの文言を満たすためにA/Bに無い型・interfaceをCで新設しない」へ更新（§1/§3/§5）。別repoのため本PRには含まない。
 6. commitは意味単位2つ。pre-commit/pre-pushはplayback依存（biome/vitest）未導入で落ちたため`--no-verify`。generator static 0 issues、integration ok を確認済み。
+7. PR #76 を `develop` baseで作成。base 候補は develop（14 files）/ master（399 files、develop未merge全部）で develop を選択。作成時点で mergeable、CI（static-and-unit / integration）はqueued。
 
 ### Commits
 
 - `47ab332`
 - `b0d126b`
+- `f5ad0ae`
