@@ -25,8 +25,8 @@ type DriveConfig struct {
 
 // Config はGeneratorがstartup時に確定するcapability別runtime configである。
 //
-// @ensure 全fieldは必須であり、先頭または末尾にwhitespaceを含む入力はinvalid_formatとしてrejectする。
-// @ensure validation violationはConfigのfield順で全件集約される。
+// 全fieldが必須であること、およびvalidation violationの分類・集約順の契約はLoadを正とする。
+//
 // @invariant VariablesとSecretsの保存区分ではなくcapability単位でgroup化する。
 type Config struct {
 	Source SourceConfig
