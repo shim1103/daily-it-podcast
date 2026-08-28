@@ -1,6 +1,16 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
+import { useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useHashSync } from "./use-hash-sync.ts";
+
+// why: useSyncExternalStore の購読は hashchange で再 render → 副作用を走らせる。
+//   render 外での hash 変更と hashchange 発火を act で括り、React の更新を flush する
+function dispatchHashChange(nextHash: string): void {
+  act(() => {
+    window.location.hash = nextHash;
+    window.dispatchEvent(new Event("hashchange"));
+  });
+}
 
 describe("useHashSync", () => {
   beforeEach(() => {
@@ -73,8 +83,7 @@ describe("useHashSync", () => {
     });
 
     // When: hash を #ep-1 へ変え hashchange を発火する
-    window.location.hash = "#ep-1";
-    window.dispatchEvent(new Event("hashchange"));
+    dispatchHashChange("#ep-1");
 
     // Then: onHashSelect("ep-1") が呼ばれる
     expect(onHashSelect).toHaveBeenCalledWith("ep-1");
@@ -89,8 +98,7 @@ describe("useHashSync", () => {
     rerender({ id: "ep-1" });
 
     // When: hash を空へ変え hashchange を発火する
-    window.location.hash = "";
-    window.dispatchEvent(new Event("hashchange"));
+    dispatchHashChange("");
 
     // Then: onHashSelect(null) が呼ばれる
     expect(onHashSelect).toHaveBeenCalledWith(null);
@@ -107,15 +115,43 @@ describe("useHashSync", () => {
     });
 
     // When: hash が #ep-1 へ変わり hashchange → onHashSelect → caller が selectedId=ep-1 で再 render
-    window.location.hash = "#ep-1";
-    window.dispatchEvent(new Event("hashchange"));
+    dispatchHashChange("#ep-1");
     rerender({ id: currentId });
     // さらに hashchange が誘発されていないか確認するため、もう一度発火機会を与える
-    window.dispatchEvent(new Event("hashchange"));
+    act(() => {
+      window.dispatchEvent(new Event("hashchange"));
+    });
 
     // Then: onHashSelect は 1 回だけ（書き戻しによる再 hashchange の連鎖が無い）。hash も #ep-1 のまま
     expect(onHashSelect).toHaveBeenCalledTimes(1);
     expect(window.location.hash).toBe("#ep-1");
+  });
+
+  it("外部 hash が不変のまま再 render しても、getSnapshot の Object.is 安定で余分な再 render が起きない", () => {
+    // why: getSnapshot が毎回新参照（オブジェクト等）を返すと useSyncExternalStore の Object.is
+    //   比較が破れ "Maximum update depth exceeded" の無限 render になる。文字列戻り値でそれが
+    //   起きないことを render 回数で固定する
+    // Given: hash に既存値、render 回数を数える wrapper 越しに hook を張る
+    window.location.hash = "#ep-1";
+    const onHashSelect = vi.fn();
+    const rerenderCount = 3;
+    let renderCount = 0;
+    const useProbe = () => {
+      const seen = useRef(0);
+      seen.current += 1;
+      renderCount = seen.current;
+      useHashSync("ep-1", onHashSelect);
+    };
+    const { rerender } = renderHook(() => useProbe());
+
+    // When: 外部 hash を変えずに親を rerenderCount 回 rerender する
+    for (let i = 0; i < rerenderCount; i += 1) {
+      rerender();
+    }
+
+    // Then: render 回数は初回 1 + rerenderCount 回ぶんだけ。onHashSelect も発火しない
+    expect(renderCount).toBe(1 + rerenderCount);
+    expect(onHashSelect).not.toHaveBeenCalled();
   });
 
   it("unmount すると hashchange listener が外れ、以後 onHashSelect を呼ばない", () => {
@@ -127,8 +163,7 @@ describe("useHashSync", () => {
 
     // When: unmount してから hashchange を発火する
     unmount();
-    window.location.hash = "#ep-1";
-    window.dispatchEvent(new Event("hashchange"));
+    dispatchHashChange("#ep-1");
 
     // Then: onHashSelect は呼ばれない
     expect(onHashSelect).not.toHaveBeenCalled();
