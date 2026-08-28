@@ -8,3 +8,6 @@
 # Node
 node_modules/
 coverage/
+
+# Playback Vite build output (bundled by wrangler at deploy)
+apps/playback/web/dist/
