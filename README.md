@@ -93,7 +93,7 @@ test 配置・gate の規則は `DESIGN.md`。
 
 この表は運用上のinventoryであり、実行時契約のSSOTではない。必要なkey・型・検証はruntimeごとのconfiguration boundaryが所有する。Playback Workerの注入区分は`DEPLOY.md`。
 
-Generatorのproduction情報源はGetXAPIのみとする。TwitterAPI.ioの旧実装は現在codebaseに残るが、production sourceではない。
+Generatorのproduction情報源はGetXAPIのみとする。
 
 credential付き実operationはGitHub Actions runnerだけで実行する。通常のlocal開発と自動testは実serviceを呼ばず、local secretを持たない。
 

@@ -3,7 +3,6 @@ package secretnames
 
 const (
 	GetXAPIKeyName              = "GETX_API_KEY"
-	TwitterIOAPIKeyName         = "TWITTER_IO_API_KEY"
 	GeminiAPIKeyName            = "GEMINI_API_KEY"
 	CursorAPIKeyName            = "CURSOR_API_KEY"
 	GoogleOAuthClientIDName     = "GOOGLE_OAUTH_CLIENT_ID"

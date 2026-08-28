@@ -116,8 +116,7 @@ func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]
 		return nil, false, infraErr("prohibited_content", fmt.Errorf("PROHIBITED_CONTENT"))
 	}
 
-	// why: twitterapiio は retry 無しで StatusOK 以外を即 error。ここは MaxAttempts と
-	// 公式 troubleshooting（429/503/5xx retry、400/403 は retry しない）に従い retryable を分岐する。
+	// why: MaxAttempts と公式 troubleshooting（429/503/5xx retry、400/403 は retry しない）に従い retryable を分岐する。
 	switch {
 	case res.StatusCode == http.StatusBadRequest, res.StatusCode == http.StatusForbidden:
 		return nil, false, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
