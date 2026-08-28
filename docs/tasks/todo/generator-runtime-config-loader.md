@@ -75,8 +75,8 @@ git diff --check
 
 1. `apps/generator/internal/config/`のA artifactに依存する。
 2. `docs/decisions/2026-08-27T13-56-13-docs-env-secret-management-reconsider.md`に依存する。
-3. 本IssueはAgentSecrets削除、TwitterAPI.io削除、Cursor CLI probeと並行実施できる。
-4. production graphへの接続を行う後続Issueは本Issueにblockedされる。
+3. AgentSecrets削除とTwitterAPI.io削除は完了済み。本IssueはCursor CLI probe（C-03）と並行実施できる。
+4. production graphへの接続は`docs/tasks/todo/generator-composition-http-adapters.md`（M1）が本Issueにblockedされる。
 
 ## 10. Risks
 
@@ -85,4 +85,4 @@ git diff --check
 
 ## 11. Notes
 
-1. Production Composition接続と`secrettransport`廃止は後続Issueで扱う。
+1. Production Composition接続と`secrettransport`廃止は`generator-composition-http-adapters.md`（M1）で扱う。

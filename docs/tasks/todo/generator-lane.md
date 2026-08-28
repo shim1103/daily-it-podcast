@@ -7,29 +7,38 @@
 未完了の達成契約は `docs/tasks/todo/generator-*.md` が正。本 lane は進捗 index のみ。decisions は各 task file / 必要時に辿る。
 
 - [x] go.mod（module path）と `ItemSource` / `SourceItem` / 監視定数の境界 stub
-- [x] 情報取得 Adapter（GetXAPIはproduction結線済み）
+- [x] 情報取得 Adapter（GetXAPIはproduction結線済み。TwitterAPI.io旧実装は削除済み）
 - [x] 監視 user 一括取得 UseCase（`application.FetchSourceItems`）
 - [x] `SpeechSynthesizer` / Gemini Adapter / Drive / OAuth / WriteEpisode / Cursor CLI
 - [x] process-env command launcher / HTTP transport
-- [x] AgentSecrets / `local_real`除去 — `docs/tasks/todo/generator-remove-agentsecrets-local-real.md`
+- [x] AgentSecrets / `local_real`除去
 - [x] cmd 入口（薄い Driving Adapter）
-- [x] TwitterAPI.io旧artifact除去 — `docs/tasks/todo/generator-remove-twitterapiio.md`
+- [x] TwitterAPI.io旧artifact除去
 - [ ] Cursor CLI GitHub Actions capability probe — `docs/tasks/todo/generator-cursor-cli-github-actions-probe.md`
 - [ ] runtime config loader実装 — `docs/tasks/todo/generator-runtime-config-loader.md`
 - [x] Integration gate収集境界（secretなし Narrow）
+- [ ] Composition HTTP Adapter移行（M1）— `docs/tasks/todo/generator-composition-http-adapters.md`
+- [ ] HTTP SU/NI latest（getxapi / oauth / gemini / gdrive）— `docs/tasks/todo/generator-su-ni-*.md`
 - [ ] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）— **D**
 - [ ] GHA workflow で定期または手動実行 — **未切り出し**
-- [ ] Narrow（C）— `docs/tasks/todo/generator-narrow-*.md` が正（GitHub Issue 化しない）
+- [ ] Cursor Narrow — `docs/tasks/todo/generator-narrow-gate-vendor-cursorcli.md`（child env再設計後）
 - [ ] Broad Integration / System・E2E — **D**（Decision `2026-08-26T17-47-00`）
 
 ### 依存（実装順）
 
 ```text
 A/B runtime config・secret方針（済）
-  ├→ AgentSecrets / local_real除去（C-01）
-  │     └→ TwitterAPI.io除去（C-02）
-  ├→ Cursor CLI GHA capability probe（C-03、並行可）
-  └→ runtime config loader（C-04、並行可）
+C-01 AgentSecrets / local_real除去（済）
+C-02 TwitterAPI.io除去（済）
+
+C-03 Cursor CLI GHA capability probe（並行可）
+C-04 runtime config loader（並行可）
+  └→ M1 Composition HTTP Adapter移行
+        └→ SU/NI latest: getxapi / oauth / gemini / gdrive
+
+C-03実測
+  └→ child env再設計（未切り出し）
+        └→ Cursor Narrow（既存gate file、後回し）
 
 既存Generator graph
   └→ ProduceEpisode.Run（D）
@@ -39,9 +48,6 @@ A/B runtime config・secret方針（済）
 ### Integration test 方針
 
 ```text
-A/B 済: gate = secret なし Narrow / System 非 CI / CDC 非導入
-C-01 済: local_real入口とAgentSecrets Narrowを削除
-C-02 済: TwitterAPI.io Narrow taskを削除
-C: 残るdocs/tasks/todo/generator-narrow-*.mdはsecretなしvendor gate。実装は各fileのAC
-D: Broad / System・E2E / vendor実API
+gate = secret なし Narrow / System 非 CI（DESIGN・既存Decision）
+着手順 = 依存（実装順）を正。Cursor Narrow後回しは Decision 2026-08-28T12-49-01
 ```
