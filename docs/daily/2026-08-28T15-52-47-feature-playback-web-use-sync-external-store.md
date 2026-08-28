@@ -20,7 +20,10 @@ issue-manager で `apps/playback/web/src/view-models/use-hash-sync.ts` の外部
 6. shim との対話で `useSyncExternalStore` の内部機構（Fiber ノード上の `inst.value`、render 中と commit 直前の2回 `getSnapshot` 呼び出し＝tearing 検出、subscribe callback が再 render トリガ、再 render 対象は該当 Fiber サブツリー）、`act()` が React の非同期更新を flush する役割、旧実装（同期 listener 直呼び）との差を議論した。
 7. manager audit: `npm run typecheck` エラー0 / `npm run lint:layers` 0 violations（53 modules）/ `npm run lint` 86 files clean / `npm run test:unit` を5連続実行し全て 37 files・212 tests pass、flaky ゼロ。`use-hash-sync.ts` カバレッジ 100/100/100/100。`use-hash-sync.sociable_unit.test.ts` 9 tests + `episode-list-page.sociable_unit.test.ts` 8 tests（後者は完全無修正）green を独立確認。
 8. `npm run dev` での実ブラウザ hash 同期（戻る/進む、`#ep-xxxx` 直リンク）は未実施。happy-dom は hashchange 非同期発火・history push を再現しないため PR review で manual 確認する。
+9. pr-completion flow で PR [#77](https://github.com/shim1103/daily-it-podcast/pull/77)（base: develop、関連 GitHub Issue なし・追跡は local task file）を `gh pr` 経由で作成した。`develop` 先行の PR #76 と `docs/lessons/index.md` が conflict（両者とも 223 の直後に追記）。両側保持で解消し、本 session の lesson を 224〜228 → 241〜245 へ振り直した。merge 後に typecheck / test:unit（37 files・212 tests）/ lint:layers を再実行し green。CI（static-and-unit / integration）全 pass、mergeStateStatus CLEAN を確認。
 
 ### Commits
 
 - `315babd`
+- `ba46c19`
+- `3a34fcd`
