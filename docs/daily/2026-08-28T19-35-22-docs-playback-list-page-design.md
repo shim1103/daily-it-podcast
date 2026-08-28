@@ -19,6 +19,7 @@ Playback list-page の見た目（夜・紫黒・Apple list 行）と表示整�
 5. `docs/tasks/todo/playback-list-episodes-topics-titles.md` に listEpisode `topics: { title }[]` の server+API 契約を残した（web 表示は Out of Scope）。
 6. README / DESIGN へ decision path の動線だけを追加。concept 本文は写さない。
 7. 途中で `create-issue` の template 参照を GitHub Issue 作成と誤読し Project #9 を作ったが、shim 指摘後に削除。local `project.toml` は未作成のまま。
+8. pr-completion で PR [#81](https://github.com/shim1103/daily-it-podcast/pull/81)（base: `develop`）を `gh pr` 経由で作成。`docs/lessons/index.md` が develop 先行追記と conflict → 両側保持で 261〜264 へ振り直し。
 
 ### Commits
 
@@ -26,3 +27,5 @@ Playback list-page の見た目（夜・紫黒・Apple list 行）と表示整�
 - `f663239`
 - `0ec9bff`
 - `27865e8`
+- `30b33e2`
+- `55233bf`
