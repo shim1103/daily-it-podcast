@@ -1,0 +1,182 @@
+[
+  {
+    "episodeId": "ep-1",
+    "date": "2026-08-17",
+    "title": "題",
+    "durationSec": 60,
+    "body": {
+      "opening": "開始",
+      "topics": [
+        {
+          "title": "題",
+          "preface": "前置き",
+          "detail": "詳細",
+          "startSec": 0
+        }
+      ],
+      "closing": "終了"
+    }
+  },
+  {
+    "episodeId": "ep-2",
+    "date": "2026-08-18",
+    "title": "短い題",
+    "durationSec": 5,
+    "body": {
+      "opening": "開始",
+      "topics": [
+        {
+          "title": "短い題",
+          "preface": "前置き",
+          "detail": "詳細",
+          "startSec": 0
+        }
+      ],
+      "closing": "終了"
+    }
+  },
+  {
+    "episodeId": "ep-3",
+    "date": "2026-08-19",
+    "title": "TypeScript の型狭めと zod 境界での正規化を一日で追う",
+    "durationSec": 125,
+    "body": {
+      "opening": "開始",
+      "topics": [
+        {
+          "title": "型狭め",
+          "preface": "前置き",
+          "detail": "詳細",
+          "startSec": 0
+        }
+      ],
+      "closing": "終了"
+    }
+  },
+  {
+    "episodeId": "ep-4",
+    "date": "2026-07-01",
+    "title": "Go の error wrapping",
+    "durationSec": 3723,
+    "body": {
+      "opening": "開始",
+      "topics": [
+        {
+          "title": "errors",
+          "preface": "前置き",
+          "detail": "詳細",
+          "startSec": 0
+        }
+      ],
+      "closing": "終了"
+    }
+  },
+  {
+    "episodeId": "ep-5",
+    "date": "2026-06-15",
+    "title": "CI",
+    "durationSec": 0,
+    "body": {
+      "opening": "開始",
+      "topics": [
+        {
+          "title": "CI",
+          "preface": "前置き",
+          "detail": "詳細",
+          "startSec": 0
+        }
+      ],
+      "closing": "終了"
+    }
+  },
+  {
+    "episodeId": "ep-daily-20260820",
+    "date": "2026-08-20",
+    "title": "今日の IT: Cloudflare Workers と Durable Objects の境界",
+    "durationSec": 1845,
+    "body": {
+      "opening": "開始",
+      "topics": [
+        {
+          "title": "Workers",
+          "preface": "前置き",
+          "detail": "詳細",
+          "startSec": 0
+        }
+      ],
+      "closing": "終了"
+    }
+  },
+  {
+    "episodeId": "ep-7",
+    "date": "2025-12-31",
+    "title": "年末振り返り: テストピラミッドと mutation testing",
+    "durationSec": 900,
+    "body": {
+      "opening": "開始",
+      "topics": [
+        {
+          "title": "testing",
+          "preface": "前置き",
+          "detail": "詳細",
+          "startSec": 0
+        }
+      ],
+      "closing": "終了"
+    }
+  },
+  {
+    "episodeId": "ep-8",
+    "date": "2026-01-05",
+    "title": "a",
+    "durationSec": 59,
+    "body": {
+      "opening": "開始",
+      "topics": [
+        {
+          "title": "a",
+          "preface": "前置き",
+          "detail": "詳細",
+          "startSec": 0
+        }
+      ],
+      "closing": "終了"
+    }
+  },
+  {
+    "episodeId": "ep-9",
+    "date": "2026-03-03",
+    "title": "Playwright E2E で webServer へ environment を渡す時の罠と切り分け手順の話",
+    "durationSec": 45,
+    "body": {
+      "opening": "開始",
+      "topics": [
+        {
+          "title": "E2E",
+          "preface": "前置き",
+          "detail": "詳細",
+          "startSec": 0
+        }
+      ],
+      "closing": "終了"
+    }
+  },
+  {
+    "episodeId": "ep-10",
+    "date": "2026-09-01",
+    "title": "design token と CSS 変数の置き場",
+    "durationSec": 610,
+    "body": {
+      "opening": "開始",
+      "topics": [
+        {
+          "title": "CSS",
+          "preface": "前置き",
+          "detail": "詳細",
+          "startSec": 0
+        }
+      ],
+      "closing": "終了"
+    }
+  }
+]
