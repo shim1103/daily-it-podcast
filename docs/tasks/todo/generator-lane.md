@@ -15,7 +15,8 @@
 - [x] cmd 入口（薄い Driving Adapter）
 - [x] TwitterAPI.io旧artifact除去
 - [ ] Cursor CLI GitHub Actions capability probe — `docs/tasks/todo/generator-cursor-cli-github-actions-probe.md`
-- [ ] runtime config loader実装 — `docs/tasks/todo/generator-runtime-config-loader.md`
+- [x] runtime config loader実装（`internal/config` KISS化まで。error最終形は下記 error-taxonomy-unify）
+- [ ] error 3層表現統一（Domain/Infra/Config → Infra pattern）— `docs/tasks/todo/generator-error-taxonomy-unify.md`
 - [x] Integration gate収集境界（secretなし Narrow）
 - [ ] Composition HTTP Adapter移行（M1）— `docs/tasks/todo/generator-composition-http-adapters.md`
 - [ ] HTTP SU/NI latest（getxapi / oauth / gemini / gdrive）— `docs/tasks/todo/generator-su-ni-*.md`
@@ -32,7 +33,8 @@ C-01 AgentSecrets / local_real除去（済）
 C-02 TwitterAPI.io除去（済）
 
 C-03 Cursor CLI GHA capability probe（並行可）
-C-04 runtime config loader（並行可）
+C-04 runtime config loader（済。config KISS化。error最終形は error-taxonomy-unify）
+  ├→ error-taxonomy-unify（Domain/Infra/Config表現統一。M1と独立、config package競合時のみ順序調整）
   └→ M1 Composition HTTP Adapter移行
         └→ SU/NI latest: getxapi / oauth / gemini / gdrive
 

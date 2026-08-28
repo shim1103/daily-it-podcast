@@ -1,30 +1,13 @@
 package config
 
-// ViolationKind はruntime config validation違反の種類である。
-type ViolationKind string
+import "errors"
 
-const (
-	// ViolationMissing はmissingであり、environment keyが未定義の違反である。
-	ViolationMissing ViolationKind = "missing"
-	// ViolationEmpty はemptyであり、environment keyが定義済みだが空文字の違反である。
-	ViolationEmpty ViolationKind = "empty"
-	// ViolationInvalidFormat はwhitespace等のformat違反である。
-	ViolationInvalidFormat ViolationKind = "invalid_format"
+// runtime config validation の違反種別。errors.Is で分類する。
+var (
+	// ErrMissing はenvironment keyが未定義である。
+	ErrMissing = errors.New("missing")
+	// ErrEmpty はenvironment keyが定義済みだが空文字である。
+	ErrEmpty = errors.New("empty")
+	// ErrInvalidFormat は先頭または末尾にwhitespaceを含む等のformat違反である。
+	ErrInvalidFormat = errors.New("invalid_format")
 )
-
-// Violation はkeyごとのruntime config validation違反である。
-//
-// @invariant raw valueを保持しない。
-type Violation struct {
-	Key  string
-	Kind ViolationKind
-}
-
-// Error はGenerator runtime configのvalidation error契約である。
-//
-// @ensure Violationsはcallerが変更してもError内部へ影響しないdefensiveなlistを返す。
-// @invariant Error文字列とViolationにraw valueを含めない。
-type Error interface {
-	error
-	Violations() []Violation
-}
