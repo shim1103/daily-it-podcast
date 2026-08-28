@@ -7,6 +7,17 @@ import { EpisodeList } from "./episode-list.tsx";
 const baseUrl = "https://example.test";
 
 describe("EpisodeList", () => {
+  it("root に episode-list class を付ける", () => {
+    // Given: loading state（children の有無に依存しない）
+    const state: EpisodeListState = { status: "loading" };
+
+    // When: JSX として render する
+    const { container } = render(createElement(EpisodeList, { state, baseUrl, onSelect: vi.fn() }));
+
+    // Then: list 容器の class が root にある（見た目は CSS 側の責務）
+    expect(container.firstElementChild?.className).toBe("episode-list");
+  });
+
   it("loading state の時、episode item を描画しない", () => {
     // Given: loading state
     const state: EpisodeListState = { status: "loading" };
@@ -115,7 +126,7 @@ describe("EpisodeList", () => {
     // Then: 選択中 item の直後（次の兄弟）に詳細が展開される
     const items = Array.from(container.firstElementChild?.children ?? []);
     const selectedItemIndex = items.findIndex(
-      (node) => node.querySelector("[data-episode-id]")?.textContent === "ep-1",
+      (node) => node.querySelector("[data-episode-title]")?.textContent === "題1",
     );
     expect(items[selectedItemIndex + 1]?.querySelector("[data-topic-title]")).not.toBeNull();
   });
