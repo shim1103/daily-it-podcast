@@ -71,3 +71,9 @@
 232：2026-08-28 [docs/infra-unit-narrow-integration-latest] 前提が無効になった達成契約fileは本文patchで延命せず、現行前提の新fileへ置き換えて旧fileを削除する。新旧がtodoに並ぶと実施予定の正が二つになる  # → layer:workflow
 233：2026-08-28 [docs/infra-unit-narrow-integration-latest] 方針文書へ未完了task pathを書くと進捗indexと二重になる。再発判断はDecision、進捗はlane、方針文書はDecision参照だけに留める  # → layer:meta
 234：2026-08-28 [docs/infra-unit-narrow-integration-latest] 後回しにする既存達成契約は削除せず、着手順だけをDecisionと進捗indexで固定する。破棄と延期を同じ操作にしない  # → layer:workflow
+235：2026-08-28 [feature/generator-runtime-config-loader] 境界契約artifactは「守るべき性質を書いた文書」ではなく、interface定義とstub（signatureは確定、本体は未実装でcompileは通る骨組み）である。実装側はそのstubのsignatureを、同じlayerの既存実装の作り方に倣った最小構造で満たす。契約に添えたpre/postcondition記述を実装で完全再現しようとして、契約にもimplにも無い補助型を新設しない  # → layer:workflow
+236：2026-08-28 [feature/generator-runtime-config-loader] 契約のpostcondition記述（「全違反を集約して返す」等）を字面どおり実装で作り込むと、分類enum・専用error interface・防御的コピー等の補助構造が他箇所に前例なく増える。postconditionは満たすべき観測結果であって構造の指定ではない。周辺の既存error・戻り値の表現形式を先に見て、最小構造で観測結果を満たしたかで判断する  # → layer:terms
+237：2026-08-28 [feature/generator-runtime-config-loader] 「規約違反ではない」と「その形を選ぶ理由が十分」は別判定。規約が複数の表現形式を許容していても、それらをlog・表示・分岐する箇所が1つなら、作り方と触り方の一貫性（Least Astonishment）をKISSより優先して1形式へ揃える。「規約が許すから非対称でよい」で判断を止めない  # → layer:terms
+238：2026-08-28 [feature/generator-runtime-config-loader] 相談中にuserが方針を口にしても実装の着手許可ではない。「どうするか」への回答と「やれ」の指示を区別し、方針提示には次の一手を提案して確認を取る。userが「相談だ」と明示したらその turn で成果物を作らない  # → layer:workflow
+239：2026-08-28 [feature/generator-runtime-config-loader] git diffのhunkは変更行の周囲を「削除+再追加」で往復表示することがあり、hunkの見た目の広さは差分の実体ではない。行単位の改変有無を疑う時は、行番号付き両版の機械照合（diff <(cat -n old) <(cat -n new)等）で正味の差分を確定してから「別主体による改変」を結論する  # → layer:platform
+240：2026-08-28 [feature/generator-runtime-config-loader] 達成契約fileを削除する時は、そのpathをDependencies・Canonical Sources・進捗indexから参照している他fileをgrepで洗い、参照を「完了済みの事実 + 進捗の所在（lane等）」へ張り替える。削除と逆参照の掃除を同じ手順に含め、dead linkを残さない  # → layer:workflow
