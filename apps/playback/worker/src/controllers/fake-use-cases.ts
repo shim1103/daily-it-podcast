@@ -3,37 +3,50 @@ import {
   type GetEpisodeResponse,
   type ListEpisodesResponse,
 } from "../../../contracts/index.ts";
+import { EpisodeNotFoundError } from "../entities/errors/episode-not-found-error.ts";
+import fakeEpisodesJson from "./fake-episodes.json" with { type: "json" };
+
+type FakeEpisodeRecord = {
+  episodeId: string;
+  date: string;
+  title: string;
+  durationSec: number;
+  body: GetEpisodeResponse["body"];
+};
+
+const fakeEpisodes = fakeEpisodesJson as FakeEpisodeRecord[];
+
+function toGetEpisodeResponse(record: FakeEpisodeRecord): GetEpisodeResponse {
+  return {
+    episodeId: record.episodeId,
+    date: record.date,
+    title: record.title,
+    durationSec: record.durationSec,
+    body: record.body,
+    audioRef: episodeAudioPath(record.episodeId),
+  };
+}
+
+function findFakeEpisode(episodeId: string): FakeEpisodeRecord {
+  const found = fakeEpisodes.find((episode) => episode.episodeId === episodeId);
+  if (!found) {
+    throw new EpisodeNotFoundError(`JSON エントリが無い: ${episodeId}`);
+  }
+  return found;
+}
 
 export const validListEpisodesResponse: ListEpisodesResponse = {
-  episodes: [
-    {
-      episodeId: "ep-1",
-      date: "2026-08-17",
-      title: "題",
-      durationSec: 60,
-    },
-  ],
+  episodes: fakeEpisodes.map(({ episodeId, date, title, durationSec }) => ({
+    episodeId,
+    date,
+    title,
+    durationSec,
+  })),
 };
 
-export const validGetEpisodeResponse: GetEpisodeResponse = {
-  episodeId: "ep-1",
-  date: "2026-08-17",
-  title: "題",
-  durationSec: 60,
-  body: {
-    opening: "開始",
-    topics: [
-      {
-        title: "題",
-        preface: "前置き",
-        detail: "詳細",
-        startSec: 0,
-      },
-    ],
-    closing: "終了",
-  },
-  audioRef: episodeAudioPath("ep-1"),
-};
+export const validGetEpisodeResponse: GetEpisodeResponse = toGetEpisodeResponse(
+  findFakeEpisode("ep-1"),
+);
 
 export const validAudioBytes = new Uint8Array([
   0x52, 0x49, 0x46, 0x46, 0x04, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
@@ -48,7 +61,12 @@ export function createFakeListEpisodesUseCase(
 export function createFakeGetEpisodeUseCase(
   impl?: (episodeId: string) => Promise<GetEpisodeResponse>,
 ): (episodeId: string) => Promise<GetEpisodeResponse> {
-  return impl ?? (async () => validGetEpisodeResponse);
+  return (
+    impl ??
+    (async (episodeId) => {
+      return toGetEpisodeResponse(findFakeEpisode(episodeId));
+    })
+  );
 }
 
 export function createFakeGetEpisodeAudioUseCase(

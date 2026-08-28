@@ -3,6 +3,7 @@ import type { EpisodeListState } from "../../view-models/episode-list-view-model
 import { EpisodeListItem } from "./episode-list-item.tsx";
 import { EpisodeManuscript } from "./episode-manuscript.tsx";
 import { EpisodePlayer } from "./episode-player.tsx";
+import "./episode-list.css";
 
 type SelectedEpisode = NonNullable<
   Extract<EpisodeListState, { status: "success" }>["selectedEpisode"]
@@ -71,5 +72,5 @@ export const EpisodeList = memo(function EpisodeList({
     }
   }
 
-  return <div>{children}</div>;
+  return <div className="episode-list">{children}</div>;
 });

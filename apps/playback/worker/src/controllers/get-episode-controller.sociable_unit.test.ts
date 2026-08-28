@@ -53,6 +53,21 @@ describe("createGetEpisodeController", () => {
     );
   });
 
+  it("default Fake UseCase が未知の episodeId の時、NotFoundError に変換する", async () => {
+    // Given: JSON に無い episodeId を default Fake に渡す
+    const useCase = createFakeGetEpisodeUseCase();
+    const controller = createGetEpisodeController(useCase);
+
+    // When: 未知 id で呼ぶ
+    const act = controller({ episodeId: "ep-missing" });
+
+    // Then: Fake の欠落経路が Domain → External NotFound へ写る
+    await expect(act).rejects.toSatisfy(
+      (error: unknown) =>
+        error instanceof NotFoundError && error.cause instanceof EpisodeNotFoundError,
+    );
+  });
+
   it("UseCase が DriveError を throw する時、UnavailableError に cause 付きで変換する", async () => {
     // Given: Infrastructure 失敗を throw する Fake UseCase
     const driveError = new DriveError("Drive 読取に失敗");

@@ -97,3 +97,7 @@
 258：2026-08-28 [feature/generator-cursor-cli-github-actions-probe] 調査用の使い捨てスクリプト（スクラッチ領域に置き、リポジトリに入れず、一度叩いて捨てるもの）は TDD サイクルの対象外。TDD を課すのはリポジトリに残るコードの CRUD だけ。使い捨てかどうかを先に判定し、調査の速度を落とさない  # → layer:workflow
 259：2026-08-28 [feature/generator-cursor-cli-github-actions-probe] 一過性の実測記録（この観測でこうだった）と再利用可能な知見（次も同じ判断に使える一般則）は書き分ける。実測の事実と検証結果は成果物レビューの本文（PR 等）に置き、再利用知見だけを知見インデックスへ一般化して残す。両者を混ぜると知見インデックスが観測ログで膨れる  # → layer:meta
 260：2026-08-28 [feature/generator-cursor-cli-github-actions-probe] ハーネスのサンドボックスが書き込みを弾く環境では、退避（mv/cp）と本処理が中途で分断され、対象ディレクトリを壊しかけることがある。破壊的操作の前に対象の現状を確認し、失敗後は即座に対象の健全性（一覧・要ファイルの存在）を検証してから次へ進む  # → layer:workflow
+261：2026-08-28 [docs/playback-list-page-design] skill添付と「templateを参照せよ」を、そのskillのExecute（副作用付きcommand）と同一視しない。deliverableのpathが明示されている時は、そのpathへの成果物作成が主指示であり、添付は書き方の正である  # → layer:workflow
+262：2026-08-28 [docs/playback-list-page-design] 問いが近い2つのDecisionを分ける時、Rejectedやmotif方針を両方へ写すとDRY違反になる。物語前提と視覚合意のように問いを分け、重複知識は一方を正・他方は参照だけにする。分けられないなら1fileへまとめる  # → layer:meta
+263：2026-08-28 [docs/playback-list-page-design] productのconcept・空気感はDecisionがSSoTであり、READMEやDESIGNへ本文を写さない。地図文書には再発判断への動線（path参照）だけを薄く置く  # → layer:meta
+264：2026-08-28 [docs/playback-list-page-design] 誤読でremoteの管理資源（Project等）を作ってしまったら、指摘後に削除して副作用を残さない。未作成のlocal設定を「ある前提」で次工程へ進まない  # → layer:workflow
