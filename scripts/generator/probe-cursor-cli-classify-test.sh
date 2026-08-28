@@ -131,6 +131,31 @@ else
 fi
 assert_equals "build_env_prefix は未知 case を非ゼロで弾く" "非ゼロ(正)" "$unknown_case_result"
 
+# Given: GITHUB_STEP_SUMMARY が実ファイルに設定済み(GitHub Actions 実挙動)で append_summary を呼ぶ /
+# When: stdout を拾う / Then: case ブロック先頭行が stdout にも出る
+# 根拠: GitHub Actions 上では GITHUB_STEP_SUMMARY が常設のため、summary へしか出さないと job log からプログラム回収できない。
+#       gh CLI に Step Summary 取得コマンドは無い。summary へ append しつつ stdout へも必ず出し、
+#       `gh run view --log | grep 'probe-cursor-cli case='` で拾える不変を固定する。
+append_summary_tmp_summary="$(mktemp "${TMPDIR:-/tmp}/probe-cursor-cli-test.XXXXXX")"
+append_summary_stdout="$(GITHUB_STEP_SUMMARY="$append_summary_tmp_summary" append_summary "full" "test" 0 0 "/x" 1 1 2 2 "success")"
+if printf '%s\n' "$append_summary_stdout" | grep -q '^### probe-cursor-cli case=full$'; then
+  append_summary_stdout_result="stdout に出力あり(正)"
+else
+  append_summary_stdout_result="stdout に出力なし(誤)"
+fi
+assert_equals "append_summary は GITHUB_STEP_SUMMARY 設定時でも case ブロック先頭行を stdout へ出す" \
+  "stdout に出力あり(正)" "$append_summary_stdout_result"
+
+# Then: GITHUB_STEP_SUMMARY ファイルへも従来どおり append される(UI 目視用の出力を失わない)
+if grep -q '^### probe-cursor-cli case=full$' "$append_summary_tmp_summary"; then
+  append_summary_file_result="summary に出力あり(正)"
+else
+  append_summary_file_result="summary に出力なし(誤)"
+fi
+assert_equals "append_summary は GITHUB_STEP_SUMMARY 設定時にそのファイルへも従来どおり append する" \
+  "summary に出力あり(正)" "$append_summary_file_result"
+rm -f "$append_summary_tmp_summary"
+
 printf '\n合計 %s 件 / 失敗 %s 件\n' "$test_total" "$test_failed"
 
 if [ "$test_failed" -ne 0 ]; then
