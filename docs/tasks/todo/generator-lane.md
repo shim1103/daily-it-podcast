@@ -14,7 +14,7 @@
 - [x] AgentSecrets / `local_real`除去
 - [x] cmd 入口（薄い Driving Adapter）
 - [x] TwitterAPI.io旧artifact除去
-- [ ] Cursor CLI GitHub Actions capability probe — `docs/tasks/todo/generator-cursor-cli-github-actions-probe.md`
+- [x] Cursor CLI GitHub Actions capability probe（実測完了。`--sandbox disabled` + `CURSOR_API_KEY` 環境変数で GHA runner 上 run_exit=0。child env HOME/TMPDIR/PATH 非依存。一時 probe artifact は除去済み）
 - [x] runtime config loader実装（`internal/config` KISS化まで。error最終形は下記 error-taxonomy-unify）
 - [ ] error 3層表現統一（Domain/Infra/Config → Infra pattern）— `docs/tasks/todo/generator-error-taxonomy-unify.md`
 - [x] Integration gate収集境界（secretなし Narrow）
