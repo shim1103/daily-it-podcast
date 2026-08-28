@@ -1,5 +1,5 @@
 
-# AgentSecrets environment files
+# Environment files
 .env
 .env.development
 .env.staging
