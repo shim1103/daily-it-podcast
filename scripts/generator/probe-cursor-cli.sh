@@ -5,7 +5,7 @@
 # @require リポジトリ内から呼ぶ。引数に case 名(full / no-home / no-tmpdir / minimal-path)を 1 個渡す。
 #          CURSOR_API_KEY が environment に設定済み。curl と bash が使える runner。
 # @ensure 与えられた 1 case だけを実行し、入力条件・install_exit・run_exit・binary 絶対 path・
-#         stdout / stderr byte 数・分類結果を GITHUB_STEP_SUMMARY(未設定なら stdout)へ metadata だけ append する。
+#         stdout / stderr byte 数・分類結果を stdout(および GITHUB_STEP_SUMMARY が設定されていれば両方)へ metadata だけ append する。
 #         run 系が失敗しても script 自体は exit 0 で返す。install 失敗と呼び出し方の不正だけ exit 1。
 # @invariant CURSOR_API_KEY の値・prompt 本文・stdout 本文・stderr 本文を stdout / summary / artifact へ一切出さない。
 #            constants.go と同一 argv を使い、prompt は無害な 1 文に固定する。
@@ -104,8 +104,11 @@ build_env_prefix() {
   return 0
 }
 
-# 入力条件と観測結果を GITHUB_STEP_SUMMARY(未設定なら stdout)へ metadata だけ append する。
-# stdout 本文・stderr 本文・prompt 本文・secret 値は引数に取らない。
+# 入力条件と観測結果を stdout へ必ず出し、あわせて GITHUB_STEP_SUMMARY が設定されていればそこへも append する。
+# why: GitHub Actions 上では GITHUB_STEP_SUMMARY が常設で、summary(UI 目視専用)へしか出さないと job log から
+#      プログラム回収できない(gh CLI に Step Summary 取得コマンドは無い)。stdout へ出すことで
+#      `gh run view --log | grep 'probe-cursor-cli case='` で機械回収できる。
+# stdout 本文・stderr 本文・prompt 本文・secret 値は引数に取らない(Issue Contract 3 / @invariant)。
 append_summary() {
   summary_line_case="$1"
   summary_line_env_desc="$2"
@@ -130,7 +133,7 @@ append_summary() {
     printf -- '- stderr 行数: %s\n' "$summary_line_stderr_lines"
     printf -- '- 分類結果(暫定): %s\n' "$summary_line_classification"
     printf -- '- 注記: 分類は run_exit と stderr byte 数からの機械推定。service/environment/entitlement の境界は実測前の暫定値。\n'
-  } >> "${GITHUB_STEP_SUMMARY:-/dev/stdout}"
+  } | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
 }
 
 # 公式 install 手順を実行し、解決した binary の絶対 path を返す。

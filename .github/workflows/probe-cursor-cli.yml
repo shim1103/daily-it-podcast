@@ -4,7 +4,7 @@
 # @require test 用 CURSOR_API_KEY が Secrets に登録済み。ubuntu-latest runner。
 # @ensure 各 environment case が独立実行され、1 case の失敗が残りの結果を失わせない。
 #         各 case の入力条件・exit 結果・binary path・分類結果が step summary に残る。
-# @invariant CURSOR_API_KEY の値・prompt 本文・stderr 本文を workflow log / artifact へ出さない。
+# @invariant CURSOR_API_KEY の値・prompt 本文・stdout 本文・stderr 本文を workflow log / artifact へ出さない。
 #            production workflow を変更しない。probe 完了後に削除する一時 artifact。
 name: probe-cursor-cli
 
