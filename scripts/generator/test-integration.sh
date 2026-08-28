@@ -3,7 +3,7 @@
 # description: generator の Integration Test を実行する。
 # @require リポジトリ内から呼ぶ。Go が PATH にある。apps/generator が存在する。
 # @ensure Integration package が空なら成功。空でなければ go test が exit 0。
-# @invariant Unit 専用 suite を再実行しない。playback を触らない。本番 credential を読まない。local_real build tag を渡さない。local-real suite を実行しない。
+# @invariant Unit 専用 suite を再実行しない。playback を触らない。本番 credential を読まない。
 set -euo pipefail
 
 root="$(git rev-parse --show-toplevel)"
