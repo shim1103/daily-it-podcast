@@ -8,6 +8,10 @@
 #         stdout / stderr byte 数・分類結果を stdout(および GITHUB_STEP_SUMMARY が設定されていれば両方)へ metadata だけ append する。
 #         run 系が失敗しても script 自体は exit 0 で返す。install 失敗と呼び出し方の不正だけ exit 1。
 #         PROBE_REVEAL_STDERR=1 のときに限り stderr 先頭300byteを開示行として 1 行追加する。未設定/空/0 なら従来どおり非開示。
+#         PROBE_SANDBOX_MODE で argv の --sandbox 指定を切り替える。enabled(未設定時もこれ) は constants.go 完全再現
+#         (-p --mode ask --output-format json --model composer-2.5 --sandbox enabled --trust)。disabled は --sandbox disabled、
+#         off は --sandbox フラグ自体を argv から外す。不正値は exit 1。どのモードで実行したかを summary へ 1 行残す。
+#         PROBE_SANDBOX_MODE と PROBE_REVEAL_STDERR は独立した一時措置で、判明後それぞれ削除する(Issue Phase 4 と同時か手前)。
 # @invariant CURSOR_API_KEY の値・prompt 本文・stdout 本文・stderr 本文を stdout / summary / artifact へ一切出さない。
 #            例外: PROBE_REVEAL_STDERR=1 の時のみ stderr 先頭300byteを開示する。secret値・prompt本文・stdout本文は常に非開示。
 #            constants.go と同一 argv を使い、prompt は無害な 1 文に固定する。
@@ -113,6 +117,8 @@ build_env_prefix() {
 # stdout 本文・stderr 本文・prompt 本文・secret 値は引数に取らない(Issue Contract 3 / @invariant)。
 # 例外: 11 個目引数 revealed_stderr は PROBE_REVEAL_STDERR=1 の時だけ非空になり、stderr 先頭300byte を 1 度だけ開示する。
 #       未設定/空/0 のときは空文字で渡され、開示行は一切出ない(default 不変)。この分岐は Issue Phase 4 手前で削除する一時措置。
+# 12 個目引数 sandbox_mode は PROBE_SANDBOX_MODE の実値(enabled|disabled|off)。どのモードで観測したかを 1 行残す。
+#       省略時は enabled 相当。main からは常に実際の値を渡す。この行も判明後 PROBE_SANDBOX_MODE ごと削除する一時措置。
 append_summary() {
   summary_line_case="$1"
   summary_line_env_desc="$2"
@@ -125,6 +131,7 @@ append_summary() {
   summary_line_stderr_lines="$9"
   summary_line_classification="${10}"
   summary_line_revealed_stderr="${11:-}"
+  summary_line_sandbox_mode="${12:-enabled}"
 
   {
     printf '### probe-cursor-cli case=%s\n' "$summary_line_case"
@@ -137,6 +144,7 @@ append_summary() {
     printf -- '- stderr byte 数: %s\n' "$summary_line_stderr_bytes"
     printf -- '- stderr 行数: %s\n' "$summary_line_stderr_lines"
     printf -- '- 分類結果(暫定): %s\n' "$summary_line_classification"
+    printf -- '- sandbox 指定: %s\n' "$summary_line_sandbox_mode"
     printf -- '- 注記: 分類は run_exit と stderr byte 数からの機械推定。service/environment/entitlement の境界は実測前の暫定値。\n'
     # why: PROBE_REVEAL_STDERR=1 の時だけ呼び出し側が先頭300byteを詰めて渡す。空なら従来どおり非開示。
     #      改行を含みうるが local / CI log で shim が読む目的なのでそのまま出す。Issue Phase 4 手前で削除。
@@ -183,9 +191,34 @@ run_install() {
   fi
 }
 
-# constants.go / text_writer.go buildCursorArgs() と同一順の argv。secret は載せない。
+# constants.go / text_writer.go buildCursorArgs() の argv を cursor_args global 配列へ組む。secret は載せない。
+# 基本 argv(sandbox 以外)は固定: -p --mode ask --output-format json --model composer-2.5 ... --trust
+# PROBE_SANDBOX_MODE で --sandbox 指定だけを分岐させる。
+#   enabled(未設定時もこれ): --sandbox enabled を --trust の前へ挿入(constants.go と完全同一順)
+#   disabled              : --sandbox disabled を --trust の前へ挿入(値だけ差し替え)
+#   off                   : --sandbox フラグを付けない(基本 argv のみ)
+#   上記以外              : stderr へエラーを出し return 1(main で exit 1)
+# why: sandbox enabled が GHA runner の AppArmor 非対応で起動不能(run 33160392008 で確定)。
+#      argv 残りの GHA 可否を disabled / off で観測するための一時分岐。判明後 PROBE_SANDBOX_MODE ごと削除する。
 build_cursor_args() {
-  cursor_args=(-p --mode ask --output-format json --model composer-2.5 --sandbox enabled --trust)
+  probe_sandbox_mode="${PROBE_SANDBOX_MODE:-enabled}"
+
+  case "$probe_sandbox_mode" in
+    enabled)
+      cursor_args=(-p --mode ask --output-format json --model composer-2.5 --sandbox enabled --trust)
+      ;;
+    disabled)
+      cursor_args=(-p --mode ask --output-format json --model composer-2.5 --sandbox disabled --trust)
+      ;;
+    off)
+      cursor_args=(-p --mode ask --output-format json --model composer-2.5 --trust)
+      ;;
+    *)
+      printf 'error: 未知の PROBE_SANDBOX_MODE=%s (enabled|disabled|off のいずれか)\n' "$probe_sandbox_mode" >&2
+      return 1
+      ;;
+  esac
+  return 0
 }
 
 main() {
@@ -210,6 +243,14 @@ main() {
     return 1
   fi
 
+  # why: PROBE_SANDBOX_MODE の妥当性検証も install(network 副作用)より前に済ませる。
+  #      不正値ならここで exit 1 とし、誤った argv 分岐のまま CLI を叩かない。summary へ渡す実値もここで確定する。
+  if ! build_cursor_args; then
+    printf 'error: cursor args 構築失敗 PROBE_SANDBOX_MODE=%s\n' "${PROBE_SANDBOX_MODE:-enabled}" >&2
+    return 1
+  fi
+  sandbox_mode="${PROBE_SANDBOX_MODE:-enabled}"
+
   # why: CURSOR_API_KEY 未設定のまま空実行すると entitlement 誤分類になる(Issue @require / Constraints 4)。
   #      値は表示せず precondition で弾く。
   : "${CURSOR_API_KEY:?CURSOR_API_KEY が未設定。Secrets 登録を確認せよ}"
@@ -221,18 +262,16 @@ main() {
   # why: install 失敗は run を試す意味がないため、分類だけ summary へ残して exit 1 で返す。
   if [ "$install_exit" -ne 0 ]; then
     classification="$(classify_failure "$install_exit" 0 0)"
-    append_summary "$case_name" "install 段階で失敗" "$install_exit" "-" "-" "-" "-" "-" "-" "$classification"
+    append_summary "$case_name" "install 段階で失敗" "$install_exit" "-" "-" "-" "-" "-" "-" "$classification" "" "$sandbox_mode"
     return 1
   fi
 
   if [ -z "$resolved_binary" ]; then
     # why: install は exit 0 でも binary を解決できなければ installer 段階の失敗として扱う。
     classification="$(classify_failure 1 0 0)"
-    append_summary "$case_name" "install 後に binary 未解決" "$install_exit" "-" "(未解決)" "-" "-" "-" "-" "$classification"
+    append_summary "$case_name" "install 後に binary 未解決" "$install_exit" "-" "(未解決)" "-" "-" "-" "-" "$classification" "" "$sandbox_mode"
     return 1
   fi
-
-  build_cursor_args
 
   stdout_file="$(mktemp)" || { printf 'error: mktemp 失敗(stdout_file)\n' >&2; return 1; }
   stderr_file="$(mktemp)" || { printf 'error: mktemp 失敗(stderr_file)\n' >&2; rm -f "$stdout_file"; return 1; }
@@ -271,7 +310,7 @@ PROBE_PROMPT
 
   append_summary "$case_name" "$probe_env_desc" "$install_exit" "$run_exit" \
     "$resolved_binary" "$stdout_bytes" "$stdout_lines" "$stderr_bytes" "$stderr_lines" "$classification" \
-    "$revealed_stderr"
+    "$revealed_stderr" "$sandbox_mode"
 
   # why: 1 case の run 失敗で matrix の残りを巻き込まないため exit 0 で返す。分類が成果物(Issue Contract 2 / 4)。
   return 0
