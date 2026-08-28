@@ -101,3 +101,9 @@
 262：2026-08-28 [docs/playback-list-page-design] 問いが近い2つのDecisionを分ける時、Rejectedやmotif方針を両方へ写すとDRY違反になる。物語前提と視覚合意のように問いを分け、重複知識は一方を正・他方は参照だけにする。分けられないなら1fileへまとめる  # → layer:meta
 263：2026-08-28 [docs/playback-list-page-design] productのconcept・空気感はDecisionがSSoTであり、READMEやDESIGNへ本文を写さない。地図文書には再発判断への動線（path参照）だけを薄く置く  # → layer:meta
 264：2026-08-28 [docs/playback-list-page-design] 誤読でremoteの管理資源（Project等）を作ってしまったら、指摘後に削除して副作用を残さない。未作成のlocal設定を「ある前提」で次工程へ進まない  # → layer:workflow
+265：2026-08-29 [feature/playback-deploy-pre] wrangler v4 では `wrangler vars set` が無い。非 secret の runtime variable は Dashboard または `wrangler deploy --var` で投入する。旧ドキュメントの vars set 手順をそのまま信じない  # → layer:platform
+266：2026-08-29 [feature/playback-deploy-pre] Cloudflare Zero Trust のメール OTP（One-time PIN）は `Settings → Authentication` ではなく `Integrations → Identity providers` で追加する。UI 変更で古い導線を案内すると手順が止まる  # → layer:platform
+267：2026-08-29 [feature/playback-deploy-pre] workers.dev の hostname が wrangler 設定から一意に決まるなら、初回 deploy 前に Access Application と Allow policy を保存できる。露出 window を避ける方針と矛盾しない  # → layer:terms
+268：2026-08-29 [feature/playback-deploy-pre] Vite の client build 出力は deploy 時に wrangler が読む生成物であり、repo に tracked しない。`outDir` を変えたら `.gitignore` も同じ単位で更新する  # → layer:workflow
+269：2026-08-29 [feature/playback-deploy-pre] Google OAuth consent screen が Testing のままだと refresh_token が短期失効しうる。本番 deploy 前ゲートで Publishing status を確認する手順を達成契約へ置く  # → layer:terms
+270：2026-08-29 [feature/playback-deploy-pre] deploy 運用の「何を守るか」と「何をいつやるか」を同一 file に書くと DRY 違反になる。方針 SSOT・進捗 index・Phase 契約 file を分け、値や手順の二重定義を増やさない  # → layer:meta
