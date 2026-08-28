@@ -66,3 +66,8 @@
 227：2026-08-28 [feature/generator-remove-agentsecrets-local-real] 履歴を割り直したら push 済みでも force-with-lease で上書きし、割った各 commit が単独で build/test を通ることと、rebase 前後で作業ツリーが同一（git diff HEAD @{1} が空）なことを確認する。message を中身に合わせて濁す対処は、分割そのものが本当に不可能な時の最終手段に留める  # → layer:workflow
 228：2026-08-28 [feature/generator-remove-agentsecrets-local-real] shell の作業 dir 変更は同一 session の後続 command へ持ち越される。途中で cd した後に相対 pathspec を渡すと別 dir で解決されて失敗する。path は絶対で渡すか、各 command 冒頭で作業 dir を明示的に戻す  # → layer:platform
 229：2026-08-28 [feature/generator-remove-agentsecrets-local-real] 単一 app 向けに用意した worktree は兄弟 app の依存を持たないことがある。monorepo の git hook が全 app の gate を回す設計だと、触っていない兄弟 app の tool 欠如で hook が落ちる。変更側の欠陥と実行環境の未整備を切り分け、後者なら理由を残して hook を bypass する  # → layer:workflow
+230：2026-08-28 [docs/infra-unit-narrow-integration-latest] userの短い列挙で「廃止対象」が並んでも、Decisionと現行taskのOut of Scopeを読まずに残存契約まで同一視しない。廃止済みと当面維持を切り分けてから境界を断定する  # → layer:workflow
+231：2026-08-28 [docs/infra-unit-narrow-integration-latest] 依存形が変わる外部境界のtest契約は、旧依存形で完成させてから書き直さない。配線移行を先に完了条件へ入れ、UnitとIntegrationの観測分割はその後の別契約へ切り出す  # → layer:terms
+232：2026-08-28 [docs/infra-unit-narrow-integration-latest] 前提が無効になった達成契約fileは本文patchで延命せず、現行前提の新fileへ置き換えて旧fileを削除する。新旧がtodoに並ぶと実施予定の正が二つになる  # → layer:workflow
+233：2026-08-28 [docs/infra-unit-narrow-integration-latest] 方針文書へ未完了task pathを書くと進捗indexと二重になる。再発判断はDecision、進捗はlane、方針文書はDecision参照だけに留める  # → layer:meta
+234：2026-08-28 [docs/infra-unit-narrow-integration-latest] 後回しにする既存達成契約は削除せず、着手順だけをDecisionと進捗indexで固定する。破棄と延期を同じ操作にしない  # → layer:workflow
