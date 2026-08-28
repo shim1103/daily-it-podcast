@@ -78,9 +78,9 @@ func TestLoad_classifiesViolation_whenSingleKeyIsInvalid(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name    string
-		mutate  func(env map[string]string) LookupEnv
-		wantErr error
+		name     string
+		mutate   func(env map[string]string) LookupEnv
+		wantKind string
 	}{
 		{
 			name: "missing_when_lookup_returns_not_ok",
@@ -88,7 +88,7 @@ func TestLoad_classifiesViolation_whenSingleKeyIsInvalid(t *testing.T) {
 				delete(env, GeminiAPIKeyEnv)
 				return lookupFrom(env)
 			},
-			wantErr: ErrMissing,
+			wantKind: KindMissing,
 		},
 		{
 			name: "empty_when_lookup_returns_ok_with_empty_string",
@@ -96,7 +96,7 @@ func TestLoad_classifiesViolation_whenSingleKeyIsInvalid(t *testing.T) {
 				env[GeminiAPIKeyEnv] = ""
 				return lookupFrom(env)
 			},
-			wantErr: ErrEmpty,
+			wantKind: KindEmpty,
 		},
 		{
 			name: "invalid_format_when_value_has_leading_whitespace",
@@ -104,7 +104,7 @@ func TestLoad_classifiesViolation_whenSingleKeyIsInvalid(t *testing.T) {
 				env[GeminiAPIKeyEnv] = " gemini-key"
 				return lookupFrom(env)
 			},
-			wantErr: ErrInvalidFormat,
+			wantKind: KindInvalidFormat,
 		},
 		{
 			name: "invalid_format_when_value_has_trailing_tab",
@@ -112,7 +112,7 @@ func TestLoad_classifiesViolation_whenSingleKeyIsInvalid(t *testing.T) {
 				env[GeminiAPIKeyEnv] = "gemini-key\t"
 				return lookupFrom(env)
 			},
-			wantErr: ErrInvalidFormat,
+			wantKind: KindInvalidFormat,
 		},
 		{
 			name: "invalid_format_when_value_has_trailing_newline",
@@ -120,7 +120,7 @@ func TestLoad_classifiesViolation_whenSingleKeyIsInvalid(t *testing.T) {
 				env[GeminiAPIKeyEnv] = "gemini-key\n"
 				return lookupFrom(env)
 			},
-			wantErr: ErrInvalidFormat,
+			wantKind: KindInvalidFormat,
 		},
 		{
 			name: "invalid_format_when_value_has_leading_unicode_ideographic_space",
@@ -128,7 +128,7 @@ func TestLoad_classifiesViolation_whenSingleKeyIsInvalid(t *testing.T) {
 				env[GeminiAPIKeyEnv] = "　gemini-key"
 				return lookupFrom(env)
 			},
-			wantErr: ErrInvalidFormat,
+			wantKind: KindInvalidFormat,
 		},
 	}
 
@@ -143,15 +143,19 @@ func TestLoad_classifiesViolation_whenSingleKeyIsInvalid(t *testing.T) {
 			// When: Loadする
 			_, err := Load(lookup)
 
-			// Then: 該当keyについて期待するsentinelでerrors.Isがtrueになる
+			// Then: 該当keyについて期待するKindへ分類される
 			if err == nil {
 				t.Fatal("Load() がviolationでerrorを返さなかった")
 			}
-			if !errors.Is(err, tc.wantErr) {
-				t.Fatal("errが期待するsentinelへ分類されなかった")
+			var single *Error
+			if !errors.As(err, &single) {
+				t.Fatal("errから *config.Error を取り出せなかった")
 			}
-			if !strings.Contains(err.Error(), GeminiAPIKeyEnv) {
-				t.Fatal("err文字列へ違反keyが含まれなかった")
+			if single.Key != GeminiAPIKeyEnv {
+				t.Fatalf("Key = %q", single.Key)
+			}
+			if single.Kind != tc.wantKind {
+				t.Fatalf("Kind = %q, want %q", single.Kind, tc.wantKind)
 			}
 		})
 	}
@@ -184,7 +188,8 @@ func TestLoad_aggregatesViolationsInConfigFieldOrder_whenAllKeysMissing(t *testi
 		t.Fatal("集約された違反行数が7件ではない")
 	}
 	for i, key := range wantKeys {
-		if !strings.HasPrefix(lines[i], key+": ") {
+		// 各行は "<prefix>: <key>: <kind>" の3段パターン（Domain/Infra と対称）
+		if !strings.HasPrefix(lines[i], "generator config: "+key+": ") {
 			t.Fatal("違反行の並びがConfigのfield順と一致しない")
 		}
 		if !strings.HasSuffix(lines[i], "missing") {
@@ -222,12 +227,42 @@ func TestLoad_aggregatesMixedViolationKinds_whenKeysFailDifferently(t *testing.T
 		t.Fatal("集約された違反行数が3件ではない")
 	}
 	for i, w := range want {
-		if !strings.HasPrefix(lines[i], w.key+": ") || !strings.HasSuffix(lines[i], w.kind) {
-			t.Fatal("mixed violationの集約順または種別が期待と異なる")
+		// 各行は "<prefix>: <key>: <kind>" の3段パターン
+		if lines[i] != "generator config: "+w.key+": "+w.kind {
+			t.Fatalf("行 %d = %q", i, lines[i])
 		}
 	}
-	if !errors.Is(err, ErrMissing) || !errors.Is(err, ErrEmpty) || !errors.Is(err, ErrInvalidFormat) {
-		t.Fatal("集約errが全種別のsentinelへ分類されなかった")
+}
+
+func TestLoad_reachesEachViolationViaErrorsAs_whenKeysFailDifferently(t *testing.T) {
+	t.Parallel()
+
+	// Given: 先頭keyがmissing、末尾keyがinvalid_formatのenv
+	env := fullValidEnv()
+	delete(env, GetXAPIKeyEnv)
+	env[DriveFolderIDEnv] = "drive-folder-id "
+
+	// When: Loadする
+	_, err := Load(lookupFrom(env))
+
+	// Then: 束ねたerrorから個別の *config.Error へ errors.As で到達でき、
+	//       その Key と Kind が読める
+	if err == nil {
+		t.Fatal("Load() がviolationでerrorを返さなかった")
+	}
+	var single *Error
+	if !errors.As(err, &single) {
+		t.Fatal("束ねたerrorから *config.Error へ errors.As で到達できなかった")
+	}
+	if single.Key != GetXAPIKeyEnv {
+		t.Fatalf("errors.As が最初の違反 *config.Error を返さなかった: Key = %q", single.Key)
+	}
+	if single.Kind != KindMissing {
+		t.Fatalf("Kind = %q, want %q", single.Kind, KindMissing)
+	}
+	// 単体 *Error も "<prefix>: <key>: <kind>" の3段パターン（Domain/Infra と対称）
+	if got := single.Error(); got != "generator config: "+GetXAPIKeyEnv+": missing" {
+		t.Fatalf("single.Error() = %q", got)
 	}
 }
 
@@ -245,7 +280,8 @@ func TestLoad_doesNotAutoTrim_whenValueIsSurroundedByWhitespace(t *testing.T) {
 	if err == nil {
 		t.Fatal("Load() がviolationでerrorを返さなかった")
 	}
-	if !errors.Is(err, ErrInvalidFormat) {
+	var single *Error
+	if !errors.As(err, &single) || single.Kind != KindInvalidFormat {
 		t.Fatal("whitespace付き値がinvalid_formatへ分類されなかった")
 	}
 	if cfg.Cursor.APIKey != nil {

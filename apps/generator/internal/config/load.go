@@ -1,16 +1,12 @@
 package config
 
 import (
-	"errors"
-	"fmt"
 	"strings"
 )
 
-// configField はConfigの1 fieldに対応する検証対象environment keyの位置である。
-//
-// 宣言順はConfigのfield順（Source.GetXAPIKey → Cursor.APIKey → Gemini.APIKey
-// → Drive.GoogleOAuthClientID → Drive.GoogleOAuthClientSecret
-// → Drive.GoogleOAuthRefreshToken → Drive.FolderID）と一致する。
+// configField は Config の field 順（Source.GetXAPIKey → Cursor.APIKey →
+// Gemini.APIKey → Drive.GoogleOAuthClientID → Drive.GoogleOAuthClientSecret →
+// Drive.GoogleOAuthRefreshToken → Drive.FolderID）に対応する。
 type configField int
 
 const (
@@ -24,7 +20,6 @@ const (
 	configFieldCount
 )
 
-// configFieldKeys はconfigFieldの宣言順に並んだenvironment keyの表である。
 var configFieldKeys = [configFieldCount]string{
 	fieldGetXAPIKey:              GetXAPIKeyEnv,
 	fieldCursorAPIKey:            CursorAPIKeyEnv,
@@ -39,22 +34,22 @@ var configFieldKeys = [configFieldCount]string{
 //
 // @require lookupは注入されたenvironment参照だけを入力源にし、dotenv fileをloadしない。
 // @ensure 全fieldが有効な時だけ、Config型の全fieldを満たしたConfigを返す。
-// @ensure 1 fieldでも違反があれば、Configのfield順で全違反をerrors.Joinしたerrorを返し、Configはzero valueを返す。
+// @ensure 1 fieldでも違反があれば、Configのfield順で全違反を束ねた *Errors を返し、Configはzero valueを返す。
 // @invariant raw runtime値をerrorへ含めない。
 func Load(lookup LookupEnv) (Config, error) {
 	var values [configFieldCount]string
-	var errs []error
+	var violations []*Error
 	for field, key := range configFieldKeys {
-		value, err := validateEnvValue(lookup, key)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("%s: %w", key, err))
+		value, kind := validateEnvValue(lookup, key)
+		if kind != "" {
+			violations = append(violations, configErr(key, kind))
 			continue
 		}
 		values[field] = value
 	}
 
-	if len(errs) > 0 {
-		return Config{}, errors.Join(errs...)
+	if len(violations) > 0 {
+		return Config{}, &Errors{Violations: violations}
 	}
 
 	return Config{
@@ -76,28 +71,18 @@ func Load(lookup LookupEnv) (Config, error) {
 	}, nil
 }
 
-// validateEnvValue は1 keyのlookup結果を検証する。
-//
-// keyが未定義ならErrMissing、定義済みだが空文字ならErrEmpty、
-// 先頭または末尾にwhitespaceを含むならErrInvalidFormatを返す。
-// それ以外は(value, nil)を返し、値をauto-trimしない。
-func validateEnvValue(lookup LookupEnv, key string) (string, error) {
+// validateEnvValue は1 key の lookup 結果を検証し、違反があれば Kind 文字列を、
+// valid なら (value, "") を返す。値は auto-trim しない。
+func validateEnvValue(lookup LookupEnv, key string) (string, string) {
 	value, ok := lookup(key)
 	if !ok {
-		return "", ErrMissing
+		return "", KindMissing
 	}
 	if value == "" {
-		return "", ErrEmpty
+		return "", KindEmpty
 	}
-	if hasSurroundingWhitespace(value) {
-		return "", ErrInvalidFormat
+	if strings.TrimSpace(value) != value {
+		return "", KindInvalidFormat
 	}
-	return value, nil
-}
-
-// hasSurroundingWhitespace は先頭または末尾にwhitespaceを持つかを判定する。
-//
-// trimして長さが変わる入力をwhitespace付きと判定する。判定のみで値は変更しない。
-func hasSurroundingWhitespace(value string) bool {
-	return strings.TrimSpace(value) != value
+	return value, ""
 }
