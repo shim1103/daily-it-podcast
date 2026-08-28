@@ -83,3 +83,7 @@
 244：2026-08-28 [feature/playback-web-use-sync-external-store] reviewer の簡素化提案（複数 effect の1本化等）は、採用前に対象の test 環境の非同期セマンティクスで実際に緑になるか検証する。提案が環境依存で回帰した場合、reviewer が併記した fallback は「劣った案」ではなく「その環境での正解」であり、fallback を採ったうえで提案が示した本来の意図（宣言順依存を明示する等）をコメントで満たす  # → layer:workflow
 245：2026-08-28 [feature/playback-web-use-sync-external-store] 契約コメント（@ensure 等）に「hashchange 由来のみ」のようにトリガ種別を書いたが、実装は「直近同期値との差分検出」で発火種別を見ていない、という齟齬が起きやすい。コメントは実装が実際に判定している条件そのものを書く。判定していないこと（イベント起因かどうか等）を書くと Misleading Comment になる  # → layer:terms
 246：2026-08-28 [feature/playback-web-use-sync-external-store] 全 branch が末尾 append する共有 index file（連番の知見 index 等）は、PR 作成前に base を取り込んでおく。並行 merge 済みの base とは同じ末尾で必ず衝突し、PR 作成後に解消すると番号の振り直しと再 push が要る。衝突は両側保持で解消し、自分の追記分の連番を base 側の最終番号の後ろへずらす  # → layer:workflow
+247：2026-08-28 [docs/playback-list-page-design] skill添付と「templateを参照せよ」を、そのskillのExecute（副作用付きcommand）と同一視しない。deliverableのpathが明示されている時は、そのpathへの成果物作成が主指示であり、添付は書き方の正である  # → layer:workflow
+248：2026-08-28 [docs/playback-list-page-design] 問いが近い2つのDecisionを分ける時、Rejectedやmotif方針を両方へ写すとDRY違反になる。物語前提と視覚合意のように問いを分け、重複知識は一方を正・他方は参照だけにする。分けられないなら1fileへまとめる  # → layer:meta
+249：2026-08-28 [docs/playback-list-page-design] productのconcept・空気感はDecisionがSSoTであり、READMEやDESIGNへ本文を写さない。地図文書には再発判断への動線（path参照）だけを薄く置く  # → layer:meta
+250：2026-08-28 [docs/playback-list-page-design] 誤読でremoteの管理資源（Project等）を作ってしまったら、指摘後に削除して副作用を残さない。未作成のlocal設定を「ある前提」で次工程へ進まない  # → layer:workflow
