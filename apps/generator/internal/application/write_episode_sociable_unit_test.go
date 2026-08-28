@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
@@ -44,6 +45,17 @@ func (f *fakeEpisodeWriter) Write(_ context.Context, episodeID string, manuscrip
 	return f.err
 }
 
+func assertDomainOp(t *testing.T, err error, wantOp string) {
+	t.Helper()
+	var domErr *domainerrors.Error
+	if !errors.As(err, &domErr) {
+		t.Fatalf("error type %T (%v), want *domainerrors.Error", err, err)
+	}
+	if domErr.Op != wantOp {
+		t.Fatalf("Op = %q, want %q", domErr.Op, wantOp)
+	}
+}
+
 func TestWriteEpisode_writesValidatedEpisode_whenAllInputsAreValid(t *testing.T) {
 	// Given: schema に適合する原稿と非空 WAV
 	fake := &fakeEpisodeWriter{}
@@ -79,14 +91,8 @@ func TestWriteEpisode_returnsSchemaErrorWithoutWriting_whenManuscriptIsInvalid(t
 	// When: 必須 field がない原稿で Write を呼ぶ
 	err := uc.Run(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
-	// Then: schema Domain Error。fake は呼ばれない
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var schemaErr *domainerrors.InvalidManuscript
-	if !errors.As(err, &schemaErr) {
-		t.Fatalf("error type %T (%v), want *errors.InvalidManuscript", err, err)
-	}
+	// Then: schema Domain Error（Op = invalid_manuscript）。fake は呼ばれない
+	assertDomainOp(t, err, domainerrors.OpInvalidManuscript)
 	if fake.calls != 0 {
 		t.Fatalf("Write calls = %d, want 0", fake.calls)
 	}
@@ -100,13 +106,16 @@ func TestWriteEpisode_returnsEpisodeIDMismatchWithoutWriting_whenManuscriptStemD
 	// When: 異なる episodeID で Write を呼ぶ
 	err := uc.Run(context.Background(), "ep-2", []byte(validManuscript), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
-	// Then: stem 不一致 Domain Error。fake は呼ばれない
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var mismatch *domainerrors.EpisodeIDMismatch
-	if !errors.As(err, &mismatch) {
-		t.Fatalf("error type %T (%v), want *errors.EpisodeIDMismatch", err, err)
+	// Then: stem 不一致 Domain Error（Op = episode_id_mismatch）。fake は呼ばれない
+	assertDomainOp(t, err, domainerrors.OpEpisodeIDMismatch)
+
+	// Then: expected / actual が Err へ畳まれている（Issue §7-4）
+	var domErr *domainerrors.Error
+	_ = errors.As(err, &domErr)
+	if cause := domErr.Unwrap(); cause == nil ||
+		!strings.Contains(cause.Error(), `expected "ep-2"`) ||
+		!strings.Contains(cause.Error(), `actual "ep-1"`) {
+		t.Fatalf("Err = %v, want expected/actual を含む", domErr.Unwrap())
 	}
 	if fake.calls != 0 {
 		t.Fatalf("Write calls = %d, want 0", fake.calls)
@@ -121,14 +130,8 @@ func TestWriteEpisode_returnsEmptyEpisodeIDWithoutWriting_whenEpisodeIDIsEmpty(t
 	// When: 空 episodeID で Write を呼ぶ
 	err := uc.Run(context.Background(), "", []byte(validManuscript), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
-	// Then: Domain Error。fake は呼ばれない
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var emptyID *domainerrors.EmptyEpisodeID
-	if !errors.As(err, &emptyID) {
-		t.Fatalf("error type %T (%v), want *errors.EmptyEpisodeID", err, err)
-	}
+	// Then: Domain Error（Op = empty_episode_id）。fake は呼ばれない
+	assertDomainOp(t, err, domainerrors.OpEmptyEpisodeID)
 	if fake.calls != 0 {
 		t.Fatalf("Write calls = %d, want 0", fake.calls)
 	}
@@ -142,14 +145,8 @@ func TestWriteEpisode_returnsEmptyAudioWithoutWriting_whenAudioIsEmpty(t *testin
 	// When: 空 WAV で Write を呼ぶ
 	err := uc.Run(context.Background(), "ep-1", []byte(validManuscript), models.SpeechAudio{})
 
-	// Then: Domain Error。fake は呼ばれない
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var emptyAudio *domainerrors.EmptyAudio
-	if !errors.As(err, &emptyAudio) {
-		t.Fatalf("error type %T (%v), want *errors.EmptyAudio", err, err)
-	}
+	// Then: Domain Error（Op = empty_audio）。fake は呼ばれない
+	assertDomainOp(t, err, domainerrors.OpEmptyAudio)
 	if fake.calls != 0 {
 		t.Fatalf("Write calls = %d, want 0", fake.calls)
 	}
@@ -163,11 +160,8 @@ func TestWriteEpisode_returnsSchemaErrorWithoutWriting_whenManuscriptIsMalformed
 	// When: 壊れた JSON で Write を呼ぶ
 	err := uc.Run(context.Background(), "ep-1", []byte(`{"episodeId":`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
-	// Then: schema Domain Error。fake は呼ばれない
-	var schemaErr *domainerrors.InvalidManuscript
-	if !errors.As(err, &schemaErr) {
-		t.Fatalf("error type %T (%v), want *errors.InvalidManuscript", err, err)
-	}
+	// Then: schema Domain Error（Op = invalid_manuscript）。fake は呼ばれない
+	assertDomainOp(t, err, domainerrors.OpInvalidManuscript)
 	if fake.calls != 0 {
 		t.Fatalf("Write calls = %d, want 0", fake.calls)
 	}
@@ -181,11 +175,8 @@ func TestWriteEpisode_returnsSchemaErrorWithoutWriting_whenManuscriptHasTrailing
 	// When: trailing JSON 付きで Write を呼ぶ
 	err := uc.Run(context.Background(), "ep-1", []byte(validManuscript+` {}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
 
-	// Then: schema Domain Error。fake は呼ばれない
-	var schemaErr *domainerrors.InvalidManuscript
-	if !errors.As(err, &schemaErr) {
-		t.Fatalf("error type %T (%v), want *errors.InvalidManuscript", err, err)
-	}
+	// Then: schema Domain Error（Op = invalid_manuscript）。fake は呼ばれない
+	assertDomainOp(t, err, domainerrors.OpInvalidManuscript)
 	if fake.calls != 0 {
 		t.Fatalf("Write calls = %d, want 0", fake.calls)
 	}

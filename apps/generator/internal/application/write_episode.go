@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 
@@ -32,34 +33,34 @@ func NewWriteEpisode(writer port.EpisodeWriter) *WriteEpisode {
 // @ensure 検証失敗時は writer.Write を呼ばない。成功時だけ writer.Write を呼ぶ。
 func (uc *WriteEpisode) Run(ctx context.Context, episodeID string, manuscript []byte, audio models.SpeechAudio) error {
 	if strings.TrimSpace(episodeID) == "" {
-		return &domainerrors.EmptyEpisodeID{}
+		return domainerrors.DomainErr(domainerrors.OpEmptyEpisodeID, nil)
 	}
 	if len(audio.Content) == 0 {
-		return &domainerrors.EmptyAudio{}
+		return domainerrors.DomainErr(domainerrors.OpEmptyAudio, nil)
 	}
 
 	decoded, err := decodeManuscript(manuscript)
 	if err != nil {
-		return &domainerrors.InvalidManuscript{Err: err}
+		return domainerrors.DomainErr(domainerrors.OpInvalidManuscript, err)
 	}
 	schema, err := jsonschema.CompileString("manuscript.schema.json", string(contracts.ManuscriptSchema))
 	if err != nil {
-		return &domainerrors.InvalidManuscript{Err: err}
+		return domainerrors.DomainErr(domainerrors.OpInvalidManuscript, err)
 	}
 	if err := schema.Validate(decoded); err != nil {
-		return &domainerrors.InvalidManuscript{Err: err}
+		return domainerrors.DomainErr(domainerrors.OpInvalidManuscript, err)
 	}
 
 	fields, ok := decoded.(map[string]any)
 	if !ok {
-		return &domainerrors.InvalidManuscript{Err: io.ErrUnexpectedEOF}
+		return domainerrors.DomainErr(domainerrors.OpInvalidManuscript, io.ErrUnexpectedEOF)
 	}
 	manuscriptEpisodeID, ok := fields["episodeId"].(string)
 	if !ok || manuscriptEpisodeID != episodeID {
-		return &domainerrors.EpisodeIDMismatch{
-			Expected: episodeID,
-			Actual:   manuscriptEpisodeID,
-		}
+		return domainerrors.DomainErr(
+			domainerrors.OpEpisodeIDMismatch,
+			fmt.Errorf("expected %q actual %q", episodeID, manuscriptEpisodeID),
+		)
 	}
 	return uc.writer.Write(ctx, episodeID, manuscript, audio)
 }
