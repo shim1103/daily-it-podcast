@@ -102,6 +102,8 @@ Scope × Sociability: [levels](file:///Users/shim0729/.claude/skills/testing-str
 12. Go version の正本は `apps/generator/go.mod` の `go` directive。Node version の正本は `apps/playback/.nvmrc`。GitHub Actions は両 file を `go-version-file` / `node-version-file` で参照し、YAML に version 文字列を直書きしない。local の Node version 不一致は `apps/playback/package.json` の `engines` + `.npmrc` の `engine-strict=true` が `npm ci` 時点で検知する
 13. generator Integration の **gate**（`scripts/generator/test-integration.sh` → pre-push / GHA）は **secret なし Narrow** のみ。credential付き実operationは通常のlocal開発・自動testで実行せず、GitHub Actions runnerだけで実行する
 14. generator の System / E2E は CI gate に載せない。判断の正は `docs/decisions/2026-08-26T17-45-00-docs-infra-test-discussion.md`
+15. HTTP vendor の Sociable Unit と Narrow の latest 化は、Composition の HTTP Adapter 移行（`*http.Client` + capability Config）の後に行う。順序の正は `docs/decisions/2026-08-28T12-49-00-docs-infra-unit-narrow-integration-latest.md`
+16. Cursor CLI の Narrow は child environment 再設計後。判断の正は `docs/decisions/2026-08-28T12-49-01-docs-infra-unit-narrow-integration-latest.md`
 
 実行手順（hook 導入・コマンド）は `README.md`。
 
