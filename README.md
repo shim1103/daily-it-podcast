@@ -112,5 +112,6 @@ credential付き実operationはGitHub Actions runnerだけで実行する。通�
 | DEPLOY.md | deploy・Access・公開境界 |
 | contracts/ | Drive に載る wav/json |
 | apps/playback/contracts/ | web↔worker HTTP |
+| docs/decisions/ | 再発する判断の正（Playback list の concept / 視覚言語は `2026-08-28T19-20-00` / `2026-08-28T19-20-01`。本文は写さない） |
 
 dir ごとの README は置かない。層の詳細は skill を正とする（`DESIGN.md` 参照）。
