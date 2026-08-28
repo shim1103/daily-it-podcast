@@ -74,7 +74,7 @@ git diff --check
 
 ## 9. Dependencies
 
-1. `docs/tasks/todo/generator-runtime-config-loader.md`（C-04）の完了にblockedされる。
+1. C-04（runtime config loader、`apps/generator/internal/config`のKISS化）は完了済み（進捗は`docs/tasks/todo/generator-lane.md`のC-04行）。本Issueはそのloader結果をproduction graphへ接続する責務を持つ。
 2. 本IssueはCursor CLI GHA probe（C-03）と並行できる。
 3. 本Issue完了後に`generator-su-ni-getxapi.md` / `oauth` / `gemini` / `gdrive`が着手可能になる。
 
