@@ -11,7 +11,6 @@ var _ secrettransport.BindingResolver = secretBindings(nil)
 
 var (
 	getXAPIKeySecret          = secrettransport.NewSecretRef()
-	twitterIOAPIKeySecret     = secrettransport.NewSecretRef()
 	geminiAPIKeySecret        = secrettransport.NewSecretRef()
 	cursorAPIKeySecret        = secrettransport.NewSecretRef()
 	googleOAuthClientIDSecret = secrettransport.NewSecretRef()
@@ -25,7 +24,6 @@ var (
 func newSecretBindings() secretBindings {
 	return secretBindings{
 		getXAPIKeySecret:          secretnames.GetXAPIKeyName,
-		twitterIOAPIKeySecret:     secretnames.TwitterIOAPIKeyName,
 		geminiAPIKeySecret:        secretnames.GeminiAPIKeyName,
 		cursorAPIKeySecret:        secretnames.CursorAPIKeyName,
 		googleOAuthClientIDSecret: secretnames.GoogleOAuthClientIDName,

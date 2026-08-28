@@ -18,7 +18,7 @@ import (
 var _ secrettransport.Client = (*Client)(nil)
 
 // Client は process environment 由来の秘密値を外向き HTTP request へ直接注入する。
-// AgentSecrets proxy のような中間 proxy を経由せず、実値をこの process 内で注入して送信する。
+// 中間 proxy を経由せず、実値をこの process 内で注入して送信する。
 type Client struct {
 	bindings  secrettransport.BindingResolver
 	http      *http.Client
