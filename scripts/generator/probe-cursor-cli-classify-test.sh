@@ -89,13 +89,48 @@ assert_equals() {
   fi
 }
 
-# Given: build_cursor_args を呼ぶ / When: cursor_args を空白連結する / Then: constants.go buildCursorArgs() と同一 argv
+# Given: PROBE_SANDBOX_MODE 未設定で build_cursor_args を呼ぶ / When: cursor_args を空白連結する / Then: constants.go buildCursorArgs() と同一 argv
 # 根拠: constants.go / buildCursorArgs() の argv がズレたら probe が古い argv で回るのを防ぐ。
 #       probe の目的は現行 argv の可否観測なので、argv 定義がズレたまま観測すると結果が無意味になる。
+#       PROBE_SANDBOX_MODE 未設定は enabled 相当で、--sandbox enabled が --trust の前に来る現状順を厳密維持する。
+unset PROBE_SANDBOX_MODE
 build_cursor_args
-assert_equals "build_cursor_args は constants.go と同一順の argv を組む" \
+assert_equals "build_cursor_args は PROBE_SANDBOX_MODE 未設定なら constants.go と同一順の argv を組む" \
   "-p --mode ask --output-format json --model composer-2.5 --sandbox enabled --trust" \
   "${cursor_args[*]}"
+
+# Given: PROBE_SANDBOX_MODE=enabled で build_cursor_args を呼ぶ / When: cursor_args を空白連結する / Then: 未設定時と完全一致
+# 根拠: enabled は現状の constants.go 完全再現。明示指定でも --sandbox enabled が --trust の前に来る順を維持する。
+PROBE_SANDBOX_MODE=enabled build_cursor_args
+assert_equals "build_cursor_args は PROBE_SANDBOX_MODE=enabled で constants.go と同一順の argv を組む" \
+  "-p --mode ask --output-format json --model composer-2.5 --sandbox enabled --trust" \
+  "${cursor_args[*]}"
+
+# Given: PROBE_SANDBOX_MODE=disabled で build_cursor_args を呼ぶ / When: cursor_args を空白連結する / Then: --sandbox disabled を含む argv
+# 根拠: sandbox enabled が AppArmor 非対応で GHA 非動作(run 33160392008 で確定)。disabled 化で argv 残りの GHA 可否を観測する。
+#       enabled 同様 --sandbox 指定は --trust の前へ挿入し、値だけ disabled へ替える。
+PROBE_SANDBOX_MODE=disabled build_cursor_args
+assert_equals "build_cursor_args は PROBE_SANDBOX_MODE=disabled で --sandbox disabled を --trust の前に置く" \
+  "-p --mode ask --output-format json --model composer-2.5 --sandbox disabled --trust" \
+  "${cursor_args[*]}"
+
+# Given: PROBE_SANDBOX_MODE=off で build_cursor_args を呼ぶ / When: cursor_args を空白連結する / Then: --sandbox フラグ自体が無い argv
+# 根拠: --sandbox フラグを完全に外した場合の GHA 可否も観測対象。off は基本 argv のみを組む。
+PROBE_SANDBOX_MODE=off build_cursor_args
+assert_equals "build_cursor_args は PROBE_SANDBOX_MODE=off で --sandbox フラグを付けない" \
+  "-p --mode ask --output-format json --model composer-2.5 --trust" \
+  "${cursor_args[*]}"
+
+# Given: PROBE_SANDBOX_MODE=bogus (不正値) で build_cursor_args を呼ぶ / When: 戻り値を見る / Then: 非ゼロ(fail-fast)
+# 根拠: 取りうる値は enabled / disabled / off の3種のみ。未知値は誤った argv での観測を招くため呼び出し時点で弾く。
+if PROBE_SANDBOX_MODE=bogus build_cursor_args 2>/dev/null; then
+  sandbox_mode_bogus_result="ゼロ(誤)"
+else
+  sandbox_mode_bogus_result="非ゼロ(正)"
+fi
+assert_equals "build_cursor_args は不正な PROBE_SANDBOX_MODE を非ゼロで弾く" \
+  "非ゼロ(正)" "$sandbox_mode_bogus_result"
+unset PROBE_SANDBOX_MODE
 
 # Given: build_env_prefix を各 case で呼ぶ / When: probe_env_prefix を空白連結する / Then: case ごとの env 接頭辞
 # 根拠: no-home で -u HOME が入り HOME= が入らないこと、minimal-path で PATH が /usr/bin:/bin へ絞られることを固定する。
@@ -137,7 +172,7 @@ assert_equals "build_env_prefix は未知 case を非ゼロで弾く" "非ゼロ
 #       gh CLI に Step Summary 取得コマンドは無い。summary へ append しつつ stdout へも必ず出し、
 #       `gh run view --log | grep 'probe-cursor-cli case='` で拾える不変を固定する。
 append_summary_tmp_summary="$(mktemp "${TMPDIR:-/tmp}/probe-cursor-cli-test.XXXXXX")"
-append_summary_stdout="$(GITHUB_STEP_SUMMARY="$append_summary_tmp_summary" append_summary "full" "test" 0 0 "/x" 1 1 2 2 "success")"
+append_summary_stdout="$(GITHUB_STEP_SUMMARY="$append_summary_tmp_summary" append_summary "full" "test" 0 0 "/x" 1 1 2 2 "success" "" "enabled")"
 if printf '%s\n' "$append_summary_stdout" | grep -q '^### probe-cursor-cli case=full$'; then
   append_summary_stdout_result="stdout に出力あり(正)"
 else
@@ -156,11 +191,35 @@ assert_equals "append_summary は GITHUB_STEP_SUMMARY 設定時にそのファ�
   "summary に出力あり(正)" "$append_summary_file_result"
 rm -f "$append_summary_tmp_summary"
 
+# Given: 12 個目引数へ sandbox モード文字列を渡して append_summary を呼ぶ /
+# When: stdout を拾う / Then: `- sandbox 指定: <モード>` 行が出る
+# 根拠: どの sandbox モードで観測したかを記録に残さないと、後から run 結果とモードの対応が取れなくなる。
+#       PROBE_SANDBOX_MODE の切替を summary へ 1 行で刻む。判明後 PROBE_SANDBOX_MODE ごと削除する一時措置。
+append_summary_sandbox_stdout="$(GITHUB_STEP_SUMMARY=/dev/null append_summary "full" "test" 0 1 "/x" 0 0 2 2 "argv" "" "disabled")"
+if printf '%s\n' "$append_summary_sandbox_stdout" | grep -q "^- sandbox 指定: disabled$"; then
+  append_summary_sandbox_result="sandbox 行あり(正)"
+else
+  append_summary_sandbox_result="sandbox 行なし(誤)"
+fi
+assert_equals "append_summary は 12 個目の sandbox モード文字列を sandbox 指定行として stdout へ出す" \
+  "sandbox 行あり(正)" "$append_summary_sandbox_result"
+
+# Given: 12 個目引数を省略して append_summary を呼ぶ / When: stdout を拾う / Then: sandbox 指定行は enabled 相当で出る
+# 根拠: 12 個目は省略時に enabled 相当。既存呼び出し互換のためデフォルト値を持たせる。
+append_summary_sandbox_default_stdout="$(GITHUB_STEP_SUMMARY=/dev/null append_summary "full" "test" 0 0 "/x" 1 1 2 2 "success")"
+if printf '%s\n' "$append_summary_sandbox_default_stdout" | grep -q "^- sandbox 指定: enabled$"; then
+  append_summary_sandbox_default_result="enabled 相当で出力(正)"
+else
+  append_summary_sandbox_default_result="enabled 相当で出力されず(誤)"
+fi
+assert_equals "append_summary は 12 個目省略時に sandbox 指定行を enabled 相当で出す" \
+  "enabled 相当で出力(正)" "$append_summary_sandbox_default_result"
+
 # Given: PROBE_REVEAL_STDERR=1 相当の開示文字列を 11 個目引数として渡して append_summary を呼ぶ /
 # When: stdout を拾う / Then: `- stderr 先頭300byte(開示):` 行が出る
 # 根拠: 259 byte stderr の失敗理由(キー未読込 / entitlement / trust / その他)を確定するため、
 #       開示フラグ ON のときだけ stderr 先頭を 1 回開示する一時分岐を固定する。secret 値・prompt 本文・stdout 本文は非開示のまま。
-append_summary_reveal_stdout="$(GITHUB_STEP_SUMMARY=/dev/null append_summary "full" "test" 0 1 "/x" 0 0 259 2 "entitlement" "Error: Authentication required. Please run 'agent login' first")"
+append_summary_reveal_stdout="$(GITHUB_STEP_SUMMARY=/dev/null append_summary "full" "test" 0 1 "/x" 0 0 259 2 "entitlement" "Error: Authentication required. Please run 'agent login' first" "enabled")"
 if printf '%s\n' "$append_summary_reveal_stdout" | grep -q "^- stderr 先頭300byte(開示): "; then
   append_summary_reveal_result="開示行あり(正)"
 else
@@ -172,7 +231,7 @@ assert_equals "append_summary は 11 個目の開示文字列が非空なら std
 # Given: 11 個目引数へ空文字を渡して append_summary を呼ぶ(PROBE_REVEAL_STDERR 未設定相当) /
 # When: stdout を拾う / Then: 開示行は一切出ない(default 不変・Contract 3 維持)
 # 根拠: 開示は opt-in。フラグ未設定時は従来と完全に同じ挙動(stderr 本文非出力)でなければならない。
-append_summary_noreveal_stdout="$(GITHUB_STEP_SUMMARY=/dev/null append_summary "full" "test" 0 1 "/x" 0 0 259 2 "entitlement" "")"
+append_summary_noreveal_stdout="$(GITHUB_STEP_SUMMARY=/dev/null append_summary "full" "test" 0 1 "/x" 0 0 259 2 "entitlement" "" "enabled")"
 if printf '%s\n' "$append_summary_noreveal_stdout" | grep -q "stderr 先頭300byte(開示)"; then
   append_summary_noreveal_result="開示行あり(誤)"
 else
