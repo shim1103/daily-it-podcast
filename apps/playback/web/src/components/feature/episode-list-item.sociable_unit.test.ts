@@ -12,16 +12,17 @@ const episode: EpisodeListItemData = {
 };
 
 describe("EpisodeListItem", () => {
-  it("episodeId・date・title・durationSec をそのまま描画する", () => {
-    // Given: EpisodeListItem 1件
+  it("date をスラッシュ形式・durationSec を mm:ss で描画し、episodeId は出さない", () => {
+    // Given: EpisodeListItem 1件（wire 形式の date / durationSec）
     // When: JSX として render する
     const { container } = render(createElement(EpisodeListItem, { episode, onSelect: vi.fn() }));
 
-    // Then: 各 field がそのまま描画される
-    expect(container.querySelector("[data-episode-id]")?.textContent).toBe("ep-1");
-    expect(container.querySelector("[data-episode-date]")?.textContent).toBe("2026-08-17");
+    // Then: 表示用に整形された日付・尺と title が出て、episodeId は可視 text に無い
+    expect(container.querySelector("[data-episode-id]")).toBeNull();
+    expect(container.textContent).not.toContain("ep-1");
+    expect(container.querySelector("[data-episode-date]")?.textContent).toBe("2026/08/17");
     expect(container.querySelector("[data-episode-title]")?.textContent).toBe("題1");
-    expect(container.querySelector("[data-episode-duration-sec]")?.textContent).toBe("60");
+    expect(container.querySelector("[data-episode-duration-sec]")?.textContent).toBe("01:00");
   });
 
   it("クリックすると onSelect が episodeId 付きで呼ばれる", () => {
