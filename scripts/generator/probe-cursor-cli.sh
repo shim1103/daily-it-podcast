@@ -7,7 +7,9 @@
 # @ensure 与えられた 1 case だけを実行し、入力条件・install_exit・run_exit・binary 絶対 path・
 #         stdout / stderr byte 数・分類結果を stdout(および GITHUB_STEP_SUMMARY が設定されていれば両方)へ metadata だけ append する。
 #         run 系が失敗しても script 自体は exit 0 で返す。install 失敗と呼び出し方の不正だけ exit 1。
+#         PROBE_REVEAL_STDERR=1 のときに限り stderr 先頭300byteを開示行として 1 行追加する。未設定/空/0 なら従来どおり非開示。
 # @invariant CURSOR_API_KEY の値・prompt 本文・stdout 本文・stderr 本文を stdout / summary / artifact へ一切出さない。
+#            例外: PROBE_REVEAL_STDERR=1 の時のみ stderr 先頭300byteを開示する。secret値・prompt本文・stdout本文は常に非開示。
 #            constants.go と同一 argv を使い、prompt は無害な 1 文に固定する。
 #            probe 専用 artifact。production tree へ残さない(Issue Phase 4 で削除)。
 set -euo pipefail
@@ -109,6 +111,8 @@ build_env_prefix() {
 #      プログラム回収できない(gh CLI に Step Summary 取得コマンドは無い)。stdout へ出すことで
 #      `gh run view --log | grep 'probe-cursor-cli case='` で機械回収できる。
 # stdout 本文・stderr 本文・prompt 本文・secret 値は引数に取らない(Issue Contract 3 / @invariant)。
+# 例外: 11 個目引数 revealed_stderr は PROBE_REVEAL_STDERR=1 の時だけ非空になり、stderr 先頭300byte を 1 度だけ開示する。
+#       未設定/空/0 のときは空文字で渡され、開示行は一切出ない(default 不変)。この分岐は Issue Phase 4 手前で削除する一時措置。
 append_summary() {
   summary_line_case="$1"
   summary_line_env_desc="$2"
@@ -120,6 +124,7 @@ append_summary() {
   summary_line_stderr_bytes="$8"
   summary_line_stderr_lines="$9"
   summary_line_classification="${10}"
+  summary_line_revealed_stderr="${11:-}"
 
   {
     printf '### probe-cursor-cli case=%s\n' "$summary_line_case"
@@ -133,6 +138,11 @@ append_summary() {
     printf -- '- stderr 行数: %s\n' "$summary_line_stderr_lines"
     printf -- '- 分類結果(暫定): %s\n' "$summary_line_classification"
     printf -- '- 注記: 分類は run_exit と stderr byte 数からの機械推定。service/environment/entitlement の境界は実測前の暫定値。\n'
+    # why: PROBE_REVEAL_STDERR=1 の時だけ呼び出し側が先頭300byteを詰めて渡す。空なら従来どおり非開示。
+    #      改行を含みうるが local / CI log で shim が読む目的なのでそのまま出す。Issue Phase 4 手前で削除。
+    if [ -n "$summary_line_revealed_stderr" ]; then
+      printf -- '- stderr 先頭300byte(開示): %s\n' "$summary_line_revealed_stderr"
+    fi
   } | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
 }
 
@@ -245,12 +255,23 @@ PROBE_PROMPT
   stdout_lines="$(wc -l < "$stdout_file" | tr -d ' ')"
   stderr_bytes="$(wc -c < "$stderr_file" | tr -d ' ')"
   stderr_lines="$(wc -l < "$stderr_file" | tr -d ' ')"
+
+  # why: PROBE_REVEAL_STDERR=1 のときだけ stderr 先頭300byteを開示文字列へ詰める。
+  #      未設定/空/0 のときは revealed_stderr は空文字のままで append_summary は開示行を一切出さない(default 不変・Contract 3 維持)。
+  #      開示は stderr_file を rm する前に取得する。secret 値・prompt 本文・stdout 本文は開示対象外。
+  #      この分岐は 259 byte stderr の失敗理由特定のための一時措置。判明後に PROBE_REVEAL_STDERR ごと削除する(Issue Phase 4 手前)。
+  revealed_stderr=""
+  if [ "${PROBE_REVEAL_STDERR:-0}" = "1" ]; then
+    revealed_stderr="$(head -c 300 "$stderr_file")"
+  fi
+
   rm -f "$stdout_file" "$stderr_file"
 
   classification="$(classify_failure "$install_exit" "$run_exit" "$stderr_bytes")"
 
   append_summary "$case_name" "$probe_env_desc" "$install_exit" "$run_exit" \
-    "$resolved_binary" "$stdout_bytes" "$stdout_lines" "$stderr_bytes" "$stderr_lines" "$classification"
+    "$resolved_binary" "$stdout_bytes" "$stdout_lines" "$stderr_bytes" "$stderr_lines" "$classification" \
+    "$revealed_stderr"
 
   # why: 1 case の run 失敗で matrix の残りを巻き込まないため exit 0 で返す。分類が成果物(Issue Contract 2 / 4)。
   return 0

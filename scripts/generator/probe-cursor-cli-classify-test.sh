@@ -156,6 +156,31 @@ assert_equals "append_summary は GITHUB_STEP_SUMMARY 設定時にそのファ�
   "summary に出力あり(正)" "$append_summary_file_result"
 rm -f "$append_summary_tmp_summary"
 
+# Given: PROBE_REVEAL_STDERR=1 相当の開示文字列を 11 個目引数として渡して append_summary を呼ぶ /
+# When: stdout を拾う / Then: `- stderr 先頭300byte(開示):` 行が出る
+# 根拠: 259 byte stderr の失敗理由(キー未読込 / entitlement / trust / その他)を確定するため、
+#       開示フラグ ON のときだけ stderr 先頭を 1 回開示する一時分岐を固定する。secret 値・prompt 本文・stdout 本文は非開示のまま。
+append_summary_reveal_stdout="$(GITHUB_STEP_SUMMARY=/dev/null append_summary "full" "test" 0 1 "/x" 0 0 259 2 "entitlement" "Error: Authentication required. Please run 'agent login' first")"
+if printf '%s\n' "$append_summary_reveal_stdout" | grep -q "^- stderr 先頭300byte(開示): "; then
+  append_summary_reveal_result="開示行あり(正)"
+else
+  append_summary_reveal_result="開示行なし(誤)"
+fi
+assert_equals "append_summary は 11 個目の開示文字列が非空なら stderr 先頭300byte 開示行を stdout へ出す" \
+  "開示行あり(正)" "$append_summary_reveal_result"
+
+# Given: 11 個目引数へ空文字を渡して append_summary を呼ぶ(PROBE_REVEAL_STDERR 未設定相当) /
+# When: stdout を拾う / Then: 開示行は一切出ない(default 不変・Contract 3 維持)
+# 根拠: 開示は opt-in。フラグ未設定時は従来と完全に同じ挙動(stderr 本文非出力)でなければならない。
+append_summary_noreveal_stdout="$(GITHUB_STEP_SUMMARY=/dev/null append_summary "full" "test" 0 1 "/x" 0 0 259 2 "entitlement" "")"
+if printf '%s\n' "$append_summary_noreveal_stdout" | grep -q "stderr 先頭300byte(開示)"; then
+  append_summary_noreveal_result="開示行あり(誤)"
+else
+  append_summary_noreveal_result="開示行なし(正)"
+fi
+assert_equals "append_summary は 11 個目の開示文字列が空文字なら開示行を出さない" \
+  "開示行なし(正)" "$append_summary_noreveal_result"
+
 printf '\n合計 %s 件 / 失敗 %s 件\n' "$test_total" "$test_failed"
 
 if [ "$test_failed" -ne 0 ]; then
