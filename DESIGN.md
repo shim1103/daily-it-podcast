@@ -1,6 +1,6 @@
 # DESIGN
 
-最終更新: 2026-08-27（runtime config と secret の境界）
+最終更新: 2026-08-29
 
 地図・使い方・受け入れ・runtime config inventory は `README.md`。deploy・Access・公開境界は `DEPLOY.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive / HTTP 契約・運用方針の写しは置かない）。
 
@@ -113,7 +113,7 @@ Scope × Sociability: [levels](file:///Users/shim0729/.claude/skills/testing-str
 |------|----------|
 | README | 地図・使い方・受け入れ・runtime config inventory |
 | DESIGN | 本ファイル（層・依存・所有・test 規則のみ） |
-| DEPLOY | deploy・Access・公開境界（運用方針の SSOT） |
+| DEPLOY | deploy・Access・公開境界（運用 SSOT。進捗は `docs/tasks/todo/playback-lane.md`） |
 | contracts/ | Drive 配置・原稿 JSON |
 
 dir 単位の README は置かない。SPEC / PROPOSAL は置かない。運用方針を README / DESIGN へ写さない。

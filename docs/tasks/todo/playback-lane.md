@@ -6,63 +6,41 @@ Drive 読みの正: `contracts/drive-layout.md`
 deploy・Access の正: `DEPLOY.md`  
 React + Hono 方針の正: `docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`
 
-未完了の達成契約は `docs/tasks/todo/playback-*.md` が正。本 lane は進捗 index のみ。decisions は各 task file / 必要時に辿る。GitHub Issue 化しない運用。
+未完了の達成契約は `docs/tasks/todo/playback-*.md` が正。本 lane は進捗 index のみ。GitHub Issue 化しない運用。
 
-Access + Vite（TS + React + Pico.css）+ Worker（Hono、list/get）で、contracts に合う fixture または実 Drive から再生できる状態にする。
+- [x] web↔worker HTTP / Drive adapter / UI / 層検知
+- [x] deploy A/B（`wrangler.jsonc`・`worker-entry`・`DEPLOY.md`）
+- [x] React + Hono（E）
+- [x] deploy 前 C（toolchain・runtime config・Access 設定）
+- [ ] deploy Phase 1–4（下記）
 
-- [x] web↔worker HTTP 契約 / worker Port・UseCase・Fake / Route・Error 写像
-- [x] 実 Google Drive adapter / 静的検査（Biome + tsc）/ runtime config 境界
-- [x] web API Client / UI 一覧・再生・原稿 / 層違反検知（dependency-cruiser）
-- [x] deploy / Access 方針の A/B（`wrangler.jsonc`・`worker-entry`・`DEPLOY.md`）
-- [x] React + Hono の A（dependency・`routes/app.ts`・RPC client 型契約）
-- [x] worker Hono route 定義 / entry cutover / web primitive JSX
-- [ ] deploy 前実装・設定（下記 C）
-- [ ] 初回手動 deploy 以降（下記 D）
-- [ ] React + Hono 残作業（下記 E）— `docs/tasks/todo/playback-*.md`
+### Deploy 残
 
-`apps/playback/tsconfig.json` の `lib` は暫定 `["ES2022", "DOM"]`。wrangler runtime 確定後に `@cloudflare/workers-types` を再検討。
+| Phase | 内容 | 状態 |
+|-------|------|------|
+| 1 | deploy 前ゲート | `docs/tasks/todo/playback-deploy-pre-gate.md` |
+| 2 | 初回 `wrangler deploy`（本番 URL 出現） | 未 |
+| 3 | `DEPLOY.md` §5 検証（OTP・一覧・再生） | 未（Phase 2 後） |
+| 4 | 運用後続（下記 D） | 未 |
 
-### C: deploy 前
+**依存:** Phase 1 → 2 → 3。Phase 4 は 3 後でも可。
 
-方針・契約は `DEPLOY.md` / decisions / `wrangler.jsonc` 済み。残りは実装・dashboard・投入。
+#### Phase 2（初回 deploy）
 
-1. wrangler toolchain（package・script・`wrangler types`・Vite build → `web/dist`）
-2. 同一 origin 配信の実装完成（assets + `/episodes*`）
-3. Workers secret 4 key の投入
-4. Access Application / Allow（自分 email・session 30d）の dashboard 設定
-5. `wrangler deploy --dry-run` と Access Verification（本番 traffic は載せない）
+1. `cd apps/playback && npm run build && npx wrangler deploy`
+2. 出力 FQDN を記録（`daily-it-podcast.<subdomain>.workers.dev`）
+3. Phase 1 で workers.dev を Disabled にした場合はここで Enable
 
-### D: 後回し
+#### Phase 3（本番検証）
 
-1. 初回手動 `wrangler deploy`（本番 traffic）
-2. rollback 手順の文書化
-3. logging / observability
-4. account の `workers.dev` subdomain 実文字列の確認
-5. DAST / penetration test（test URL・Access test identity・攻撃対象が未決）
-6. CD / hook による自動 deploy（非 scope）
-7. Dependabot / Renovate 等（優先度低）
+`DEPLOY.md` §5 すべて。シークレット窓で許可 email / 拒否 email を分けて確認。
 
-### E: React + Hono 残作業
+#### Phase 4（D: 運用後続）
 
-方針は `docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`。worker route / entry / primitive JSX / ViewModel hook+RPC 境界は完了（task file 削除済み）。Hono RPC の path / request / warranty 分割は `docs/decisions/2026-08-26T19-27-00-feature-playback-web-view-model-react-hooks.md`。`AppType` の method chain 要件は `docs/decisions/2026-08-26T19-28-00-feature-playback-web-view-model-react-hooks.md`。残り依存順：
-
-1. `docs/tasks/todo/playback-web-feature-component-jsx.md`（ViewModel hook 化完了が前提）
-2. `docs/tasks/todo/playback-web-page-jsx-mount.md`（1 に依存。page 一時橋削除を含む）
-
-### 依存（実装順）
-
-```text
-contracts / worker / UI / 層検知（済）
-  → deploy 前 C
-      → 初回手動 deploy（D）
-```
+1. rollback 手順の文書化
+2. logging / observability
+3. DAST / penetration test（test URL・identity・攻撃対象が未決 — 保留）
+4. CD / hook 自動 deploy（非 scope）
+5. Dependabot / Renovate（優先度低）
 
 音声は wav。generator 書込とは共有しない。
-
-### 依存（CI 静的 / 層 / coverage）
-
-```text
-PR-A（CI 入口の統一）完了前提
-  → worker / web 層検知（済）
-  → PR-H（unit coverage gate、済）
-```

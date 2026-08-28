@@ -15,6 +15,7 @@
     "jsx": "react-jsx"
   },
   "include": [
+    "worker-configuration.d.ts",
     "web/*.ts",
     "web/src/**/*.ts",
     "web/src/**/*.tsx",
