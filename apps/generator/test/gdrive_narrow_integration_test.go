@@ -1,7 +1,7 @@
 // Scope: Narrow Integration
 // 実物境界: gdrive.EpisodeWriter が標準 *http.Client で送信する外向き HTTP request（test upstream server）
 // Double: TokenSource は stub。本番 credential は使わない。DialTLSContext で本番 host 宛先だけを test server へ redirect する。
-// @require dummy Folder ID を Adapter へ直接渡す。upstream は controllable な test server。
+// @require dummy Folder ID（capability config）を Adapter へ直接渡す。upstream は controllable な test server。
 // @ensure list→create→upload の成功 call sequence を 1 連 upstream が受ける。json/wav の stem が一致する。
 // @ensure Authorization header に TokenSource の token が Bearer で乗る。create metadata の Parents に Folder ID が入る。
 // @invariant error message・assertion 失敗文言に dummy Folder ID の実値を含めない。
@@ -47,6 +47,7 @@ type gdriveNarrowCall struct {
 // newGDriveWriterWithProxy は本番 host（www.googleapis.com）への接続を test TLS server へ差し替えた
 // gdrive.EpisodeWriter を返す。
 // why: Adapter は FilesURL / UploadURL を定数として持つため、DialTLSContext で接続先だけを test server へ redirect する。
+// why: TokenSource は Stub、folder ID は capability config として NewRawEpisodeWriter へ直接渡す。
 func newGDriveWriterWithProxy(t *testing.T, token string, handler http.HandlerFunc) (*gdrive.EpisodeWriter, *[]gdriveNarrowCall) {
 	t.Helper()
 	calls := &[]gdriveNarrowCall{}
@@ -192,7 +193,7 @@ func TestGDriveEpisodeWriter_sendsListCreateUploadSequenceWithMatchingStem_whenD
 				t.Fatalf("unmarshal create metadata: %v", err)
 			}
 			if len(meta.Parents) != 1 || meta.Parents[0] != gdriveNarrowFolderID {
-				t.Fatalf("parents = %#v, want single Folder ID entry", meta.Parents)
+				t.Fatalf("create metadata parents mismatch")
 			}
 			switch {
 			case strings.HasSuffix(meta.Name, ".json"):
@@ -223,11 +224,5 @@ func TestGDriveEpisodeWriter_sendsListCreateUploadSequenceWithMatchingStem_whenD
 	}
 	if wavName != episodeID+".wav" {
 		t.Fatalf("wav name = %q, want %q", wavName, episodeID+".wav")
-	}
-	wantStem := episodeID
-	jsonStem := strings.TrimSuffix(jsonName, ".json")
-	wavStem := strings.TrimSuffix(wavName, ".wav")
-	if jsonStem != wantStem || wavStem != wantStem {
-		t.Fatalf("stem mismatch: json=%q wav=%q, want %q", jsonStem, wavStem, wantStem)
 	}
 }
