@@ -15,14 +15,21 @@ import (
 // main は generator CLI の Driving Adapter 入口である。
 //
 // @require process が Interrupt / SIGTERM を届けられる。
-// @ensure composition.NewProduceEpisode().Run が nil なら process exit 0。
-// @ensure Run が non-nil error なら stderr へ出し process exit 非0。
+// @ensure composition.NewProduceEpisodeFromEnv() の load error は stderr へ出し process exit 非0。
+// @ensure ProduceEpisode.Run が nil なら process exit 0、non-nil error なら stderr へ出し process exit 非0。
 // @invariant internal/infrastructure と application/port を import しない。秘密・env を読まない。生成手順を持たない。
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	code := run(ctx, time.Now(), os.Stderr, composition.NewProduceEpisode().Run)
+	produceEpisode, err := composition.NewProduceEpisodeFromEnv()
+	if err != nil {
+		// why: 起動前の設定不備。stderr へ出して非0 exit する。
+		_, _ = fmt.Fprintf(os.Stderr, "generator: %v\n", err)
+		os.Exit(1)
+	}
+
+	code := run(ctx, time.Now(), os.Stderr, produceEpisode.Run)
 	if code != 0 {
 		os.Exit(code)
 	}

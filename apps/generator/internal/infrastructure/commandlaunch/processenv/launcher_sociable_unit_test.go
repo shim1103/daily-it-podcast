@@ -2,7 +2,6 @@ package processenv_test
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch/processenv"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
 )
 
 const (
@@ -20,21 +18,23 @@ const (
 	testAllowHOME   = "PROCESSENV_TEST_ALLOW_HOME"
 )
 
-type testBindings map[secrettransport.SecretRef]string
-
-func (b testBindings) ResolveSecret(ref secrettransport.SecretRef) (string, bool) {
-	name, ok := b[ref]
-	return name, ok
-}
-
-func newTestLauncher(t *testing.T, allow ...string) *processenv.Launcher {
+func newTestLauncher(t *testing.T) *processenv.Launcher {
 	t.Helper()
-	ref := secrettransport.NewSecretRef()
-	bindings := testBindings{ref: testSecretName}
-	if len(allow) == 0 {
-		allow = []string{testAllowPATH, testAllowHOME}
+	// 最小限の allowlist（PATH、HOME など）を fake で供給
+	lookupEnv := func(key string) (string, bool) {
+		switch key {
+		case testAllowPATH:
+			return "/test-bin", true
+		case testAllowHOME:
+			return "/test-home", true
+		default:
+			return "", false
+		}
 	}
-	return processenv.NewLauncher(bindings, ref, allow, nil)
+	return processenv.NewLauncher(
+		commandlaunch.SecretEnv{Name: testSecretName, Value: testSecretValue},
+		lookupEnv,
+	)
 }
 
 func writeMarkerChild(t *testing.T) (program string, marker string) {
@@ -49,11 +49,69 @@ func writeMarkerChild(t *testing.T) (program string, marker string) {
 	return program, marker
 }
 
-func TestLaunch_returnsStdout_whenChildSucceeds(t *testing.T) {
-	// Given: secret が設定された launcher
-	t.Setenv(testSecretName, testSecretValue)
-	t.Setenv(testAllowPATH, "/processenv-test-bin")
+func TestLaunch_returnsNilAndError_whenLauncherIsNil(t *testing.T) {
+	// Given: nil launcher
+	var launcher *processenv.Launcher
+
+	// When: Launch する
+	got, err := launcher.Launch(context.Background(), commandlaunch.Command{Program: "cat"})
+
+	// Then: error が返り、stdout は nil
+	if err == nil {
+		t.Fatal("Launch() error = nil, want non-nil")
+	}
+	if got != nil {
+		t.Fatalf("Launch() = %q, want nil", string(got))
+	}
+}
+
+func TestLaunch_returnsNilAndError_whenContextIsNil(t *testing.T) {
+	// Given: nil context
 	launcher := newTestLauncher(t)
+
+	// When: Launch する
+	got, err := launcher.Launch(nil, commandlaunch.Command{Program: "cat"})
+
+	// Then: error が返り、stdout は nil
+	if err == nil {
+		t.Fatal("Launch() error = nil, want non-nil")
+	}
+	if got != nil {
+		t.Fatalf("Launch() = %q, want nil", string(got))
+	}
+}
+
+func TestLaunch_returnsNilAndError_whenLookupEnvIsNil(t *testing.T) {
+	// Given: lookupEnv が nil の launcher
+	launcher := processenv.NewLauncher(
+		commandlaunch.SecretEnv{Name: testSecretName, Value: testSecretValue},
+		nil,
+	)
+
+	// When: Launch する
+	got, err := launcher.Launch(context.Background(), commandlaunch.Command{Program: "cat"})
+
+	// Then: error が返り、stdout は nil（暗黙 fallback なし）
+	if err == nil {
+		t.Fatal("Launch() error = nil, want non-nil")
+	}
+	if got != nil {
+		t.Fatalf("Launch() = %q, want nil", string(got))
+	}
+}
+
+func TestLaunch_returnsStdout_whenChildSucceeds(t *testing.T) {
+	// Given: secret が設定された launcher と、PATH resolve 用 closure
+	t.Setenv(testSecretName, testSecretValue)
+	t.Setenv(testAllowPATH, "/usr/bin") // 実際の PATH
+	lookupEnv := func(key string) (string, bool) {
+		v, ok := os.LookupEnv(key)
+		return v, ok
+	}
+	launcher := processenv.NewLauncher(
+		commandlaunch.SecretEnv{Name: testSecretName, Value: testSecretValue},
+		lookupEnv,
+	)
 
 	// When: stdin を stdout へ流す決定的な command を起動する
 	got, err := launcher.Launch(context.Background(), commandlaunch.Command{
@@ -70,75 +128,22 @@ func TestLaunch_returnsStdout_whenChildSucceeds(t *testing.T) {
 	}
 }
 
-func TestLaunch_failsBeforeChildStart_whenSecretValueIsEmpty(t *testing.T) {
-	// Given: secret 名は存在するが値が空
-	t.Setenv(testSecretName, "")
-	t.Setenv(testAllowPATH, "/processenv-test-bin")
-	launcher := newTestLauncher(t)
-	program, marker := writeMarkerChild(t)
-
-	// When: Launch する
-	got, err := launcher.Launch(context.Background(), commandlaunch.Command{Program: program})
-
-	// Then: 起動前に失敗し、child は走らない。error は Infrastructure Error として判別できる
-	if err == nil {
-		t.Fatal("Launch() error = nil, want non-nil")
-	}
-	if got != nil {
-		t.Fatalf("Launch() = %q, want nil on failure", string(got))
-	}
-	if _, statErr := os.Stat(marker); !os.IsNotExist(statErr) {
-		t.Fatalf("marker %q exists, want child not started", marker)
-	}
-	var infra *processenv.Error
-	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *processenv.Error", err, err)
-	}
-	if !strings.HasPrefix(infra.Error(), "processenv:") {
-		t.Fatalf("Error() = %q, want prefix processenv:", infra.Error())
-	}
-	if errors.Unwrap(infra) == nil {
-		t.Fatal("Unwrap() is nil")
-	}
-}
-
-func TestLaunch_failsBeforeChildStart_whenSecretBindingIsUnresolved(t *testing.T) {
-	// Given: BindingResolver が解決できない SecretRef
-	t.Setenv(testSecretName, testSecretValue)
-	unresolved := secrettransport.NewSecretRef()
-	launcher := processenv.NewLauncher(testBindings{}, unresolved, []string{testAllowPATH}, nil)
-	program, marker := writeMarkerChild(t)
-
-	// When: Launch する
-	got, err := launcher.Launch(context.Background(), commandlaunch.Command{Program: program})
-
-	// Then: 起動前に失敗し、child は走らない
-	if err == nil {
-		t.Fatal("Launch() error = nil, want non-nil")
-	}
-	if got != nil {
-		t.Fatalf("Launch() = %q, want nil on failure", string(got))
-	}
-	if _, statErr := os.Stat(marker); !os.IsNotExist(statErr) {
-		t.Fatalf("marker %q exists, want child not started", marker)
-	}
-}
-
 func TestLaunch_passesClosureResolvedSecretValue_whenLookupEnvInjectedDirectlyAsClosure(t *testing.T) {
 	t.Parallel()
 
-	// Given: t.Setenv を使わず、closure で直接注入した lookupEnv が解決する secret
-	ref := secrettransport.NewSecretRef()
+	// Given: t.Setenv を使わず、closure で直接注入した lookupEnv が環境名を解決する secret
 	const secretName = "PROCESSENV_TEST_CLOSURE_SECRET_KEY"
 	const secretValue = "closure-secret-real-value"
-	bindings := testBindings{ref: secretName}
 	lookupEnv := func(key string) (string, bool) {
 		if key == secretName {
 			return secretValue, true
 		}
 		return "", false
 	}
-	launcher := processenv.NewLauncher(bindings, ref, nil, lookupEnv)
+	launcher := processenv.NewLauncher(
+		commandlaunch.SecretEnv{Name: secretName, Value: secretValue},
+		lookupEnv,
+	)
 
 	// When: environ を stdout へ出す実 child を起動する
 	got, err := launcher.Launch(context.Background(), commandlaunch.Command{Program: "env"})
@@ -153,41 +158,81 @@ func TestLaunch_passesClosureResolvedSecretValue_whenLookupEnvInjectedDirectlyAs
 	}
 }
 
-func TestLaunch_omitsUndefinedAllowlistName_whenLookupMisses(t *testing.T) {
+func TestLaunch_passesContractAllowlistAndSecretOnly_whenChildPrintsEnviron(t *testing.T) {
 	t.Parallel()
 
-	// Given: allowlist の 1 名だけが lookup で見つかり、secret も closure で解決する
-	ref := secrettransport.NewSecretRef()
-	const secretName = "PROCESSENV_TEST_OMIT_SECRET_KEY"
-	const secretValue = "omit-secret-dummy-value"
-	bindings := testBindings{ref: secretName}
+	// Given: contract allowlist 定義と secret
+	const secretName = "PROCESSENV_TEST_CONTRACT_SECRET_KEY"
+	const secretValue = "contract-secret-dummy-value"
 	lookupEnv := func(key string) (string, bool) {
 		switch key {
 		case secretName:
 			return secretValue, true
 		case "PATH":
 			return "/processenv-test-bin", true
+		case "HOME":
+			return "/processenv-test-home", true
+		case "TMPDIR":
+			return "/processenv-test-tmp", true
 		default:
+			// その他の親 env は lookup しない（allowlist にない）
 			return "", false
 		}
 	}
-	launcher := processenv.NewLauncher(bindings, ref, []string{"PATH", "HOME"}, lookupEnv)
+	launcher := processenv.NewLauncher(
+		commandlaunch.SecretEnv{Name: secretName, Value: secretValue},
+		lookupEnv,
+	)
 
 	// When: environ を stdout へ出す実 child を起動する
 	got, err := launcher.Launch(context.Background(), commandlaunch.Command{Program: "env"})
 
-	// Then: 未定義名は落ち、定義済みと secret だけが残る
+	// Then: contract allowlist（PATH / HOME / TMPDIR）と secret だけが child に渡る
 	if err != nil {
 		t.Fatalf("Launch() error = %v, want nil", err)
 	}
 	out := string(got)
-	if !strings.Contains(out, "PATH=/processenv-test-bin") {
-		t.Fatalf("child environ = %q, want PATH entry", out)
+	expectedEntries := []string{"PATH=/processenv-test-bin", "HOME=/processenv-test-home", "TMPDIR=/processenv-test-tmp", secretName + "=" + secretValue}
+	for _, want := range expectedEntries {
+		if !strings.Contains(out, want) {
+			t.Fatalf("child environ = %q, want entry %q", out, want)
+		}
 	}
-	if strings.Contains(out, "HOME=") {
-		t.Fatalf("child environ = %q, want HOME omitted", out)
+}
+
+func TestNewSecretEnvLauncherFactory_returnsFactoryThatBuildsLauncher_withSecretAndLookupEnvClosed(t *testing.T) {
+	t.Parallel()
+
+	// Given: secret 値と lookupEnv を factory に渡す
+	const secretValue = "factory-test-secret-value"
+	const testEnvName = "FACTORY_TEST_ENV_NAME"
+	lookupEnv := func(key string) (string, bool) {
+		switch key {
+		case "PATH":
+			return "/factory-test-bin", true
+		case "HOME":
+			return "/factory-test-home", true
+		default:
+			return "", false
+		}
 	}
-	if !strings.Contains(out, secretName+"="+secretValue) {
-		t.Fatalf("child environ = %q, want secret entry", out)
+	factory := processenv.NewSecretEnvLauncherFactory(secretValue, lookupEnv)
+
+	// When: factory を env 名で呼んで Launcher を得る
+	launcher := factory(testEnvName)
+
+	// Then: Launcher が返り、secret と lookupEnv が closure に閉じ込められている
+	if launcher == nil {
+		t.Fatal("factory() returned nil, want Launcher")
+	}
+
+	// And: Launcher を起動して env 名と secret 値が child に渡ることを確認
+	got, err := launcher.Launch(context.Background(), commandlaunch.Command{Program: "env"})
+	if err != nil {
+		t.Fatalf("Launch() error = %v, want nil", err)
+	}
+	out := string(got)
+	if !strings.Contains(out, testEnvName+"="+secretValue) {
+		t.Fatalf("child environ = %q, want factory-closed secret entry %q=%q", out, testEnvName, secretValue)
 	}
 }

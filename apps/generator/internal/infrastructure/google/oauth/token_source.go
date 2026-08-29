@@ -6,35 +6,33 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
-
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
 )
 
 const tokenURL = "https://oauth2.googleapis.com/token"
 
 // TokenSource は Google OAuth refresh で access token を取得する。
 type TokenSource struct {
-	client             secrettransport.Client
-	clientIDSecret     secrettransport.SecretRef
-	clientSecretSecret secrettransport.SecretRef
-	refreshTokenSecret secrettransport.SecretRef
+	client       *http.Client
+	clientID     string
+	clientSecret string
+	refreshToken string
 }
 
 // NewTokenSource は Google OAuth TokenSource を返す。
 //
-// @ensure OAuth secret の実値を保持しない。secret 名の知識は持たず、各 SecretRef の参照だけを保持する。
+// @require httpClient != nil。
+// @ensure OAuth credential は refresh form の組み立てにだけ使い、保存元の知識は持たない。
 func NewTokenSource(
-	client secrettransport.Client,
-	clientIDSecret secrettransport.SecretRef,
-	clientSecretSecret secrettransport.SecretRef,
-	refreshTokenSecret secrettransport.SecretRef,
+	httpClient *http.Client,
+	clientID, clientSecret, refreshToken string,
 ) *TokenSource {
 	return &TokenSource{
-		client:             client,
-		clientIDSecret:     clientIDSecret,
-		clientSecretSecret: clientSecretSecret,
-		refreshTokenSecret: refreshTokenSecret,
+		client:       httpClient,
+		clientID:     clientID,
+		clientSecret: clientSecret,
+		refreshToken: refreshToken,
 	}
 }
 
@@ -47,23 +45,21 @@ func (s *TokenSource) Token(ctx context.Context) (string, error) {
 		return "", infraErr("refresh", fmt.Errorf("client is nil"))
 	}
 
-	res, err := s.client.Do(ctx, secrettransport.Request{
-		Method:    http.MethodPost,
-		TargetURL: tokenURL,
-		Body:      []byte("grant_type=refresh_token"),
-		PassthroughHeaders: []secrettransport.Header{
-			{Name: "Content-Type", Value: "application/x-www-form-urlencoded"},
-		},
-		Inject: secrettransport.Inject{
-			Form: []secrettransport.FieldInjection{
-				{Field: "client_id", Secret: s.clientIDSecret},
-				{Field: "client_secret", Secret: s.clientSecretSecret},
-				{Field: "refresh_token", Secret: s.refreshTokenSecret},
-			},
-		},
-	})
+	form := url.Values{
+		"grant_type":    []string{"refresh_token"},
+		"client_id":     []string{s.clientID},
+		"client_secret": []string{s.clientSecret},
+		"refresh_token": []string{s.refreshToken},
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		return "", infraErr("refresh_proxy", err)
+		return "", infraErr("refresh_build", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err := s.client.Do(req)
+	if err != nil {
+		return "", infraErr("refresh_do", err)
 	}
 	defer func() { _ = res.Body.Close() }()
 

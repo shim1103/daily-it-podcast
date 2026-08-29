@@ -17,12 +17,14 @@ type TextWriter struct {
 	launcher commandlaunch.Launcher
 }
 
-// NewTextWriter は注入された Launcher で Cursor CLI を実行する TextWriter を返す。
+// NewTextWriter は Launcher factory から TextWriter を組み立てる。
+// cursorcli は自身が所有する inject env 名（N2、CursorAPIKeyEnvName）を factory へ渡し、
+// secret 値・親環境アクセス手段・runtime 実装を知らない。
 //
-// @require launcher は非 nil。秘密名・project dir・allowlist・runtime 選択は Composition が所有する。
-// @ensure 戻りは port.TextWriter。Command に秘密値・project・runtime kind を載せない。
-func NewTextWriter(launcher commandlaunch.Launcher) *TextWriter {
-	return &TextWriter{launcher: launcher}
+// @require newLauncher は非 nil。
+// @ensure 戻りは port.TextWriter。cursorcli は secret 値を保持しない。Command には Program・Args・Stdin のみ載る。
+func NewTextWriter(newLauncher commandlaunch.SecretEnvLauncherFactory) *TextWriter {
+	return &TextWriter{launcher: newLauncher(CursorAPIKeyEnvName)}
 }
 
 // Write は port.TextWriter の実装。契約の基本は port.TextWriter を参照する。

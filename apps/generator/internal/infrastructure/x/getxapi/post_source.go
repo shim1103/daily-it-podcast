@@ -12,23 +12,22 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
 	xinfra "github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/x"
 )
 
 var _ port.ItemSource = (*PostSource)(nil)
 
 type PostSource struct {
-	client       secrettransport.Client
-	apiKeySecret secrettransport.SecretRef
+	client *http.Client
+	apiKey string
 }
 
 // NewPostSource は GetXAPI 向け ItemSource を返す。
 //
-// @require client != nil
-// @ensure 秘密値は保持しない。secret 名の知識は持たず、apiKeySecret の参照だけを保持する。
-func NewPostSource(client secrettransport.Client, apiKeySecret secrettransport.SecretRef) *PostSource {
-	return &PostSource{client: client, apiKeySecret: apiKeySecret}
+// @require httpClient != nil
+// @ensure apiKey は Bearer 認証にだけ使い、保存元の知識は持たない。
+func NewPostSource(httpClient *http.Client, apiKey string) *PostSource {
+	return &PostSource{client: httpClient, apiKey: apiKey}
 }
 
 func (s *PostSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
@@ -77,11 +76,12 @@ func (s *PostSource) listByUser(ctx context.Context, userID string, since time.T
 }
 
 func (s *PostSource) fetchPage(ctx context.Context, userID, cursor string) (userTweetsResponse, error) {
-	res, err := s.client.Do(ctx, secrettransport.Request{
-		Method:    http.MethodGet,
-		TargetURL: userTweetsURL(userID, cursor),
-		Inject:    secrettransport.Inject{Bearer: &s.apiKeySecret},
-	})
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, userTweetsURL(userID, cursor), nil)
+	if err != nil {
+		return userTweetsResponse{}, infraErr("build_request", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+s.apiKey)
+	res, err := s.client.Do(req)
 	if err != nil {
 		return userTweetsResponse{}, infraErr("do", err)
 	}
