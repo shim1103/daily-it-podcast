@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NotFoundError, UnavailableError, ValidationError } from "../../../contracts/index.ts";
-import { EpisodeNotFoundError } from "../entities/errors/episode-not-found-error.ts";
+import { EpisodeContentError } from "../entities/errors/episode-content-error.ts";
 import { DriveError } from "../infrastructure/drive/drive-error.ts";
 import { createGetEpisodeAudioController } from "./get-episode-audio-controller.ts";
 import { validAudioBytes } from "../test/fixtures/audio-bytes.ts";
@@ -31,9 +31,9 @@ describe("createGetEpisodeAudioController", () => {
     await expect(act).rejects.toBeInstanceOf(ValidationError);
   });
 
-  it("UseCase が EpisodeNotFoundError を throw する時、NotFoundError に cause 付きで変換する", async () => {
+  it("UseCase が EpisodeContentError を throw する時、NotFoundError に cause 付きで変換する", async () => {
     // Given: Domain 不在を throw する Fake UseCase
-    const domainError = new EpisodeNotFoundError("音声エントリが無い: ep-1");
+    const domainError = new EpisodeContentError("音声エントリが無い: ep-1");
     const useCase = createFakeGetEpisodeAudioUseCase(async () => {
       throw domainError;
     });

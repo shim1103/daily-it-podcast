@@ -1,186 +1,91 @@
 import { describe, expect, it } from "vitest";
-import {
-  GetEpisodeResponseSchema,
-  ListEpisodesResponseSchema,
-  episodeAudioPath,
-} from "../../../../contracts/index.ts";
-import { EpisodeNotFoundError } from "../../entities/errors/episode-not-found-error.ts";
-import { getEpisode } from "../../application/use-cases/get-episode.ts";
-import { getEpisodeAudio } from "../../application/use-cases/get-episode-audio.ts";
-import { listEpisodes } from "../../application/use-cases/list-episodes.ts";
-import { InMemoryEpisodeRepository } from "./in-memory-episode-repository.ts";
-import { ManuscriptSchema } from "./manuscript-schema.ts";
 import { validAudioBytes } from "../../test/fixtures/audio-bytes.ts";
+import { InMemoryEpisodeRepository } from "./in-memory-episode-repository.ts";
 
-const validManuscript = {
-  episodeId: "ep-1",
-  date: "2026-08-17",
-  title: "題",
-  durationSec: 60,
-  body: {
-    opening: "開始",
-    topics: [
-      {
-        title: "題",
-        preface: "前置き",
-        detail: "詳細",
-        startSec: 0,
-      },
-    ],
-    closing: "終了",
-  },
-};
+/**
+ * scope: Sociable Unit
+ * real: InMemoryEpisodeRepository
+ * double: none
+ *
+ * why: この Adapter 固有の責務は「Map への格納・取り出し」と「entry / audio 在否の戻り値表現」
+ * だけ。schema 不適合・stem 不一致・4 失敗ケースの網羅は use-case test へ移した
+ * （`get-episode.sociable_unit.test.ts` / `list-episodes.sociable_unit.test.ts`）。
+ */
+const manuscriptJson = { episodeId: "ep-1", title: "題" };
 
 describe("InMemoryEpisodeRepository", () => {
-  it("Get 成功時、返却原稿が manuscript schema に適合する", async () => {
-    // Given: json + wav のペア
+  it("put した json は listManuscripts で stem 付きの生 payload として取り出せる", async () => {
+    // Given: json を格納（schema 適合かどうかは問わない）
     const repository = new InMemoryEpisodeRepository();
-    repository.put("ep-1", validManuscript, validAudioBytes);
+    repository.put("ep-1", manuscriptJson, validAudioBytes);
 
-    // When: 1件取得する
-    const got = await getEpisode(repository, "ep-1");
+    // When: 一覧を取得する
+    const got = await repository.listManuscripts();
 
-    // Then: schema 適合 + audioRef
-    expect(GetEpisodeResponseSchema.safeParse(got).success).toBe(true);
-    const { audioRef: _audioRef, ...manuscript } = got;
-    expect(ManuscriptSchema.safeParse(manuscript).success).toBe(true);
-    expect(got.audioRef).toBe(episodeAudioPath("ep-1"));
+    // Then: 検証せず生のまま返す
+    expect(got).toEqual([{ stem: "ep-1", json: manuscriptJson }]);
   });
 
-  it("Get 音声成功時、wav byte が取得できる", async () => {
-    // Given: json + wav のペア
+  it("格納がゼロ件の時、listManuscripts は空配列を返す（null でない）", async () => {
+    // Given: 空の repository
     const repository = new InMemoryEpisodeRepository();
-    repository.put("ep-1", validManuscript, validAudioBytes);
+
+    // When / Then
+    const got = await repository.listManuscripts();
+    expect(got).toEqual([]);
+  });
+
+  it("put した json+wav は getManuscript で生 payload と hasAudio: true を返す", async () => {
+    // Given: json + wav
+    const repository = new InMemoryEpisodeRepository();
+    repository.put("ep-1", manuscriptJson, validAudioBytes);
+
+    // When: 1件取得する
+    const got = await repository.getManuscript("ep-1");
+
+    // Then: 検証せず、wav 有無だけ添えて返す
+    expect(got).toEqual({ json: manuscriptJson, hasAudio: true });
+  });
+
+  it("wav 無しで put した entry の getManuscript は hasAudio: false", async () => {
+    // Given: json のみ
+    const repository = new InMemoryEpisodeRepository();
+    repository.put("ep-1", manuscriptJson);
+
+    // When: 1件取得する
+    const got = await repository.getManuscript("ep-1");
+
+    // Then: throw せず hasAudio: false
+    expect(got).toEqual({ json: manuscriptJson, hasAudio: false });
+  });
+
+  it("格納されていない episodeId の getManuscript は undefined（取得対象なし）", async () => {
+    // Given: 空の repository
+    const repository = new InMemoryEpisodeRepository();
+
+    // When / Then: throw せず undefined
+    expect(await repository.getManuscript("missing")).toBeUndefined();
+  });
+
+  it("put した wav は getEpisodeAudio でそのまま取り出せる", async () => {
+    // Given: json + wav
+    const repository = new InMemoryEpisodeRepository();
+    repository.put("ep-1", manuscriptJson, validAudioBytes);
 
     // When: 音声を取得する
-    const got = await getEpisodeAudio(repository, "ep-1");
+    const got = await repository.getEpisodeAudio("ep-1");
 
-    // Then: byte が一致する
+    // Then: 格納した byte と一致する
     expect(got).toEqual(validAudioBytes);
   });
 
-  it("List の topics[].title 列が同一 episode の Get body.topics[].title 列と順序込みで一致する", async () => {
-    // Given: 複数 topic を持つ原稿
-    const multiTopicManuscript = {
-      ...validManuscript,
-      body: {
-        ...validManuscript.body,
-        topics: [
-          { title: "第一トピック", preface: "前1", detail: "詳1", startSec: 0 },
-          { title: "第二トピック", preface: "前2", detail: "詳2", startSec: 30 },
-          { title: "第三トピック", preface: "前3", detail: "詳3", startSec: 60 },
-        ],
-      },
-    };
+  it("wav 無し / 未格納の getEpisodeAudio は undefined", async () => {
+    // Given: json のみ / 空
     const repository = new InMemoryEpisodeRepository();
-    repository.put("ep-1", multiTopicManuscript, validAudioBytes);
+    repository.put("ep-1", manuscriptJson);
 
-    // When: 一覧と 1件を両方取得する
-    const list = await listEpisodes(repository);
-    const detail = await getEpisode(repository, "ep-1");
-
-    // Then: list 側の題名列が Get 側の題名列と順序込みで一致する
-    expect(list.episodes).toHaveLength(1);
-    const listTitles = list.episodes[0]?.topics.map((topic) => topic.title);
-    const detailTitles = detail.body.topics.map((topic) => topic.title);
-    expect(listTitles).toEqual(detailTitles);
-    expect(listTitles).toEqual(["第一トピック", "第二トピック", "第三トピック"]);
-  });
-
-  it("schema 不適合 JSON は List 行に含めない", async () => {
-    // Given: 有効 JSON と不適合 JSON
-    const repository = new InMemoryEpisodeRepository();
-    repository.put("ep-1", validManuscript, validAudioBytes);
-    repository.put("bad", { episodeId: "bad" });
-
-    // When: 一覧を取得する
-    const got = await listEpisodes(repository);
-
-    // Then: 有効分のみ
-    expect(ListEpisodesResponseSchema.safeParse(got).success).toBe(true);
-    expect(got.episodes).toHaveLength(1);
-    expect(got.episodes[0]?.episodeId).toBe("ep-1");
-  });
-
-  it("stem と JSON 内 episodeId が不一致の件は List 行に含めない", async () => {
-    // Given: stem と episodeId がズレた有効 JSON
-    const repository = new InMemoryEpisodeRepository();
-    repository.put("stem-a", { ...validManuscript, episodeId: "ep-other" }, validAudioBytes);
-
-    // When: 一覧を取得する
-    const got = await listEpisodes(repository);
-
-    // Then: 行に出ない
-    expect(got.episodes).toHaveLength(0);
-  });
-
-  it("存在しない episodeId の Get は EpisodeNotFoundError になる", async () => {
-    // Given: 空の repository
-    const repository = new InMemoryEpisodeRepository();
-
-    // When: 存在しない id を Get する
-    const act = getEpisode(repository, "missing");
-
-    // Then: Domain 不在
-    await expect(act).rejects.toBeInstanceOf(EpisodeNotFoundError);
-  });
-
-  it("schema 不適合 JSON の Get は EpisodeNotFoundError になる", async () => {
-    // Given: 音声はあるが JSON が schema 不適合
-    const repository = new InMemoryEpisodeRepository();
-    repository.put("ep-1", { episodeId: "ep-1" }, validAudioBytes);
-
-    // When: 1件取得する
-    const act = getEpisode(repository, "ep-1");
-
-    // Then: Domain 不在
-    await expect(act).rejects.toBeInstanceOf(EpisodeNotFoundError);
-  });
-
-  it("wav が無い json のみ件は Get で EpisodeNotFoundError になる", async () => {
-    // Given: 音声無しの有効 JSON
-    const repository = new InMemoryEpisodeRepository();
-    repository.put("ep-1", validManuscript);
-
-    // When: 1件取得する
-    const act = getEpisode(repository, "ep-1");
-
-    // Then: Domain 不在
-    await expect(act).rejects.toBeInstanceOf(EpisodeNotFoundError);
-  });
-
-  it("stem と JSON 内 episodeId が不一致の Get は EpisodeNotFoundError になる", async () => {
-    // Given: stem と episodeId がズレた json + wav
-    const repository = new InMemoryEpisodeRepository();
-    repository.put("stem-a", { ...validManuscript, episodeId: "ep-other" }, validAudioBytes);
-
-    // When: stem で 1件取得する
-    const act = getEpisode(repository, "stem-a");
-
-    // Then: Domain 不在
-    await expect(act).rejects.toBeInstanceOf(EpisodeNotFoundError);
-  });
-
-  it("存在しない episodeId の Get 音声は EpisodeNotFoundError になる", async () => {
-    // Given: 空の repository
-    const repository = new InMemoryEpisodeRepository();
-
-    // When: 存在しない id の音声を取得する
-    const act = getEpisodeAudio(repository, "missing");
-
-    // Then: Domain 不在
-    await expect(act).rejects.toBeInstanceOf(EpisodeNotFoundError);
-  });
-
-  it("エントリはあるが audio が無い Get 音声は EpisodeNotFoundError になる", async () => {
-    // Given: json のみ（audio 無し）
-    const repository = new InMemoryEpisodeRepository();
-    repository.put("ep-1", validManuscript);
-
-    // When: 音声を取得する
-    const act = getEpisodeAudio(repository, "ep-1");
-
-    // Then: Domain 不在
-    await expect(act).rejects.toBeInstanceOf(EpisodeNotFoundError);
+    // When / Then: どちらも undefined
+    expect(await repository.getEpisodeAudio("ep-1")).toBeUndefined();
+    expect(await repository.getEpisodeAudio("missing")).toBeUndefined();
   });
 });
