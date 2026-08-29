@@ -41,6 +41,7 @@ const validList = {
       date: "2026-08-17",
       title: "題",
       durationSec: 60,
+      topics: [{ title: "題" }],
     },
   ],
 };
