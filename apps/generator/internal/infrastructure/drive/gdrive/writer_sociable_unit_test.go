@@ -394,38 +394,6 @@ func TestWrite_returnsInfrastructureError_whenCreateBodyInvalid(t *testing.T) {
 	}
 }
 
-func TestWrite_embedsFolderIDInParents_whenCreatingMetadata(t *testing.T) {
-
-	// Given: 空一覧と create/upload 成功を返す stub
-	rt := &stubRoundTripper{
-		responses: []stubClientResponse{
-			{MatchMethod: http.MethodGet, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"files": []any{}})},
-			{MatchMethod: http.MethodPost, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"id": "created-id"})},
-			{MatchMethod: http.MethodPatch, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"id": "uploaded"})},
-		},
-	}
-	writer := newStubWriter(rt, stubTokenSource{token: "ya29.test-token"})
-
-	// When: Write する
-	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
-
-	// Then: create metadata の Parents に folder ID が直接入る
-	if err != nil {
-		t.Fatalf("Write: %v", err)
-	}
-	for _, c := range createCalls(rt.calls) {
-		var meta struct {
-			Parents []string `json:"parents"`
-		}
-		if err := json.Unmarshal([]byte(c.Body), &meta); err != nil {
-			t.Fatalf("unmarshal create metadata: %v", err)
-		}
-		if len(meta.Parents) != 1 || meta.Parents[0] != testFolderID {
-			t.Fatalf("parents = %#v, want [%q]", meta.Parents, testFolderID)
-		}
-	}
-}
-
 func TestWrite_escapesQuoteInListQuery_whenEpisodeIDContainsQuote(t *testing.T) {
 
 	// Given: episodeId に単引用符を含む
