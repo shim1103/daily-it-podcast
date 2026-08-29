@@ -49,6 +49,7 @@ const TextWriterBriefPrompt = `
 
 # closingSummary
 - まとめ（別途付ける挨拶で締めない。「。」で終える）
+- closingSummary の文字数: {{CLOSING_MIN}}〜{{CLOSING_MAX}} 文字（目安 {{CLOSING_TARGET}}）
 
 # total length
 - 全体（title / intro / 全 topic の title・preface・detail / closingSummary の合計）: {{TOTAL_MIN}}〜{{TOTAL_MAX}} 文字（目安 {{TOTAL_TARGET}}）
