@@ -1,68 +1,63 @@
 import type { ReactElement } from "react";
-import { formatDurationMmSs } from "../../utils/format-duration-mm-ss.ts";
 import { formatEpisodeDate } from "../../utils/format-episode-date.ts";
 import { formatNumberedEpisodeTitle } from "../../utils/format-numbered-episode-title.ts";
 import { formatTopicTitles } from "../../utils/format-topic-titles.ts";
 import type { EpisodeListItemData } from "../../view-models/episode-list-view-model.ts";
 import { LabeledText } from "../primitive/labeled-text.tsx";
-import "./episode-list-item.css";
+import { EpisodePlayButton } from "./episode-play-button.tsx";
+import "./episode-row.css";
 
-export type EpisodeListItemProps = {
+export type EpisodeRowProps = {
   episode: EpisodeListItemData;
   episodeCount: number;
   episodeIndex: number;
   onSelect: (episodeId: string) => void;
+  onPlay: () => void;
 };
 
 /**
- * EpisodeListItem 1件を、表示用に整形した field で組み立てる。
+ * 一覧 1 行。表示と play / select のみ。
  *
  * @require episode は EpisodeListItem 1件
- * @ensure date はスラッシュ形式・durationSec は mm:ss・通し番号付き title と topics 行（" / " 区切り）を描画する。episodeId は描画しない。
- *   クリックすると onSelect(episode.episodeId) を呼ぶ
- * @invariant 表示整形は utils に委譲する。Feature 内に変換ロジックを持たない。
- *   再生ボタン風の ▶︎ は装飾のみ（機能は onSelect のまま）
+ * @ensure date・通し番号付き title・topics 行と再生 pill を描画する
+ * @invariant selection / detail / audio を知らない
  */
-export function EpisodeListItem({
+export function EpisodeRow({
   episode,
   episodeCount,
   episodeIndex,
   onSelect,
-}: EpisodeListItemProps): ReactElement {
+  onPlay,
+}: EpisodeRowProps): ReactElement {
   const topicTitles = formatTopicTitles(episode.topics);
   const numberedTitle = formatNumberedEpisodeTitle(episodeCount, episodeIndex, episode.title);
 
   return (
-    <article className="episode-list-item">
+    <article className="episode-row">
       <button
         type="button"
-        className="episode-list-item__hit"
+        className="episode-row__hit"
         onClick={(event) => {
           onSelect(episode.episodeId);
           // why: click 後の :focus が残り、別 item の :hover と二重に紫線が付くのを防ぐ
           event.currentTarget.blur();
         }}
       >
-        <span className="episode-list-item__date">
+        <span className="episode-row__date">
           <LabeledText tag="span" datasetKey="episodeDate" text={formatEpisodeDate(episode.date)} />
         </span>
-        <span className="episode-list-item__title">
+        <span className="episode-row__title">
           <LabeledText tag="span" datasetKey="episodeTitle" text={numberedTitle} />
         </span>
         {topicTitles !== "" && (
-          <span className="episode-list-item__topics">
+          <span className="episode-row__topics">
             <LabeledText tag="span" datasetKey="episodeTopics" text={topicTitles} />
           </span>
         )}
-        <span className="episode-list-item__play" aria-hidden="true">
-          <span className="episode-list-item__play-icon">▶︎</span>
-          <LabeledText
-            tag="span"
-            datasetKey="episodeDurationSec"
-            text={formatDurationMmSs(episode.durationSec)}
-          />
-        </span>
       </button>
+      <div className="episode-row__play">
+        <EpisodePlayButton durationSec={episode.durationSec} onPlay={onPlay} />
+      </div>
     </article>
   );
 }

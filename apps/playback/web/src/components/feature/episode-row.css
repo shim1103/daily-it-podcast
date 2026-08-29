@@ -1,4 +1,4 @@
-/* episode-list-item
+/* episode-row
  *
  * - 未focus: 左 gray 縦線
  * - hover / keyboard focus(:focus-visible): 左 紫 + 面薄い gray。紫は線だけ
@@ -6,7 +6,7 @@
  * - duration は Apple Podcasts 風の再生 pill（装飾のみ）
  */
 
-article.episode-list-item {
+article.episode-row {
   --eli-label: #f5f5f7;
   --eli-secondary: rgba(235, 235, 245, 0.55);
   --eli-accent: #bf5af2;
@@ -20,28 +20,50 @@ article.episode-list-item {
   --eli-pad-x: 28px;
   --eli-pad-y: 18px;
 
-  display: block !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "hit play"
+    "hit play"
+    "hit play";
+  gap: 4px 16px;
+  align-items: center;
   width: 100%;
   margin: 0 !important;
   margin-bottom: 0 !important;
-  padding: 0 !important;
+  padding: var(--eli-pad-y) var(--eli-pad-x) !important;
   border-left: 0 !important;
   border-right: 0 !important;
   border-bottom: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
-  box-shadow: none !important;
+  box-shadow: inset 3px 0 0 0 var(--eli-edge-gray);
   color: inherit;
+  transition:
+    box-shadow 160ms ease,
+    background-color 160ms ease;
 }
 
-article.episode-list-item > .episode-list-item__hit {
+article.episode-row:has(> .episode-row__hit:hover),
+article.episode-row:has(> .episode-row__hit:focus-visible) {
+  background-color: var(--eli-focus-fill) !important;
+  box-shadow: inset 3px 0 0 0 var(--eli-accent);
+}
+
+article.episode-row:has(> .episode-row__hit:focus:not(:focus-visible):not(:hover)) {
+  background-color: transparent !important;
+  box-shadow: inset 3px 0 0 0 var(--eli-edge-gray);
+}
+
+article.episode-row > .episode-row__hit {
+  grid-area: hit;
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
-    "date play"
-    "title play"
-    "topics play";
-  gap: 4px 16px;
+    "date"
+    "title"
+    "topics";
+  gap: 4px 0;
   align-items: center;
   width: 100% !important;
   max-width: none !important;
@@ -49,14 +71,14 @@ article.episode-list-item > .episode-list-item__hit {
   height: auto !important;
   margin: 0 !important;
   margin-bottom: 0 !important;
-  padding: var(--eli-pad-y) var(--eli-pad-x) !important;
+  padding: 0 !important;
   border: 0 !important;
   border-radius: 0 !important;
   outline: 0;
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
-  box-shadow: inset 3px 0 0 0 var(--eli-edge-gray);
+  box-shadow: none;
   color: var(--eli-label) !important;
   font: inherit !important;
   font-size: inherit !important;
@@ -67,32 +89,27 @@ article.episode-list-item > .episode-list-item__hit {
   text-decoration: none !important;
   cursor: pointer;
   user-select: none;
-  transition:
-    box-shadow 160ms ease,
-    background-color 160ms ease;
 }
 
-/* hover / キーボード focus のみ紫。mouse sticky focus は下で打ち消す */
-article.episode-list-item > .episode-list-item__hit:hover,
-article.episode-list-item > .episode-list-item__hit:focus-visible {
-  background-color: var(--eli-focus-fill) !important;
-  box-shadow: inset 3px 0 0 0 var(--eli-accent);
-  outline: none;
-}
-
-/* click 後に残る :focus（:focus-visible でない）は未focusと同じ gray 線 */
-article.episode-list-item > .episode-list-item__hit:focus:not(:focus-visible):not(:hover) {
+article.episode-row > .episode-row__hit:hover,
+article.episode-row > .episode-row__hit:focus-visible {
   background-color: transparent !important;
-  box-shadow: inset 3px 0 0 0 var(--eli-edge-gray);
+  box-shadow: none;
   outline: none;
 }
 
-.episode-list-item__date {
+article.episode-row > .episode-row__hit:focus:not(:focus-visible):not(:hover) {
+  background-color: transparent !important;
+  box-shadow: none;
+  outline: none;
+}
+
+.episode-row__date {
   grid-area: date;
   min-width: 0;
 }
 
-.episode-list-item__date [data-episode-date] {
+.episode-row__date [data-episode-date] {
   color: var(--eli-secondary);
   font-size: var(--eli-meta-size);
   font-weight: 400;
@@ -101,12 +118,12 @@ article.episode-list-item > .episode-list-item__hit:focus:not(:focus-visible):no
   font-variant-numeric: tabular-nums;
 }
 
-.episode-list-item__title {
+.episode-row__title {
   grid-area: title;
   min-width: 0;
 }
 
-.episode-list-item__title [data-episode-title] {
+.episode-row__title [data-episode-title] {
   display: block;
   color: var(--eli-label);
   font-family:
@@ -121,12 +138,12 @@ article.episode-list-item > .episode-list-item__hit:focus:not(:focus-visible):no
   line-height: 1.3;
 }
 
-.episode-list-item__topics {
+.episode-row__topics {
   grid-area: topics;
   min-width: 0;
 }
 
-.episode-list-item__topics [data-episode-topics] {
+.episode-row__topics [data-episode-topics] {
   display: block;
   color: var(--eli-secondary);
   font-family:
@@ -141,35 +158,9 @@ article.episode-list-item > .episode-list-item__hit:focus:not(:focus-visible):no
   line-height: 1.35;
 }
 
-/* Apple Podcasts 風: 黒地 + gray 文字の角丸再生 pill（機能は親 button のまま） */
-.episode-list-item__play {
+.episode-row__play {
   grid-area: play;
   justify-self: end;
   align-self: center;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
   margin: 0;
-  padding: 0.55rem 0.9rem;
-  border-radius: 999px;
-  background: var(--eli-play-bg);
-  box-shadow: inset 0 0 0 1px rgba(235, 235, 245, 0.12);
-  color: var(--eli-play-text);
-  line-height: 1;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.episode-list-item__play-icon {
-  font-size: 0.65em;
-  line-height: 1;
-  transform: translateY(0.5px);
-}
-
-.episode-list-item__play [data-episode-duration-sec] {
-  color: var(--eli-play-text);
-  font-size: var(--eli-play-size);
-  font-weight: 400;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
 }

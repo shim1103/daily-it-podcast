@@ -12,7 +12,7 @@
   color: var(--el-label);
 }
 
-/* 未使用: 選択グループ内の区切りは episode-selected-group.css が担当 */
+/* 未使用: 選択 entry 内の区切りは episode-list-entry.css が担当 */
 
 .episode-detail[data-episode-detail-loading],
 .episode-detail[data-episode-detail-error] {

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type RefObject } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { ApiSuccessData } from "../api/api-result.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 
@@ -6,18 +6,21 @@ type ListEpisodesData = ApiSuccessData<PlaybackApiClient["listEpisodes"]>;
 export type EpisodeData = ApiSuccessData<PlaybackApiClient["getEpisode"]>;
 export type EpisodeListItemData = ListEpisodesData["episodes"][number];
 
-export type SelectedEpisodeState =
+export type EpisodeDetailState =
   | { status: "loading" }
   | { status: "success"; episode: EpisodeData }
   | { status: "error" };
+
+export type EpisodeSelection =
+  | { kind: "none" }
+  | { kind: "open"; episodeId: string; detail: EpisodeDetailState };
 
 export type EpisodeListState =
   | { status: "loading" }
   | {
       status: "success";
       episodes: ListEpisodesData["episodes"];
-      selectedEpisodeId: string | null;
-      selectedEpisode: SelectedEpisodeState | null;
+      selection: EpisodeSelection;
     }
   | { status: "error" };
 
@@ -25,24 +28,20 @@ export type EpisodeListViewModel = {
   state: EpisodeListState;
   load(): Promise<void>;
   select(episodeId: string): Promise<void>;
-  audioElementRef: RefObject<HTMLAudioElement | null>;
-  seek(startSec: number): void;
 };
 
 /**
  * 一覧 page が使う state（loading / success / error）と選択中 episode の詳細取得を持つ ViewModel hook。
  *
  * @require apiClient は `listEpisodes()` と `getEpisode(episodeId)` を持つ
- * @ensure 初期状態は loading。`load()` 完了後、成功なら episodes と selectedEpisodeId（初期 null）・
- *   selectedEpisode（初期 null）を、失敗なら error を state に持つ。`select(episodeId)` は一覧が success の時のみ、
- *   同じ episodeId が選択中なら選択を解除し、それ以外は選択して詳細を loading → success/error の順に取得する。
- *   `seek(startSec)` は選択中 episode の audio 要素を startSec へ移動して再生する
+ * @ensure 初期状態は loading。`load()` 完了後、成功なら episodes と selection（初期 kind: none）を、
+ *   失敗なら error を state に持つ。`select(episodeId)` は一覧が success の時のみ、
+ *   同じ episodeId が選択中なら選択を解除し、それ以外は選択して詳細を loading → success/error の順に取得する
  * @invariant throw しない。API Client の失敗は ApiResult の失敗側として受け取る
  */
 export function useEpisodeListViewModel(apiClient: PlaybackApiClient): EpisodeListViewModel {
   const [state, setStateReact] = useState<EpisodeListState>({ status: "loading" });
   const stateRef = useRef(state);
-  const audioElementRef = useRef<HTMLAudioElement>(null);
 
   const setState = useCallback((next: EpisodeListState): void => {
     // why: race 判定は ref の同期更新で足りる。flushSync は一時橋側の同期観測都合であり hook に置かない
@@ -57,8 +56,7 @@ export function useEpisodeListViewModel(apiClient: PlaybackApiClient): EpisodeLi
       setState({
         status: "success",
         episodes: result.data.episodes,
-        selectedEpisodeId: null,
-        selectedEpisode: null,
+        selection: { kind: "none" },
       });
     } else {
       setState({ status: "error" });
@@ -74,41 +72,41 @@ export function useEpisodeListViewModel(apiClient: PlaybackApiClient): EpisodeLi
         return;
       }
 
-      if (current.selectedEpisodeId === episodeId) {
-        setState({ ...current, selectedEpisodeId: null, selectedEpisode: null });
+      if (current.selection.kind === "open" && current.selection.episodeId === episodeId) {
+        setState({ ...current, selection: { kind: "none" } });
         return;
       }
 
       setState({
         ...current,
-        selectedEpisodeId: episodeId,
-        selectedEpisode: { status: "loading" },
+        selection: { kind: "open", episodeId, detail: { status: "loading" } },
       });
       const result = await apiClient.getEpisode(episodeId);
 
       // why: 詳細取得中に一覧が再読込・別選択された場合、古い応答で state を上書きしない
       const after = stateRef.current;
-      if (after.status !== "success" || after.selectedEpisodeId !== episodeId) {
+      if (
+        after.status !== "success" ||
+        after.selection.kind !== "open" ||
+        after.selection.episodeId !== episodeId
+      ) {
         return;
       }
 
       if (result.ok) {
-        setState({ ...after, selectedEpisode: { status: "success", episode: result.data } });
+        setState({
+          ...after,
+          selection: { kind: "open", episodeId, detail: { status: "success", episode: result.data } },
+        });
       } else {
-        setState({ ...after, selectedEpisode: { status: "error" } });
+        setState({
+          ...after,
+          selection: { kind: "open", episodeId, detail: { status: "error" } },
+        });
       }
     },
     [apiClient, setState],
   );
 
-  const seek = useCallback((startSec: number): void => {
-    const audio = audioElementRef.current;
-    if (audio === null) {
-      return;
-    }
-    audio.currentTime = startSec;
-    void audio.play();
-  }, []);
-
-  return { state, load, select, audioElementRef, seek };
+  return { state, load, select };
 }

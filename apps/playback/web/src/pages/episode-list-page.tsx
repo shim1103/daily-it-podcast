@@ -3,7 +3,10 @@ import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 import { EpisodeList } from "../components/feature/episode-list.tsx";
 import { getLocationHash } from "../lib/location-hash.ts";
 import { useEpisodeListViewModel } from "../view-models/episode-list-view-model.ts";
+import { useEpisodePlayback } from "../view-models/use-episode-playback.ts";
 import { useHashSync } from "../view-models/use-hash-sync.ts";
+import { EpisodeListError } from "./episode-list-error.tsx";
+import { EpisodeListLoading } from "./episode-list-loading.tsx";
 
 export type EpisodeListPageProps = {
   apiClient: PlaybackApiClient;
@@ -11,28 +14,21 @@ export type EpisodeListPageProps = {
 };
 
 /**
- * 一覧 page。ViewModel hook・hash 同期 hook・一覧 Feature Component を組み立てるだけ。
+ * 一覧 page。ViewModel hook・hash 同期 hook・一覧 Feature を組み立てるだけ。
  *
  * @require apiClient は `listEpisodes()` と `getEpisode(episodeId)` を持つ。baseUrl は audio 直結先の origin相当
  * @ensure mount 時に load() を開始し、完了後 hash に episodeId があればその episode を選択する。
- *   以後は useHashSync が選択中 episodeId と location.hash を双方向同期する。hash が空へ変わった時は
- *   選択中 episode を select() へ渡して選択解除する。一覧 Feature Component を state / baseUrl / onSelect で描画する
- * @invariant ここに表示ロジック・API 呼び出しの詳細を書かない。hash 同期の機構は useHashSync が持つ。
- *   load() 完了までは selectedId に undefined を渡し、hash→state 同期を保留させる（完了前に
- *   selectedEpisodeId=null で mount 時の hash を消す race を防ぐ）
+ *   loading / error は page 層で分岐し、success 時のみ EpisodeList を描画する
+ * @invariant ここに一覧 item の表示ロジックを書かない。再生 UI（pill / seek / audio）は List / Entry へ委譲する
  */
 export function EpisodeListPage({ apiClient, baseUrl }: EpisodeListPageProps): ReactElement {
-  const { state, load, select, audioElementRef, seek } = useEpisodeListViewModel(apiClient);
-
-  // why: load() 完了前は hash 同期を保留する（ViewModel の load ライフサイクルとの結合であり、
-  //   hash 同期の関心事ではないため useHashSync ではなく page が持つ）
+  const { state, load, select } = useEpisodeListViewModel(apiClient);
+  const { audioElementRef, playback, resolvedSrc, play, seek } = useEpisodePlayback(baseUrl);
   const initializedRef = useRef(false);
 
-  // mount 時: load() を開始し、完了後 hash に episodeId があればその episode を選択する
   useEffect(() => {
     let cancelled = false;
     void load().then(() => {
-      // why: in-flight 中に unmount / 再 mount された場合、完了後の hash 復元 select を打ち切る
       if (cancelled) {
         return;
       }
@@ -53,17 +49,19 @@ export function EpisodeListPage({ apiClient, baseUrl }: EpisodeListPageProps): R
         void select(id);
         return;
       }
-      // why: hash が空になった時は、選択中 episode を select() へ渡して選択解除させる
-      //   （select() は同じ episodeId を渡すと選択解除する ViewModel 契約）
-      if (state.status === "success" && state.selectedEpisodeId !== null) {
-        void select(state.selectedEpisodeId);
+      if (state.status === "success" && state.selection.kind === "open") {
+        void select(state.selection.episodeId);
       }
     },
     [select, state],
   );
 
   const selectedId =
-    initializedRef.current && state.status === "success" ? state.selectedEpisodeId : undefined;
+    initializedRef.current && state.status === "success"
+      ? state.selection.kind === "open"
+        ? state.selection.episodeId
+        : null
+      : undefined;
   useHashSync(selectedId, onHashSelect);
 
   const onSelect = useCallback(
@@ -73,13 +71,31 @@ export function EpisodeListPage({ apiClient, baseUrl }: EpisodeListPageProps): R
     [select],
   );
 
+  const onPlay = useCallback(
+    (episodeId: string, audioRef: string) => {
+      play(episodeId, audioRef);
+    },
+    [play],
+  );
+
+  if (state.status === "loading") {
+    return <EpisodeListLoading />;
+  }
+
+  if (state.status === "error") {
+    return <EpisodeListError />;
+  }
+
   return (
     <EpisodeList
-      state={state}
-      baseUrl={baseUrl}
+      episodes={state.episodes}
+      selection={state.selection}
+      playback={playback}
       onSelect={onSelect}
-      audioElementRef={audioElementRef}
+      onPlay={onPlay}
       onSeek={seek}
+      audioElementRef={audioElementRef}
+      resolvedSrc={resolvedSrc}
     />
   );
 }

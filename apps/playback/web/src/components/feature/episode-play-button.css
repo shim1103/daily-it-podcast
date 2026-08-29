@@ -1,0 +1,35 @@
+/* episode-play-button — Apple Podcasts 風の再生 pill */
+
+.episode-play-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.55rem 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--eli-play-bg, #0a0a0c);
+  box-shadow: inset 0 0 0 1px rgba(235, 235, 245, 0.12);
+  color: var(--eli-play-text, rgba(235, 235, 245, 0.72));
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.episode-play-button__icon {
+  font-size: 0.65em;
+  line-height: 1;
+  transform: translateY(0.5px);
+}
+
+.episode-play-button__duration {
+  font-size: var(--eli-play-size, 15px);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.episode-play-button:focus-visible {
+  outline: 2px solid var(--el-accent, #bf5af2);
+  outline-offset: 3px;
+}

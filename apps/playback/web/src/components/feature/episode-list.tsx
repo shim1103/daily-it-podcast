@@ -1,120 +1,81 @@
-import { Fragment, memo, type ReactElement, type ReactNode, type RefObject } from "react";
-import type { EpisodeListState } from "../../view-models/episode-list-view-model.ts";
-import { EpisodeListItem } from "./episode-list-item.tsx";
-import { EpisodeManuscript } from "./episode-manuscript.tsx";
-import { EpisodePlayer } from "./episode-player.tsx";
-import "./episode-detail.css";
+import { memo, type ReactElement, type Ref } from "react";
+import type {
+  EpisodeListItemData,
+  EpisodeSelection,
+} from "../../view-models/episode-list-view-model.ts";
+import type { EpisodePlayback } from "../../view-models/use-episode-playback.ts";
+import {
+  EpisodeListEntry,
+  type EpisodeEntryPlayback,
+  type EpisodeEntrySelection,
+} from "./episode-list-entry.tsx";
 import "./episode-list.css";
-import "./episode-selected-group.css";
-
-type SelectedEpisode = NonNullable<
-  Extract<EpisodeListState, { status: "success" }>["selectedEpisode"]
->;
-
-function SelectedEpisodeDetail({
-  selectedEpisode,
-  baseUrl,
-  onSeek,
-  audioElementRef,
-}: {
-  selectedEpisode: SelectedEpisode;
-  baseUrl: string;
-  onSeek: (startSec: number) => void;
-  audioElementRef: RefObject<HTMLAudioElement | null>;
-}): ReactElement {
-  if (selectedEpisode.status === "loading") {
-    return <div className="episode-detail" data-episode-detail-loading="" />;
-  }
-
-  if (selectedEpisode.status === "error") {
-    return <div className="episode-detail" data-episode-detail-error="" />;
-  }
-
-  return (
-    <div className="episode-detail">
-      <EpisodeManuscript body={selectedEpisode.episode.body} onSeek={onSeek} />
-      <EpisodePlayer
-        ref={audioElementRef}
-        baseUrl={baseUrl}
-        audioRef={selectedEpisode.episode.audioRef}
-      />
-    </div>
-  );
-}
 
 export type EpisodeListProps = {
-  state: EpisodeListState;
-  baseUrl: string;
+  episodes: EpisodeListItemData[];
+  selection: EpisodeSelection;
+  playback: EpisodePlayback;
   onSelect: (episodeId: string) => void;
-  audioElementRef: RefObject<HTMLAudioElement | null>;
+  onPlay: (episodeId: string, audioRef: string) => void;
   onSeek: (startSec: number) => void;
+  audioElementRef: Ref<HTMLAudioElement | null>;
+  resolvedSrc: string | undefined;
 };
 
 /**
- * 一覧 state から EpisodeListItem を並べ、選択中 episode があればその item のみを紫枠付きで詳細展開する。
+ * episodes 配列から EpisodeListEntry を並べる。
  *
- * @require state は ViewModel が持つ EpisodeListState、baseUrl は playback worker の origin相当
- * @ensure success 時、未選択なら全 episode を並べる。選択中は当該 episode の item + detail のみを描画する。
- *   選択中は item と detail を紫枠で囲む。topic の MM:SS クリックは onSeek へ委譲する
- * @invariant item 以外の field 加工をしない
+ * @require episodes は一覧 API の episodes[]、playback / callbacks は Page 由来
+ * @ensure 各 episode を EpisodeListEntry として描画する。entry 向け selection / playback union を導出する
+ * @invariant ViewModel hook を呼ばない。audio を持たない
  */
 export const EpisodeList = memo(function EpisodeList({
-  state,
-  baseUrl,
+  episodes,
+  selection,
+  playback,
   onSelect,
-  audioElementRef,
+  onPlay,
   onSeek,
+  audioElementRef,
+  resolvedSrc,
 }: EpisodeListProps): ReactElement {
-  const children: ReactNode[] = [];
+  const episodeCount = episodes.length;
 
-  if (state.status === "success") {
-    const episodeCount = state.episodes.length;
-    const isFocusMode = state.selectedEpisodeId !== null;
+  return (
+    <div className="episode-list">
+      {episodes.map((episode, episodeIndex) => {
+        const entrySelection: EpisodeEntrySelection =
+          selection.kind === "open" && selection.episodeId === episode.episodeId
+            ? { kind: "open", detail: selection.detail }
+            : { kind: "closed" };
 
-    state.episodes.forEach((episode, episodeIndex) => {
-      if (isFocusMode && episode.episodeId !== state.selectedEpisodeId) {
-        return;
-      }
+        const entryPlayback: EpisodeEntryPlayback =
+          playback.kind === "playing" && playback.episodeId === episode.episodeId
+            ? {
+                kind: "playing",
+                positionSec: playback.positionSec,
+                durationSec: playback.durationSec,
+              }
+            : { kind: "stopped" };
 
-      const listItem = (
-        <EpisodeListItem
-          key={`${episode.episodeId}-item`}
-          episode={episode}
-          episodeCount={episodeCount}
-          episodeIndex={episodeIndex}
-          onSelect={onSelect}
-        />
-      );
+        const isPlayingEntry = entryPlayback.kind === "playing";
 
-      const detail =
-        state.selectedEpisodeId === episode.episodeId && state.selectedEpisode ? (
-          <SelectedEpisodeDetail
-            key={`${episode.episodeId}-detail`}
-            selectedEpisode={state.selectedEpisode}
-            baseUrl={baseUrl}
+        return (
+          <EpisodeListEntry
+            key={episode.episodeId}
+            episode={episode}
+            episodeCount={episodeCount}
+            episodeIndex={episodeIndex}
+            selection={entrySelection}
+            playback={entryPlayback}
+            onSelect={onSelect}
+            onPlay={onPlay}
             onSeek={onSeek}
-            audioElementRef={audioElementRef}
+            audioElementRef={isPlayingEntry ? audioElementRef : undefined}
+            resolvedSrc={isPlayingEntry ? resolvedSrc : undefined}
           />
-        ) : null;
-
-      if (isFocusMode) {
-        children.push(
-          <div key={episode.episodeId} className="episode-selected-group">
-            {listItem}
-            {detail}
-          </div>,
         );
-        return;
-      }
-
-      children.push(
-        <Fragment key={episode.episodeId}>
-          {listItem}
-          {detail}
-        </Fragment>,
-      );
-    });
-  }
-
-  return <div className="episode-list">{children}</div>;
+      })}
+    </div>
+  );
 });

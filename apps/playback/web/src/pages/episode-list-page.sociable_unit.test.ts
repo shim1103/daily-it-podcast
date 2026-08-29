@@ -13,6 +13,7 @@ const validListEpisodesResponse: ListEpisodesResponse = {
       title: "題1",
       durationSec: 60,
       topics: [{ title: "小題1" }],
+      audioRef: "/episodes/ep-1/audio",
     },
     {
       episodeId: "ep-2",
@@ -20,6 +21,7 @@ const validListEpisodesResponse: ListEpisodesResponse = {
       title: "題2",
       durationSec: 90,
       topics: [{ title: "小題2" }],
+      audioRef: "/episodes/ep-2/audio",
     },
   ],
 };
@@ -31,7 +33,7 @@ const validGetEpisodeResponse: GetEpisodeResponse = {
   durationSec: 60,
   body: {
     opening: "開始",
-    topics: [{ title: "小題", preface: "前置き", detail: "詳細", startSec: 0 }],
+    topics: [{ title: "小題", preface: "前置き", detail: "詳細", startSec: 30 }],
     closing: "終了",
   },
   audioRef: "/episodes/ep-1/audio",
@@ -50,6 +52,36 @@ function renderPage(apiClient: PlaybackApiClient) {
 }
 
 describe("EpisodeListPage", () => {
+  it("一覧取得 loading の時、Loading を描画する", () => {
+    // Given: 一覧取得が未解決の api client
+    const apiClient = createStubApiClient({
+      listEpisodes: vi.fn(() => new Promise<never>(() => {})),
+    });
+
+    // When: page を render する
+    const { container } = renderPage(apiClient);
+
+    // Then: Loading だけが出る
+    expect(container.textContent).toBe("Loading");
+    expect(container.querySelector("article")).toBeNull();
+  });
+
+  it("一覧取得 error の時、Error を描画する", async () => {
+    // Given: 一覧取得が失敗する api client
+    const apiClient = createStubApiClient({
+      listEpisodes: vi.fn(async () => ({ ok: false as const, error: "unavailable" as const })),
+    });
+
+    // When: page を render する
+    const { container } = renderPage(apiClient);
+    await waitFor(() => {
+      expect(container.textContent).toBe("Error");
+    });
+
+    // Then: 一覧 item は出ない
+    expect(container.querySelector("article")).toBeNull();
+  });
+
   beforeEach(() => {
     window.location.hash = "";
   });
@@ -197,6 +229,67 @@ describe("EpisodeListPage", () => {
     // Then: 選択が解除され manuscript が消える
     await waitFor(() => {
       expect(container.querySelector("[data-manuscript-opening]")).toBeNull();
+    });
+  });
+
+  it("再生前は page 直下に list の上へ audio を置かない", async () => {
+    // Given: hash 空で mount 済みの page
+    const apiClient = createStubApiClient();
+    const { container } = renderPage(apiClient);
+    await waitFor(() => {
+      expect(container.querySelector("article button")).not.toBeNull();
+    });
+
+    // Then: list の直前に audio は無い
+    const list = container.querySelector(".episode-list");
+    expect(list).not.toBeNull();
+    expect(list?.previousElementSibling).toBeNull();
+    expect(container.querySelector(".episode-list-entry audio")).toBeNull();
+  });
+
+  it("再生開始後は audio が再生中 entry 内にだけある", async () => {
+    // Given: hash 空で mount 済みの page
+    const apiClient = createStubApiClient();
+    const { container } = renderPage(apiClient);
+    await waitFor(() => {
+      expect(container.querySelector("article button")).not.toBeNull();
+    });
+
+    // When: play pill を click する
+    const playButton = container.querySelector(".episode-play-button");
+    playButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    // Then: list の直前に audio は無く、再生中 entry 内に audio がある
+    await waitFor(() => {
+      const list = container.querySelector(".episode-list");
+      expect(list?.previousElementSibling).toBeNull();
+      const playingEntry = container.querySelector(".episode-list-entry audio")?.closest(
+        ".episode-list-entry",
+      );
+      expect(playingEntry).not.toBeNull();
+      expect(playingEntry?.querySelector("audio")?.getAttribute("src")).toBe(
+        "https://example.test/episodes/ep-1/audio",
+      );
+    });
+  });
+
+  it("再生は選択なしでも開始でき、manuscript は開かない", async () => {
+    // Given: hash 空で mount 済みの page
+    const apiClient = createStubApiClient();
+    const { container } = renderPage(apiClient);
+    await waitFor(() => {
+      expect(container.querySelector("article button")).not.toBeNull();
+    });
+
+    // When: play pill を click する（行 select ではない）
+    const playButton = container.querySelector(".episode-play-button");
+    playButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    // Then: manuscript は開かず、audio が再生用 src を持つ
+    await waitFor(() => {
+      expect(container.querySelector("[data-manuscript-opening]")).toBeNull();
+      const audio = container.querySelector("audio");
+      expect(audio?.getAttribute("src")).toBe("https://example.test/episodes/ep-1/audio");
     });
   });
 });

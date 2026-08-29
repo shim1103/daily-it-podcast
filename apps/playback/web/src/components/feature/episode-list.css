@@ -32,6 +32,6 @@
 }
 
 /* item 同士の間だけ gray hairline（未focus時の区切り） */
-.episode-list article.episode-list-item + article.episode-list-item {
+.episode-list .episode-list-entry + .episode-list-entry {
   border-top: 1px solid var(--el-separator) !important;
 }

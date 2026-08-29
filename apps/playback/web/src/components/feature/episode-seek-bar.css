@@ -1,0 +1,13 @@
+/* episode-seek-bar — 再生位置 range */
+
+.episode-seek-bar {
+  display: block;
+  width: 100%;
+  margin: 0 0 1rem;
+  accent-color: var(--el-accent, #bf5af2);
+}
+
+.episode-seek-bar:focus-visible {
+  outline: 2px solid var(--el-accent, #bf5af2);
+  outline-offset: 3px;
+}
