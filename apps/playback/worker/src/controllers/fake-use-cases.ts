@@ -4,7 +4,7 @@ import {
   type ListEpisodesResponse,
 } from "../../../contracts/index.ts";
 import { EpisodeNotFoundError } from "../entities/errors/episode-not-found-error.ts";
-import { validAudioBytes } from "../test/fixtures/audio-bytes.ts";
+import { createFakeEpisodeAudioBytes } from "../test/fixtures/audio-bytes.ts";
 import fakeEpisodesJson from "./fake-episodes.json" with { type: "json" };
 
 type FakeEpisodeRecord = {
@@ -16,6 +16,18 @@ type FakeEpisodeRecord = {
 };
 
 const fakeEpisodes = fakeEpisodesJson as FakeEpisodeRecord[];
+const fakeAudioCache = new Map<string, Uint8Array>();
+
+function loadFakeEpisodeAudio(episodeId: string): Uint8Array {
+  const cached = fakeAudioCache.get(episodeId);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const record = findFakeEpisode(episodeId);
+  const bytes = createFakeEpisodeAudioBytes(record.durationSec);
+  fakeAudioCache.set(episodeId, bytes);
+  return bytes;
+}
 
 function toGetEpisodeResponse(record: FakeEpisodeRecord): GetEpisodeResponse {
   return {
@@ -70,5 +82,10 @@ export function createFakeGetEpisodeUseCase(
 export function createFakeGetEpisodeAudioUseCase(
   impl?: (episodeId: string) => Promise<Uint8Array>,
 ): (episodeId: string) => Promise<Uint8Array> {
-  return impl ?? (async () => validAudioBytes);
+  return (
+    impl ??
+    (async (episodeId) => {
+      return loadFakeEpisodeAudio(episodeId);
+    })
+  );
 }
