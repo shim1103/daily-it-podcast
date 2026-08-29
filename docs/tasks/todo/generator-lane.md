@@ -20,7 +20,7 @@
 - [x] Integration gate収集境界（secretなし Narrow）
 - [ ] Composition HTTP Adapter移行（M1）— `docs/tasks/todo/generator-composition-http-adapters.md`
 - [ ] HTTP SU/NI latest（getxapi / oauth / gemini / gdrive）— `docs/tasks/todo/generator-su-ni-*.md`
-- [ ] build ComposeBrief — `docs/tasks/todo/generator-build-compose-brief.md`
+- [x] build ComposeBrief
 - [ ] build manuscript draft parse — `docs/tasks/todo/generator-build-manuscript-draft-parse.md`
 - [ ] build WAV concat / duration — `docs/tasks/todo/generator-build-wav-concat.md`
 - [ ] composition ProduceEpisode 結線 — `docs/tasks/todo/generator-composition-produce-episode-wiring.md`
