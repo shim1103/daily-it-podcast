@@ -17,6 +17,7 @@ getxapi / oauth / gemini / gdrive の Sociable Unit と Narrow Integration を `
 - gemini Narrow の RoundTripper Spy 化は levels 上の Narrow 定義違反として review で BLOCK、TLS redirect へ戻した。
 - pre-commit は playback の Node 22 + biome が必要。worktree で `npm install` し、ついでに package-lock の libc フィールド差分を chore commit。
 - GitHub Issue は無し（local task file が契約の正）。
+- PR: https://github.com/shim1103/daily-it-podcast/pull/91 （base `develop`）
 
 ### Commits
 
@@ -26,3 +27,4 @@ getxapi / oauth / gemini / gdrive の Sociable Unit と Narrow Integration を `
 - `1592fc2`
 - `ba2e723`
 - `6565682`
+- `8e2b0e1`
