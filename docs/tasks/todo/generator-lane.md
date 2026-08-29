@@ -14,14 +14,18 @@
 - [x] AgentSecrets / `local_real`除去
 - [x] cmd 入口（薄い Driving Adapter）
 - [x] TwitterAPI.io旧artifact除去
-- [x] Cursor CLI GitHub Actions capability probe（実測完了。`--sandbox disabled` + `CURSOR_API_KEY` 環境変数で GHA runner 上 run_exit=0。child env HOME/TMPDIR/PATH 非依存。一時 probe artifact は除去済み）
+- [x] Cursor CLI GitHub Actions capability probe
 - [x] runtime config loader実装（`internal/config` KISS化まで。error最終形は下記 error-taxonomy-unify）
 - [ ] error 3層表現統一（Domain/Infra/Config → Infra pattern）— `docs/tasks/todo/generator-error-taxonomy-unify.md`
 - [x] Integration gate収集境界（secretなし Narrow）
 - [ ] Composition HTTP Adapter移行（M1）— `docs/tasks/todo/generator-composition-http-adapters.md`
 - [ ] HTTP SU/NI latest（getxapi / oauth / gemini / gdrive）— `docs/tasks/todo/generator-su-ni-*.md`
+- [ ] build ComposeBrief — `docs/tasks/todo/generator-build-compose-brief.md`
+- [ ] build manuscript draft parse — `docs/tasks/todo/generator-build-manuscript-draft-parse.md`
+- [ ] build WAV concat / duration — `docs/tasks/todo/generator-build-wav-concat.md`
+- [ ] composition ProduceEpisode 結線 — `docs/tasks/todo/generator-composition-produce-episode-wiring.md`
 - [ ] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）— **D**
-- [ ] GHA workflow で定期または手動実行 — **未切り出し**
+- [ ] GHA workflow で定期または手動実行 — **D**
 - [ ] Cursor Narrow — `docs/tasks/todo/generator-narrow-gate-vendor-cursorcli.md`（child env再設計後）
 - [ ] Broad Integration / System・E2E — **D**（Decision `2026-08-26T17-47-00`）
 
@@ -32,20 +36,33 @@ A/B runtime config・secret方針（済）
 C-01 AgentSecrets / local_real除去（済）
 C-02 TwitterAPI.io除去（済）
 
-C-03 Cursor CLI GHA capability probe（並行可）
-C-04 runtime config loader（済。config KISS化。error最終形は error-taxonomy-unify）
-  ├→ error-taxonomy-unify（Domain/Infra/Config表現統一。M1と独立、config package競合時のみ順序調整）
+C-03 Cursor CLI GHA capability probe（済）
+C-04 runtime config loader（済）
+  ├→ error-taxonomy-unify
   └→ M1 Composition HTTP Adapter移行
         └→ SU/NI latest: getxapi / oauth / gemini / gdrive
 
-C-03実測
-  └→ child env再設計（未切り出し）
-        └→ Cursor Narrow（既存gate file、後回し）
+produce-episode（A/B 済。docs/decisions/2026-08-29T14-10 〜 17-00）
+  ├→ build compose-brief / draft parse / wav concat（並行可）
+  ├→ composition ProduceEpisode 結線（並行可）
+  └→ D: ProduceEpisode.Run → GHA production workflow
 
-既存Generator graph
-  └→ ProduceEpisode.Run（D）
-        └→ GHA production workflow
+C-03実測
+  └→ child env再設計（D）
+        └→ Cursor Narrow
 ```
+
+### D（未決・未実測・文案）
+
+| topic | 概要 |
+|---|---|
+| `ProduceEpisode.Run` | C build + composition 後に orchestration 実装 |
+| Prompt / limits 文案・数値 | `TextWriterBriefPrompt` と `manuscript_draft_limits` のチューニング |
+| 挨拶文案 | `ClosingFarewell` 最終 copy、OpeningGreeting の date 読み上げ整形 |
+| composite 高度化 | dedup / sort（2 情報源後） |
+| 第 2 情報源 Adapter | 別 Issue 化待ち |
+| GHA production workflow | Run green 後 |
+| Broad / System・E2E | Cursor Narrow 後 |
 
 ### Integration test 方針
 

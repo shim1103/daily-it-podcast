@@ -40,36 +40,6 @@ var (
 	_ port.EpisodeWriter     = stubEpisodeWriter{}
 )
 
-func TestWavDurationSec_panicsAsContractStub(t *testing.T) {
-	t.Parallel()
-	defer func() {
-		if recover() == nil {
-			t.Fatal("wavDurationSec: want panic")
-		}
-	}()
-	_, _ = wavDurationSec([]byte{1, 2})
-}
-
-func TestConcatWAV_panicsAsContractStub(t *testing.T) {
-	t.Parallel()
-	defer func() {
-		if recover() == nil {
-			t.Fatal("concatWAV: want panic")
-		}
-	}()
-	_, _ = concatWAV([]byte{1, 2})
-}
-
-func TestManuscriptDraftFromWriterOutput_panicsAsContractStub(t *testing.T) {
-	t.Parallel()
-	defer func() {
-		if recover() == nil {
-			t.Fatal("manuscriptDraftFromWriterOutput: want panic")
-		}
-	}()
-	_, _ = manuscriptDraftFromWriterOutput("断片")
-}
-
 func TestProduceEpisodeRun_panicsAsContractStub(t *testing.T) {
 	t.Parallel()
 	uc := NewProduceEpisode(
