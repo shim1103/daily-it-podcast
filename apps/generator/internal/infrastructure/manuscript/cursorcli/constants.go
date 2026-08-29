@@ -1,10 +1,11 @@
 package cursorcli
 
-// Cursor CLI（非SDK）の argv 構成に必要な確定値だけを定義する。
+// Cursor CLI（非SDK）の argv 構成と実行仕様に必要な確定値だけを定義する。
 // 詳細な呼び出し方（Launch、parse、error変換）は Adapter が実装する（このファイルは定数のみ）。
 //
-// why not: 秘密名・project dir・child env allowlist・runtime 選択はここに置かない。
+// why not: 秘密値・project dir・child env allowlist・runtime 選択はここに置かない。
 // それらは Composition と command launcher 実装の知識であるため、Adapter は持たない。
+// ただし inject env 名（N2）は Cursor CLI の呼び出し仕様であり argv flag と同格の層であるため、ここに置く。
 const (
 	BinaryName = "agent"
 
@@ -12,6 +13,10 @@ const (
 
 	// Cursor CLI は mode と model を独立に選べるため、mode をここで固定する。
 	Mode = "ask"
+
+	// CursorAPIKeyEnvName は Cursor CLI が API key を受け取る環境変数名である。
+	// argv flag 名（--model 等）と同じ層の Cursor CLI 呼び出し仕様。
+	CursorAPIKeyEnvName = "CURSOR_API_KEY"
 
 	PrintFlag    = "-p"
 	OutputFormat = "json"

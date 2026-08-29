@@ -29,6 +29,7 @@
 |--------|----------------|
 | `generator/internal/entities` | Entities |
 | `generator/internal/application` | Application（UseCase + Port IF） |
+| `generator/internal/application/build` | Builder helper（`ProduceEpisode` が呼ぶ brief / parse / WAV。Gate ではない） |
 | `generator/internal/config` | Configuration Boundary |
 | `generator/internal/infrastructure` | Infrastructure |
 | `generator/internal/composition` | Composition Root |
@@ -40,6 +41,8 @@
 `playback/web` は Vite + TypeScript + React + Pico.css classless。`playback/worker` の HTTP 入口は Hono、web↔worker の型同期は Hono RPC。Next.js / shadcn / TanStack は使わない（`docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`）。Playback list の concept / setting / motif と視覚言語の正は `docs/decisions/2026-08-28T19-20-00-docs-playback-list-page-design.md` / `docs/decisions/2026-08-28T19-20-01-docs-playback-list-page-design.md`（本書へ写さない）。
 
 依存は内側へ。Composition Root だけが全層を結線する。
+
+日次 episode 生成の未完了 index（build helper / composition 結線 / Run 本体）は `docs/tasks/todo/generator-lane.md` を正とする（本書へ写さない）。
 
 `generator` の Entities は generator に閉じる。UI / agent が共有して読む Domains の正は `contracts/`。言語横断の **Domain 型** module（共有 struct / Zod を正本にする）は作らない。
 
@@ -60,12 +63,12 @@ repo 根 `contracts/` は Drive 上の表現（配置・`manuscript.schema.json`
 
 | 役割 | 接続 |
 |------|------|
-| 情報取得 | GetXAPIのみ。Portは`ItemSource` |
+| 情報取得 | GetXAPIのみ。Portは`ItemSource`。複数源 merge は Composition が composite で行い Application は源個数を知らない |
 | 原稿 | Cursor CLI（Port は `TextWriter`） |
 | TTS | Gemini |
 | Drive | Google Drive + OAuth refresh |
 
-Generatorのtarget architectureでは、`generator/internal/config`がstartup時にprocess environmentを一度だけ読み、検証済みのcapability別ConfigをCompositionへ渡す。HTTP Adapterは標準の`*http.Client`と、自身に必要なcapability config / credentialだけを受け取る。Adapterはenvironment keyやcredentialの保存元を知らない。現行codeに残る`secrettransport`は移行前の実装であり、target architectureのpolicyではない。
+Generatorでは、`generator/internal/config`がstartup時にprocess environmentを一度だけ読み、検証済みのcapability別ConfigをCompositionへ渡す。HTTP Adapterは標準の`*http.Client`と、自身に必要なcapability config / credentialだけを受け取る。Adapterはenvironment keyやcredentialの保存元を知らない。Cursor CLI command経路では、secretの生値は`Composition`が`config`から取り出して`processenv`実装の closure へ渡し、`cursorcli`（vendor Adapter）を経由しない。Adapterが持つのは呼び出し仕様（inject環境変数名・argv）だけである。
 
 ブラウザにDriveのcredentialを置かない。OAuth client ID・Drive folder IDは非secret runtime config、OAuth client secret・refresh token・API keyはsecretとする。いずれも`contracts/`外でruntimeごとに注入する。
 

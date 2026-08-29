@@ -1,4 +1,4 @@
-// Package processenv は process environment から秘密を解決して command を起動する。
+// Package processenv は注入された secret と親環境アクセス手段で child environment を組み、command を起動する。
 package processenv
 
 import (
@@ -6,52 +6,56 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
 )
 
 var _ commandlaunch.Launcher = (*Launcher)(nil)
 
-// Launcher は Composition が渡した binding と allowlist だけで child environment を組み立てる。
+// Launcher は Composition が渡した secret と contract allowlist だけで child environment を組み立てる。
 type Launcher struct {
-	bindings              secrettransport.BindingResolver
-	secretRef             secrettransport.SecretRef
-	inheritedEnvNameAllow []string
-	lookupEnv             func(key string) (string, bool)
+	secret    commandlaunch.SecretEnv
+	lookupEnv func(key string) (string, bool)
 }
 
 // NewLauncher は process-env 実装の Launcher を返す。
 //
-// @require bindings は非 nil。inheritedEnvNameAllow は Composition 所有の名前集合。
-// @ensure 戻りは commandlaunch.Launcher。lookupEnv が nil のとき os.LookupEnv を使う。
+// @require secret.Name は非空。secret.Value は検証済みの秘密値。lookupEnv は非 nil（nil のとき Launch が error を返す）。
+// @ensure 戻りは commandlaunch.Launcher。
 func NewLauncher(
-	bindings secrettransport.BindingResolver,
-	secretRef secrettransport.SecretRef,
-	inheritedEnvNameAllow []string,
+	secret commandlaunch.SecretEnv,
 	lookupEnv func(key string) (string, bool),
 ) *Launcher {
-	allow := make([]string, len(inheritedEnvNameAllow))
-	copy(allow, inheritedEnvNameAllow)
-	if lookupEnv == nil {
-		lookupEnv = os.LookupEnv
-	}
 	return &Launcher{
-		bindings:              bindings,
-		secretRef:             secretRef,
-		inheritedEnvNameAllow: allow,
-		lookupEnv:             lookupEnv,
+		secret:    secret,
+		lookupEnv: lookupEnv,
+	}
+}
+
+// NewSecretEnvLauncherFactory は secret 値と親環境アクセス手段を閉じ込め、
+// inject env 名を受け取って Launcher を組む factory を返す。
+//
+// @require secretValue は検証済みの秘密値。lookupEnv は非 nil（nil のとき Launch が error を返す）。
+// @ensure 戻りは commandlaunch.SecretEnvLauncherFactory。secret 値は closure に閉じ、戻り値の呼び出し側へ渡らない。
+func NewSecretEnvLauncherFactory(
+	secretValue string,
+	lookupEnv func(key string) (string, bool),
+) commandlaunch.SecretEnvLauncherFactory {
+	return func(envName string) commandlaunch.Launcher {
+		return NewLauncher(
+			commandlaunch.SecretEnv{Name: envName, Value: secretValue},
+			lookupEnv,
+		)
 	}
 }
 
 // Launch は command を起動し、成功時は stdout bytes を返す。
 //
-// @require command.Program は trim 後に非空。bindings が secretRef を解決でき、その名前の env が非空。
+// @require command.Program は trim 後に非空。lookupEnv が注入済み（nil なら error を返す）。
 // @ensure 失敗時の error に秘密値・stdin・child stderr 本文を含めない。
-// @ensure child env は allowlist で親から拾った entry と Cursor secret だけであり、親環境を全継承しない。
+// @ensure child env は commandlaunch.InheritedEnvNameAllow で親から拾った entry と秘密値だけであり、親環境を全継承しない。
 func (l *Launcher) Launch(ctx context.Context, command commandlaunch.Command) ([]byte, error) {
 	if l == nil {
 		return nil, infraErr("launch", fmt.Errorf("launcher is nil"))
@@ -59,24 +63,15 @@ func (l *Launcher) Launch(ctx context.Context, command commandlaunch.Command) ([
 	if ctx == nil {
 		return nil, infraErr("launch", fmt.Errorf("ctx is nil"))
 	}
+	if l.lookupEnv == nil {
+		return nil, infraErr("launch", fmt.Errorf("lookupEnv is nil"))
+	}
 	program := strings.TrimSpace(command.Program)
 	if program == "" {
 		return nil, infraErr("launch", fmt.Errorf("program is empty"))
 	}
-	if l.bindings == nil {
-		return nil, infraErr("launch", fmt.Errorf("bindings is nil"))
-	}
 
-	secretName, ok := l.bindings.ResolveSecret(l.secretRef)
-	if !ok || strings.TrimSpace(secretName) == "" {
-		return nil, infraErr("resolve_secret_binding", fmt.Errorf("secret binding is unresolved"))
-	}
-	secretValue, ok := l.lookupEnv(secretName)
-	if !ok || secretValue == "" {
-		return nil, infraErr("resolve_secret_value", fmt.Errorf("secret is unset"))
-	}
-
-	env := buildChildEnv(l.inheritedEnvNameAllow, secretName, secretValue, l.lookupEnv)
+	env := buildChildEnv(commandlaunch.InheritedEnvNameAllow(), l.secret.Name, l.secret.Value, l.lookupEnv)
 
 	cmd := exec.CommandContext(ctx, program, command.Args...)
 	// why: nil Env は親環境の全継承を意味する。空でも非 nil を渡して継承を断つ。
