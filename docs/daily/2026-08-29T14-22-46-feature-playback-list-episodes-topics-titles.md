@@ -22,6 +22,7 @@ prev: なし
 8. 役目を終えた `worker/src/application/.gitkeep` / `worker/src/entities/.gitkeep` を削除。
 9. 全 commit で pre-commit hook（generator static/unit、playback format/lint/typecheck/lint:layers/unit 228 件）と pre-push hook が pass。
 10. `feature/playback-list-episodes-topics-titles` を新規 branch として `origin` へ push。
+11. base `develop` へ PR #83 を作成（`gh pr create` 経由）。`develop` は HEAD の祖先で conflict なし。この repo は AgentReview 未設定。
 
 ### Commits
 
@@ -30,3 +31,4 @@ prev: なし
 - `4290c70`
 - `9f18905`
 - `64dc93b`
+- `32e7586`
