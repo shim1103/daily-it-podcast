@@ -18,8 +18,8 @@
 - [x] runtime config loader実装（`internal/config` KISS化まで。error最終形は下記 error-taxonomy-unify）
 - [ ] error 3層表現統一（Domain/Infra/Config → Infra pattern）— `docs/tasks/todo/generator-error-taxonomy-unify.md`
 - [x] Integration gate収集境界（secretなし Narrow）
-- [ ] Composition HTTP Adapter移行（M1）— `docs/tasks/todo/generator-composition-http-adapters.md`
-- [ ] HTTP SU/NI latest（getxapi / oauth / gemini / gdrive）— `docs/tasks/todo/generator-su-ni-*.md`
+- [x] Composition HTTP Adapter移行（M1）
+- [x] HTTP SU/NI latest（getxapi / oauth / gemini / gdrive）
 - [x] build ComposeBrief
 - [ ] build manuscript draft parse — `docs/tasks/todo/generator-build-manuscript-draft-parse.md`
 - [x] build WAV concat / duration（`WavDurationSec` / `ConcatWAV` 実装済み）
@@ -39,8 +39,8 @@ C-02 TwitterAPI.io除去（済）
 C-03 Cursor CLI GHA capability probe（済）
 C-04 runtime config loader（済）
   ├→ error-taxonomy-unify
-  └→ M1 Composition HTTP Adapter移行
-        └→ SU/NI latest: getxapi / oauth / gemini / gdrive
+  └→ M1 Composition HTTP Adapter移行（済）
+        └→ SU/NI latest: getxapi / oauth / gemini / gdrive（済）
 
 produce-episode（A/B 済。docs/decisions/2026-08-29T14-10 〜 17-00）
   ├→ build compose-brief / draft parse / wav concat（並行可）
