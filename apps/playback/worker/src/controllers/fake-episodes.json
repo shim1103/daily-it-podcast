@@ -12,31 +12,31 @@
           "title": "HMR が効かない典型パターン三種。夜の開発室では観測点を先に固定し、再現手順。",
           "preface": "まず症状の分類から入ります。保存してもブラウザが更新されない、更新はされるが state が消える、モジュールだけ古いまま残る、の三つに分けられることが多いです。見た目が似ていても、websocket のメッセージ種別は別物です。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "原因の多くは、依存グラフの循環、default export の境界、そして plugin の transform 結果が毎回安定していないケースに集約されます。再現手順を最小の repo に落とし、network タブで websocket のメッセージを見ると、HMR boundary がどこで切れているかが早いです。plugin を疑う時は、該当 file だけを最小構成に外して bisect するのが安全です。循環依存はビルド時に警告が出ないこともあるので、import グラフを可視化する tooling を一度通す価値があります。state が消える症状は full reload に落ちているサインで、accept handler が失敗しているか、self-accepting できない module 境界に当たっている可能性が高いです。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。",
-          "startSec": 0
+          "startSec": 380
         },
         {
           "title": "middleware と proxy の登録順序",
           "preface": "playback のように dev だけ dummy backend を挟む構成では、middleware の登録順がそのまま挙動差になります。path の prefix 一致を曖昧にすると、静的 asset まで別 handler に流れる事故が起きやすいです。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "connect 系 middleware は先に登録した handler が先に評価されます。API だけ worker へ流し、それ以外を Vite へ返す時は、path prefix の一致条件を明示しないと静的 asset まで飲み込む事故が起きます。ログは request path と handler 名を1行で出すと、夜中の切り分けがかなり楽になります。proxy 先が落ちている時に dev server 全体がハングする構成もあるので、timeout と fallback response を先に決めます。HMR の websocket だけ別 port に逃がす構成では、browser が接続先を誤ると更新だけ止まり、通常の page load は成功するという厄介な状態になります。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。",
-          "startSec": 380
+          "startSec": 760
         },
         {
           "title": "環境変数と loadEnv の境界。夜の開発室では観測点を先に固定し、再現手順。",
           "preface": "Vite は mode と prefix で environment を読み分けます。親 process の export だけに頼ると、webServer 起動や preview 時に値が欠けることがあります。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "loadEnv は cwd と mode を引数に取り、.env 系 file を層ごとにマージします。test runner や Playwright の webServer から起動する時は、親 shell の変数が子へ自動継承されないケースがあるので、config 側で env を明示する方が再現性が高いです。secret を client bundle に漏らす事故は、VITE_ prefix の付け忘れや付けすぎの両方から起きます。runtime config の正本をどこに置くかを先に決め、dev だけ dummy URL を差し込むなら、その差し込み点を1箇所に固定します。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。",
-          "startSec": 760
+          "startSec": 1140
         },
         {
           "title": "plugin 配列の順序と transform 干渉",
           "preface": "複数 plugin が同じ file 種別を触る時、配列の順序がそのまま transform パイプラインになります。後段の plugin が前段の結果を壊すと、HMR だけ不安定になることがあります。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "React や TypeScript、custom resolver を並べる時は、どの plugin が source map を落とすか、どの plugin が import を書き換えるかをメモに残します。最小 repo で plugin を1つずつ外す bisect は時間がかかりますが、本番 build では再現しない dev 限定の不具合に効きます。transformIndexHtml と module graph の更新タイミングがずれると、full reload ループに入ることもあるので、console の reload 理由を一度は全文読む価値があります。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。",
-          "startSec": 1140
+          "startSec": 1520
         },
         {
           "title": "夜間切り分け用の最小チェックリスト。夜の開発室では観測点を先に固定し、再現手順。",
           "preface": "疲労している時ほど、観測点を固定した checklist が効きます。再現の最小化、network、ログ、plugin bisect の四段で十分な場合が多いです。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "まず branch と node_modules の鮮度を確認し、次に単一 file 変更で HMR が動くかを見ます。動かないなら websocket の接続先とメッセージ種別、動くなら依存 module の境界を疑います。最後に plugin を外した最小 vite.config で再現するかを確認します。この順を守ると、設定全体を巻き戻す前に原因の層を1つずつ剥がせます。切り分け結果は issue か decision に再現手順だけ残し、解決策と混ぜない方が翌日の自分に優しいです。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。",
-          "startSec": 1520
+          "startSec": 1900
         }
       ]
     }
@@ -54,25 +54,25 @@
           "title": "include と exclude の落とし穴",
           "preface": "file 名の suffix や config file 自身が test 対象に入ると、0 件 success に見えることがあります。runner が green を返しても、意図した test が走っていない可能性があります。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "vitest の default exclude は config 系 suffix を含みます。sociable unit test を vite-config.sociable_unit.test.ts のように置くと収集対象外になり、runner は success を返し続けます。命名規約を決める前に、必ず vitest --run の収集件数を一度確認する癖を付けると安全です。workspace 配下に複数 config がある時は、どの config が実際に使われたかを log に出すと、CI と local の差が早く見えます。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。",
-          "startSec": 0
+          "startSec": 420
         },
         {
           "title": "timezone と日付 fixture の境界",
           "preface": "日付を文字列で持つ domain では、実行環境の timezone が test result を左右します。暦日と instant の混在は、境界日でだけ落ちる flaky の温床です。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "Asia/Tokyo 固定の formatter を test する時、runner の TZ が UTC だと境界日の期待値が1日ズレます。CI と local で同じ TZ を渡すか、fixture を ISO ではなく暦日文字列で固定するかを先に決めます。曖昧な Date parse は環境差を生むので、domain 入力は常に正規化関数を通す設計に寄せます。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 420
+          "startSec": 840
         },
         {
           "title": "watch と run のキャッシュ差。夜の開発室では観測点を先に固定し、再現。",
           "preface": "watch 中だけ通る test や、run だけ落ちる test は、キャッシュと module graph の更新タイミングが原因のことがあります。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "vitest の cache を疑う時は、一度 --no-cache で run し、それでも差が出るなら environment か parallel 実行の競合を見ます。global setup が複数回走る構成では、mock の登録順が watch でだけ変わることがあります。CI は常に cold start なので、setup の副作用が蓄積しない前提で書き直すと再現性が上がります。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 840
+          "startSec": 1260
         },
         {
           "title": "CI 向けの収集件数ガード。夜の開発室では観測点を先に固定し、再現手順を短いメ。",
           "preface": "件数が 0 の success は、feature が無いのと同じです。pipeline の最初に収集件数か critical path の存在を assert する習慣が効きます。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "package ごとに vitest --run の出力から test file 数を抜き、閾値を下回ったら fail にする script を足す方法があります。rename 事故で suffix が規約外になった時、最初の PR で止められます。件数 assert は flaky ではないので、CI の早い段に置くと feedback loop が短くなります。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 1260
+          "startSec": 1680
         }
       ]
     }
@@ -90,31 +90,31 @@
           "title": "discriminated union の型狭め",
           "preface": "parse 後に得られる型を domain で使い回す時、union の判別子が曖昧だと後段の分岐が壊れます。tag の命名は HTTP の error code と揃えると読みやすいです。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "zod の discriminated union は、失敗枝を1つにまとめる設計と相性がいいです。呼び出し側が理由を使わないなら、失敗は code だけにして message は log 用に分離する方が契約が太りません。TypeScript の narrowing は compile 時だけなので、runtime では必ず parse 結果の tag を見ます。同じ union を client と worker で共有する時は、schema file を contracts に置き、値の fixture は test へ逃がします。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。",
-          "startSec": 0
+          "startSec": 380
         },
         {
           "title": "zod schema と fixture の分離",
           "preface": "schema file に fixture 値を混ぜたくなる時がありますが、形と値は分けます。層をまたぐ共有は定数だけの中立 module に限ります。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "schema は型と制約の宣言、fixture は test 用 module に置くのが筋です。層をまたぐ fixture 共有は中立な test 置き場へ出し、そこは import しない定数だけにします。production code が fixture を参照すると、dependency-cruiser の forbidden import 違反や、本番 bundle への混入リスクが生まれます。invalid 例は safeParse の失敗 object を assert し、message 全文一致は避けます。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。",
-          "startSec": 380
+          "startSec": 760
         },
         {
           "title": "List と Get の schema 粒度差",
           "preface": "List と Get で field の粒度が違う時、同じ schema を無理に共有しない方が安全です。topics は title だけと、preface まで持つ差を型で表現します。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "listEpisode の topics は title だけ、getEpisode の body は preface と detail まで持ちます。余剰 field を拒否する strict schema にしておくと、将来の field 追加が review 可能な差分になります。list 用に detail を落とす transform は repository 層で行い、HTTP response schema はそれぞれ独立させます。client 側も list 用 parser と detail 用 parser を分けると、余計な field に依存する UI が育ちません。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。",
-          "startSec": 760
+          "startSec": 1140
         },
         {
           "title": "HTTP 境界での正規化と失敗語彙。夜の開発室では観測点を先に固定し、再現手順。",
           "preface": "Inbound の Route Handler では、parse 失敗を 400 に、domain 失敗を契約どおりの status に写像します。理由の列挙は contracts に閉じます。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "zod の ZodError をそのまま client へ返すと、field path が露出し、文案も不安定になります。worker では error code だけを返し、log には issue 番号か operation 名を載せます。playback では manuscript 不適合は list では除外、get では not found に寄せる方針が読みやすいです。正規化関数は1入口にまとめ、controller は use case の Result だけを見る形にします。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。",
-          "startSec": 1140
+          "startSec": 1520
         },
         {
           "title": "型推論と branded type の使い所",
           "preface": "episodeId のような opaque な文字列は、branded type か template literal で誤用を compile 時に止められます。ただし runtime 検証は別途必要です。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "TypeScript の型は消えるので、HTTP 入口では zod で minLength と pattern を掛けます。domain 内部では branded type に parse 済み値だけを通し、raw string の混入経路を閉じます。over-branding は refactor を難しくするので、外部境界と永続化境界に限定するのがバランス良いです。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 1520
+          "startSec": 1900
         }
       ]
     }
@@ -132,31 +132,31 @@
           "title": "errors.Is と独自 domain error 型",
           "preface": "domain error を型で判別する時、fmt.Errorf の %w と独自型の組み合わせが基本になります。vendor error は Infrastructure で一度だけ写像します。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "Infrastructure では vendor error を domain error へ一度だけ写像し、Application 以上は vendor 名を知らない状態を保ちます。log に出す detail は cause chain へ任せ、外部 response には code だけを返す方針と揃えると、web と worker で読み方が一致します。errors.As で型を取る時、pointer の階層を間違えると常に false になるので、table-driven test で代表例を1つ固定します。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。",
-          "startSec": 0
+          "startSec": 380
         },
         {
           "title": "wrap チェーンの深さと可読性。夜の開発室では観測点を先に固定し、再現手順を。",
           "preface": "wrap は原因を残すための手段で、message を装飾する手段ではありません。層を跨ぐたびに文言を足すと、log が読めなくなります。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "各層は operation 名だけを足し、ユーザー向け文案は presentation 層に集約します。fmt.Errorf の failed to X: %w 形式を連鎖させる時、X は動詞一語に抑えると grep しやすいです。深さが五を超える chain は設計を見直すサインで、途中層が責務過多になっている可能性があります。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 380
+          "startSec": 760
         },
         {
           "title": "test での error assert 方針",
           "preface": "error の全文一致は brittle です。operation 名や code だけを見る方が refactor に強いです。message の substring assert は避けます。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "sociable unit では happy path と代表失敗を1つずつ、integration では I/O 境界の置き換え点だけを見ます。error message の substring assert は、ユーザー向け文案が変わるたびに壊れるので避けます。errors.Is と errors.As を併用する時は、期待する型と sentinel のどちらを見るかを test 名に書くと、後から意図が残ります。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 760
+          "startSec": 1140
         },
         {
           "title": "log payload と secret 露出防止",
           "preface": "観測データは豊かに、外部返却は薄く。token や path に含まれる identifier は log レベルで分けます。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "error handling の skill で定義したとおり、credential や query の生値は log に載せず、hash や種別だけを載せます。wrap chain を log に出す時も、最内の vendor message が secret を含む可能性があるので、domain 層の code を先に出します。構造化 log では error_code と operation を必須 field にすると、夜間の検索が楽になります。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。",
-          "startSec": 1140
+          "startSec": 1520
         },
         {
           "title": "Port 境界での失敗変換一回限り。夜の開発室では観測点を先に固定し、再現手順。",
           "preface": "同じ vendor error を複数層で翻訳すると、原因が二重に wrap され、Is/As が壊れます。変換は Port の実装に一回だけ置きます。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "repository 実装が network 失敗を domain の NotFound と Conflict に分けるなら、use case はその結果だけを見ます。HTTP handler は use case の Result を status へ写像するだけにし、fmt.Errorf を足さない構造が理想です。これを破ると、同じ失敗が 500 と 404 に揺れる regression が入りやすくなります。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 1520
+          "startSec": 1900
         }
       ]
     }
@@ -174,25 +174,25 @@
           "title": "静的 check と test の実行順序",
           "preface": "typecheck と lint を先に流すと、失敗の feedback loop が短くなります。integration より前に層違反を止める設計が効きます。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "層違反は dependency-cruiser で production のみを見ます。test file は解析対象外でも、fixture module が forbidden import を踏まないよう、定数だけの中立 module に寄せます。format check は auto-fix 可能なら別 job に分け、本体の赤は意味のある失敗だけにします。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 0
+          "startSec": 420
         },
         {
           "title": "flaky test の記録と再実行方針",
           "preface": "同じ test を連続実行して初めて見える不安定さがあります。sleep による緩和は再現手順が書けるまで入れない方が後で楽です。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "merge 前に unit を複数回回すのは手間ですが、hash 同期のような browser 依存は race が入りやすいです。再現手順が1行で書けるまで、sleep による緩和は入れない方が後で楽です。flaky を quarantine する時は issue を必須にし、無期限 skip を防ぎます。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 420
+          "startSec": 840
         },
         {
           "title": "job 分割と失敗通知の読みやすさ。夜の開発室では観測点を先に固定し、再現手順。",
           "preface": "1 job に全部入れると、ログのどこが赤か分からなくなります。package 単位か層単位で job を分けると、原因のファイルが早く見えます。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "GitHub Actions では matrix より単純な job 名の方が、深夜の通知から入りやすいです。retry は network 系だけに限定し、test 失敗の自動 retry は flaky を隠すので避けます。artifact には trace や coverage ではなく、失敗時の最小 log だけを残す方が探索が速いです。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 840
+          "startSec": 1260
         },
         {
           "title": "pre-commit と CI の責務境界",
           "preface": "hook は staged tree を見るので、local と CI で検査対象がずれることがあります。hook は速い check だけに絞るのが現実的です。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "format と lint の一部を hook に置き、typecheck と test は CI に任せる分割がよく使われます。hook が重いと skip 文化が生まれ、CI で初めて落ちる逆転が起きます。staged 限定の検査であることを README に一行書くと、新人の混乱が減ります。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 1260
+          "startSec": 1680
         }
       ]
     }
@@ -210,31 +210,31 @@
           "title": "Workers への HTTP 入口集約",
           "preface": "HTTP 入口を Hono に寄せた後、routing と error mapping の責務が読みやすくなります。1 worker 内で route を束ねる設計を前提に話します。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "request ごとに stateless で足りる範囲は Workers に置き、長寿命の coordination が要る時だけ DO を検討するのが YAGNI 的です。RPC で型を共有できるなら、OpenAPI を二重に持たない方が repo の正本が一つになります。env binding の名前は wrangler.toml と型定義を揃え、local と production で差が出る箇所を README に列挙します。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 0
+          "startSec": 380
         },
         {
           "title": "Durable Objects が要る条件",
           "preface": "単一 writer や room 単位の serial 実行が欲しい時に初めて価値が出ます。playback の現要件にはまだ該当しません。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "playback の現要件は一覧・詳細・音声直結で、強いリアルタイム協調はありません。だから DO は将来の lane に残し、今は Drive 読取と schema 検証の境界を太くする方が実利があります。DO を入れる判断基準を decision に書いておくと、機能追加のたびに議論が再発しません。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 380
+          "startSec": 760
         },
         {
           "title": "Drive 読取と manuscript 検証境界",
           "preface": "外部ストアから JSON を引く Infrastructure は、失敗を domain 語彙へ一度だけ写像します。schema 不適合の扱いを list と get で揃えます。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "Google Drive から原稿を読む repo は、parse 失敗を握りつぶさず、list では除外、get では not found に寄せます。これにより壊れた原稿が一覧を全滅させません。wav と json の pair 欠損も同じ方針で、観測は log、client には安定した error code だけを返します。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 760
+          "startSec": 1140
         },
         {
           "title": "wrangler dev と secret 導入",
           "preface": "local dev は binding の欠落で真っ白に見えることがあります。secret は AgentSecrets 経由で child process へ渡す流れを再確認します。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "runtime configuration の skill が示すとおり、secret は execution environment へ一度導入し、code 内に直書きしません。wrangler dev が参照する file と、vite dev が参照する env を混同しないよう、prefix と load 境界を表にまとめます。Drive credential が無い dev では in-memory repo に落ちる設計が、夜の UI 作業を止めません。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。",
-          "startSec": 1140
+          "startSec": 1520
         },
         {
           "title": "将来 lane への DO 保留判断。夜の開発室では観測点を先に固定し、再現手。",
           "preface": "リアルタイム視聴同期や room 単位の書き込みが来た時に DO を再評価します。今は decision に条件だけ残します。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "複数 client が同じ state を競合なく更新する要件が concrete になったら、DO の id 設計と migration 手順を別 issue に切ります。早すぎる DO 導入はデプロイと観測の複雑さだけを増やします。playback はまず manuscript と audio の正本を Drive に置く現行方針を維持します。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 1520
+          "startSec": 1900
         }
       ]
     }
@@ -252,37 +252,37 @@
           "title": "テストピラミッドの層ごとの責務。夜の開発室では観測点を先に固定し、再現手順を短。",
           "preface": "unit は契約の義務を、integration は配線を、sociable unit は近い協調者との振る舞いを見ます。同じ assert を複数層で繰り返さないことが核心です。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "同じ振る舞いを複数層で再 assert しないことが、pyramid の核心です。Fault Isolation を守ると、赤くなった file が原因に近づきます。層をまたいだ helper assert は、下位層の契約を上位層で再検証しているサインなので、削る候補にします。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。層違反は dependency-cruiser で production だけを見ます。test 置き場から forbidden import へ逃げないよう、定数だけの中立 module に寄せます。",
-          "startSec": 0
+          "startSec": 350
         },
         {
           "title": "sociable unit の置き場判断",
           "preface": "モックを増やさず協調者を近くに置く test は、refactor に強いです。ただし I/O 境界は本物を使わず、配線だけを見ます。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "vitest runner 上の sociable unit は、browser を起動しない範囲の協調を見ます。fake repository と real use case の組み合わせは、HTTP まで行かずに domain の配線を固められます。名前に sociable_unit を含め、config exclude に引っかからない suffix 規約も年末に一度確認します。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 350
+          "startSec": 700
         },
         {
           "title": "mutation testing の入口",
           "preface": "coverage だけでは足りない箇所を mutation が炙り出します。threshold を最初から高くしすぎると、意味の薄い assert が増えます。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "threshold を最初から高くしすぎると、意味の薄い assert が増えます。まず critical path の use case から少数 file を選び、kill されない mutant が仕様の穴を教えてくれます。mutation は CI の毎回ではなく nightly に回すと、feedback とコストのバランスが取れます。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 700
+          "startSec": 1050
         },
         {
           "title": "GWT と日本語 test 名の維持。夜の開発室では観測点を先に固定し、再現手。",
           "preface": "自然文の test 名は、仕様の索引になります。Given/When/Then を comment に残すと、年末の読み返しが楽です。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "英語の識別子と日本語の説明を分ける規約は、playback web で継続します。test 名は読み物として意味が通る長さに抑え、詳細は GWT comment に書きます。mutation で落ちた時も、test 名から仕様へ戻れるので、修正が速くなります。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。層違反は dependency-cruiser で production だけを見ます。test 置き場から forbidden import へ逃げないよう、定数だけの中立 module に寄せます。",
-          "startSec": 1050
+          "startSec": 1400
         },
         {
           "title": "fixture と schema の分離再確認",
           "preface": "年末の棚卸しでは、fixture が production import されていないかを grep します。schema file に値が混ざっていないかも見ます。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "dependency-cruiser と plain grep の両方で、test 置き場から forbidden 層への import が無いか確認します。共有定数は contracts か test support に閉じ、値のバリエーションは各 test file に置きます。来年の最初の refactor で事故が減ります。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 1400
+          "startSec": 1750
         },
         {
           "title": "来年の test 方針メモ。夜の開発室では観測点を先に固定し、再現手順を短いメ。",
           "preface": "test を増やすより、失敗の語彙と配置規約を揃える方が効きます。E2E は browser しか見られない経路だけに限定します。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "GWT と日本語の自然文 test 名を維持し、fixture は schema と分離します。E2E は本当に browser しか見られない経路だけに限定します。来年は mutation の対象 file を月1つ増やすくらいのペースが現実的です。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。層違反は dependency-cruiser で production だけを見ます。test 置き場から forbidden import へ逃げないよう、定数だけの中立 module に寄せます。",
-          "startSec": 1750
+          "startSec": 2100
         }
       ]
     }
@@ -300,31 +300,31 @@
           "title": "契約・決定・実装の scope split",
           "preface": "契約・決定・実装・未決 lane を分けると、議論の対象が固定されます。同じ decision に複数の問いを書かない方が DRY です。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "視覚言語と物語 concept を同じ decision に書くと DRY が壊れるので、問いごとに file を分けます。README には本文を写さず path 参照だけを置きます。PR は実装 issue 1つに寄せ、decision 変更は別 PR にすると review の負荷が下がります。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 0
+          "startSec": 380
         },
         {
           "title": "commit message に why を一行で",
           "preface": "why が一行で読める commit は、後から revert も cherry-pick も楽です。同じ file に意味の違う hunk が混ざった時の扱いも決めます。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "同じ file に意味の違う hunk が混ざった時は、無理に split せず message で明示する方が staged 事故が減ります。hook が staged tree を見る前提も忘れないでください。subject は 50 文字前後を目安に、body には再現手順ではなく判断理由を書きます。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 380
+          "startSec": 760
         },
         {
           "title": "PR サイズと review 可能な差分",
           "preface": "diff が長いと見落としが増えます。機械的な rename と意味のある変更を同じ PR に入れない方が安全です。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "formatter や lockfile の更新は単独 PR にし、仕様変更 PR とは混ぜません。reviewer が契約 diff だけに集中できるので、夜の review でも質が保てます。画像や JSON の大量差分は、なぜ必要かを PR 本文の一行で説明します。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。層違反は dependency-cruiser で production だけを見ます。test 置き場から forbidden import へ逃げないよう、定数だけの中立 module に寄せます。",
-          "startSec": 760
+          "startSec": 1140
         },
         {
           "title": "pre-commit hook と staged 限定検査",
           "preface": "hook は速い check に限定し、skip 文化を防ぎます。staged 以外を見ない hook の仕様を README に残します。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "commit skill の手順どおり、hook 失敗時は amend ではなく新しい commit で直します。staged に含め忘れた修正は、意図を message に書いて次 commit にします。CI が本番の gate であることを忘れると、local だけ通る状態が積み上がります。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 1140
+          "startSec": 1520
         },
         {
           "title": "session log と decision の書き分け",
           "preface": "作業ログと決定記録は別です。log は時系列、decision は問いと結論だけを残します。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "logging skill が示す振り分けに従い、再現手順は task file、判断は decisions.md、日次の事実は daily へ書きます。PR に長文を書きすぎると、正本が PR comment に散らばるので、残す場所を先に選びます。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。層違反は dependency-cruiser で production だけを見ます。test 置き場から forbidden import へ逃げないよう、定数だけの中立 module に寄せます。",
-          "startSec": 1520
+          "startSec": 1900
         }
       ]
     }
@@ -342,25 +342,25 @@
           "title": "webServer の environment 明示",
           "preface": "webServer は子 process として起動するため、親 shell の export だけでは足りないことがあります。playwright.config で env を明示する方が再現性が高いです。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "playwright.config で env を明示し、Vite 側の loadEnv 境界と突き合わせます。API stub を使うなら、本物の worker へ行かないことを network ログで一度確認します。env 名の typo は 404 ではなく起動失敗として出ることも多いので、起動 log を CI artifact に残します。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 0
+          "startSec": 420
         },
         {
           "title": "loadEnv と VITE prefix の境界",
           "preface": "client へ漏らす変数と server 専用変数を分けます。E2E が両方を読む構成では、二重の正本を作らないよう注意します。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "Vite は build 時に import.meta.env へ埋め込むので、E2E 実行時に変えたい値は webServer 起動前に固定されます。runtime で変えたい値は、server route か MSW で差し替える設計に寄せます。prefix 規約を表にまとめ、新しい env を足す PR では表も更新します。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 420
+          "startSec": 840
         },
         {
           "title": "flaky と設定ミスの分離手順。夜の開発室では観測点を先に固定し、再現手順を。",
           "preface": "失敗が flaky か設定かを分ける最短手順があります。同じ test を --repeat-each で回し、失敗時の trace を1本だけ保存します。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "同じ test を --repeat-each で回し、失敗時の trace を1本だけ保存します。environment 名の typo は 404 ではなく起動失敗として出ることも多いです。連続成功が ten 回出るまで flaky 扱いにせず、まず設定と data setup を疑います。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 840
+          "startSec": 1260
         },
         {
           "title": "E2E の範囲を狭く保つ基準。夜の開発室では観測点を先に固定し、再現手順を短い。",
           "preface": "browser しか見られない経路だけ E2E に置きます。domain ロジックの網羅は sociable unit と integration に任せます。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "list から detail への遷移と audio 直結の smoke は E2E の典型です。API response の細かい branch は worker test で見ます。E2E を増やす前に、失敗時の trace が読めるかを確認し、読めない trace は整備から入ります。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。層違反は dependency-cruiser で production だけを見ます。test 置き場から forbidden import へ逃げないよう、定数だけの中立 module に寄せます。",
-          "startSec": 1260
+          "startSec": 1680
         }
       ]
     }
@@ -378,31 +378,31 @@
           "title": "semantic 色の container 宣言",
           "preface": "semantic 色は container で宣言し、component は役割名だけを参照します。数値の正は CSS に置き、decision には合意だけを残します。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "episode-list が shared token を持ち、list-item と detail が同じ --el-list-topic-size を見る形にすると、list 行の topics 行と detail の topic 見出しが揃います。数値の正は CSS に置き、decision には合意だけを残します。新しい色を足す時は役割名を先に決め、hex を直書きしない運用にします。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 0
+          "startSec": 380
         },
         {
           "title": "list と detail の token 共有",
           "preface": "一覧行と詳細で typography がズレると、夜地の統一感が壊れます。shared token file か container 変数で揃えます。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "topics 行の font-size と line-height は list API が返す title 列と detail の見出しで同じ値を参照します。formatTopicTitles の出力と detail UI の見た目が一致しているか、visual regression なしでも sociable unit で class や variable 参照を確認できます。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 380
+          "startSec": 760
         },
         {
           "title": "Pico classless との上書き境界",
           "preface": "classless は article と main に既定の card 余白を付けます。夜地の full-bleed を守るには global で打ち消しが必要です。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "夜地の full-bleed を守るには global で main の max-width を打ち消し、行 UI は自前 CSS で囲いを剥がします。Pico は typography と audio controls の default として残し、視覚言語と衝突する部分だけ上書きします。上書きは変数ではなく役割セレクタに限定し、!important は避けます。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。",
-          "startSec": 760
+          "startSec": 1140
         },
         {
           "title": "audio controls と夜色のコントラスト",
           "preface": "再生 UI は操作可能なコントラストを満たす必要があります。Pico default に頼りつつ、背景との分離を確認します。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "コントラスト比は token 変更の PR で必ず目視します。focus ring が夜地で消えないか、keyboard 操作の順序が崩れないかを E2E smoke で一度見ます。色だけで状態を伝えないよう、再生中は icon か text でも区別します。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。層違反は dependency-cruiser で production だけを見ます。test 置き場から forbidden import へ逃げないよう、定数だけの中立 module に寄せます。",
-          "startSec": 1140
+          "startSec": 1520
         },
         {
           "title": "decision と実装の参照方向。夜の開発室では観測点を先に固定し、再現手順。",
           "preface": "視覚言語 decision には数値を写さず、CSS file への参照だけを置きます。実装が正、decision は合意の索引です。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
           "detail": "README や decision から値をコピーすると二重管理になります。変更は CSS を直し、decision は役割名の追加や削除だけを記録します。playback の夜 UI は、token の置き場を一つに決めたことで初めて細部の調整フェーズに入れます。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。CI と local の差は TZ、env、収集件数の三つに集約されることが多いです。watch と run の両方で一度は確認する癖を付けましょう。層違反は dependency-cruiser で production だけを見ます。test 置き場から forbidden import へ逃げないよう、定数だけの中立 module に寄せます。",
-          "startSec": 1520
+          "startSec": 1900
         }
       ]
     }
