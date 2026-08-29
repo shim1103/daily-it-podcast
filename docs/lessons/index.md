@@ -31,3 +31,8 @@
 - 2026-08-30 [feature/generator-manuscript-draft-limits-seconds-model] test 名の言語規約が上位（現地語）と個別指示（英語）で食い違ったら、規約 doc を「test名はすべて英語。名前でない自然言語（GWT comment・assert message）は現地語」の形へ更新してから実装を直す。philosophy の「規約 doc と現在の指示が食い違う時は指示を優先し規約を後続で整合させる」を実行する  # → layer:workflow
 - 2026-08-30 [feature/generator-manuscript-draft-limits-seconds-model] 自分が前 session で「復元」した内容が、その後の user の autosave commit で再び消えていたら、それは事故ではなく user の意図（消すべきものを消した）である可能性を先に疑う。append-only 台帳でも、user が整理・削除した版が最新なら、自 branch がたまたま持つ旧版を「復元」として持ち込まず、最新版へ揃える  # → layer:workflow
 - 2026-08-30 [feature/generator-manuscript-draft-limits-seconds-model] commit を意味単位で分ける指示のとき、`git add <明示path>` の前に `git status` で index に既に staged なものがないか確認する。前段の作業（subagent の git mv 等）で index へ入った無関係 file が、次の commit へ黙って混入する  # → layer:workflow
+- 2026-08-30 [feature/playback-list-episodes-audio-ref] manager が edit してよいのは Decision・調査・委譲・監査まで。実装差分は executor へ渡す。manager が直 edit すると「話を聞かない」「squad を飛ばす」と同じ失敗になる  # → layer:workflow
+- 2026-08-30 [feature/playback-list-episodes-audio-ref] 「共有資源をどこに置くか」を page 直下へ逃がすと、一覧全体の上に1つある見た目になり、行との対応が消える。資源の宿主は「どの domain 行に属するか」が読める位置へ置く  # → layer:terms
+- 2026-08-30 [feature/playback-list-episodes-audio-ref] Feature が ViewModel hook を所有すると、列挙だけの Feature が状態管理を抱え SRP が崩れる。Page が hook を呼び、Feature は props で描く  # → layer:terms
+- 2026-08-30 [feature/playback-list-episodes-audio-ref] 未完成の UI 設計を API 契約変更と同じ PR に混ぜると、review が設計欠陥を契約差分として固定してしまう。完成した契約だけを先に切り、未完成 UI は別 branch / WIP に残す  # → layer:workflow
+- 2026-08-30 [feature/playback-list-episodes-audio-ref] `null` と boolean を混ぜた props は「空」と「偽」が区別できず、discriminated union で明示した意図が崩れる。空は名前付き variant で表す  # → layer:terms

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ListEpisodesResponseSchema } from "../../../../contracts/index.ts";
+import { episodeAudioPath, ListEpisodesResponseSchema } from "../../../../contracts/index.ts";
 import type { EpisodeRepository, RawManuscriptEntry } from "../ports/episode-repository.ts";
 import { listEpisodes } from "./list-episodes.ts";
 
@@ -56,6 +56,7 @@ describe("listEpisodes", () => {
         title: "題",
         durationSec: 60,
         topics: [{ title: "第一" }, { title: "第二" }],
+        audioRef: episodeAudioPath("ep-1"),
       },
     ]);
   });

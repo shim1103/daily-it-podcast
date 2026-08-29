@@ -46,8 +46,22 @@ describe("EpisodeList", () => {
     const state: EpisodeListState = {
       status: "success",
       episodes: [
-        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
-        { episodeId: "ep-2", date: "2026-08-18", title: "題2", durationSec: 90, topics: [] },
+        {
+          episodeId: "ep-1",
+          date: "2026-08-17",
+          title: "題1",
+          durationSec: 60,
+          topics: [],
+          audioRef: "/episodes/ep-1/audio",
+        },
+        {
+          episodeId: "ep-2",
+          date: "2026-08-18",
+          title: "題2",
+          durationSec: 90,
+          topics: [],
+          audioRef: "/episodes/ep-2/audio",
+        },
       ],
       selectedEpisodeId: null,
       selectedEpisode: null,
@@ -79,7 +93,14 @@ describe("EpisodeList", () => {
     const state: EpisodeListState = {
       status: "success",
       episodes: [
-        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+        {
+          episodeId: "ep-1",
+          date: "2026-08-17",
+          title: "題1",
+          durationSec: 60,
+          topics: [],
+          audioRef: "/episodes/ep-1/audio",
+        },
       ],
       selectedEpisodeId: null,
       selectedEpisode: null,
@@ -101,8 +122,22 @@ describe("EpisodeList", () => {
     const state: EpisodeListState = {
       status: "success",
       episodes: [
-        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
-        { episodeId: "ep-2", date: "2026-08-18", title: "題2", durationSec: 90, topics: [] },
+        {
+          episodeId: "ep-1",
+          date: "2026-08-17",
+          title: "題1",
+          durationSec: 60,
+          topics: [],
+          audioRef: "/episodes/ep-1/audio",
+        },
+        {
+          episodeId: "ep-2",
+          date: "2026-08-18",
+          title: "題2",
+          durationSec: 90,
+          topics: [],
+          audioRef: "/episodes/ep-2/audio",
+        },
       ],
       selectedEpisodeId: "ep-1",
       selectedEpisode: {
@@ -142,7 +177,14 @@ describe("EpisodeList", () => {
     const state: EpisodeListState = {
       status: "success",
       episodes: [
-        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+        {
+          episodeId: "ep-1",
+          date: "2026-08-17",
+          title: "題1",
+          durationSec: 60,
+          topics: [],
+          audioRef: "/episodes/ep-1/audio",
+        },
       ],
       selectedEpisodeId: "ep-1",
       selectedEpisode: { status: "loading" },
@@ -166,7 +208,14 @@ describe("EpisodeList", () => {
     const state: EpisodeListState = {
       status: "success",
       episodes: [
-        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+        {
+          episodeId: "ep-1",
+          date: "2026-08-17",
+          title: "題1",
+          durationSec: 60,
+          topics: [],
+          audioRef: "/episodes/ep-1/audio",
+        },
       ],
       selectedEpisodeId: "ep-1",
       selectedEpisode: { status: "error" },
@@ -188,7 +237,14 @@ describe("EpisodeList", () => {
     const state: EpisodeListState = {
       status: "success",
       episodes: [
-        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+        {
+          episodeId: "ep-1",
+          date: "2026-08-17",
+          title: "題1",
+          durationSec: 60,
+          topics: [],
+          audioRef: "/episodes/ep-1/audio",
+        },
       ],
       selectedEpisodeId: null,
       selectedEpisode: null,
