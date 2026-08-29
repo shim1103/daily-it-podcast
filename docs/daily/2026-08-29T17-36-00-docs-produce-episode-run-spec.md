@@ -14,7 +14,7 @@ ProduceEpisode.Run の Ask→scope-split で A 契約（application/build stub�
 
 1. static / unit gate pass（generator coverage 91.1%）。pre-commit は node 22 で playback biome が必要だった。
 2. `origin/develop` へ rebase 成功（conflict なし）。
-3. ProduceEpisode.Run 本体は D のまま。C は build 3 本 + composition 結線。
+3. PR #85 を `develop` 向けに作成した。base との merge conflict なし。
 
 ### Commits
 
