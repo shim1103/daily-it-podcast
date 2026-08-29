@@ -64,7 +64,7 @@ repo 根 `contracts/` は Drive 上の表現（配置・`manuscript.schema.json`
 | 役割 | 接続 |
 |------|------|
 | 情報取得 | GetXAPIのみ。Portは`ItemSource`。複数源 merge は Composition が composite で行い Application は源個数を知らない |
-| 原稿 | Cursor CLI（Port は `TextWriter`） |
+| 原稿 | Cursor CLI（Port は `TextWriter`）。戻り JSON の parse・尺モデルは `docs/decisions/2026-08-30T03-06-53-feature-generator-manuscript-draft-limits-seconds-model.md` |
 | TTS | Gemini |
 | Drive | Google Drive + OAuth refresh |
 
