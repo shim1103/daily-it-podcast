@@ -1,5 +1,9 @@
 # lessons
 
+- 2026-08-30 [feature/generator-su-ni] Narrow Integration の「実物」は検証対象の外部境界 provider（network / TLS 等）を実際に使うこと。custom RoundTripper Spy で request を横取りして応答を合成すると Sociable Unit と同型になり、Scope 名だけ Narrow でも境界 I/O 契約は未検証になる。sibling Narrow（httptest TLS + DialTLS redirect）へ揃える  # → layer:terms
+- 2026-08-30 [feature/generator-su-ni] HTTP Adapter の Narrow 成功 path の最小完全集合は「動詞（GET/POST）+ 認証 header 載荷 + 成功成果物」。1つ欠けると偽緑、Adapter 内分岐や field 全 mapping を足すと Unit と二重になる。深い形の正しさは Sociable Unit が所有する  # → layer:terms
+- 2026-08-30 [feature/generator-su-ni] Sociable Unit の `httptest.NewRecorder` は RoundTripper Stub の応答合成であり境界到達ではない。DialTLS / NewTLSServer による実到達観測だけを Narrow へ移す。import 名だけで SU 汚染と誤判定しない  # → layer:platform
+- 2026-08-30 [feature/generator-su-ni] monorepo の pre-commit が別系統の engine 固定（例: Node 22）を要求するとき、宿主の別 major で npm install すると失敗する。要求 engine の binary を PATH 先頭へ置いてから install し、変更系統の hook を通す  # → layer:platform
 - 2026-08-30 [feature/generator-build-manuscript-draft-parse] 「機械判定可能なものはすべて検証する」と決めた Decision の下で parse を実装するとき、検証対象 field を1つずつ Decision の列挙と突き合わせる。似た性質の field 群（朗読 field 等）のうち1つだけ検証を落とす漏れは、実装が通ってしまうため test でも気づきにくい  # → layer:terms
 - 2026-08-30 [feature/generator-build-manuscript-draft-parse] test を書く前に、その言語・project の test 構造規約（Given-When-Then の「1 test = 1 仕様 = 1 GWT セット」、境界値は個別 case で列挙）を定める ref を読む。table 駆動で複数の別仕様を1 case・1 GWT コメントへ圧縮するのは規約違反。ref 未読のまま書くと後から全 test を分解し直すことになる  # → layer:workflow
 - 2026-08-30 [feature/generator-build-manuscript-draft-parse] 「今の定数値だとこの入力は到達不能だから、その経路の test は書けない／廃止する」という判断をしない。定数は変わる。定数の現在値に依存した test は、定数が変わって検証ロジックが壊れても・定数間の整合が崩れても検知できない。境界値 test は定数から相対的に（`Max + 1` 等）入力を組み、定数がどこへ動いても追随する形にする  # → layer:terms
