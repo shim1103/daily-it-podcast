@@ -13,6 +13,10 @@ const (
 	DraftIntroTarget = 20
 	DraftIntroMaxLen = 30
 
+	DraftClosingMinLen = 10
+	DraftClosingTarget = 20
+	DraftClosingMaxLen = 30
+
 	DraftTopicTitleMinLen = 10
 	DraftTopicTitleTarget = 20
 	DraftTopicTitleMaxLen = 30

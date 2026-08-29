@@ -19,6 +19,10 @@ func embedManuscriptDraftLimits(prompt string) string {
 		"{{INTRO_MAX}}", strconv.Itoa(constants.DraftIntroMaxLen),
 		"{{INTRO_TARGET}}", strconv.Itoa(constants.DraftIntroTarget),
 
+		"{{CLOSING_MIN}}", strconv.Itoa(constants.DraftClosingMinLen),
+		"{{CLOSING_MAX}}", strconv.Itoa(constants.DraftClosingMaxLen),
+		"{{CLOSING_TARGET}}", strconv.Itoa(constants.DraftClosingTarget),
+
 		"{{TOPIC_TITLE_MIN}}", strconv.Itoa(constants.DraftTopicTitleMinLen),
 		"{{TOPIC_TITLE_MAX}}", strconv.Itoa(constants.DraftTopicTitleMaxLen),
 		"{{TOPIC_TITLE_TARGET}}", strconv.Itoa(constants.DraftTopicTitleTarget),
