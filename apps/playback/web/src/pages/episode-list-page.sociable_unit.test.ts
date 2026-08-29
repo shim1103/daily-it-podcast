@@ -13,6 +13,7 @@ const validListEpisodesResponse: ListEpisodesResponse = {
       title: "題1",
       durationSec: 60,
       topics: [{ title: "小題1" }],
+      audioRef: "/episodes/ep-1/audio",
     },
     {
       episodeId: "ep-2",
@@ -20,6 +21,7 @@ const validListEpisodesResponse: ListEpisodesResponse = {
       title: "題2",
       durationSec: 90,
       topics: [{ title: "小題2" }],
+      audioRef: "/episodes/ep-2/audio",
     },
   ],
 };
