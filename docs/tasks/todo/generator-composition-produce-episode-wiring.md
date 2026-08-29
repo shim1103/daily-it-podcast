@@ -29,7 +29,7 @@ Composition で `ProduceEpisode` production graph を結線する。Application 
 ### Out of Scope
 
 1. `ProduceEpisode.Run` orchestration（D）。
-2. M1 HTTP / `secrettransport` 除去（`generator-composition-http-adapters.md`）。
+2. M1 HTTP / `secrettransport` 除去（済。本 Issue は現行 tree の結線慣習に倣う）。
 3. 第 2 情報源 Adapter 実装（D）。
 4. composite の dedup / sort 高度化（D）。
 5. Brief 文案・limits 数値チューニング（D）。
@@ -42,7 +42,7 @@ Composition で `ProduceEpisode` production graph を結線する。Application 
 
 ## 6. Constraints
 
-1. `secrettransport` 移行本体は M1 Issue の責務。本 Issue は現行 tree の結線慣習に倣う最小差分。
+1. `secrettransport` は target architecture から除去済み。再導入しない。本 Issue は現行 tree の結線慣習に倣う最小差分。
 2. credential 値を test / log / Error に出さない。
 3. 過去 Decision を変更・削除しない。
 
@@ -68,7 +68,7 @@ cd apps/generator && go test ./internal/composition/... -count=1
 
 ## 10. Risks
 
-1. M1 と同時に composition を広く触ると diff が混ざる。ProduceEpisode 結線に scope を限定する。
+1. composition を広く触ると ProduceEpisode 結線以外の diff が混ざる。結線に scope を限定する。
 
 ## 11. Notes
 

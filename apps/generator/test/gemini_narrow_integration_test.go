@@ -11,6 +11,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -20,14 +21,23 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
 )
 
-// newGeminiSynthesizerWithProxy は EndpointURL への接続を test server へ redirect した SpeechSynthesizer を返す。
+type geminiNarrowProbe struct {
+	method string
+	apiKey string
+}
+
+// newGeminiSynthesizerWithProxy は本番 host（generativelanguage.googleapis.com）への接続を test TLS server へ差し替えた SpeechSynthesizer を返す。
 //
 // @require handler は upstream request を観測・応答する。
-// @ensure dummy API key は Adapter へ直接渡し、標準 *http.Client がそのまま header へ乗せる。
-func newGeminiSynthesizerWithProxy(t *testing.T, apiKey string, handler http.HandlerFunc) *gemini.SpeechSynthesizer {
+// @ensure dummy API key は Adapter へ直接渡し、標準 *http.Client が x-goog-api-key header へ載せる。
+func newGeminiSynthesizerWithProxy(t *testing.T, apiKey string, handler http.HandlerFunc) (*gemini.SpeechSynthesizer, *geminiNarrowProbe) {
 	t.Helper()
-
-	upstream := httptest.NewTLSServer(handler)
+	probe := &geminiNarrowProbe{}
+	upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probe.method = r.Method
+		probe.apiKey = r.Header.Get("x-goog-api-key")
+		handler(w, r)
+	}))
 	t.Cleanup(upstream.Close)
 
 	httpClient := &http.Client{
@@ -38,7 +48,7 @@ func newGeminiSynthesizerWithProxy(t *testing.T, apiKey string, handler http.Han
 			},
 		},
 	}
-	return gemini.NewSpeechSynthesizer(httpClient, apiKey)
+	return gemini.NewSpeechSynthesizer(httpClient, apiKey), probe
 }
 
 func minimalGeminiPCM() []byte {
@@ -51,8 +61,15 @@ func writeGeminiAudioResponse(t *testing.T, w http.ResponseWriter, pcm []byte) {
 	t.Helper()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	body := `{"output_audio":{"data":"` + base64.StdEncoding.EncodeToString(pcm) + `"}}`
-	if _, err := w.Write([]byte(body)); err != nil {
+	body, err := json.Marshal(map[string]any{
+		"output_audio": map[string]any{
+			"data": base64.StdEncoding.EncodeToString(pcm),
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal fixture: %v", err)
+	}
+	if _, err := w.Write(body); err != nil {
 		t.Fatalf("write fixture: %v", err)
 	}
 }
@@ -68,11 +85,7 @@ func isWAVFixture(data []byte) bool {
 func TestGeminiSpeechSynthesizer_deliversPostWithAPIKeyHeader_whenUpstreamSucceeds(t *testing.T) {
 	// Given: dummy API key と、成功応答を返す upstream double
 	const apiKey = "narrow-gemini-real-value"
-	var gotMethod string
-	var gotAPIKey string
-	synth := newGeminiSynthesizerWithProxy(t, apiKey, func(w http.ResponseWriter, r *http.Request) {
-		gotMethod = r.Method
-		gotAPIKey = r.Header.Get("x-goog-api-key")
+	synth, probe := newGeminiSynthesizerWithProxy(t, apiKey, func(w http.ResponseWriter, r *http.Request) {
 		writeGeminiAudioResponse(t, w, minimalGeminiPCM())
 	})
 
@@ -83,11 +96,11 @@ func TestGeminiSpeechSynthesizer_deliversPostWithAPIKeyHeader_whenUpstreamSuccee
 	if err != nil {
 		t.Fatalf("Synthesize() error = %v, want nil", err)
 	}
-	if gotMethod != http.MethodPost {
-		t.Fatalf("method = %q, want %q", gotMethod, http.MethodPost)
+	if probe.method != http.MethodPost {
+		t.Fatalf("method = %q, want %q", probe.method, http.MethodPost)
 	}
-	if gotAPIKey != apiKey {
-		t.Fatalf("x-goog-api-key = %q, want %q", gotAPIKey, apiKey)
+	if probe.apiKey != apiKey {
+		t.Fatalf("x-goog-api-key = %q, want %q", probe.apiKey, apiKey)
 	}
 	if len(got.Content) == 0 {
 		t.Fatal("Content is empty")
@@ -100,7 +113,7 @@ func TestGeminiSpeechSynthesizer_deliversPostWithAPIKeyHeader_whenUpstreamSuccee
 func TestGeminiSpeechSynthesizer_excludesDummySecretFromErrorMessage_whenUpstreamFails(t *testing.T) {
 	// Given: dummy API key と、常に 400 を返す upstream double（非 retry で 1 回だけ）
 	const apiKey = "narrow-gemini-must-not-leak-value"
-	synth := newGeminiSynthesizerWithProxy(t, apiKey, func(w http.ResponseWriter, r *http.Request) {
+	synth, probe := newGeminiSynthesizerWithProxy(t, apiKey, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"error":"INVALID_ARGUMENT"}`))
@@ -112,6 +125,9 @@ func TestGeminiSpeechSynthesizer_excludesDummySecretFromErrorMessage_whenUpstrea
 	// Then: error は返るが、dummy secret 実値は error message に出ない
 	if err == nil {
 		t.Fatal("Synthesize() error = nil, want non-nil")
+	}
+	if probe.method != http.MethodPost {
+		t.Fatalf("method = %q, want %q", probe.method, http.MethodPost)
 	}
 	if strings.Contains(err.Error(), apiKey) {
 		t.Fatalf("error message %q contains dummy secret value", err.Error())

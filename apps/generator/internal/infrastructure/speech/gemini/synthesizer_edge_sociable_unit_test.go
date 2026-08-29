@@ -2,24 +2,24 @@ package gemini
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/base64"
 	"errors"
-	"net"
+	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
-	"time"
 )
 
 func TestSynthesize_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *testing.T) {
 
 	// Given: HTTP 200 だが output_audio が無い
-	var calls int
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		writeJSON(t, w, http.StatusOK, map[string]any{"status": "ok"})
-	})
+	responses := make([]fakeClientResponse, MaxAttempts)
+	for i := range responses {
+		responses[i] = fakeClientResponse{
+			status: http.StatusOK,
+			body:   jsonBody(t, map[string]any{"status": "ok"}),
+		}
+	}
+	synth, rt := newFakeSynthesizer(responses...)
 
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "audio 欠落")
@@ -28,21 +28,19 @@ func TestSynthesize_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *tes
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if calls != MaxAttempts {
-		t.Fatalf("calls = %d, want %d", calls, MaxAttempts)
-	}
-	if len(probe.TargetURLs) != MaxAttempts {
-		t.Fatalf("request count = %d", len(probe.TargetURLs))
+	if len(rt.calls) != MaxAttempts {
+		t.Fatalf("call count = %d, want %d", len(rt.calls), MaxAttempts)
 	}
 }
 
 func TestSynthesize_returnsInfrastructureError_whenResponseBodyInvalidJSON(t *testing.T) {
 
 	// Given: 壊れた JSON
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`not-json`))
-	})
+	responses := make([]fakeClientResponse, MaxAttempts)
+	for i := range responses {
+		responses[i] = fakeClientResponse{status: http.StatusOK, body: []byte(`not-json`)}
+	}
+	synth, rt := newFakeSynthesizer(responses...)
 
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "decode 失敗")
@@ -51,8 +49,8 @@ func TestSynthesize_returnsInfrastructureError_whenResponseBodyInvalidJSON(t *te
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if len(probe.TargetURLs) != MaxAttempts {
-		t.Fatalf("request count = %d", len(probe.TargetURLs))
+	if len(rt.calls) != MaxAttempts {
+		t.Fatalf("call count = %d, want %d", len(rt.calls), MaxAttempts)
 	}
 }
 
@@ -74,15 +72,10 @@ func TestSynthesize_returnsInfrastructureError_whenClientNil(t *testing.T) {
 func TestSynthesize_retriesTooManyRequests_thenSucceeds(t *testing.T) {
 
 	// Given: 1 回目 429、2 回目成功
-	var calls int
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		if calls == 1 {
-			writeJSON(t, w, http.StatusTooManyRequests, map[string]any{"error": "RESOURCE_EXHAUSTED"})
-			return
-		}
-		writeJSON(t, w, http.StatusOK, audioInteractionResponse(minimalPCM()))
-	})
+	synth, rt := newFakeSynthesizer(
+		fakeClientResponse{status: http.StatusTooManyRequests, body: jsonBody(t, map[string]any{"error": "RESOURCE_EXHAUSTED"})},
+		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
+	)
 
 	// When: Synthesize する
 	got, err := synth.Synthesize(context.Background(), "429 retry")
@@ -94,16 +87,17 @@ func TestSynthesize_retriesTooManyRequests_thenSucceeds(t *testing.T) {
 	if len(got.Content) == 0 {
 		t.Fatal("Content is empty")
 	}
-	if len(probe.TargetURLs) != 2 {
-		t.Fatalf("request count = %d, want 2", len(probe.TargetURLs))
+	if len(rt.calls) != 2 {
+		t.Fatalf("call count = %d, want 2", len(rt.calls))
 	}
 }
 
 func TestSynthesize_doesNotRetry_whenStatusForbidden(t *testing.T) {
 
 	// Given: 403
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(t, w, http.StatusForbidden, map[string]any{"error": "PERMISSION_DENIED"})
+	synth, rt := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusForbidden,
+		body:   jsonBody(t, map[string]any{"error": "PERMISSION_DENIED"}),
 	})
 
 	// When: Synthesize する
@@ -113,16 +107,17 @@ func TestSynthesize_doesNotRetry_whenStatusForbidden(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if len(probe.TargetURLs) != 1 {
-		t.Fatalf("request count = %d, want 1", len(probe.TargetURLs))
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(rt.calls))
 	}
 }
 
 func TestSynthesize_returnsInfrastructureError_whenUnexpectedStatus(t *testing.T) {
 
 	// Given: 404
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(t, w, http.StatusNotFound, map[string]any{"error": "NOT_FOUND"})
+	synth, rt := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusNotFound,
+		body:   jsonBody(t, map[string]any{"error": "NOT_FOUND"}),
 	})
 
 	// When: Synthesize する
@@ -132,19 +127,24 @@ func TestSynthesize_returnsInfrastructureError_whenUnexpectedStatus(t *testing.T
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if len(probe.TargetURLs) != 1 {
-		t.Fatalf("request count = %d, want 1", len(probe.TargetURLs))
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(rt.calls))
 	}
 }
 
 func TestSynthesize_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
 
 	// Given: 不正 base64
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(t, w, http.StatusOK, map[string]any{
-			"output_audio": map[string]any{"data": "!!!not-base64!!!"},
-		})
-	})
+	responses := make([]fakeClientResponse, MaxAttempts)
+	for i := range responses {
+		responses[i] = fakeClientResponse{
+			status: http.StatusOK,
+			body: jsonBody(t, map[string]any{
+				"output_audio": map[string]any{"data": "!!!not-base64!!!"},
+			}),
+		}
+	}
+	synth, rt := newFakeSynthesizer(responses...)
 
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "bad b64")
@@ -153,8 +153,8 @@ func TestSynthesize_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if len(probe.TargetURLs) != MaxAttempts {
-		t.Fatalf("request count = %d", len(probe.TargetURLs))
+	if len(rt.calls) != MaxAttempts {
+		t.Fatalf("call count = %d, want %d", len(rt.calls), MaxAttempts)
 	}
 }
 
@@ -162,12 +162,13 @@ func TestSynthesize_returnsInfrastructureError_whenPCMLengthOdd(t *testing.T) {
 
 	// Given: 奇数 byte の PCM
 	oddPCM := []byte{0x00, 0x01, 0x02}
-	synth, probe := newSynthesizerWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(t, w, http.StatusOK, map[string]any{
+	synth, rt := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusOK,
+		body: jsonBody(t, map[string]any{
 			"output_audio": map[string]any{
 				"data": base64.StdEncoding.EncodeToString(oddPCM),
 			},
-		})
+		}),
 	})
 
 	// When: Synthesize する
@@ -177,8 +178,8 @@ func TestSynthesize_returnsInfrastructureError_whenPCMLengthOdd(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if len(probe.TargetURLs) != 1 {
-		t.Fatalf("request count = %d, want 1", len(probe.TargetURLs))
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(rt.calls))
 	}
 }
 
@@ -197,27 +198,18 @@ func TestSynthesize_returnsInfrastructureError_whenReceiverNil(t *testing.T) {
 	}
 	var infra *Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *Error", err, err)
+		t.Fatalf("error type %T (%v), want *Error", err, infra)
 	}
 }
 
 func TestSynthesize_returnsInfrastructureError_whenUpstreamDoFails(t *testing.T) {
 
-	// Given: 閉じた upstream server への接続
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(t, w, http.StatusServiceUnavailable, map[string]any{"error": "UNAVAILABLE"})
-	}))
-	addr := server.Listener.Addr().String()
-	server.Close()
-
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			DialTLSContext: func(ctx context.Context, network, addrIgnored string) (net.Conn, error) {
-				return tls.Dial(network, addr, &tls.Config{InsecureSkipVerify: true})
-			},
-		},
+	// Given: Client.Do が常に transport error を返す
+	responses := make([]fakeClientResponse, MaxAttempts)
+	for i := range responses {
+		responses[i] = fakeClientResponse{err: fmt.Errorf("connection refused")}
 	}
-	synth := newSpeechSynthesizerForTest(httpClient, "gemini-test-real-value", func(time.Duration) {})
+	synth, rt := newFakeSynthesizer(responses...)
 
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "network 失敗")
@@ -225,5 +217,8 @@ func TestSynthesize_returnsInfrastructureError_whenUpstreamDoFails(t *testing.T)
 	// Then: Infrastructure Error
 	if err == nil {
 		t.Fatal("expected error")
+	}
+	if len(rt.calls) != MaxAttempts {
+		t.Fatalf("call count = %d, want %d", len(rt.calls), MaxAttempts)
 	}
 }
