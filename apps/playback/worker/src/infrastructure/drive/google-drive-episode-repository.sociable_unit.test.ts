@@ -3,6 +3,7 @@ import { EpisodeNotFoundError } from "../../entities/errors/episode-not-found-er
 import { DriveError } from "./drive-error.ts";
 import { GoogleDriveEpisodeRepository } from "./google-drive-episode-repository.ts";
 import { ManuscriptSchema } from "./manuscript-schema.ts";
+import { validAudioBytes } from "../../test/fixtures/audio-bytes.ts";
 
 /**
  * Drive HTTP を Stub 化した `fetch` 相当関数。
@@ -38,10 +39,6 @@ const validManuscript = {
     closing: "終了",
   },
 };
-
-const audioBytes = new Uint8Array([
-  0x52, 0x49, 0x46, 0x46, 0x04, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
-]);
 
 type DriveFileEntry = { id: string; name: string };
 
@@ -131,6 +128,41 @@ describe("GoogleDriveEpisodeRepository", () => {
       // Then: 適合分が出る
       expect(got).toHaveLength(1);
       expect(got[0]?.episodeId).toBe("ep-1");
+    });
+
+    it("一覧の topics[].title 列が原稿 body.topics[].title 列と順序込みで一致する", async () => {
+      // Given: フォルダ直下に複数 topic を持つ適合 JSON がある
+      const multiTopicManuscript = {
+        ...validManuscript,
+        body: {
+          ...validManuscript.body,
+          topics: [
+            { title: "第一トピック", preface: "前1", detail: "詳1", startSec: 0 },
+            { title: "第二トピック", preface: "前2", detail: "詳2", startSec: 30 },
+            { title: "第三トピック", preface: "前3", detail: "詳3", startSec: 60 },
+          ],
+        },
+      };
+      const fetchStub = stubFetch({
+        files: [{ id: "file-json-1", name: "ep-1.json" }],
+        downloads: { "file-json-1": JSON.stringify(multiTopicManuscript) },
+      });
+      const repository = new GoogleDriveEpisodeRepository({
+        fetch: fetchStub,
+        oauth: dummyOAuthConfig,
+        folderId: dummyFolderId,
+      });
+
+      // When: 一覧を取得する
+      const got = await repository.listEpisodes();
+
+      // Then: 題名だけを射影し、順序も保つ
+      expect(got).toHaveLength(1);
+      expect(got[0]?.topics.map((topic) => topic.title)).toEqual([
+        "第一トピック",
+        "第二トピック",
+        "第三トピック",
+      ]);
     });
 
     it("schema 不適合 JSON は一覧に出ない", async () => {
@@ -380,7 +412,7 @@ describe("GoogleDriveEpisodeRepository", () => {
         ],
         downloads: {
           "file-json-1": JSON.stringify(validManuscript),
-          "file-wav-1": audioBytes,
+          "file-wav-1": validAudioBytes,
         },
       });
       const repository = new GoogleDriveEpisodeRepository({
@@ -393,7 +425,7 @@ describe("GoogleDriveEpisodeRepository", () => {
       const got = await repository.getEpisodeAudio("ep-1");
 
       // Then: byte が一致する
-      expect(got).toEqual(audioBytes);
+      expect(got).toEqual(validAudioBytes);
     });
 
     it("wav が無い（json のみ）は EpisodeNotFoundError になる", async () => {
@@ -504,7 +536,7 @@ describe("GoogleDriveEpisodeRepository", () => {
         ],
         downloads: {
           "file-json-1": JSON.stringify(validManuscript),
-          "file-wav-1": audioBytes,
+          "file-wav-1": validAudioBytes,
         },
       });
       const repository = new GoogleDriveEpisodeRepository({
@@ -517,7 +549,7 @@ describe("GoogleDriveEpisodeRepository", () => {
       const got = await repository.getEpisodeAudio("ep-1");
 
       // Then: 絞り込み経由でも対象が正しく取れる
-      expect(got).toEqual(audioBytes);
+      expect(got).toEqual(validAudioBytes);
     });
   });
 

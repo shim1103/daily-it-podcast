@@ -7,6 +7,17 @@ import { EpisodeList } from "./episode-list.tsx";
 const baseUrl = "https://example.test";
 
 describe("EpisodeList", () => {
+  it("root に episode-list class を付ける", () => {
+    // Given: loading state（children の有無に依存しない）
+    const state: EpisodeListState = { status: "loading" };
+
+    // When: JSX として render する
+    const { container } = render(createElement(EpisodeList, { state, baseUrl, onSelect: vi.fn() }));
+
+    // Then: list 容器の class が root にある（見た目は CSS 側の責務）
+    expect(container.firstElementChild?.className).toBe("episode-list");
+  });
+
   it("loading state の時、episode item を描画しない", () => {
     // Given: loading state
     const state: EpisodeListState = { status: "loading" };
@@ -23,8 +34,8 @@ describe("EpisodeList", () => {
     const state: EpisodeListState = {
       status: "success",
       episodes: [
-        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60 },
-        { episodeId: "ep-2", date: "2026-08-18", title: "題2", durationSec: 90 },
+        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+        { episodeId: "ep-2", date: "2026-08-18", title: "題2", durationSec: 90, topics: [] },
       ],
       selectedEpisodeId: null,
       selectedEpisode: null,
@@ -55,7 +66,9 @@ describe("EpisodeList", () => {
     // Given: episode 1 件を持つ success state
     const state: EpisodeListState = {
       status: "success",
-      episodes: [{ episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60 }],
+      episodes: [
+        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+      ],
       selectedEpisodeId: null,
       selectedEpisode: null,
     };
@@ -78,8 +91,8 @@ describe("EpisodeList", () => {
     const state: EpisodeListState = {
       status: "success",
       episodes: [
-        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60 },
-        { episodeId: "ep-2", date: "2026-08-18", title: "題2", durationSec: 90 },
+        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+        { episodeId: "ep-2", date: "2026-08-18", title: "題2", durationSec: 90, topics: [] },
       ],
       selectedEpisodeId: "ep-1",
       selectedEpisode: {
@@ -115,7 +128,7 @@ describe("EpisodeList", () => {
     // Then: 選択中 item の直後（次の兄弟）に詳細が展開される
     const items = Array.from(container.firstElementChild?.children ?? []);
     const selectedItemIndex = items.findIndex(
-      (node) => node.querySelector("[data-episode-id]")?.textContent === "ep-1",
+      (node) => node.querySelector("[data-episode-title]")?.textContent === "題1",
     );
     expect(items[selectedItemIndex + 1]?.querySelector("[data-topic-title]")).not.toBeNull();
   });
@@ -124,7 +137,9 @@ describe("EpisodeList", () => {
     // Given: ep-1 を選択済み、詳細取得 loading の state
     const state: EpisodeListState = {
       status: "success",
-      episodes: [{ episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60 }],
+      episodes: [
+        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+      ],
       selectedEpisodeId: "ep-1",
       selectedEpisode: { status: "loading" },
     };
@@ -142,7 +157,9 @@ describe("EpisodeList", () => {
     // Given: ep-1 を選択済み、詳細取得 error の state
     const state: EpisodeListState = {
       status: "success",
-      episodes: [{ episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60 }],
+      episodes: [
+        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+      ],
       selectedEpisodeId: "ep-1",
       selectedEpisode: { status: "error" },
     };
@@ -160,7 +177,9 @@ describe("EpisodeList", () => {
     // Given: EpisodeList を同一 element 参照で 2 回 render する
     const state: EpisodeListState = {
       status: "success",
-      episodes: [{ episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60 }],
+      episodes: [
+        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+      ],
       selectedEpisodeId: null,
       selectedEpisode: null,
     };

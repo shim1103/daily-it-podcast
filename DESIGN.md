@@ -1,6 +1,6 @@
 # DESIGN
 
-最終更新: 2026-08-27（runtime config と secret の境界）
+最終更新: 2026-08-29
 
 地図・使い方・受け入れ・runtime config inventory は `README.md`。deploy・Access・公開境界は `DEPLOY.md`。Drive に載る表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く（パス百科・Drive / HTTP 契約・運用方針の写しは置かない）。
 
@@ -37,7 +37,7 @@
 | `playback/web/src/{pages,components/feature,components/primitive,view-models,api,utils,lib}` | frontend skill（role と dir は 1 対 1。Feature/Primitive 分割と層 gate は `docs/decisions/2026-08-25T18-42-00-chore-playback-worker-web-layer.md`） |
 | `playback/contracts` | web↔worker HTTP 境界共有型（API Client・Route・Controller・Application・Composition が import。Infrastructure は禁止） |
 
-`playback/web` は Vite + TypeScript + React + Pico.css classless。`playback/worker` の HTTP 入口は Hono、web↔worker の型同期は Hono RPC。Next.js / shadcn / TanStack は使わない（`docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`）。
+`playback/web` は Vite + TypeScript + React + Pico.css classless。`playback/worker` の HTTP 入口は Hono、web↔worker の型同期は Hono RPC。Next.js / shadcn / TanStack は使わない（`docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`）。Playback list の concept / setting / motif と視覚言語の正は `docs/decisions/2026-08-28T19-20-00-docs-playback-list-page-design.md` / `docs/decisions/2026-08-28T19-20-01-docs-playback-list-page-design.md`（本書へ写さない）。
 
 依存は内側へ。Composition Root だけが全層を結線する。
 
@@ -113,7 +113,7 @@ Scope × Sociability: [levels](file:///Users/shim0729/.claude/skills/testing-str
 |------|----------|
 | README | 地図・使い方・受け入れ・runtime config inventory |
 | DESIGN | 本ファイル（層・依存・所有・test 規則のみ） |
-| DEPLOY | deploy・Access・公開境界（運用方針の SSOT） |
+| DEPLOY | deploy・Access・公開境界（運用 SSOT。進捗は `docs/tasks/todo/playback-lane.md`） |
 | contracts/ | Drive 配置・原稿 JSON |
 
 dir 単位の README は置かない。SPEC / PROPOSAL は置かない。運用方針を README / DESIGN へ写さない。

@@ -1,4 +1,6 @@
 import "@picocss/pico/css/pico.classless.min.css";
+/* Pico の後: global 夜背景で上書き（Page には書かない） */
+import "./src/styles/app.css";
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { createPlaybackApiClient } from "./src/api/playback-api-client.ts";

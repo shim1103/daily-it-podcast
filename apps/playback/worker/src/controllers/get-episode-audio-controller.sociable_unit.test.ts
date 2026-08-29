@@ -3,7 +3,8 @@ import { NotFoundError, UnavailableError, ValidationError } from "../../../contr
 import { EpisodeNotFoundError } from "../entities/errors/episode-not-found-error.ts";
 import { DriveError } from "../infrastructure/drive/drive-error.ts";
 import { createGetEpisodeAudioController } from "./get-episode-audio-controller.ts";
-import { createFakeGetEpisodeAudioUseCase, validAudioBytes } from "./fake-use-cases.ts";
+import { validAudioBytes } from "../test/fixtures/audio-bytes.ts";
+import { createFakeGetEpisodeAudioUseCase } from "./fake-use-cases.ts";
 
 describe("createGetEpisodeAudioController", () => {
   it("UseCase が成功する時、音声 byte を返す", async () => {
