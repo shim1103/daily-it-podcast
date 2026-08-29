@@ -56,6 +56,7 @@ export const validListEpisodesResponse: ListEpisodesResponse = {
     title,
     durationSec,
     topics: body.topics.map((topic) => ({ title: topic.title })),
+    audioRef: episodeAudioPath(episodeId),
   })),
 };
 

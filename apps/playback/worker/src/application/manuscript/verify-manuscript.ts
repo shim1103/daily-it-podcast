@@ -1,3 +1,4 @@
+import { episodeAudioPath } from "../../../../contracts/index.ts";
 import { EpisodeContentError } from "../../entities/errors/episode-content-error.ts";
 import type { EpisodeListItem, EpisodeManuscript } from "../ports/episode-repository.ts";
 import { ManuscriptSchema } from "./manuscript-schema.ts";
@@ -41,5 +42,9 @@ export function selectValidListItem(json: unknown, stem: string): EpisodeListIte
     return undefined;
   }
   const { body, ...rest } = parsed.data;
-  return { ...rest, topics: body.topics.map((topic) => ({ title: topic.title })) };
+  return {
+    ...rest,
+    topics: body.topics.map((topic) => ({ title: topic.title })),
+    audioRef: episodeAudioPath(parsed.data.episodeId),
+  };
 }

@@ -37,6 +37,7 @@ const episodeListItemSchema = z.strictObject({
   title: titleSchema,
   durationSec: durationSecSchema,
   topics: z.array(listTopicSchema),
+  audioRef: z.string().min(1),
 });
 
 export const listEpisodesPath = "/episodes" as const;
