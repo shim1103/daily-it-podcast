@@ -1,7 +1,17 @@
 /* episode-list — hairline + PC幅の上限（mobileは全幅） */
 
 .episode-list {
+  --el-label: #f5f5f7;
+  --el-secondary: rgba(235, 235, 245, 0.55);
+  --el-tertiary: rgba(235, 235, 245, 0.38);
+  --el-accent: #bf5af2;
   --el-separator: rgba(235, 235, 245, 0.22);
+  --el-pad-x: 28px;
+  --el-body-size: 15px;
+  --el-meta-size: 12px;
+  --el-list-topic-size: 13px;
+  --el-detail-body-size: 12px;
+  --el-detail-topic-size: 13px;
 
   display: flex;
   flex-direction: column;

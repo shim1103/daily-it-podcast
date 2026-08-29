@@ -3,8 +3,8 @@ import { NotFoundError, UnavailableError, ValidationError } from "../../../contr
 import { EpisodeContentError } from "../entities/errors/episode-content-error.ts";
 import { DriveError } from "../infrastructure/drive/drive-error.ts";
 import { createGetEpisodeAudioController } from "./get-episode-audio-controller.ts";
-import { validAudioBytes } from "../test/fixtures/audio-bytes.ts";
-import { createFakeGetEpisodeAudioUseCase } from "./fake-use-cases.ts";
+import { createFakeEpisodeAudioBytes } from "../test/fixtures/audio-bytes.ts";
+import { createFakeGetEpisodeAudioUseCase, validGetEpisodeResponse } from "./fake-use-cases.ts";
 
 describe("createGetEpisodeAudioController", () => {
   it("UseCase が成功する時、音声 byte を返す", async () => {
@@ -14,9 +14,27 @@ describe("createGetEpisodeAudioController", () => {
 
     // When: 有効な episodeId を unknown として渡す
     const got = await controller({ episodeId: "ep-1" });
+    const expected = createFakeEpisodeAudioBytes(validGetEpisodeResponse.durationSec);
 
-    // Then: Fake が返した byte と一致する
-    expect(got).toEqual(validAudioBytes);
+    // Then: Fake が返した再生可能 WAV と尺が一致する
+    expect(got.byteLength).toBe(expected.byteLength);
+    expect(got[0]).toBe(0x52);
+    expect(got[1]).toBe(0x49);
+    expect(got[2]).toBe(0x46);
+    expect(got[3]).toBe(0x46);
+  });
+
+  it("同一 episodeId を連続取得する時、キャッシュ済み WAV を返す", async () => {
+    // Given: wav byte を返す Fake UseCase
+    const useCase = createFakeGetEpisodeAudioUseCase();
+    const controller = createGetEpisodeAudioController(useCase);
+
+    // When: 同じ episodeId で2回取得する
+    const first = await controller({ episodeId: "ep-1" });
+    const second = await controller({ episodeId: "ep-1" });
+
+    // Then: 同一参照の byte を返す
+    expect(second).toBe(first);
   });
 
   it("episodeId が空の時、ValidationError を throw する", async () => {

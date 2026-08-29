@@ -22,7 +22,7 @@ export type EpisodeListPageProps = {
  *   selectedEpisodeId=null で mount 時の hash を消す race を防ぐ）
  */
 export function EpisodeListPage({ apiClient, baseUrl }: EpisodeListPageProps): ReactElement {
-  const { state, load, select } = useEpisodeListViewModel(apiClient);
+  const { state, load, select, audioElementRef, seek } = useEpisodeListViewModel(apiClient);
 
   // why: load() 完了前は hash 同期を保留する（ViewModel の load ライフサイクルとの結合であり、
   //   hash 同期の関心事ではないため useHashSync ではなく page が持つ）
@@ -73,5 +73,13 @@ export function EpisodeListPage({ apiClient, baseUrl }: EpisodeListPageProps): R
     [select],
   );
 
-  return <EpisodeList state={state} baseUrl={baseUrl} onSelect={onSelect} />;
+  return (
+    <EpisodeList
+      state={state}
+      baseUrl={baseUrl}
+      onSelect={onSelect}
+      audioElementRef={audioElementRef}
+      onSeek={seek}
+    />
+  );
 }

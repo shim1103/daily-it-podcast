@@ -14,7 +14,7 @@ article.episode-list-item {
   --eli-edge-gray: rgba(235, 235, 245, 0.28);
   --eli-play-bg: #0a0a0c;
   --eli-play-text: rgba(235, 235, 245, 0.72);
-  --eli-title-size: 15px;
+  --eli-title-size: 17px;
   --eli-meta-size: 12px;
   --eli-play-size: 15px;
   --eli-pad-x: 28px;
@@ -39,7 +39,8 @@ article.episode-list-item > .episode-list-item__hit {
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
     "date play"
-    "title play";
+    "title play"
+    "topics play";
   gap: 4px 16px;
   align-items: center;
   width: 100% !important;
@@ -118,6 +119,26 @@ article.episode-list-item > .episode-list-item__hit:focus:not(:focus-visible):no
   font-weight: 500;
   letter-spacing: -0.015em;
   line-height: 1.3;
+}
+
+.episode-list-item__topics {
+  grid-area: topics;
+  min-width: 0;
+}
+
+.episode-list-item__topics [data-episode-topics] {
+  display: block;
+  color: var(--eli-secondary);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Helvetica Neue",
+    sans-serif;
+  font-size: var(--el-list-topic-size, 13px);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
 }
 
 /* Apple Podcasts 風: 黒地 + gray 文字の角丸再生 pill（機能は親 button のまま） */

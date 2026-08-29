@@ -138,6 +138,9 @@
 299：2026-08-29 [feature/generator-composition-http-adapters] flow に「invoke Opus: review」等の step が明記されていても、直前の note が「指示がない限り Opus に訊くな」なら、review step も相談の一種として抑制側に倒す。曖昧な線引きは note（後から足された制約）の趣旨を優先し、迷ったら重い外部 model を挟まず manager 自身が read-only で audit する  # → layer:workflow
 300：2026-08-29 [feature/generator-composition-http-adapters] package doc は package が現に何をするかを書く。責務が移り「もう解決しない処理」（例：秘密の解決を実装が担わなくなり注入で受けるようになった）を記述に残すと、次の読み手が消えた責務を探す。実装を変えたら doc の主語・動詞をその場で実態へ合わせる  # → layer:terms
 301：2026-08-29 [feature/generator-composition-http-adapters] 親 process が秘密の生値をメモリに持つこと自体は、その project が「実行環境（CI 等）が env で値を注入する」設計を正式採用しているなら許容。「process が値を一度も保持しない」zero-knowledge 思想は専用の秘密供給機構（proxy/exec wrapper）を前提にしており、その機構を採らないと決めた時点で superseded。値を関数参照で遅延して渡しても、呼んだ瞬間に生値がメモリに出るので zero-knowledge にはならない  # → layer:terms
+302：2026-08-29 [docs/playback-list-detail-page-design] user が確定した表示形式（番号区切り・区切り文字など）は、一般的な慣習や以前の自分の変更で上書きしない。修正前に直近の user 指定と仕様記録を正として照合する  # → layer:workflow
+303：2026-08-29 [docs/playback-list-detail-page-design] dev/test 用のメディア byte 列は、サイズ最小化や cap だけで「再生不能でもよい」と省略しない。実ブラウザでの再生互換条件は fixture 設計の一部として、生成直後に再生可否を確認する  # → layer:platform
+304：2026-08-29 [docs/playback-list-detail-page-design] 検証用 fake データの尺を cap で短縮すると、seek・progress・duration 表示の検証が本番契約とずれる。検証目的のデータは契約上の尺と一致させる  # → layer:terms
 302：2026-08-29 [docs/produce-episode-run-spec] TextWriter brief の固定 Prompt 散文は Domain 方針であり entities/constants が正。application/build に template 散文を置くと Domain 文案が Application 詳細へ漏れる  # → layer:terms
 303：2026-08-29 [docs/produce-episode-run-spec] parse する数値定数と embed 専用 Prompt は file 責務で分ける。`{{LIMITS}}` 文案を build が prose 組立すると SSOT が limits と Prompt に分裂する。template へ field 単位 placeholder を置き build は定数注入だけに留める  # → layer:terms
 304：2026-08-29 [docs/produce-episode-run-spec] Builder orchestration（ProduceEpisode.Run）と build helper 実装・composition 結線は scope-split で別 bucket。Run を C に混ぜると D を lane 代用にして Issue 化を逃げやすい  # → layer:workflow
