@@ -10,7 +10,7 @@ prev: なし
 
 playback worker の Application/Infra 境界で、原稿 JSON の schema/stem 検証を Driven Adapter から取り除いた。`EpisodeRepository` Port は Google Drive / メモリから取得したままの生 payload を返し、`get-episode` / `list-episodes` / `get-episode-audio` use-case が `application/manuscript` の純関数で検証する。generator の write 方向（`port.EpisodeWriter` は生 bytes を受け `WriteEpisode.Run` が `schema.Validate` する）の read 鏡像に揃えた。`EpisodeNotFoundError` は external `NotFoundError` と紛らわしいため `EpisodeContentError` へ改名。external 契約（HTTP 応答形・error code・status）は不変。
 
-当初 `/issue-manager` で `docs/tasks/todo/playback-application-infra-boundary.md` を実装し完了・削除まで進めたが、その実装は旧 Decision（`2026-08-29T13-43-53`）に沿って「Port は検証済み型を返す・Infra 内で検証層を呼ぶ」形だった。shim の追加指示で「Infra はそのまま返す・use-case が検証する」へ方針転換し、旧 Decision の §1-2 / §3-1 を supersede する新 Decision を起こした。
+当初 `/issue-manager` で `docs/tasks/todo/playback-application-infra-boundary.md` を実装し完了・削除まで進めたが、その実装は先行 Decision（`2026-08-29T13-43-53`）に沿って「Port は検証済み型を返す・Infra 内で検証層を呼ぶ」形だった。shim の追加指示で「Infra はそのまま返す・use-case が検証する」へ方針転換し、新 Decision を新規作成した。その §1-4 に先行 Decision の §1-2 / §3-1 を置き換える旨と維持範囲を明記。先行 Decision の file 本文は変更していない（読み手は新しい file を正とする）。
 
 ## 2. Changes
 
@@ -23,7 +23,7 @@ playback worker の Application/Infra 境界で、原稿 JSON の schema/stem �
 7. 複合失敗の precedence は use-case 層（json 在否 → hasAudio → schema → stem）と純関数層（schema → stem）に分かれ、それぞれの層の test で固定。Decision に precedence 記述が無いため実装者裁量で決めて doc + test へ固定。
 8. `Composition Root` は `new GoogleDriveEpisodeRepository(...)` / `new InMemoryEpisodeRepository()` の直接生成と use-case 結線を維持。前回セッションで足した「override 無し in-memory mode で repository → use-case → 検証を通る」sociable unit test を新 Port でも維持（空 repo → `listManuscripts()` = `[]` / `getManuscript()` = `undefined` → use-case が `EpisodeContentError` → external `NotFoundError` の結線を通す）。
 9. `.dependency-cruiser.mjs` は最終的に HEAD と差分ゼロ。方針転換前の一時期に `worker-infra-ports-only` へ `application/manuscript/` 許可を足したが、Infra が `application/` を一切 import しなくなり不要になったため撤去。
-10. 新 Decision `docs/decisions/2026-08-29T18-20-21-playback-episode-repository-returns-raw-payload.md` を起こし、旧 Decision `2026-08-29T13-43-53` に `superseded-by` と維持範囲（§1-1・§1-3〜§1-5 は維持、§1-2・§3-1 が撤回）の注記を付けた。完了した Issue の todo file を削除。
+10. 新 Decision `docs/decisions/2026-08-29T18-20-21-playback-episode-repository-returns-raw-payload.md` を新規作成。その §1-4 に、先行 Decision `2026-08-29T13-43-53` の §1-2 / §3-1 を置き換える旨と維持範囲（§1-1・§1-3〜§1-5）を明記。先行 Decision の file 本文は無変更（decisions は参照透過の内側で、確定済み file を書き換えない）。完了した Issue の todo file を削除。
 11. flow 中に `/issue-manager` の manager → executor → reviewer で内側 Port `RawManuscriptSource` を新設した中間版を一度作り、`ports-adapters §7`（同一 signature の interface を複数並べない）違反として撤回。純関数抽出へ是正した後、shim 指示でさらに Port 生 payload 化へ移った。
 12. 全 commit で pre-commit hook（generator static/unit 91%、playback format/lint/typecheck/lint:layers/unit 241 件）と pre-push hook（generator/playback integration）が pass。
 13. `feature/playback-application-infra-boundary` を新規 branch として `origin` へ push。
