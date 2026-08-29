@@ -57,7 +57,7 @@ C-03実測
 | topic | 概要 |
 |---|---|
 | `ProduceEpisode.Run` | C build + composition 後に orchestration 実装 |
-| Prompt / limits 文案・数値 | `TextWriterBriefPrompt` と `manuscript_draft_limits` のチューニング |
+| Prompt / limits 文案・数値 | `TextWriterBriefPrompt` と `manuscript_draft_limits` のチューニング。合計文字数モデルを `start(openingGreeting+intro) + Σ topic(preface+detail) + end(closingSummary+closingFarewell)` へ改める（`title` と `topic.title` は合計外）。現 `DraftTotalChars{Min,Target,Max}` は field/topic 上限と整合せず要修正。char 系定数の Min≦Target≦Max と最小/最大構成 sum の整合性検証 test も追加する |
 | 挨拶文案 | `ClosingFarewell` 最終 copy、OpeningGreeting の date 読み上げ整形 |
 | composite 高度化 | dedup / sort（2 情報源後） |
 | 第 2 情報源 Adapter | 別 Issue 化待ち |
