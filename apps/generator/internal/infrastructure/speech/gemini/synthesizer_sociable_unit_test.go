@@ -2,57 +2,17 @@ package gemini
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 )
-
-const geminiTestAPIKey = "gemini-test-real-value"
-
-type proxyProbe struct {
-	TargetURLs []string
-	Methods    []string
-	APIKeys    []string
-	Bodies     []string
-}
-
-// why: Adapter は EndpointURL を定数として持つため、DialTLSContext で接続先だけを test server へ redirect する。
-// why: synthesizer_edge_sociable_unit_test.go も参照する境界 I/O helper。Adapter 内分岐 case は
-// fakeRoundTripper（境界 I/O なし）へ移行済みだが、edge file の見直しは別 issue の管轄。
-func newSynthesizerWithProxy(t *testing.T, handler http.HandlerFunc) (*SpeechSynthesizer, *proxyProbe) {
-	t.Helper()
-	backoffNoWait := func(time.Duration) {}
-
-	probe := &proxyProbe{}
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		probe.TargetURLs = append(probe.TargetURLs, r.URL.String())
-		probe.Methods = append(probe.Methods, r.Method)
-		probe.APIKeys = append(probe.APIKeys, r.Header.Get(geminiAPIKeyHeader))
-		probe.Bodies = append(probe.Bodies, string(body))
-		handler(w, r)
-	}))
-	t.Cleanup(server.Close)
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				// why: test 用 TLS server の自己署名証明書を明示的に信頼する。
-				return tls.Dial(network, server.Listener.Addr().String(), &tls.Config{InsecureSkipVerify: true})
-			},
-		},
-	}
-	synth := newSpeechSynthesizerForTest(httpClient, geminiTestAPIKey, backoffNoWait)
-	return synth, probe
-}
 
 func minimalPCM() []byte {
 	// why: 24 kHz / 16-bit / mono。短い無音でも WAV wrap できる長さにする。
@@ -90,7 +50,6 @@ func isWAV(data []byte) bool {
 type fakeClientCall struct {
 	Method string
 	URL    string
-	APIKey string
 	Body   []byte
 }
 
@@ -104,6 +63,7 @@ type fakeRoundTripper struct {
 type fakeClientResponse struct {
 	status int
 	body   []byte
+	err    error
 }
 
 func (rt *fakeRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -115,7 +75,6 @@ func (rt *fakeRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	rt.calls = append(rt.calls, fakeClientCall{
 		Method: req.Method,
 		URL:    req.URL.String(),
-		APIKey: req.Header.Get(geminiAPIKeyHeader),
 		Body:   body,
 	})
 	index := len(rt.calls) - 1
@@ -123,6 +82,9 @@ func (rt *fakeRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 		return nil, fmt.Errorf("fakeRoundTripper: no response configured for call %d", index)
 	}
 	resp := rt.responses[index]
+	if resp.err != nil {
+		return nil, resp.err
+	}
 	rec := httptest.NewRecorder()
 	rec.WriteHeader(resp.status)
 	if resp.body != nil {
