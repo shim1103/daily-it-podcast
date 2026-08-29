@@ -14,6 +14,7 @@ func TestEmbedManuscriptDraftLimits_全placeholderを定数で置換する(t *te
 	template := strings.Join([]string{
 		"{{TITLE_MIN}} {{TITLE_MAX}} {{TITLE_TARGET}}",
 		"{{INTRO_MIN}} {{INTRO_MAX}} {{INTRO_TARGET}}",
+		"{{CLOSING_MIN}} {{CLOSING_MAX}} {{CLOSING_TARGET}}",
 		"{{TOPIC_TITLE_MIN}} {{TOPIC_TITLE_MAX}} {{TOPIC_TITLE_TARGET}}",
 		"{{PREFACE_MIN}} {{PREFACE_MAX}} {{PREFACE_TARGET}}",
 		"{{DETAIL_MIN}} {{DETAIL_MAX}} {{DETAIL_TARGET}}",
@@ -33,6 +34,7 @@ func TestEmbedManuscriptDraftLimits_全placeholderを定数で置換する(t *te
 	prompt := embedManuscriptDraftLimits(constants.TextWriterBriefPrompt)
 	for _, ph := range []string{
 		"{{TITLE_MIN}}", "{{TOTAL_TARGET}}", "{{PREFACE_MAX}}",
+		"{{CLOSING_MIN}}", "{{CLOSING_MAX}}", "{{CLOSING_TARGET}}",
 	} {
 		if strings.Contains(prompt, ph) {
 			t.Fatalf("TextWriterBriefPrompt: %s が残っている", ph)
