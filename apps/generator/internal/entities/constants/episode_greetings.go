@@ -1,8 +1,10 @@
 package constants
 
-// OpeningGreeting / ClosingFarewell は ProduceEpisode が Draft と結合する定型文。
-// 文言の最終確定は未決でも置き場はここ（空文字で置き場だけ固定してよい）。
+// OpeningGreeting / ClosingFarewell は ProduceEpisode が TTS 前に組み立てる定型。
+// ClosingFarewell 最終文言は D。Decision: docs/decisions/2026-08-29T14-13-00-docs-produce-episode-run-spec-date-greeting-injection.md
+
 const (
-	OpeningGreeting = ""
-	ClosingFarewell = ""
+	// OpeningGreetingTemplate の %s には JST 暦日を読み上げ用に整形した文字列を Builder が渡す。
+	OpeningGreetingTemplate = "おはようございます。%sです。"
+	ClosingFarewell         = ""
 )
