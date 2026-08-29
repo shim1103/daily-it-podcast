@@ -26,6 +26,7 @@ const TextWriterBriefPrompt = `
 
 # title
 - 全 topic のうち最も重要な 1 テーマを軸に、一覧で気を引く見出し。釣りタイトルだけは禁止
+- 本文（全体文字数）には数えない見出し。日本語で簡潔に。末尾の句点は付けない
 - 文字数: {{TITLE_MIN}}〜{{TITLE_MAX}} 文字（目安 {{TITLE_TARGET}}）
 
 # intro
@@ -37,6 +38,7 @@ const TextWriterBriefPrompt = `
 
 # topic title
 - 何の話かが一目で分かる簡潔な題名（釣りタイトルにしない）
+- 本文（全体文字数）には数えない見出し。末尾の句点は付けない
 - 各 topic.title の文字数: {{TOPIC_TITLE_MIN}}〜{{TOPIC_TITLE_MAX}} 文字（目安 {{TOPIC_TITLE_TARGET}}）
 
 # topic preface
@@ -52,7 +54,7 @@ const TextWriterBriefPrompt = `
 - closingSummary の文字数: {{CLOSING_MIN}}〜{{CLOSING_MAX}} 文字（目安 {{CLOSING_TARGET}}）
 
 # total length
-- 全体（title / intro / 全 topic の title・preface・detail / closingSummary の合計）: {{TOTAL_MIN}}〜{{TOTAL_MAX}} 文字（目安 {{TOTAL_TARGET}}）
+- 全体（intro / 全 topic の preface・detail / closingSummary の合計。title と topic.title は見出しなので数えない）: {{TOTAL_MIN}}〜{{TOTAL_MAX}} 文字（目安 {{TOTAL_TARGET}} 文字、朗読でおよそ {{TOTAL_MINUTES_MIN}}〜{{TOTAL_MINUTES_MAX}} 分）
 
 # Example shape
 {{JSON_EXAMPLE}}
