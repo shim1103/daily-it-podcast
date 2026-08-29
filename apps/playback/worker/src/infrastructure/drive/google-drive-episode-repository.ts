@@ -80,8 +80,8 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
       if (manuscript === undefined) {
         continue;
       }
-      const { body: _body, ...listItem } = manuscript;
-      items.push(listItem);
+      const { body, ...rest } = manuscript;
+      items.push({ ...rest, topics: body.topics.map((topic) => ({ title: topic.title })) });
     }
     return items;
   }
