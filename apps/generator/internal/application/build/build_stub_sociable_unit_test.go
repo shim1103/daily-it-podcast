@@ -35,13 +35,3 @@ func TestManuscriptDraftFromWriterOutput_panicsAsContractStub(t *testing.T) {
 	}()
 	_, _ = build.ManuscriptDraftFromWriterOutput("断片")
 }
-
-func TestComposeBrief_panicsAsContractStub(t *testing.T) {
-	t.Parallel()
-	defer func() {
-		if recover() == nil {
-			t.Fatal("ComposeBrief: want panic")
-		}
-	}()
-	_ = build.ComposeBrief(nil)
-}
