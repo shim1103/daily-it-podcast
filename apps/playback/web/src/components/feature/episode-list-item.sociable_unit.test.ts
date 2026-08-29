@@ -10,6 +10,7 @@ const episode: EpisodeListItemData = {
   title: "題1",
   durationSec: 60,
   topics: [{ title: "小題A" }, { title: "小題B" }],
+  audioRef: "/episodes/ep-1/audio",
 };
 
 describe("EpisodeListItem", () => {
