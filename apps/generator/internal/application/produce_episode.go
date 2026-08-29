@@ -33,13 +33,12 @@ func NewProduceEpisode(
 }
 
 // Run は Fetch から WriteEpisode までの全日次手順を orchestrate する Builder である。
-// 組版（opening / 各 topic / ending の speakable 組み立て・TTS 順序・WAV 結合・完成 manuscript 生成）は Gate（WriteEpisode）ではなく本 UseCase が所有する。
 //
 // @require uc != nil かつ uc.fetch != nil かつ uc.textWriter != nil かつ uc.speech != nil かつ uc.writeEpisode != nil。now は CLI 実行時刻（Fetch の since 基準かつ date 暦日化の基準）。
-// @ensure 所有する policy: brief 組み立て、TextWriter の string → ManuscriptDraft（manuscriptDraftFromWriterOutput。失敗は Domain Error）、OpeningGreeting+Intro→opening speakable、ClosingSummary+ClosingFarewell→ending speakable、TTS 順序（opening → 各 topic の preface+detail → ending）、wavDurationSec / concatWAV、完成 manuscript bytes 組み立て、WriteEpisode.Run 呼び出し。
-// @ensure 手順は FetchSourceItems.Run → brief 組み立て → TextWriter.Write（1 回・string）→ manuscriptDraftFromWriterOutput → 朗読単位ごとに SpeechSynthesizer.Synthesize → 各 WAV 尺算出・累積で startSec / durationSec 確定 → concatWAV → 完成 manuscript bytes → WriteEpisode.Run の順で行う。
+// @ensure Fetch 後 0 件なら Domain Error（Op = no_source_items）。WriteEpisode.Run を呼ばない。
+// @ensure build.ComposeBrief(items)（constants Prompt へ SOURCES/数値 placeholder/JSON_EXAMPLE 埋め込み）→ TextWriter.Write（1 回）→ build.ManuscriptDraftFromWriterOutput（JSON wire）→ JST date 確定 → OpeningGreetingTemplate から Greeting 文案 → TTS 順（Greeting, Intro, 各 topic の Preface, Detail, ClosingSummary, ClosingFarewell）各 1 Synthesize → build.WavDurationSec / 無音込み累積 startSec・durationSec → build.ConcatWAV → opaque UUID episodeId → 完成 manuscript bytes → WriteEpisode.Run。
 // @ensure 途中 error なら WriteEpisode.Run を呼ばない（書込なし）。
-// @invariant 所有しない: manuscript.schema.json の Validate（Gate）、vendor / env。Infrastructure 型を知らない。監視対象一覧を知らない。string→Draft を Port / Adapter に委譲しない。
+// @invariant 所有しない: manuscript.schema.json の Validate（Gate）、vendor / env。Infrastructure 型を知らない。監視対象一覧・情報源種類を知らない。string→Draft を Port / Adapter に委譲しない。
 func (uc *ProduceEpisode) Run(ctx context.Context, now time.Time) error {
-	panic("produce episode: contract stub; logic is C")
+	panic("produce episode: contract stub; logic is D")
 }

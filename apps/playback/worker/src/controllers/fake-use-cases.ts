@@ -3,8 +3,9 @@ import {
   type GetEpisodeResponse,
   type ListEpisodesResponse,
 } from "../../../contracts/index.ts";
-import { EpisodeNotFoundError } from "../entities/errors/episode-not-found-error.ts";
 import { createFakeEpisodeAudioBytes } from "../test/fixtures/audio-bytes.ts";
+import { EpisodeContentError } from "../entities/errors/episode-content-error.ts";
+import { validAudioBytes } from "../test/fixtures/audio-bytes.ts";
 import fakeEpisodesJson from "./fake-episodes.json" with { type: "json" };
 
 type FakeEpisodeRecord = {
@@ -43,7 +44,7 @@ function toGetEpisodeResponse(record: FakeEpisodeRecord): GetEpisodeResponse {
 function findFakeEpisode(episodeId: string): FakeEpisodeRecord {
   const found = fakeEpisodes.find((episode) => episode.episodeId === episodeId);
   if (!found) {
-    throw new EpisodeNotFoundError(`JSON エントリが無い: ${episodeId}`);
+    throw new EpisodeContentError(`JSON エントリが無い: ${episodeId}`);
   }
   return found;
 }

@@ -29,6 +29,7 @@
 |--------|----------------|
 | `generator/internal/entities` | Entities |
 | `generator/internal/application` | Application（UseCase + Port IF） |
+| `generator/internal/application/build` | Builder helper（`ProduceEpisode` が呼ぶ brief / parse / WAV。Gate ではない） |
 | `generator/internal/config` | Configuration Boundary |
 | `generator/internal/infrastructure` | Infrastructure |
 | `generator/internal/composition` | Composition Root |
@@ -40,6 +41,8 @@
 `playback/web` は Vite + TypeScript + React + Pico.css classless。`playback/worker` の HTTP 入口は Hono、web↔worker の型同期は Hono RPC。Next.js / shadcn / TanStack は使わない（`docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`）。Playback list の concept / setting / motif と視覚言語の正は `docs/decisions/2026-08-28T19-20-00-docs-playback-list-page-design.md` / `docs/decisions/2026-08-28T19-20-01-docs-playback-list-page-design.md`。detail インライン（選択時 focus・紫枠グループ・topic seek）は `docs/decisions/2026-08-25T05-10-48-feature-playback-ui-structure.md` と上記 list 設計 decision を正とする（本書へ写さない）。
 
 依存は内側へ。Composition Root だけが全層を結線する。
+
+日次 episode 生成の未完了 index（build helper / composition 結線 / Run 本体）は `docs/tasks/todo/generator-lane.md` を正とする（本書へ写さない）。
 
 `generator` の Entities は generator に閉じる。UI / agent が共有して読む Domains の正は `contracts/`。言語横断の **Domain 型** module（共有 struct / Zod を正本にする）は作らない。
 
@@ -60,7 +63,7 @@ repo 根 `contracts/` は Drive 上の表現（配置・`manuscript.schema.json`
 
 | 役割 | 接続 |
 |------|------|
-| 情報取得 | GetXAPIのみ。Portは`ItemSource` |
+| 情報取得 | GetXAPIのみ。Portは`ItemSource`。複数源 merge は Composition が composite で行い Application は源個数を知らない |
 | 原稿 | Cursor CLI（Port は `TextWriter`） |
 | TTS | Gemini |
 | Drive | Google Drive + OAuth refresh |
