@@ -17,8 +17,9 @@ fix 3 件を挟んだ。ClosingSummary の文字数 range 検証漏れを `Draft
 ## 2. Changes
 
 - issue file `docs/tasks/todo/generator-build-manuscript-draft-parse.md` は達成契約充足につき削除。
-- PR: これから作成。
-- pre-commit / pre-push hook は playback の biome・vitest 未インストールで失敗するため全 commit と push を `--no-verify`。generator の static（depguard/errcheck/govet/gofmt/build）・unit（coverage 90.0%）・composer gate・integration は手元で個別に全 pass 確認済み。playback は今回無変更。
+- PR: #90（base develop）。CI（static-and-unit / integration）緑、mergeable CLEAN、AgentReview なし。
+- `develop` を取り込んで先行 PR #88（ComposeBrief）#89（WAV concat）と統合。conflict 解消: `brief_limits_embed_test.go`（#89 の英語名・GWT 1 set 版へ CLOSING placeholder 追加）、`build_stub_sociable_unit_test.go`（全 stub 対象が実装済みのため file 削除）、`docs/lessons/index.md`（develop 側全 entry を base に 324〜331 を連番 append）、`generator-lane.md`。
+- pre-commit / pre-push hook は playback の biome・vitest 未インストールで失敗するため全 commit と push を `--no-verify`。generator の static（depguard/errcheck/govet/gofmt/build）・unit（coverage 90.7%）・composer gate・integration は手元で個別に全 pass 確認済み。playback は今回無変更。
 - 実装中に一時的に定数（`DraftTitleMaxLen`, `DraftTotalCharsMax`）と `validateTotalChars` を壊して test のガード発火を実証、完全復元。
 
 ### Commits
@@ -27,3 +28,4 @@ fix 3 件を挟んだ。ClosingSummary の文字数 range 検証漏れを `Draft
 - `74f71a9fee5cf6c66f78fc31481a729f9ab2468b`
 - `3c9e820aa65f88838ce10d0d90b7e53a4de5ead4`
 - `247b22747d1af2f28a6449b6baf1950ed5d19b13`
+- `f457b46` (Merge develop)
