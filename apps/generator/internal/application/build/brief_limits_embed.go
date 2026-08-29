@@ -42,6 +42,8 @@ func embedManuscriptDraftLimits(prompt string) string {
 		"{{TOTAL_MIN}}", strconv.Itoa(constants.DraftTotalCharsMin),
 		"{{TOTAL_MAX}}", strconv.Itoa(constants.DraftTotalCharsMax),
 		"{{TOTAL_TARGET}}", strconv.Itoa(constants.DraftTotalCharsTarget),
+		"{{TOTAL_MINUTES_MIN}}", strconv.Itoa(constants.DraftTotalMinSec/60),
+		"{{TOTAL_MINUTES_MAX}}", strconv.Itoa(constants.DraftTotalMaxSec/60),
 	)
 	return replacer.Replace(prompt)
 }
