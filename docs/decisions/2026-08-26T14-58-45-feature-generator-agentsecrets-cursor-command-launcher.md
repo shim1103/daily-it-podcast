@@ -2,7 +2,10 @@
 name: Composition 内は bindings（表）と runtime（Client/Launcher）を file 分割する
 date: 2026-08-26T14:58:45
 branch: feature/generator-agentsecrets-cursor-command-launcher
+superseded_by: 2026-08-29T10-50-44-feature-generator-composition-http-adapters.md
 ---
+
+> **上書き**: Composition 内で `secret_bindings.go`（対応表）と `runtime.go` を file 分割する結論は `docs/decisions/2026-08-29T10-50-44-feature-generator-composition-http-adapters.md` が正。対応表が構造的に消滅したため。
 
 ## 1. Decision
 
