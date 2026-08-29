@@ -1,0 +1,27 @@
+/* episode-list — hairline + PC幅の上限（mobileは全幅） */
+
+.episode-list {
+  --el-separator: rgba(235, 235, 245, 0.22);
+
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  background: transparent;
+}
+
+/* PC / 広い viewport: 最大 1000px かつ概ね 80vw */
+@media (min-width: 768px) {
+  .episode-list {
+    width: min(1000px, 80%);
+    max-width: 1000px;
+    margin-inline: auto;
+  }
+}
+
+/* item 同士の間だけ gray hairline（未focus時の区切り） */
+.episode-list article.episode-list-item + article.episode-list-item {
+  border-top: 1px solid var(--el-separator) !important;
+}

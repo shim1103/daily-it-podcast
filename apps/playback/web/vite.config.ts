@@ -38,6 +38,11 @@ export default defineConfig({
     port: 3000,
     middlewareMode: false,
   },
+  build: {
+    // why: wrangler.jsonc の assets.directory（./web/dist）と一致させる。root が web/ なので outDir は dist のみ
+    outDir: "dist",
+    emptyOutDir: true,
+  },
   plugins: [
     react(),
     {

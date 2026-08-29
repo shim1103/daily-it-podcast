@@ -7,6 +7,9 @@
   },
   "scripts": {
     "dev": "vite --config web/vite.config.ts",
+    "build": "vite build --config web/vite.config.ts",
+    "types:worker": "wrangler types --include-runtime false",
+    "deploy:dry-run": "npm run build && wrangler deploy --dry-run",
     "test:unit": "vitest run --project unit --coverage",
     "test:integration": "vitest run --project integration",
     "typecheck": "tsc --noEmit",
@@ -26,7 +29,8 @@
     "happy-dom": "^20.11.6",
     "typescript": "^5.9.3",
     "vite": "^7.3.6",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "wrangler": "^4.33.0"
   },
   "dependencies": {
     "@picocss/pico": "^2.1.1",
