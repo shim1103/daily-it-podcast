@@ -43,6 +43,7 @@ const validList = {
       title: "題",
       durationSec: 60,
       topics: [{ title: "題" }],
+      audioRef: episodeAudioPath("ep-1"),
     },
   ],
 };
