@@ -26,16 +26,6 @@ func TestConcatWAV_panicsAsContractStub(t *testing.T) {
 	_, _ = build.ConcatWAV([]byte{1, 2})
 }
 
-func TestManuscriptDraftFromWriterOutput_panicsAsContractStub(t *testing.T) {
-	t.Parallel()
-	defer func() {
-		if recover() == nil {
-			t.Fatal("ManuscriptDraftFromWriterOutput: want panic")
-		}
-	}()
-	_, _ = build.ManuscriptDraftFromWriterOutput("断片")
-}
-
 func TestComposeBrief_panicsAsContractStub(t *testing.T) {
 	t.Parallel()
 	defer func() {
