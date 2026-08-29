@@ -21,7 +21,7 @@
 - [ ] Composition HTTP Adapter移行（M1）— `docs/tasks/todo/generator-composition-http-adapters.md`
 - [ ] HTTP SU/NI latest（getxapi / oauth / gemini / gdrive）— `docs/tasks/todo/generator-su-ni-*.md`
 - [x] build ComposeBrief
-- [ ] build manuscript draft parse — `docs/tasks/todo/generator-build-manuscript-draft-parse.md`
+- [x] build manuscript draft parse（`ManuscriptDraftFromWriterOutput` 実装済み。尺モデルは Decision `2026-08-30T03-06-53`）
 - [x] build WAV concat / duration（`WavDurationSec` / `ConcatWAV` 実装済み）
 - [ ] composition ProduceEpisode 結線 — `docs/tasks/todo/generator-composition-produce-episode-wiring.md`
 - [ ] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）— **D**
@@ -57,7 +57,7 @@ C-03実測
 | topic | 概要 |
 |---|---|
 | `ProduceEpisode.Run` | C build + composition 後に orchestration 実装 |
-| Prompt / limits 文案・数値 | `TextWriterBriefPrompt` と `manuscript_draft_limits` のチューニング。合計文字数モデルを `start(openingGreeting+intro) + Σ topic(preface+detail) + end(closingSummary+closingFarewell)` へ改める（`title` と `topic.title` は合計外）。現 `DraftTotalChars{Min,Target,Max}` は field/topic 上限と整合せず要修正。char 系定数の Min≦Target≦Max と最小/最大構成 sum の整合性検証 test も追加する |
+| Prompt / limits 文案・数値 | 尺モデル（秒正本・合計対象・定数整合）は Decision `2026-08-30T03-06-53` で確定・実装済み。残るのは実運用データを見ての `CharsPerSecond` と各 field 秒数の微調整 |
 | 挨拶文案 | `ClosingFarewell` 最終 copy、OpeningGreeting の date 読み上げ整形 |
 | composite 高度化 | dedup / sort（2 情報源後） |
 | 第 2 情報源 Adapter | 別 Issue 化待ち |
