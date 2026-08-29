@@ -2,7 +2,10 @@
 name: Generator の秘密 transport 選択を Composition へ固定する
 date: 2026-08-22T18:35:00
 branch: feature/generator-infras-all-narrow-integration
+superseded_by: 2026-08-29T13-48-57-feature-generator-composition-http-adapters.md
 ---
+
+> **上書き**: §2 が正典とする3 artifact のうち `secrettransport/contract.go` と `composition/secret_bindings.go` は削除済みで、`commandlaunch/contract.go` の存在根拠は Dependency Rule 単独として `docs/decisions/2026-08-29T13-48-57-feature-generator-composition-http-adapters.md` が正。§1 の「Adapter は秘密名を所有しない」も同 Decision が N2 について覆す。
 
 ## 1. Decision
 
