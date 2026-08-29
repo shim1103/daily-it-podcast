@@ -9,6 +9,7 @@ const episode: EpisodeListItemData = {
   date: "2026-08-17",
   title: "題1",
   durationSec: 60,
+  topics: [{ title: "小題" }],
 };
 
 describe("EpisodeListItem", () => {

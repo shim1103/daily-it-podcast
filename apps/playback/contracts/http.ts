@@ -27,11 +27,16 @@ const bodySchema = z.strictObject({
   closing: z.string(),
 });
 
+const listTopicSchema = z.strictObject({
+  title: titleSchema,
+});
+
 const episodeListItemSchema = z.strictObject({
   episodeId: episodeIdSchema,
   date: dateSchema,
   title: titleSchema,
   durationSec: durationSecSchema,
+  topics: z.array(listTopicSchema),
 });
 
 export const listEpisodesPath = "/episodes" as const;

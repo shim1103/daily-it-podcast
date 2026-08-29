@@ -7,8 +7,20 @@ import { EpisodeListPage } from "./episode-list-page.tsx";
 
 const validListEpisodesResponse: ListEpisodesResponse = {
   episodes: [
-    { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60 },
-    { episodeId: "ep-2", date: "2026-08-18", title: "題2", durationSec: 90 },
+    {
+      episodeId: "ep-1",
+      date: "2026-08-17",
+      title: "題1",
+      durationSec: 60,
+      topics: [{ title: "小題1" }],
+    },
+    {
+      episodeId: "ep-2",
+      date: "2026-08-18",
+      title: "題2",
+      durationSec: 90,
+      topics: [{ title: "小題2" }],
+    },
   ],
 };
 

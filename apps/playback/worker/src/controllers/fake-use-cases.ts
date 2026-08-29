@@ -36,11 +36,12 @@ function findFakeEpisode(episodeId: string): FakeEpisodeRecord {
 }
 
 export const validListEpisodesResponse: ListEpisodesResponse = {
-  episodes: fakeEpisodes.map(({ episodeId, date, title, durationSec }) => ({
+  episodes: fakeEpisodes.map(({ episodeId, date, title, durationSec, body }) => ({
     episodeId,
     date,
     title,
     durationSec,
+    topics: body.topics.map((topic) => ({ title: topic.title })),
   })),
 };
 

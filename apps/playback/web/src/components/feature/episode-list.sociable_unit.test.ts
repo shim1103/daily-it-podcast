@@ -34,8 +34,8 @@ describe("EpisodeList", () => {
     const state: EpisodeListState = {
       status: "success",
       episodes: [
-        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60 },
-        { episodeId: "ep-2", date: "2026-08-18", title: "題2", durationSec: 90 },
+        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+        { episodeId: "ep-2", date: "2026-08-18", title: "題2", durationSec: 90, topics: [] },
       ],
       selectedEpisodeId: null,
       selectedEpisode: null,
@@ -66,7 +66,9 @@ describe("EpisodeList", () => {
     // Given: episode 1 件を持つ success state
     const state: EpisodeListState = {
       status: "success",
-      episodes: [{ episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60 }],
+      episodes: [
+        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+      ],
       selectedEpisodeId: null,
       selectedEpisode: null,
     };
@@ -89,8 +91,8 @@ describe("EpisodeList", () => {
     const state: EpisodeListState = {
       status: "success",
       episodes: [
-        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60 },
-        { episodeId: "ep-2", date: "2026-08-18", title: "題2", durationSec: 90 },
+        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+        { episodeId: "ep-2", date: "2026-08-18", title: "題2", durationSec: 90, topics: [] },
       ],
       selectedEpisodeId: "ep-1",
       selectedEpisode: {
@@ -135,7 +137,9 @@ describe("EpisodeList", () => {
     // Given: ep-1 を選択済み、詳細取得 loading の state
     const state: EpisodeListState = {
       status: "success",
-      episodes: [{ episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60 }],
+      episodes: [
+        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+      ],
       selectedEpisodeId: "ep-1",
       selectedEpisode: { status: "loading" },
     };
@@ -153,7 +157,9 @@ describe("EpisodeList", () => {
     // Given: ep-1 を選択済み、詳細取得 error の state
     const state: EpisodeListState = {
       status: "success",
-      episodes: [{ episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60 }],
+      episodes: [
+        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+      ],
       selectedEpisodeId: "ep-1",
       selectedEpisode: { status: "error" },
     };
@@ -171,7 +177,9 @@ describe("EpisodeList", () => {
     // Given: EpisodeList を同一 element 参照で 2 回 render する
     const state: EpisodeListState = {
       status: "success",
-      episodes: [{ episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60 }],
+      episodes: [
+        { episodeId: "ep-1", date: "2026-08-17", title: "題1", durationSec: 60, topics: [] },
+      ],
       selectedEpisodeId: null,
       selectedEpisode: null,
     };
