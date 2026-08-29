@@ -18,10 +18,11 @@ issue-manager flow で `application/build` の `WavDurationSec` / `ConcatWAV` �
 2. production `wav_duration.go` / `wav_concat.go` は初回実装以降変更なし。拡張 fmt・odd size chunk 跨ぎも既存実装が対応済みで追加不要だった。
 3. pre-commit / pre-push hook は `apps/playback` の node engine 不整合（node v26 vs 要求 22.x、`npm install` 不可）で落ちる。generator 系統を単独 script で緑確認のうえ `--no-verify` で commit / push。
 4. `docs/tasks/todo/generator-build-wav-concat.md` は AC 達成につき除去、lane index の該当 task を完了へ。
-5. PR は未作成（このあと create-pr flow）。base は他 `feature/generator-*` の慣習に合わせ `develop` 予定。
+5. PR #89 を `develop` 向けに作成。作成時点で先行 PR #88（`feature/generator-build-compose-brief`）が develop へ merge 済みで conflict（`docs/lessons/index.md` の append 衝突のみ）。`origin/develop` へ rebase し lessons の番号を 315〜323 へ連番で振り直して解消。rebase 後 CI（static-and-unit / integration）緑、mergeable CLEAN。AgentReview なし。
 
 ### Commits
 
-- `c5e8878`
-- `830f5ba`
-- `3d30e3d`
+- `4f1d783`
+- `028c03f`
+- `896fed4`
+- `9f8ebb2`
