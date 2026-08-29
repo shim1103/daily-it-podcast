@@ -18,6 +18,7 @@ const validListEpisodesResponse = {
       title: "今日の IT",
       durationSec: 60,
       topics: [{ title: "題" }],
+      audioRef: "/episodes/ep-1/audio",
     },
   ],
 };

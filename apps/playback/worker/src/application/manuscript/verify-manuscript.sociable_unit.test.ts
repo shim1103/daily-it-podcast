@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { episodeAudioPath } from "../../../../contracts/index.ts";
 import { EpisodeContentError } from "../../entities/errors/episode-content-error.ts";
 import { selectValidListItem, verifyManuscript } from "./verify-manuscript.ts";
 
@@ -100,6 +101,7 @@ describe("selectValidListItem", () => {
       title: "題",
       durationSec: 60,
       topics: [{ title: "第一" }, { title: "第二" }],
+      audioRef: episodeAudioPath("ep-1"),
     });
   });
 

@@ -33,6 +33,7 @@ const validListItem = {
   title: "題",
   durationSec: 60,
   topics: [{ title: "題1" }, { title: "題2" }],
+  audioRef: episodeAudioPath("ep-1"),
 };
 
 describe("episodePath", () => {
@@ -126,6 +127,18 @@ describe("ListEpisodesResponseSchema", () => {
     const got = ListEpisodesResponseSchema.safeParse(body);
 
     // Then: 失敗する（strict object を維持する）
+    expect(got.success).toBe(false);
+  });
+
+  it("audioRef が無い時拒否する", () => {
+    // Given: audioRef 欠落の episode
+    const { audioRef: _audioRef, ...withoutAudioRef } = validListItem;
+    const body = { episodes: [withoutAudioRef] };
+
+    // When: parse する
+    const got = ListEpisodesResponseSchema.safeParse(body);
+
+    // Then: 失敗する
     expect(got.success).toBe(false);
   });
 });
