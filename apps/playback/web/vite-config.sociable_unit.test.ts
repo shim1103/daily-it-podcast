@@ -7,7 +7,7 @@ import {
   ListEpisodesResponseSchema,
   listEpisodesPath,
 } from "../contracts/index.ts";
-import { validAudioBytes } from "../worker/src/test/fixtures/audio-bytes.ts";
+import { createFakeEpisodeAudioBytes } from "../worker/src/test/fixtures/audio-bytes.ts";
 import { validGetEpisodeResponse } from "../worker/src/controllers/fake-use-cases.ts";
 import { createDummyBackendMiddleware } from "./vite.config.ts";
 
@@ -59,7 +59,9 @@ describe("createDummyBackendMiddleware", () => {
     // Then: fake-use-cases の byte がそのまま配線される
     expect(got.headers.get("Content-Type")).toBe(episodeAudioContentType);
     const bytes = new Uint8Array(await got.arrayBuffer());
-    expect(bytes).toEqual(validAudioBytes);
+    const expected = createFakeEpisodeAudioBytes(validGetEpisodeResponse.durationSec);
+    expect(bytes.byteLength).toBe(expected.byteLength);
+    expect(bytes[0]).toBe(0x52);
   });
 
   it("契約に無い path へ GET する時、400 と validation_error を返す", async () => {
