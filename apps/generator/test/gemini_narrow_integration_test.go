@@ -1,7 +1,7 @@
 // Scope: Narrow Integration
-// 実物境界: gemini.SpeechSynthesizer が processenv.Client 経由で送信する外向き HTTP request（test upstream server）
-// Double: BindingResolver は Composition と同型の in-memory map。本番 credential / Gemini 実 API は使わない。
-// @require dummy process environment（t.Setenv）に secret 実値をセットする。upstream は controllable な test server。
+// 実物境界: gemini.SpeechSynthesizer が標準 *http.Client で送信する外向き HTTP request（test upstream server）
+// Double: 本番 credential / Gemini 実 API は使わない。DialTLSContext で本番 host 宛先だけを test server へ redirect する。
+// @require dummy API key を Adapter へ直接渡す。upstream は controllable な test server。
 // @ensure upstream は POST を受け取り、x-goog-api-key header に実値が届く。
 // @ensure 成功時 Synthesize は非空 WAV を返す。
 // @invariant dummy secret 実値は error message へ出ない。
@@ -17,25 +17,19 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport/processenv"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
 )
-
-const geminiNarrowTestSecretName = "NARROW_GEMINI_API_KEY"
 
 // newGeminiSynthesizerWithProxy は EndpointURL への接続を test server へ redirect した SpeechSynthesizer を返す。
 //
 // @require handler は upstream request を観測・応答する。
-// @ensure dummy secret 実値は t.Setenv だけに存在し、synthesizer は processenv.Client 経由で実注入する。
-func newGeminiSynthesizerWithProxy(t *testing.T, secretValue string, handler http.HandlerFunc) *gemini.SpeechSynthesizer {
+// @ensure dummy API key は Adapter へ直接渡し、標準 *http.Client がそのまま header へ乗せる。
+func newGeminiSynthesizerWithProxy(t *testing.T, apiKey string, handler http.HandlerFunc) *gemini.SpeechSynthesizer {
 	t.Helper()
 
 	upstream := httptest.NewTLSServer(handler)
 	t.Cleanup(upstream.Close)
-	t.Setenv(geminiNarrowTestSecretName, secretValue)
 
-	apiKeySecret := secrettransport.NewSecretRef()
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -44,8 +38,7 @@ func newGeminiSynthesizerWithProxy(t *testing.T, secretValue string, handler htt
 			},
 		},
 	}
-	client := processenv.NewClient(narrowBindings{apiKeySecret: geminiNarrowTestSecretName}, httpClient, nil)
-	return gemini.NewSpeechSynthesizer(client, apiKeySecret)
+	return gemini.NewSpeechSynthesizer(httpClient, apiKey)
 }
 
 func minimalGeminiPCM() []byte {
@@ -73,11 +66,11 @@ func isWAVFixture(data []byte) bool {
 }
 
 func TestGeminiSpeechSynthesizer_deliversPostWithAPIKeyHeader_whenUpstreamSucceeds(t *testing.T) {
-	// Given: dummy secret 実値と、成功応答を返す upstream double
-	const secretValue = "narrow-gemini-real-value"
+	// Given: dummy API key と、成功応答を返す upstream double
+	const apiKey = "narrow-gemini-real-value"
 	var gotMethod string
 	var gotAPIKey string
-	synth := newGeminiSynthesizerWithProxy(t, secretValue, func(w http.ResponseWriter, r *http.Request) {
+	synth := newGeminiSynthesizerWithProxy(t, apiKey, func(w http.ResponseWriter, r *http.Request) {
 		gotMethod = r.Method
 		gotAPIKey = r.Header.Get("x-goog-api-key")
 		writeGeminiAudioResponse(t, w, minimalGeminiPCM())
@@ -93,8 +86,8 @@ func TestGeminiSpeechSynthesizer_deliversPostWithAPIKeyHeader_whenUpstreamSuccee
 	if gotMethod != http.MethodPost {
 		t.Fatalf("method = %q, want %q", gotMethod, http.MethodPost)
 	}
-	if gotAPIKey != secretValue {
-		t.Fatalf("x-goog-api-key = %q, want %q", gotAPIKey, secretValue)
+	if gotAPIKey != apiKey {
+		t.Fatalf("x-goog-api-key = %q, want %q", gotAPIKey, apiKey)
 	}
 	if len(got.Content) == 0 {
 		t.Fatal("Content is empty")
@@ -105,9 +98,9 @@ func TestGeminiSpeechSynthesizer_deliversPostWithAPIKeyHeader_whenUpstreamSuccee
 }
 
 func TestGeminiSpeechSynthesizer_excludesDummySecretFromErrorMessage_whenUpstreamFails(t *testing.T) {
-	// Given: dummy secret 実値と、常に 400 を返す upstream double（非 retry で 1 回だけ）
-	const secretValue = "narrow-gemini-must-not-leak-value"
-	synth := newGeminiSynthesizerWithProxy(t, secretValue, func(w http.ResponseWriter, r *http.Request) {
+	// Given: dummy API key と、常に 400 を返す upstream double（非 retry で 1 回だけ）
+	const apiKey = "narrow-gemini-must-not-leak-value"
+	synth := newGeminiSynthesizerWithProxy(t, apiKey, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"error":"INVALID_ARGUMENT"}`))
@@ -120,7 +113,7 @@ func TestGeminiSpeechSynthesizer_excludesDummySecretFromErrorMessage_whenUpstrea
 	if err == nil {
 		t.Fatal("Synthesize() error = nil, want non-nil")
 	}
-	if strings.Contains(err.Error(), secretValue) {
+	if strings.Contains(err.Error(), apiKey) {
 		t.Fatalf("error message %q contains dummy secret value", err.Error())
 	}
 }

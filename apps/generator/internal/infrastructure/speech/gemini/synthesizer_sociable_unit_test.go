@@ -14,20 +14,9 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport/processenv"
 )
 
-// stubBindings は test 用の BindingResolver fake。
-type stubBindings map[secrettransport.SecretRef]string
-
-func (b stubBindings) ResolveSecret(ref secrettransport.SecretRef) (string, bool) {
-	name, ok := b[ref]
-	return name, ok
-}
-
-const geminiTestSecretName = "GEMINI_TEST_API_KEY"
+const geminiTestAPIKey = "gemini-test-real-value"
 
 type proxyProbe struct {
 	TargetURLs []string
@@ -38,7 +27,7 @@ type proxyProbe struct {
 
 // why: Adapter は EndpointURL を定数として持つため、DialTLSContext で接続先だけを test server へ redirect する。
 // why: synthesizer_edge_sociable_unit_test.go も参照する境界 I/O helper。Adapter 内分岐 case は
-// fakeSecretTransportClient（境界 I/O なし）へ移行済みだが、edge file の見直しは別 issue の管轄。
+// fakeRoundTripper（境界 I/O なし）へ移行済みだが、edge file の見直しは別 issue の管轄。
 func newSynthesizerWithProxy(t *testing.T, handler http.HandlerFunc) (*SpeechSynthesizer, *proxyProbe) {
 	t.Helper()
 	backoffNoWait := func(time.Duration) {}
@@ -53,8 +42,6 @@ func newSynthesizerWithProxy(t *testing.T, handler http.HandlerFunc) (*SpeechSyn
 		handler(w, r)
 	}))
 	t.Cleanup(server.Close)
-	t.Setenv(geminiTestSecretName, "gemini-test-real-value")
-	apiKeySecret := secrettransport.NewSecretRef()
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -63,8 +50,7 @@ func newSynthesizerWithProxy(t *testing.T, handler http.HandlerFunc) (*SpeechSyn
 			},
 		},
 	}
-	client := processenv.NewClient(stubBindings{apiKeySecret: geminiTestSecretName}, httpClient, nil)
-	synth := newSpeechSynthesizerForTest(client, apiKeySecret, backoffNoWait)
+	synth := newSpeechSynthesizerForTest(httpClient, geminiTestAPIKey, backoffNoWait)
 	return synth, probe
 }
 
@@ -100,14 +86,17 @@ func isWAV(data []byte) bool {
 		data[8] == 'W' && data[9] == 'A' && data[10] == 'V' && data[11] == 'E'
 }
 
-// fakeClientCall は fakeSecretTransportClient が観測した Do() 呼び出し 1 件分。
+// fakeClientCall は fakeRoundTripper が観測した request 1 件分。
 type fakeClientCall struct {
-	Request secrettransport.Request
+	Method string
+	URL    string
+	APIKey string
+	Body   []byte
 }
 
-// fakeSecretTransportClient は境界 I/O なしで secrettransport.Client を満たす Spy。
-// 呼び出し順に responses を返し、各呼び出しの Request を記録する。
-type fakeSecretTransportClient struct {
+// fakeRoundTripper は境界 I/O なしで http.RoundTripper を満たす Spy。
+// 呼び出し順に responses を返し、各 request を記録する。
+type fakeRoundTripper struct {
 	responses []fakeClientResponse
 	calls     []fakeClientCall
 }
@@ -117,19 +106,29 @@ type fakeClientResponse struct {
 	body   []byte
 }
 
-func (c *fakeSecretTransportClient) Do(_ context.Context, request secrettransport.Request) (*http.Response, error) {
-	c.calls = append(c.calls, fakeClientCall{Request: request})
-	index := len(c.calls) - 1
-	if index >= len(c.responses) {
-		return nil, fmt.Errorf("fakeSecretTransportClient: no response configured for call %d", index)
+func (rt *fakeRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	var body []byte
+	if req.Body != nil {
+		body, _ = io.ReadAll(req.Body)
+		_ = req.Body.Close()
 	}
-	resp := c.responses[index]
-	recorder := httptest.NewRecorder()
-	recorder.WriteHeader(resp.status)
+	rt.calls = append(rt.calls, fakeClientCall{
+		Method: req.Method,
+		URL:    req.URL.String(),
+		APIKey: req.Header.Get(geminiAPIKeyHeader),
+		Body:   body,
+	})
+	index := len(rt.calls) - 1
+	if index >= len(rt.responses) {
+		return nil, fmt.Errorf("fakeRoundTripper: no response configured for call %d", index)
+	}
+	resp := rt.responses[index]
+	rec := httptest.NewRecorder()
+	rec.WriteHeader(resp.status)
 	if resp.body != nil {
-		_, _ = recorder.Write(resp.body)
+		_, _ = rec.Write(resp.body)
 	}
-	return recorder.Result(), nil
+	return rec.Result(), nil
 }
 
 func jsonBody(t *testing.T, v any) []byte {
@@ -141,17 +140,17 @@ func jsonBody(t *testing.T, v any) []byte {
 	return raw
 }
 
-func newFakeSynthesizer(responses ...fakeClientResponse) (*SpeechSynthesizer, *fakeSecretTransportClient) {
-	client := &fakeSecretTransportClient{responses: responses}
-	synth := newSpeechSynthesizerForTest(client, secrettransport.NewSecretRef(), func(time.Duration) {})
-	return synth, client
+func newFakeSynthesizer(responses ...fakeClientResponse) (*SpeechSynthesizer, *fakeRoundTripper) {
+	rt := &fakeRoundTripper{responses: responses}
+	synth := newSpeechSynthesizerForTest(&http.Client{Transport: rt}, "gemini-fake-key", func(time.Duration) {})
+	return synth, rt
 }
 
 func TestSynthesize_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
 
 	// Given: 成功応答を返す Client Stub
 	const transcript = "朗読する本文だけ"
-	synth, client := newFakeSynthesizer(fakeClientResponse{
+	synth, rt := newFakeSynthesizer(fakeClientResponse{
 		status: http.StatusOK,
 		body:   jsonBody(t, audioInteractionResponse(minimalPCM())),
 	})
@@ -163,11 +162,11 @@ func TestSynthesize_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Synthesize: %v", err)
 	}
-	if len(client.calls) != 1 {
-		t.Fatalf("calls = %d", len(client.calls))
+	if len(rt.calls) != 1 {
+		t.Fatalf("calls = %d", len(rt.calls))
 	}
 	var req map[string]any
-	if err := json.Unmarshal(client.calls[0].Request.Body, &req); err != nil {
+	if err := json.Unmarshal(rt.calls[0].Body, &req); err != nil {
 		t.Fatalf("decode request: %v", err)
 	}
 	input, _ := req["input"].(string)
@@ -197,7 +196,7 @@ func TestSynthesize_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
 func TestSynthesize_returnsInfrastructureError_whenTextEmptyAfterTrim(t *testing.T) {
 
 	// Given: 空本文。Client は呼ばれない想定なので response 設定は不要
-	synth, client := newFakeSynthesizer()
+	synth, rt := newFakeSynthesizer()
 
 	// When: trim 後空の text を渡す
 	_, err := synth.Synthesize(context.Background(), "  \t\n  ")
@@ -216,15 +215,15 @@ func TestSynthesize_returnsInfrastructureError_whenTextEmptyAfterTrim(t *testing
 	if errors.Unwrap(infra) == nil {
 		t.Fatal("Unwrap() is nil")
 	}
-	if len(client.calls) != 0 {
-		t.Fatalf("unexpected calls: %#v", client.calls)
+	if len(rt.calls) != 0 {
+		t.Fatalf("unexpected calls: %#v", rt.calls)
 	}
 }
 
 func TestSynthesize_retriesTransientError_thenSucceeds(t *testing.T) {
 
 	// Given: 1 回目 503、2 回目成功
-	synth, client := newFakeSynthesizer(
+	synth, rt := newFakeSynthesizer(
 		fakeClientResponse{status: http.StatusServiceUnavailable, body: jsonBody(t, map[string]any{"error": "UNAVAILABLE"})},
 		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
 	)
@@ -239,8 +238,8 @@ func TestSynthesize_retriesTransientError_thenSucceeds(t *testing.T) {
 	if len(got.Content) == 0 {
 		t.Fatal("Content is empty")
 	}
-	if len(client.calls) != 2 {
-		t.Fatalf("call count = %d, want 2", len(client.calls))
+	if len(rt.calls) != 2 {
+		t.Fatalf("call count = %d, want 2", len(rt.calls))
 	}
 }
 
@@ -251,7 +250,7 @@ func TestSynthesize_returnsInfrastructureError_whenMaxAttemptsExceeded(t *testin
 	for i := range responses {
 		responses[i] = fakeClientResponse{status: http.StatusServiceUnavailable, body: jsonBody(t, map[string]any{"error": "UNAVAILABLE"})}
 	}
-	synth, client := newFakeSynthesizer(responses...)
+	synth, rt := newFakeSynthesizer(responses...)
 
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "打ち切りテスト")
@@ -264,15 +263,15 @@ func TestSynthesize_returnsInfrastructureError_whenMaxAttemptsExceeded(t *testin
 	if !errors.As(err, &infra) {
 		t.Fatalf("error type %T (%v), want *gemini.Error", err, err)
 	}
-	if len(client.calls) != MaxAttempts {
-		t.Fatalf("call count = %d, want %d", len(client.calls), MaxAttempts)
+	if len(rt.calls) != MaxAttempts {
+		t.Fatalf("call count = %d, want %d", len(rt.calls), MaxAttempts)
 	}
 }
 
 func TestSynthesize_doesNotRetry_whenStatusBadRequest(t *testing.T) {
 
 	// Given: 400
-	synth, client := newFakeSynthesizer(fakeClientResponse{
+	synth, rt := newFakeSynthesizer(fakeClientResponse{
 		status: http.StatusBadRequest,
 		body:   jsonBody(t, map[string]any{"error": "INVALID_ARGUMENT"}),
 	})
@@ -284,15 +283,15 @@ func TestSynthesize_doesNotRetry_whenStatusBadRequest(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if len(client.calls) != 1 {
-		t.Fatalf("call count = %d, want 1", len(client.calls))
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(rt.calls))
 	}
 }
 
 func TestSynthesize_doesNotRetry_whenProhibitedContent(t *testing.T) {
 
 	// Given: PROHIBITED_CONTENT
-	synth, client := newFakeSynthesizer(fakeClientResponse{
+	synth, rt := newFakeSynthesizer(fakeClientResponse{
 		status: http.StatusOK,
 		body:   jsonBody(t, map[string]any{"error": map[string]any{"code": "PROHIBITED_CONTENT"}}),
 	})
@@ -304,15 +303,15 @@ func TestSynthesize_doesNotRetry_whenProhibitedContent(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if len(client.calls) != 1 {
-		t.Fatalf("call count = %d, want 1", len(client.calls))
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(rt.calls))
 	}
 }
 
 func TestSynthesize_retriesMissingAudio_whenStatusInternalError(t *testing.T) {
 
 	// Given: 1 回目 500（audio 欠落）、2 回目成功
-	synth, client := newFakeSynthesizer(
+	synth, rt := newFakeSynthesizer(
 		fakeClientResponse{status: http.StatusInternalServerError, body: jsonBody(t, map[string]any{"error": "internal"})},
 		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
 	)
@@ -327,7 +326,7 @@ func TestSynthesize_retriesMissingAudio_whenStatusInternalError(t *testing.T) {
 	if len(got.Content) == 0 {
 		t.Fatal("Content is empty")
 	}
-	if len(client.calls) != 2 {
-		t.Fatalf("call count = %d, want 2", len(client.calls))
+	if len(rt.calls) != 2 {
+		t.Fatalf("call count = %d, want 2", len(rt.calls))
 	}
 }
