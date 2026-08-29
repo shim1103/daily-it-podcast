@@ -38,7 +38,7 @@
 | `playback/web/src/{pages,components/feature,components/primitive,view-models,api,utils,lib}` | frontend skill（role と dir は 1 対 1。Feature/Primitive 分割と層 gate は `docs/decisions/2026-08-25T18-42-00-chore-playback-worker-web-layer.md`） |
 | `playback/contracts` | web↔worker HTTP 境界共有型（API Client・Route・Controller・Application・Composition が import。Infrastructure は禁止） |
 
-`playback/web` は Vite + TypeScript + React + Pico.css classless。`playback/worker` の HTTP 入口は Hono、web↔worker の型同期は Hono RPC。Next.js / shadcn / TanStack は使わない（`docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`）。Playback list の concept / setting / motif と視覚言語の正は `docs/decisions/2026-08-28T19-20-00-docs-playback-list-page-design.md` / `docs/decisions/2026-08-28T19-20-01-docs-playback-list-page-design.md`（本書へ写さない）。
+`playback/web` は Vite + TypeScript + React + Pico.css classless。`playback/worker` の HTTP 入口は Hono、web↔worker の型同期は Hono RPC。Next.js / shadcn / TanStack は使わない（`docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`）。Playback list の concept / setting / motif と視覚言語の正は `docs/decisions/2026-08-28T19-20-00-docs-playback-list-page-design.md` / `docs/decisions/2026-08-28T19-20-01-docs-playback-list-page-design.md`。detail インライン（選択時 focus・紫枠グループ・topic seek）は `docs/decisions/2026-08-25T05-10-48-feature-playback-ui-structure.md` と上記 list 設計 decision を正とする（本書へ写さない）。
 
 依存は内側へ。Composition Root だけが全層を結線する。
 

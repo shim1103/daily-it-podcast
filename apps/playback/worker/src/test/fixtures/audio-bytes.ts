@@ -1,7 +1,16 @@
+import { createSilentWavBytes } from "./create-silent-wav-bytes.ts";
+
+/** テスト用の再生可能な無音 WAV（1 秒・24kHz）。 */
+export const validAudioBytes = createSilentWavBytes(1);
+
 /**
- * テスト用の有効な WAV ヘッダ先頭バイト。`RIFF....WAVE`。
- * 実 wav の中身は問わない検証用の 12 byte サンプル。
+ * dev fake 音声の sample rate。HTML audio が再生できる 8kHz（長尺でも尺は durationSec と一致）。
  */
-export const validAudioBytes = new Uint8Array([
-  0x52, 0x49, 0x46, 0x46, 0x04, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
-]);
+export const fakeAudioSampleRate = 8_000;
+
+/**
+ * fake episode 用の再生可能な無音 WAV bytes を返す。尺は durationSec と一致する。
+ */
+export function createFakeEpisodeAudioBytes(durationSec: number): Uint8Array {
+  return createSilentWavBytes(Math.max(1, durationSec), fakeAudioSampleRate);
+}
