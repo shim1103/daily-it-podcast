@@ -27,8 +27,12 @@ playback worker の Application/Infra 境界で、原稿 JSON の schema/stem �
 11. flow 中に `/issue-manager` の manager → executor → reviewer で内側 Port `RawManuscriptSource` を新設した中間版を一度作り、`ports-adapters §7`（同一 signature の interface を複数並べない）違反として撤回。純関数抽出へ是正した後、shim 指示でさらに Port 生 payload 化へ移った。
 12. 全 commit で pre-commit hook（generator static/unit 91%、playback format/lint/typecheck/lint:layers/unit 241 件）と pre-push hook（generator/playback integration）が pass。
 13. `feature/playback-application-infra-boundary` を新規 branch として `origin` へ push。
+14. `origin/develop`（PR #85 まで取り込み済み）を feature branch へ merge。`docs/lessons/index.md` の末尾 append が並行 merge 分と衝突し、両側保持で解消して自分の追記分の連番を base 側最終番号（306）の後ろ（307〜313）へずらした。merge commit `dba54e6`。
+15. base `develop` へ PR #86 を作成（`gh pr create` 経由。関連 GitHub Issue なし。ローカル達成契約 file の AC-1〜AC-8 を参照識別子として body に記載。旧 AC-3 の意図的違反を Deviations に明記）。`mergeable: MERGEABLE`。この repo は AgentReview 未設定。
 
 ### Commits
 
 - `ed703f1`
 - `d3ebf15`
+- `e0644ab`
+- `dba54e6`
