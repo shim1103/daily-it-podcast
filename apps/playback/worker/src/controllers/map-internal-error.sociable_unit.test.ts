@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { NotFoundError, UnavailableError } from "../../../contracts/index.ts";
-import { EpisodeNotFoundError } from "../entities/errors/episode-not-found-error.ts";
+import { EpisodeContentError } from "../entities/errors/episode-content-error.ts";
 import { DriveError } from "../infrastructure/drive/drive-error.ts";
 import { mapInternalErrorToExternal } from "./map-internal-error.ts";
 
 describe("mapInternalErrorToExternal", () => {
-  it("EpisodeNotFoundError の時、NotFoundError に cause を付ける", () => {
-    // Given: Domain 不在
-    const internal = new EpisodeNotFoundError("JSON エントリが無い: ep-1");
+  it("EpisodeContentError の時、NotFoundError に cause を付ける", () => {
+    // Given: Domain の実体不備
+    const internal = new EpisodeContentError("JSON エントリが無い: ep-1");
 
     // When: Internal を External へ写す
     const got = mapInternalErrorToExternal(internal);

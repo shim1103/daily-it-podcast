@@ -1,11 +1,11 @@
 import { NotFoundError, UnavailableError } from "../../../contracts/index.ts";
-import { EpisodeNotFoundError } from "../entities/errors/episode-not-found-error.ts";
+import { EpisodeContentError } from "../entities/errors/episode-content-error.ts";
 
-type InternalErrorKind = "domain_not_found" | "other";
+type InternalErrorKind = "domain_content" | "other";
 
 function classifyInternalError(error: unknown): InternalErrorKind {
-  if (error instanceof EpisodeNotFoundError) {
-    return "domain_not_found";
+  if (error instanceof EpisodeContentError) {
+    return "domain_content";
   }
   return "other";
 }
@@ -13,7 +13,7 @@ function classifyInternalError(error: unknown): InternalErrorKind {
 export function mapInternalErrorToExternal(error: unknown): NotFoundError | UnavailableError {
   const kind = classifyInternalError(error);
   switch (kind) {
-    case "domain_not_found":
+    case "domain_content":
       return new NotFoundError("エピソードが無い", { cause: error });
     case "other":
       return new UnavailableError("利用できない", { cause: error });

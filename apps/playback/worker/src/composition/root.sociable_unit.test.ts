@@ -147,6 +147,21 @@ describe("createPlaybackControllers", () => {
     expect(() => createPlaybackControllers(env)).toThrow(PlaybackRuntimeConfigError);
   });
 
+  it("override 無し in-memory mode の Controller は repository → use-case → 検証純関数を通る", async () => {
+    // Given: override 無し・in-memory mode（repository は空で組み立てられる）
+    const got = createPlaybackControllers({}, { mode: localMode });
+
+    // When: 一覧・1件・音声の3経路を叩く
+    const list = await got.listEpisodesController({});
+    const detail = got.getEpisodeController({ episodeId: "missing" });
+    const audio = got.getEpisodeAudioController({ episodeId: "missing" });
+
+    // Then: 空 repository を検証純関数が通し、一覧は空・1件/音声は Domain 経由の External NotFound
+    expect(list.episodes).toEqual([]);
+    await expect(detail).rejects.toMatchObject({ name: "NotFoundError" });
+    await expect(audio).rejects.toMatchObject({ name: "NotFoundError" });
+  });
+
   it("useCases override がある時、env の Drive 設定不足を無視して stub use case を使う", async () => {
     // Given: 設定不足の env と、stub use case 一式の override
     const env = {};
