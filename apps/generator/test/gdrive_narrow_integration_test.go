@@ -1,9 +1,9 @@
 // Scope: Narrow Integration
-// 実物境界: gdrive.EpisodeWriter が processenv.Client 経由で送信する外向き HTTP request（test upstream server）
-// Double: BindingResolver は Composition と同型の in-memory map（narrowBindings）。TokenSource は stub。本番 credential は使わない。
-// @require dummy process environment（t.Setenv）に Folder ID の実値をセットする。upstream は controllable な test server。DialTLSContext で本番 host 宛先だけを test server へ redirect する。
+// 実物境界: gdrive.EpisodeWriter が標準 *http.Client で送信する外向き HTTP request（test upstream server）
+// Double: TokenSource は stub。本番 credential は使わない。DialTLSContext で本番 host 宛先だけを test server へ redirect する。
+// @require dummy Folder ID を Adapter へ直接渡す。upstream は controllable な test server。
 // @ensure list→create→upload の成功 call sequence を 1 連 upstream が受ける。json/wav の stem が一致する。
-// @ensure Authorization header に TokenSource の token が Bearer で乗る。
+// @ensure Authorization header に TokenSource の token が Bearer で乗る。create metadata の Parents に Folder ID が入る。
 // @invariant error message・assertion 失敗文言に dummy Folder ID の実値を含めない。
 package test
 
@@ -23,11 +23,9 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport/processenv"
 )
 
-const gdriveNarrowFolderIDSecretName = "GDRIVE_NARROW_TEST_FOLDER_ID"
+const gdriveNarrowFolderID = "gdrive-narrow-folder-id-real-value"
 
 // gdriveNarrowTokenSource は test 用の gdrive.TokenSource fake。
 type gdriveNarrowTokenSource struct {
@@ -68,7 +66,6 @@ func newGDriveWriterWithProxy(t *testing.T, token string, handler http.HandlerFu
 		handler(w, r)
 	}))
 	t.Cleanup(server.Close)
-	t.Setenv(gdriveNarrowFolderIDSecretName, "gdrive-narrow-folder-id-real-value")
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -77,9 +74,7 @@ func newGDriveWriterWithProxy(t *testing.T, token string, handler http.HandlerFu
 			},
 		},
 	}
-	folderIDSecret := secrettransport.NewSecretRef()
-	client := processenv.NewClient(narrowBindings{folderIDSecret: gdriveNarrowFolderIDSecretName}, httpClient, nil)
-	return gdrive.NewRawEpisodeWriter(client, gdriveNarrowTokenSource{token: token}, folderIDSecret), calls
+	return gdrive.NewRawEpisodeWriter(httpClient, gdriveNarrowTokenSource{token: token}, gdriveNarrowFolderID), calls
 }
 
 func gdriveNarrowWriteJSONStatus(t *testing.T, w http.ResponseWriter, status int, body any) {
@@ -148,7 +143,7 @@ func TestGDriveEpisodeWriter_returnsErrorWithoutDummyValues_whenListReturns500(t
 		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
 	}
 	msg := err.Error()
-	if strings.Contains(msg, "gdrive-narrow-folder-id-real-value") {
+	if strings.Contains(msg, gdriveNarrowFolderID) {
 		t.Fatalf("Error() = %q, must not contain folder ID real value", msg)
 	}
 	if strings.Contains(msg, token) {
@@ -196,8 +191,8 @@ func TestGDriveEpisodeWriter_sendsListCreateUploadSequenceWithMatchingStem_whenD
 			if err := json.Unmarshal([]byte(c.Body), &meta); err != nil {
 				t.Fatalf("unmarshal create metadata: %v", err)
 			}
-			if len(meta.Parents) != 1 || meta.Parents[0] == "" {
-				t.Fatalf("parents length = %d, want 1 non-empty entry", len(meta.Parents))
+			if len(meta.Parents) != 1 || meta.Parents[0] != gdriveNarrowFolderID {
+				t.Fatalf("parents = %#v, want single Folder ID entry", meta.Parents)
 			}
 			switch {
 			case strings.HasSuffix(meta.Name, ".json"):

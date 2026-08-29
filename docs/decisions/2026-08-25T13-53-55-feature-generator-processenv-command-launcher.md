@@ -2,7 +2,10 @@
 name: Generator 秘密境界は置き場×出口の2軸であり commandlaunch/secrettransport は結線ではない
 date: 2026-08-25T13:53:55
 branch: feature/generator-processenv-command-launcher
+superseded_by: 2026-08-29T10-50-44-feature-generator-composition-http-adapters.md
 ---
+
+> **上書き**: `SecretRef`↔秘密名 binding と `commandlaunch` 内の置き場選択間接（`SecretName`/`SecretBinding`）を「出口の I/O 契約」に含める結論は `docs/decisions/2026-08-29T10-50-44-feature-generator-composition-http-adapters.md` が正。§5「vendor Adapter は秘密名を知らない」の「秘密名」が置き場をまたぐ識別子を指す点の再解釈は `docs/decisions/2026-08-29T13-48-57-feature-generator-composition-http-adapters.md` が正。
 
 ## 1. Decision
 

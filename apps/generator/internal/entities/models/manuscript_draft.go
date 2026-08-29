@@ -3,6 +3,7 @@ package models
 // ManuscriptDraft は完成 manuscript.schema.json ではない途中型。
 // TextWriter の text 断片から ProduceEpisode（Builder）が解釈して作る。
 type ManuscriptDraft struct {
+	Title          string
 	Intro          string
 	Topics         []ManuscriptDraftTopic
 	ClosingSummary string
