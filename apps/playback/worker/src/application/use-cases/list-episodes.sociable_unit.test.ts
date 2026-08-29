@@ -8,6 +8,7 @@ const validListItem: EpisodeListItem = {
   date: "2026-08-17",
   title: "題",
   durationSec: 60,
+  topics: [{ title: "小題" }],
 };
 
 function createFakeRepository(overrides: Partial<EpisodeRepository> = {}): EpisodeRepository {

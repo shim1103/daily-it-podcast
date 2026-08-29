@@ -26,8 +26,8 @@ export class InMemoryEpisodeRepository implements EpisodeRepository {
       if (!parsed.success || parsed.data.episodeId !== stem) {
         continue;
       }
-      const { body: _body, ...listItem } = parsed.data;
-      items.push(listItem);
+      const { body, ...rest } = parsed.data;
+      items.push({ ...rest, topics: body.topics.map((topic) => ({ title: topic.title })) });
     }
 
     return items;

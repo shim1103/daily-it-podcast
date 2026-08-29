@@ -5,7 +5,15 @@ describe("createPlaybackApiClient", () => {
   it("listEpisodes は成功 response を schema 検証済み Result で返す", async () => {
     // Given: 一覧 URL への fetch が成功 response を返す Stub
     const validResponse = {
-      episodes: [{ episodeId: "ep-1", date: "2026-08-20", title: "今日の IT", durationSec: 60 }],
+      episodes: [
+        {
+          episodeId: "ep-1",
+          date: "2026-08-20",
+          title: "今日の IT",
+          durationSec: 60,
+          topics: [{ title: "題" }],
+        },
+      ],
     };
     const fetch = () => Promise.resolve(Response.json(validResponse));
     const client = createPlaybackApiClient({ baseUrl: "https://example.test/", fetch });

@@ -4,6 +4,7 @@ import {
   type ListEpisodesResponse,
 } from "../../../contracts/index.ts";
 import { EpisodeNotFoundError } from "../entities/errors/episode-not-found-error.ts";
+import { validAudioBytes } from "../test/fixtures/audio-bytes.ts";
 import fakeEpisodesJson from "./fake-episodes.json" with { type: "json" };
 
 type FakeEpisodeRecord = {
@@ -36,21 +37,18 @@ function findFakeEpisode(episodeId: string): FakeEpisodeRecord {
 }
 
 export const validListEpisodesResponse: ListEpisodesResponse = {
-  episodes: fakeEpisodes.map(({ episodeId, date, title, durationSec }) => ({
+  episodes: fakeEpisodes.map(({ episodeId, date, title, durationSec, body }) => ({
     episodeId,
     date,
     title,
     durationSec,
+    topics: body.topics.map((topic) => ({ title: topic.title })),
   })),
 };
 
 export const validGetEpisodeResponse: GetEpisodeResponse = toGetEpisodeResponse(
   findFakeEpisode("ep-1"),
 );
-
-export const validAudioBytes = new Uint8Array([
-  0x52, 0x49, 0x46, 0x46, 0x04, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
-]);
 
 export function createFakeListEpisodesUseCase(
   impl?: () => Promise<ListEpisodesResponse>,

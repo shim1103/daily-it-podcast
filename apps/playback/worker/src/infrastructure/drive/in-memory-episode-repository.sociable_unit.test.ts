@@ -10,6 +10,7 @@ import { getEpisodeAudio } from "../../application/use-cases/get-episode-audio.t
 import { listEpisodes } from "../../application/use-cases/list-episodes.ts";
 import { InMemoryEpisodeRepository } from "./in-memory-episode-repository.ts";
 import { ManuscriptSchema } from "./manuscript-schema.ts";
+import { validAudioBytes } from "../../test/fixtures/audio-bytes.ts";
 
 const validManuscript = {
   episodeId: "ep-1",
@@ -30,15 +31,11 @@ const validManuscript = {
   },
 };
 
-const audioBytes = new Uint8Array([
-  0x52, 0x49, 0x46, 0x46, 0x04, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
-]);
-
 describe("InMemoryEpisodeRepository", () => {
   it("Get 成功時、返却原稿が manuscript schema に適合する", async () => {
     // Given: json + wav のペア
     const repository = new InMemoryEpisodeRepository();
-    repository.put("ep-1", validManuscript, audioBytes);
+    repository.put("ep-1", validManuscript, validAudioBytes);
 
     // When: 1件取得する
     const got = await getEpisode(repository, "ep-1");
@@ -53,19 +50,47 @@ describe("InMemoryEpisodeRepository", () => {
   it("Get 音声成功時、wav byte が取得できる", async () => {
     // Given: json + wav のペア
     const repository = new InMemoryEpisodeRepository();
-    repository.put("ep-1", validManuscript, audioBytes);
+    repository.put("ep-1", validManuscript, validAudioBytes);
 
     // When: 音声を取得する
     const got = await getEpisodeAudio(repository, "ep-1");
 
     // Then: byte が一致する
-    expect(got).toEqual(audioBytes);
+    expect(got).toEqual(validAudioBytes);
+  });
+
+  it("List の topics[].title 列が同一 episode の Get body.topics[].title 列と順序込みで一致する", async () => {
+    // Given: 複数 topic を持つ原稿
+    const multiTopicManuscript = {
+      ...validManuscript,
+      body: {
+        ...validManuscript.body,
+        topics: [
+          { title: "第一トピック", preface: "前1", detail: "詳1", startSec: 0 },
+          { title: "第二トピック", preface: "前2", detail: "詳2", startSec: 30 },
+          { title: "第三トピック", preface: "前3", detail: "詳3", startSec: 60 },
+        ],
+      },
+    };
+    const repository = new InMemoryEpisodeRepository();
+    repository.put("ep-1", multiTopicManuscript, validAudioBytes);
+
+    // When: 一覧と 1件を両方取得する
+    const list = await listEpisodes(repository);
+    const detail = await getEpisode(repository, "ep-1");
+
+    // Then: list 側の題名列が Get 側の題名列と順序込みで一致する
+    expect(list.episodes).toHaveLength(1);
+    const listTitles = list.episodes[0]?.topics.map((topic) => topic.title);
+    const detailTitles = detail.body.topics.map((topic) => topic.title);
+    expect(listTitles).toEqual(detailTitles);
+    expect(listTitles).toEqual(["第一トピック", "第二トピック", "第三トピック"]);
   });
 
   it("schema 不適合 JSON は List 行に含めない", async () => {
     // Given: 有効 JSON と不適合 JSON
     const repository = new InMemoryEpisodeRepository();
-    repository.put("ep-1", validManuscript, audioBytes);
+    repository.put("ep-1", validManuscript, validAudioBytes);
     repository.put("bad", { episodeId: "bad" });
 
     // When: 一覧を取得する
@@ -80,7 +105,7 @@ describe("InMemoryEpisodeRepository", () => {
   it("stem と JSON 内 episodeId が不一致の件は List 行に含めない", async () => {
     // Given: stem と episodeId がズレた有効 JSON
     const repository = new InMemoryEpisodeRepository();
-    repository.put("stem-a", { ...validManuscript, episodeId: "ep-other" }, audioBytes);
+    repository.put("stem-a", { ...validManuscript, episodeId: "ep-other" }, validAudioBytes);
 
     // When: 一覧を取得する
     const got = await listEpisodes(repository);
@@ -103,7 +128,7 @@ describe("InMemoryEpisodeRepository", () => {
   it("schema 不適合 JSON の Get は EpisodeNotFoundError になる", async () => {
     // Given: 音声はあるが JSON が schema 不適合
     const repository = new InMemoryEpisodeRepository();
-    repository.put("ep-1", { episodeId: "ep-1" }, audioBytes);
+    repository.put("ep-1", { episodeId: "ep-1" }, validAudioBytes);
 
     // When: 1件取得する
     const act = getEpisode(repository, "ep-1");
@@ -127,7 +152,7 @@ describe("InMemoryEpisodeRepository", () => {
   it("stem と JSON 内 episodeId が不一致の Get は EpisodeNotFoundError になる", async () => {
     // Given: stem と episodeId がズレた json + wav
     const repository = new InMemoryEpisodeRepository();
-    repository.put("stem-a", { ...validManuscript, episodeId: "ep-other" }, audioBytes);
+    repository.put("stem-a", { ...validManuscript, episodeId: "ep-other" }, validAudioBytes);
 
     // When: stem で 1件取得する
     const act = getEpisode(repository, "stem-a");
