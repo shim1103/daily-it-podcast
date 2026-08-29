@@ -16,7 +16,7 @@ func TestEmbedManuscriptDraftLimits_replacesNumericPlaceholdersButKeepsDynamicOn
 	got := embedManuscriptDraftLimits(constants.TextWriterBriefPrompt)
 
 	// Then: 数値 placeholder は個別に消え、動的 placeholder は残る
-	for _, ph := range []string{"{{TITLE_MIN}}", "{{PREFACE_MAX}}", "{{TOTAL_TARGET}}"} {
+	for _, ph := range []string{"{{TITLE_MIN}}", "{{PREFACE_MAX}}", "{{TOTAL_TARGET}}", "{{TOTAL_MINUTES_MIN}}", "{{TOTAL_MINUTES_MAX}}"} {
 		if strings.Contains(got, ph) {
 			t.Fatalf("数値 placeholder %s が残っている", ph)
 		}
@@ -42,6 +42,7 @@ func TestEmbedManuscriptDraftLimits_leavesNoNumericPlaceholder_whenTemplateLists
 		"{{DETAIL_MIN}}", "{{DETAIL_MAX}}", "{{DETAIL_TARGET}}",
 		"{{TOPIC_COUNT_MIN}}", "{{TOPIC_COUNT_MAX}}", "{{TOPIC_COUNT_TARGET}}",
 		"{{TOTAL_MIN}}", "{{TOTAL_MAX}}", "{{TOTAL_TARGET}}",
+		"{{TOTAL_MINUTES_MIN}}", "{{TOTAL_MINUTES_MAX}}",
 	}
 	template := strings.Join(numericPlaceholders, " ")
 
