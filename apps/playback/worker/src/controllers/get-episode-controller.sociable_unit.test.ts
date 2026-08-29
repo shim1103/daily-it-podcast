@@ -5,7 +5,7 @@ import {
   UnavailableError,
   ValidationError,
 } from "../../../contracts/index.ts";
-import { EpisodeNotFoundError } from "../entities/errors/episode-not-found-error.ts";
+import { EpisodeContentError } from "../entities/errors/episode-content-error.ts";
 import { DriveError } from "../infrastructure/drive/drive-error.ts";
 import { createGetEpisodeController } from "./get-episode-controller.ts";
 import { createFakeGetEpisodeUseCase, validGetEpisodeResponse } from "./fake-use-cases.ts";
@@ -36,9 +36,9 @@ describe("createGetEpisodeController", () => {
     await expect(act).rejects.toBeInstanceOf(ValidationError);
   });
 
-  it("UseCase が EpisodeNotFoundError を throw する時、NotFoundError に cause 付きで変換する", async () => {
+  it("UseCase が EpisodeContentError を throw する時、NotFoundError に cause 付きで変換する", async () => {
     // Given: Domain 不在を throw する Fake UseCase
-    const domainError = new EpisodeNotFoundError("JSON エントリが無い: ep-1");
+    const domainError = new EpisodeContentError("JSON エントリが無い: ep-1");
     const useCase = createFakeGetEpisodeUseCase(async () => {
       throw domainError;
     });
@@ -64,7 +64,7 @@ describe("createGetEpisodeController", () => {
     // Then: Fake の欠落経路が Domain → External NotFound へ写る
     await expect(act).rejects.toSatisfy(
       (error: unknown) =>
-        error instanceof NotFoundError && error.cause instanceof EpisodeNotFoundError,
+        error instanceof NotFoundError && error.cause instanceof EpisodeContentError,
     );
   });
 
