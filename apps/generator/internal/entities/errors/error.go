@@ -10,6 +10,7 @@ const (
 	OpEmptyAudio             = "empty_audio"
 	OpInvalidManuscript      = "invalid_manuscript"
 	OpInvalidManuscriptDraft = "invalid_manuscript_draft"
+	OpNoSourceItems          = "no_source_items"
 	OpEpisodeIDMismatch      = "episode_id_mismatch"
 	OpCorruptSpeechAudio     = "corrupt_speech_audio"
 )
