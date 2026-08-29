@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type RefObject } from "react";
 import type { ApiSuccessData } from "../api/api-result.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 
@@ -25,6 +25,8 @@ export type EpisodeListViewModel = {
   state: EpisodeListState;
   load(): Promise<void>;
   select(episodeId: string): Promise<void>;
+  audioElementRef: RefObject<HTMLAudioElement | null>;
+  seek(startSec: number): void;
 };
 
 /**
@@ -33,12 +35,14 @@ export type EpisodeListViewModel = {
  * @require apiClient は `listEpisodes()` と `getEpisode(episodeId)` を持つ
  * @ensure 初期状態は loading。`load()` 完了後、成功なら episodes と selectedEpisodeId（初期 null）・
  *   selectedEpisode（初期 null）を、失敗なら error を state に持つ。`select(episodeId)` は一覧が success の時のみ、
- *   同じ episodeId が選択中なら選択を解除し、それ以外は選択して詳細を loading → success/error の順に取得する
+ *   同じ episodeId が選択中なら選択を解除し、それ以外は選択して詳細を loading → success/error の順に取得する。
+ *   `seek(startSec)` は選択中 episode の audio 要素を startSec へ移動して再生する
  * @invariant throw しない。API Client の失敗は ApiResult の失敗側として受け取る
  */
 export function useEpisodeListViewModel(apiClient: PlaybackApiClient): EpisodeListViewModel {
   const [state, setStateReact] = useState<EpisodeListState>({ status: "loading" });
   const stateRef = useRef(state);
+  const audioElementRef = useRef<HTMLAudioElement>(null);
 
   const setState = useCallback((next: EpisodeListState): void => {
     // why: race 判定は ref の同期更新で足りる。flushSync は一時橋側の同期観測都合であり hook に置かない
@@ -97,5 +101,14 @@ export function useEpisodeListViewModel(apiClient: PlaybackApiClient): EpisodeLi
     [apiClient, setState],
   );
 
-  return { state, load, select };
+  const seek = useCallback((startSec: number): void => {
+    const audio = audioElementRef.current;
+    if (audio === null) {
+      return;
+    }
+    audio.currentTime = startSec;
+    void audio.play();
+  }, []);
+
+  return { state, load, select, audioElementRef, seek };
 }

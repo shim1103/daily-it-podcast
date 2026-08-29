@@ -321,4 +321,36 @@ describe("useEpisodeListViewModel", () => {
       });
     });
   });
+
+  it("seek は audio 要素の currentTime を startSec へ移動して再生する", () => {
+    // Given: ViewModel hook と audio 要素
+    const apiClient = createStubApiClient();
+    const { result } = renderHook(() => useEpisodeListViewModel(apiClient));
+    const audio = document.createElement("audio");
+    const playSpy = vi.spyOn(audio, "play").mockResolvedValue(undefined as never);
+    result.current.audioElementRef.current = audio;
+
+    // When: seek する
+    act(() => {
+      result.current.seek(90);
+    });
+
+    // Then: currentTime が変わり play が呼ばれる
+    expect(audio.currentTime).toBe(90);
+    expect(playSpy).toHaveBeenCalled();
+  });
+
+  it("seek は audio 要素が未接続の時、何もしない", () => {
+    // Given: audio ref が null の ViewModel hook
+    const apiClient = createStubApiClient();
+    const { result } = renderHook(() => useEpisodeListViewModel(apiClient));
+
+    // When: seek する
+    act(() => {
+      result.current.seek(90);
+    });
+
+    // Then: 例外なく終了する（audio 未接続のため操作なし）
+    expect(result.current.audioElementRef.current).toBeNull();
+  });
 });
