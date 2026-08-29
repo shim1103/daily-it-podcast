@@ -2,7 +2,11 @@
 name: playback の原稿 schema/domain 検証は Application 層が持ち、EpisodeRepository Port の signature は変えない
 date: 2026-08-29T13:43:53+09:00
 branch: feature/playback-list-episodes-topics-titles
+superseded-by: 2026-08-29T18-20-21-playback-episode-repository-returns-raw-payload.md
 ---
+
+> §1-2（Port signature を変えない・Port は検証済み型を返す）と §3-1（Port 戻り値の生 payload 化を Rejected）は
+> Decision `2026-08-29T18-20-21` で supersede された。§1-1・§1-3〜§1-5 は維持。
 
 ## 1. Decision
 
