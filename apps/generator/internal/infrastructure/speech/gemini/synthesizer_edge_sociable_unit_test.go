@@ -10,9 +10,6 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
-
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport/processenv"
 )
 
 func TestSynthesize_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *testing.T) {
@@ -63,7 +60,7 @@ func TestSynthesize_returnsInfrastructureError_whenClientNil(t *testing.T) {
 	t.Parallel()
 
 	// Given: nil client
-	synth := NewSpeechSynthesizer(nil, secrettransport.NewSecretRef())
+	synth := NewSpeechSynthesizer(nil, "gemini-edge-key")
 
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "本文")
@@ -213,8 +210,6 @@ func TestSynthesize_returnsInfrastructureError_whenUpstreamDoFails(t *testing.T)
 	addr := server.Listener.Addr().String()
 	server.Close()
 
-	apiKeySecret := secrettransport.NewSecretRef()
-	t.Setenv("GEMINI_TEST_PROXY_DO_FAILS_KEY", "gemini-test-real-value")
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			DialTLSContext: func(ctx context.Context, network, addrIgnored string) (net.Conn, error) {
@@ -222,8 +217,7 @@ func TestSynthesize_returnsInfrastructureError_whenUpstreamDoFails(t *testing.T)
 			},
 		},
 	}
-	client := processenv.NewClient(stubBindings{apiKeySecret: "GEMINI_TEST_PROXY_DO_FAILS_KEY"}, httpClient, nil)
-	synth := newSpeechSynthesizerForTest(client, apiKeySecret, func(time.Duration) {})
+	synth := newSpeechSynthesizerForTest(httpClient, "gemini-test-real-value", func(time.Duration) {})
 
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "network 失敗")

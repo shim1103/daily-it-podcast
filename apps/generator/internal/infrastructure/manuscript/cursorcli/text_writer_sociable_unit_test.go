@@ -25,7 +25,10 @@ func (f *fakeLauncher) Launch(ctx context.Context, command commandlaunch.Command
 
 func newTextWriterWithLauncher(stdout []byte, launchErr error) (*TextWriter, *fakeLauncher) {
 	fake := &fakeLauncher{Stdout: stdout, Err: launchErr}
-	return NewTextWriter(fake), fake
+	factoryFunc := func(envName string) commandlaunch.Launcher {
+		return fake
+	}
+	return NewTextWriter(factoryFunc), fake
 }
 
 func envelope(result string) []byte {
@@ -170,7 +173,10 @@ func TestWrite_wrapsLaunchErrorWithoutAppendingStdin_whenLaunchFails(t *testing.
 	// Given: 非0 exit 相当の error を返す Launcher Stub
 	const stdinToken = "cursorcli-test-stdin-token"
 	fake := &fakeLauncher{Err: errors.New("exit status 1")}
-	writer := NewTextWriter(fake)
+	factoryFunc := func(envName string) commandlaunch.Launcher {
+		return fake
+	}
+	writer := NewTextWriter(factoryFunc)
 
 	// When: 識別可能な brief で Write する
 	_, err := writer.Write(context.Background(), stdinToken)
@@ -219,11 +225,33 @@ func TestWrite_returnsInfrastructureError_whenReceiverIsNil(t *testing.T) {
 	}
 }
 
+func TestNewTextWriter_callsFactoryWithCursorAPIKeyEnvName_whenInitializing(t *testing.T) {
+	t.Parallel()
+
+	// Given: inject env 名を記録する fake factory
+	var capturedEnvName string
+	factoryFunc := func(envName string) commandlaunch.Launcher {
+		capturedEnvName = envName
+		return &fakeLauncher{}
+	}
+
+	// When: factory を渡して NewTextWriter を呼ぶ
+	_ = NewTextWriter(factoryFunc)
+
+	// Then: factory へ渡された env 名は CursorAPIKeyEnvName
+	if capturedEnvName != CursorAPIKeyEnvName {
+		t.Fatalf("factory called with envName = %q, want %q", capturedEnvName, CursorAPIKeyEnvName)
+	}
+}
+
 func TestWrite_returnsInfrastructureError_whenLauncherIsNil(t *testing.T) {
 	t.Parallel()
 
-	// Given: Launcher が nil の Adapter
-	writer := &TextWriter{}
+	// Given: Launcher が nil の Adapter（factory が nil を返すケース）
+	factoryFunc := func(envName string) commandlaunch.Launcher {
+		return nil
+	}
+	writer := NewTextWriter(factoryFunc)
 
 	// When: brief を渡して Write する
 	_, err := writer.Write(context.Background(), "導入を書いて")

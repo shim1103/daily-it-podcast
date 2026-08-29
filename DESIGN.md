@@ -65,7 +65,7 @@ repo 根 `contracts/` は Drive 上の表現（配置・`manuscript.schema.json`
 | TTS | Gemini |
 | Drive | Google Drive + OAuth refresh |
 
-Generatorのtarget architectureでは、`generator/internal/config`がstartup時にprocess environmentを一度だけ読み、検証済みのcapability別ConfigをCompositionへ渡す。HTTP Adapterは標準の`*http.Client`と、自身に必要なcapability config / credentialだけを受け取る。Adapterはenvironment keyやcredentialの保存元を知らない。現行codeに残る`secrettransport`は移行前の実装であり、target architectureのpolicyではない。
+Generatorでは、`generator/internal/config`がstartup時にprocess environmentを一度だけ読み、検証済みのcapability別ConfigをCompositionへ渡す。HTTP Adapterは標準の`*http.Client`と、自身に必要なcapability config / credentialだけを受け取る。Adapterはenvironment keyやcredentialの保存元を知らない。Cursor CLI command経路では、secretの生値は`Composition`が`config`から取り出して`processenv`実装の closure へ渡し、`cursorcli`（vendor Adapter）を経由しない。Adapterが持つのは呼び出し仕様（inject環境変数名・argv）だけである。
 
 ブラウザにDriveのcredentialを置かない。OAuth client ID・Drive folder IDは非secret runtime config、OAuth client secret・refresh token・API keyはsecretとする。いずれも`contracts/`外でruntimeごとに注入する。
 

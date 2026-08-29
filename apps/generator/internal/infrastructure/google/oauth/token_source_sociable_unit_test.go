@@ -8,24 +8,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
-
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport/processenv"
 )
 
-// stubBindings は test 用の BindingResolver fake。
-type stubBindings map[secrettransport.SecretRef]string
-
-func (b stubBindings) ResolveSecret(ref secrettransport.SecretRef) (string, bool) {
-	name, ok := b[ref]
-	return name, ok
-}
-
 const (
-	oauthTestClientIDSecretName     = "OAUTH_TEST_CLIENT_ID"
-	oauthTestClientSecretSecretName = "OAUTH_TEST_CLIENT_SECRET"
-	oauthTestRefreshTokenSecretName = "OAUTH_TEST_REFRESH_TOKEN"
+	oauthTestClientID     = "oauth-test-client-id-real-value"
+	oauthTestClientSecret = "oauth-test-client-secret-real-value"
+	oauthTestRefreshToken = "oauth-test-refresh-token-real-value"
 )
 
 type proxyProbe struct {
@@ -35,6 +25,7 @@ type proxyProbe struct {
 	clientSecret string
 	refreshToken string
 	body         string
+	contentType  string
 }
 
 // newTokenSourceWithStub は本番 host（oauth2.googleapis.com）への接続を test TLS server へ差し替えた TokenSource を返す。
@@ -48,6 +39,7 @@ func newTokenSourceWithStub(t *testing.T, status int, response string) (*TokenSo
 		}
 		probe.targetURL = r.URL.String()
 		probe.method = r.Method
+		probe.contentType = r.Header.Get("Content-Type")
 		probe.clientID = r.PostForm.Get("client_id")
 		probe.clientSecret = r.PostForm.Get("client_secret")
 		probe.refreshToken = r.PostForm.Get("refresh_token")
@@ -56,17 +48,6 @@ func newTokenSourceWithStub(t *testing.T, status int, response string) (*TokenSo
 		_, _ = w.Write([]byte(response))
 	}))
 	t.Cleanup(server.Close)
-	t.Setenv(oauthTestClientIDSecretName, "oauth-test-client-id-real-value")
-	t.Setenv(oauthTestClientSecretSecretName, "oauth-test-client-secret-real-value")
-	t.Setenv(oauthTestRefreshTokenSecretName, "oauth-test-refresh-token-real-value")
-	clientIDSecret := secrettransport.NewSecretRef()
-	clientSecretSecret := secrettransport.NewSecretRef()
-	refreshTokenSecret := secrettransport.NewSecretRef()
-	bindings := stubBindings{
-		clientIDSecret:     oauthTestClientIDSecretName,
-		clientSecretSecret: oauthTestClientSecretSecretName,
-		refreshTokenSecret: oauthTestRefreshTokenSecretName,
-	}
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			DialTLSContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -75,11 +56,10 @@ func newTokenSourceWithStub(t *testing.T, status int, response string) (*TokenSo
 			},
 		},
 	}
-	client := processenv.NewClient(bindings, httpClient, nil)
-	return NewTokenSource(client, clientIDSecret, clientSecretSecret, refreshTokenSecret), probe
+	return NewTokenSource(httpClient, oauthTestClientID, oauthTestClientSecret, oauthTestRefreshToken), probe
 }
 
-func TestToken_returnsAccessToken_andInjectsSecretRealValues(t *testing.T) {
+func TestToken_returnsAccessToken_andSendsRefreshForm(t *testing.T) {
 	// Given: token endpoint stub が access token を返す
 	source, probe := newTokenSourceWithStub(t, http.StatusOK, `{"access_token":"ya29.test-token"}`)
 
@@ -96,13 +76,16 @@ func TestToken_returnsAccessToken_andInjectsSecretRealValues(t *testing.T) {
 	if probe.method != http.MethodPost {
 		t.Fatalf("method = %q, want POST", probe.method)
 	}
-	if probe.clientID != "oauth-test-client-id-real-value" {
+	if probe.contentType != "application/x-www-form-urlencoded" {
+		t.Fatalf("Content-Type = %q, want application/x-www-form-urlencoded", probe.contentType)
+	}
+	if probe.clientID != oauthTestClientID {
 		t.Fatalf("client_id = %q, want real value", probe.clientID)
 	}
-	if probe.clientSecret != "oauth-test-client-secret-real-value" {
+	if probe.clientSecret != oauthTestClientSecret {
 		t.Fatalf("client_secret = %q, want real value", probe.clientSecret)
 	}
-	if probe.refreshToken != "oauth-test-refresh-token-real-value" {
+	if probe.refreshToken != oauthTestRefreshToken {
 		t.Fatalf("refresh_token = %q, want real value", probe.refreshToken)
 	}
 	form, err := url.ParseQuery(probe.body)
@@ -121,10 +104,16 @@ func TestToken_returnsInfrastructureError_whenUnauthorized(t *testing.T) {
 	// When: OAuth refresh を実行する
 	_, err := source.Token(context.Background())
 
-	// Then: OAuth 固有の Infrastructure Error を返す
+	// Then: OAuth 固有の Infrastructure Error を返し、Error / Unwrap が観測できる
 	var oauthErr *Error
 	if !errors.As(err, &oauthErr) {
 		t.Fatalf("error = %T, want *oauth.Error", err)
+	}
+	if !strings.HasPrefix(oauthErr.Error(), "google oauth:") {
+		t.Fatalf("Error() = %q, want prefix google oauth:", oauthErr.Error())
+	}
+	if errors.Unwrap(oauthErr) == nil {
+		t.Fatal("Unwrap() is nil")
 	}
 }
 
@@ -144,7 +133,31 @@ func TestToken_returnsInfrastructureError_whenAccessTokenIsEmpty(t *testing.T) {
 
 func TestToken_returnsInfrastructureError_whenClientIsNil(t *testing.T) {
 	// Given: client が nil
-	source := NewTokenSource(nil, secrettransport.NewSecretRef(), secrettransport.NewSecretRef(), secrettransport.NewSecretRef())
+	source := NewTokenSource(nil, oauthTestClientID, oauthTestClientSecret, oauthTestRefreshToken)
+
+	// When: OAuth refresh を実行する
+	_, err := source.Token(context.Background())
+
+	// Then: OAuth 固有の Infrastructure Error を返す
+	var oauthErr *Error
+	if !errors.As(err, &oauthErr) {
+		t.Fatalf("error = %T, want *oauth.Error", err)
+	}
+}
+
+func TestToken_returnsInfrastructureError_whenUpstreamConnectionFails(t *testing.T) {
+	// Given: 直ちに閉じる upstream への接続（DialTLSContext が閉じた addr を指す）
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	addr := server.Listener.Addr().String()
+	server.Close()
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			DialTLSContext: func(ctx context.Context, network, addrIgnored string) (net.Conn, error) {
+				return tls.Dial(network, addr, &tls.Config{InsecureSkipVerify: true})
+			},
+		},
+	}
+	source := NewTokenSource(httpClient, oauthTestClientID, oauthTestClientSecret, oauthTestRefreshToken)
 
 	// When: OAuth refresh を実行する
 	_, err := source.Token(context.Background())
@@ -159,23 +172,6 @@ func TestToken_returnsInfrastructureError_whenClientIsNil(t *testing.T) {
 func TestToken_returnsInfrastructureError_whenResponseIsInvalidJSON(t *testing.T) {
 	// Given: token endpoint stub が JSON でない応答を返す
 	source, _ := newTokenSourceWithStub(t, http.StatusOK, "not-json")
-
-	// When: OAuth refresh を実行する
-	_, err := source.Token(context.Background())
-
-	// Then: OAuth 固有の Infrastructure Error を返す
-	var oauthErr *Error
-	if !errors.As(err, &oauthErr) {
-		t.Fatalf("error = %T, want *oauth.Error", err)
-	}
-}
-
-func TestToken_returnsInfrastructureError_whenSecretIsUnresolved(t *testing.T) {
-	// Given: bindings に登録されていない SecretRef
-	unresolved := secrettransport.NewSecretRef()
-	bindings := stubBindings{}
-	client := processenv.NewClient(bindings, http.DefaultClient, nil)
-	source := NewTokenSource(client, unresolved, unresolved, unresolved)
 
 	// When: OAuth refresh を実行する
 	_, err := source.Token(context.Background())
