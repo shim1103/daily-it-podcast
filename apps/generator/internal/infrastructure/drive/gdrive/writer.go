@@ -1,6 +1,7 @@
 package gdrive
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
 )
 
 var _ port.EpisodeWriter = (*EpisodeWriter)(nil)
@@ -23,17 +23,17 @@ type TokenSource interface {
 }
 
 type EpisodeWriter struct {
-	client         secrettransport.Client
-	tokens         TokenSource
-	folderIDSecret secrettransport.SecretRef
+	client   *http.Client
+	tokens   TokenSource
+	folderID string
 }
 
 // NewRawEpisodeWriter は validation 前の Google Drive 書込 Adapter を返す。
 //
-// @require client != nil。tokens != nil。
-// @ensure 秘密値は保持しない。secret 名の知識は持たず、folderIDSecret の参照だけを保持する。
-func NewRawEpisodeWriter(client secrettransport.Client, tokens TokenSource, folderIDSecret secrettransport.SecretRef) *EpisodeWriter {
-	return &EpisodeWriter{client: client, tokens: tokens, folderIDSecret: folderIDSecret}
+// @require httpClient != nil。tokens != nil。
+// @ensure folderID は create metadata の Parents にだけ使い、保存元の知識は持たない。
+func NewRawEpisodeWriter(httpClient *http.Client, tokens TokenSource, folderID string) *EpisodeWriter {
+	return &EpisodeWriter{client: httpClient, tokens: tokens, folderID: folderID}
 }
 
 func (w *EpisodeWriter) Write(ctx context.Context, episodeID string, manuscript []byte, audio models.SpeechAudio) error {
@@ -72,7 +72,7 @@ func (w *EpisodeWriter) findFileID(ctx context.Context, token, name string) (str
 	q := url.Values{}
 	q.Set("q", "name = '"+escapeDriveQueryValue(name)+"' and trashed = false")
 	q.Set("fields", "files(id)")
-	res, err := w.doDrive(ctx, http.MethodGet, FilesURL+"?"+q.Encode(), token, "", nil, secrettransport.Inject{})
+	res, err := w.doDrive(ctx, http.MethodGet, FilesURL+"?"+q.Encode(), token, "", nil)
 	if err != nil {
 		return "", infraErr("list", err)
 	}
@@ -97,18 +97,16 @@ type fileMetadata struct {
 }
 
 func (w *EpisodeWriter) createMetadata(ctx context.Context, token, name, mime string) (string, error) {
-	// why: parents の値は secrettransport の JSON inject が埋める。code に folder ID を置かない。
+	// why: folder ID は Composition が渡した非 secret runtime config。metadata へ直接埋める。
 	meta, err := json.Marshal(fileMetadata{
 		Name:     name,
 		MimeType: mime,
-		Parents:  []string{""},
+		Parents:  []string{w.folderID},
 	})
 	if err != nil {
 		return "", infraErr("create_marshal", err)
 	}
-	res, err := w.doDrive(ctx, http.MethodPost, FilesURL, token, jsonMIME, meta, secrettransport.Inject{
-		JSON: []secrettransport.FieldInjection{{Field: "parents.0", Secret: w.folderIDSecret}},
-	})
+	res, err := w.doDrive(ctx, http.MethodPost, FilesURL, token, jsonMIME, meta)
 	if err != nil {
 		return "", infraErr("create", err)
 	}
@@ -126,7 +124,7 @@ func (w *EpisodeWriter) createMetadata(ctx context.Context, token, name, mime st
 
 func (w *EpisodeWriter) uploadMedia(ctx context.Context, token, fileID, mime string, content []byte) error {
 	target := UploadURL + "/" + url.PathEscape(fileID) + "?uploadType=media"
-	res, err := w.doDrive(ctx, http.MethodPatch, target, token, mime, content, secrettransport.Inject{})
+	res, err := w.doDrive(ctx, http.MethodPatch, target, token, mime, content)
 	if err != nil {
 		return infraErr("upload", err)
 	}
@@ -140,20 +138,16 @@ func (w *EpisodeWriter) uploadMedia(ctx context.Context, token, fileID, mime str
 	return nil
 }
 
-func (w *EpisodeWriter) doDrive(ctx context.Context, method, target, token, contentType string, body []byte, inject secrettransport.Inject) (*http.Response, error) {
-	headers := []secrettransport.Header{
-		{Name: "Authorization", Value: "Bearer " + token},
+func (w *EpisodeWriter) doDrive(ctx context.Context, method, target, token, contentType string, body []byte) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, target, bytes.NewReader(body))
+	if err != nil {
+		return nil, infraErr("build_request", err)
 	}
+	req.Header.Set("Authorization", "Bearer "+token)
 	if contentType != "" {
-		headers = append(headers, secrettransport.Header{Name: "Content-Type", Value: contentType})
+		req.Header.Set("Content-Type", contentType)
 	}
-	return w.client.Do(ctx, secrettransport.Request{
-		Method:             method,
-		TargetURL:          target,
-		Body:               body,
-		PassthroughHeaders: headers,
-		Inject:             inject,
-	})
+	return w.client.Do(req)
 }
 
 func readJSONBody(res *http.Response, op string, dest any, okStatuses ...int) error {

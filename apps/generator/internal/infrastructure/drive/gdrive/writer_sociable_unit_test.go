@@ -13,8 +13,9 @@ import (
 	"testing"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/secrettransport"
 )
+
+const testFolderID = "gdrive-test-folder-id"
 
 // stubTokenSource は test 用の TokenSource fake。
 type stubTokenSource struct {
@@ -29,7 +30,7 @@ func (s stubTokenSource) Token(ctx context.Context) (string, error) {
 	return s.token, nil
 }
 
-// stubClientCall は stubClient が受けた1回分の request を、境界 I/O なしで記録する。
+// stubClientCall は stubRoundTripper が受けた1回分の request を、境界 I/O なしで記録する。
 type stubClientCall struct {
 	Method      string
 	TargetURL   string
@@ -41,41 +42,37 @@ type stubClientCall struct {
 type stubClientResponse struct {
 	MatchMethod      string
 	MatchPath        string // TargetURL の部分文字列。空なら method のみで一致。
-	MatchContentType string // PassthroughHeaders の Content-Type 部分文字列。空なら不問。
+	MatchContentType string // Content-Type 部分文字列。空なら不問。
 	Status           int
 	Body             string
 	Err              error
 }
 
-func contentTypeOf(request secrettransport.Request) string {
-	for _, h := range request.PassthroughHeaders {
-		if h.Name == "Content-Type" {
-			return h.Value
-		}
-	}
-	return ""
-}
-
-// stubClient は secrettransport.Client を境界 I/O なしで満たす直接 Stub。
+// stubRoundTripper は http.RoundTripper を境界 I/O なしで満たす直接 Stub。
 // responses の先頭から順に、method・target が一致する最初の1件を使う。
-type stubClient struct {
+type stubRoundTripper struct {
 	responses []stubClientResponse
 	calls     []stubClientCall
 }
 
-func (c *stubClient) Do(ctx context.Context, request secrettransport.Request) (*http.Response, error) {
-	contentType := contentTypeOf(request)
+func (c *stubRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	var body []byte
+	if req.Body != nil {
+		body, _ = io.ReadAll(req.Body)
+		_ = req.Body.Close()
+	}
+	contentType := req.Header.Get("Content-Type")
 	c.calls = append(c.calls, stubClientCall{
-		Method:      request.Method,
-		TargetURL:   request.TargetURL,
-		Body:        string(request.Body),
+		Method:      req.Method,
+		TargetURL:   req.URL.String(),
+		Body:        string(body),
 		ContentType: contentType,
 	})
 	for _, res := range c.responses {
-		if res.MatchMethod != "" && res.MatchMethod != request.Method {
+		if res.MatchMethod != "" && res.MatchMethod != req.Method {
 			continue
 		}
-		if res.MatchPath != "" && !strings.Contains(request.TargetURL, res.MatchPath) {
+		if res.MatchPath != "" && !strings.Contains(req.URL.String(), res.MatchPath) {
 			continue
 		}
 		if res.MatchContentType != "" && !strings.Contains(contentType, res.MatchContentType) {
@@ -87,9 +84,14 @@ func (c *stubClient) Do(ctx context.Context, request secrettransport.Request) (*
 		return &http.Response{
 			StatusCode: res.Status,
 			Body:       io.NopCloser(bytes.NewReader([]byte(res.Body))),
+			Header:     make(http.Header),
 		}, nil
 	}
-	return nil, fmt.Errorf("stubClient: no response configured for method=%s target=%s", request.Method, request.TargetURL)
+	return nil, fmt.Errorf("stubRoundTripper: no response configured for method=%s target=%s", req.Method, req.URL.String())
+}
+
+func newStubWriter(rt *stubRoundTripper, tokens TokenSource) *EpisodeWriter {
+	return NewRawEpisodeWriter(&http.Client{Transport: rt}, tokens, testFolderID)
 }
 
 func jsonBody(t *testing.T, v any) string {
@@ -134,7 +136,7 @@ func uploadCalls(calls []stubClientCall) []stubClientCall {
 func TestWrite_updatesExistingFiles_whenSameNameListed(t *testing.T) {
 
 	// Given: list が既存 file の id を返す stub。create は呼ばれない前提のため応答を用意しない
-	client := &stubClient{
+	rt := &stubRoundTripper{
 		responses: []stubClientResponse{
 			{MatchMethod: http.MethodGet, Status: http.StatusOK, Body: jsonBody(t, map[string]any{
 				"files": []map[string]any{{"id": "existing-id", "name": "listed"}},
@@ -142,7 +144,7 @@ func TestWrite_updatesExistingFiles_whenSameNameListed(t *testing.T) {
 			{MatchMethod: http.MethodPatch, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"id": "updated"})},
 		},
 	}
-	writer := NewRawEpisodeWriter(client, stubTokenSource{token: "ya29.test-token"}, secrettransport.NewSecretRef())
+	writer := newStubWriter(rt, stubTokenSource{token: "ya29.test-token"})
 
 	// When: 同一 episodeId で Write する
 	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
@@ -151,13 +153,13 @@ func TestWrite_updatesExistingFiles_whenSameNameListed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Write: %v", err)
 	}
-	if got := len(createCalls(client.calls)); got != 0 {
+	if got := len(createCalls(rt.calls)); got != 0 {
 		t.Fatalf("create calls = %d, want 0", got)
 	}
-	if got := len(uploadCalls(client.calls)); got != 2 {
+	if got := len(uploadCalls(rt.calls)); got != 2 {
 		t.Fatalf("upload calls = %d, want 2", got)
 	}
-	for _, c := range uploadCalls(client.calls) {
+	for _, c := range uploadCalls(rt.calls) {
 		if !strings.Contains(c.TargetURL, "existing-id") {
 			t.Fatalf("upload target = %q, want existing-id", c.TargetURL)
 		}
@@ -167,8 +169,8 @@ func TestWrite_updatesExistingFiles_whenSameNameListed(t *testing.T) {
 func TestWrite_returnsInfrastructureError_whenTokenSourceFails(t *testing.T) {
 
 	// Given: TokenSource が error を返す
-	client := &stubClient{}
-	writer := NewRawEpisodeWriter(client, stubTokenSource{err: fmt.Errorf("refresh failed")}, secrettransport.NewSecretRef())
+	rt := &stubRoundTripper{}
+	writer := newStubWriter(rt, stubTokenSource{err: fmt.Errorf("refresh failed")})
 
 	// When: Write する
 	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
@@ -187,15 +189,15 @@ func TestWrite_returnsInfrastructureError_whenTokenSourceFails(t *testing.T) {
 	if errors.Unwrap(infra) == nil {
 		t.Fatal("Unwrap() is nil")
 	}
-	if len(client.calls) != 0 {
-		t.Fatalf("unexpected client calls: %+v", client.calls)
+	if len(rt.calls) != 0 {
+		t.Fatalf("unexpected client calls: %+v", rt.calls)
 	}
 }
 
 func TestWrite_returnsInfrastructureErrorWithoutDelete_whenWAVUploadFailsAfterJSON(t *testing.T) {
 
 	// Given: json 書込は成功し wav media upload だけ 500 を返す stub
-	client := &stubClient{
+	rt := &stubRoundTripper{
 		responses: []stubClientResponse{
 			{MatchMethod: http.MethodGet, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"files": []any{}})},
 			{MatchMethod: http.MethodPost, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"id": "created-id"})},
@@ -203,7 +205,7 @@ func TestWrite_returnsInfrastructureErrorWithoutDelete_whenWAVUploadFailsAfterJS
 			{MatchMethod: http.MethodPatch, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"id": "uploaded-json"})},
 		},
 	}
-	writer := NewRawEpisodeWriter(client, stubTokenSource{token: "ya29.test-token"}, secrettransport.NewSecretRef())
+	writer := newStubWriter(rt, stubTokenSource{token: "ya29.test-token"})
 
 	// When: Write する
 	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
@@ -216,13 +218,13 @@ func TestWrite_returnsInfrastructureErrorWithoutDelete_whenWAVUploadFailsAfterJS
 	if !errors.As(err, &infra) {
 		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
 	}
-	for _, c := range client.calls {
+	for _, c := range rt.calls {
 		if c.Method == http.MethodDelete {
 			t.Fatalf("delete was called: %s", c.TargetURL)
 		}
 	}
 	var createdJSON bool
-	for _, c := range createCalls(client.calls) {
+	for _, c := range createCalls(rt.calls) {
 		var meta struct {
 			Name string `json:"name"`
 		}
@@ -240,7 +242,7 @@ func TestWrite_returnsInfrastructureError_whenClientNil(t *testing.T) {
 	t.Parallel()
 
 	// Given: client が nil
-	writer := NewRawEpisodeWriter(nil, stubTokenSource{token: "ya29.test-token"}, secrettransport.NewSecretRef())
+	writer := NewRawEpisodeWriter(nil, stubTokenSource{token: "ya29.test-token"}, testFolderID)
 
 	// When: Write する
 	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
@@ -277,12 +279,12 @@ func TestWrite_returnsInfrastructureError_whenWriterNil(t *testing.T) {
 func TestWrite_returnsInfrastructureError_whenListHTTPFails(t *testing.T) {
 
 	// Given: files.list が 500
-	client := &stubClient{
+	rt := &stubRoundTripper{
 		responses: []stubClientResponse{
 			{MatchMethod: http.MethodGet, Status: http.StatusInternalServerError, Body: jsonBody(t, map[string]any{"error": "list failed"})},
 		},
 	}
-	writer := NewRawEpisodeWriter(client, stubTokenSource{token: "ya29.test-token"}, secrettransport.NewSecretRef())
+	writer := newStubWriter(rt, stubTokenSource{token: "ya29.test-token"})
 
 	// When: Write する
 	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
@@ -300,12 +302,12 @@ func TestWrite_returnsInfrastructureError_whenListHTTPFails(t *testing.T) {
 func TestWrite_returnsInfrastructureError_whenListBodyInvalid(t *testing.T) {
 
 	// Given: files.list の body が JSON でない
-	client := &stubClient{
+	rt := &stubRoundTripper{
 		responses: []stubClientResponse{
 			{MatchMethod: http.MethodGet, Status: http.StatusOK, Body: "not-json"},
 		},
 	}
-	writer := NewRawEpisodeWriter(client, stubTokenSource{token: "ya29.test-token"}, secrettransport.NewSecretRef())
+	writer := newStubWriter(rt, stubTokenSource{token: "ya29.test-token"})
 
 	// When: Write する
 	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
@@ -323,13 +325,13 @@ func TestWrite_returnsInfrastructureError_whenListBodyInvalid(t *testing.T) {
 func TestWrite_returnsInfrastructureError_whenCreateHTTPFails(t *testing.T) {
 
 	// Given: metadata create が 500
-	client := &stubClient{
+	rt := &stubRoundTripper{
 		responses: []stubClientResponse{
 			{MatchMethod: http.MethodGet, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"files": []any{}})},
 			{MatchMethod: http.MethodPost, Status: http.StatusInternalServerError, Body: jsonBody(t, map[string]any{"error": "create failed"})},
 		},
 	}
-	writer := NewRawEpisodeWriter(client, stubTokenSource{token: "ya29.test-token"}, secrettransport.NewSecretRef())
+	writer := newStubWriter(rt, stubTokenSource{token: "ya29.test-token"})
 
 	// When: Write する
 	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
@@ -347,13 +349,13 @@ func TestWrite_returnsInfrastructureError_whenCreateHTTPFails(t *testing.T) {
 func TestWrite_returnsInfrastructureError_whenCreateIDEmpty(t *testing.T) {
 
 	// Given: create 応答の id が空
-	client := &stubClient{
+	rt := &stubRoundTripper{
 		responses: []stubClientResponse{
 			{MatchMethod: http.MethodGet, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"files": []any{}})},
 			{MatchMethod: http.MethodPost, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"id": ""})},
 		},
 	}
-	writer := NewRawEpisodeWriter(client, stubTokenSource{token: "ya29.test-token"}, secrettransport.NewSecretRef())
+	writer := newStubWriter(rt, stubTokenSource{token: "ya29.test-token"})
 
 	// When: Write する
 	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
@@ -371,13 +373,13 @@ func TestWrite_returnsInfrastructureError_whenCreateIDEmpty(t *testing.T) {
 func TestWrite_returnsInfrastructureError_whenCreateBodyInvalid(t *testing.T) {
 
 	// Given: create 応答が JSON でない
-	client := &stubClient{
+	rt := &stubRoundTripper{
 		responses: []stubClientResponse{
 			{MatchMethod: http.MethodGet, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"files": []any{}})},
 			{MatchMethod: http.MethodPost, Status: http.StatusCreated, Body: "not-json"},
 		},
 	}
-	writer := NewRawEpisodeWriter(client, stubTokenSource{token: "ya29.test-token"}, secrettransport.NewSecretRef())
+	writer := newStubWriter(rt, stubTokenSource{token: "ya29.test-token"})
 
 	// When: Write する
 	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
@@ -392,18 +394,50 @@ func TestWrite_returnsInfrastructureError_whenCreateBodyInvalid(t *testing.T) {
 	}
 }
 
-func TestWrite_escapesQuoteInListQuery_whenEpisodeIDContainsQuote(t *testing.T) {
+func TestWrite_embedsFolderIDInParents_whenCreatingMetadata(t *testing.T) {
 
-	// Given: episodeId に単引用符を含む
-	const episodeID = "ep'1"
-	client := &stubClient{
+	// Given: 空一覧と create/upload 成功を返す stub
+	rt := &stubRoundTripper{
 		responses: []stubClientResponse{
 			{MatchMethod: http.MethodGet, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"files": []any{}})},
 			{MatchMethod: http.MethodPost, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"id": "created-id"})},
 			{MatchMethod: http.MethodPatch, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"id": "uploaded"})},
 		},
 	}
-	writer := NewRawEpisodeWriter(client, stubTokenSource{token: "ya29.test-token"}, secrettransport.NewSecretRef())
+	writer := newStubWriter(rt, stubTokenSource{token: "ya29.test-token"})
+
+	// When: Write する
+	err := writer.Write(context.Background(), "ep-1", []byte(`{"episodeId":"ep-1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
+
+	// Then: create metadata の Parents に folder ID が直接入る
+	if err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	for _, c := range createCalls(rt.calls) {
+		var meta struct {
+			Parents []string `json:"parents"`
+		}
+		if err := json.Unmarshal([]byte(c.Body), &meta); err != nil {
+			t.Fatalf("unmarshal create metadata: %v", err)
+		}
+		if len(meta.Parents) != 1 || meta.Parents[0] != testFolderID {
+			t.Fatalf("parents = %#v, want [%q]", meta.Parents, testFolderID)
+		}
+	}
+}
+
+func TestWrite_escapesQuoteInListQuery_whenEpisodeIDContainsQuote(t *testing.T) {
+
+	// Given: episodeId に単引用符を含む
+	const episodeID = "ep'1"
+	rt := &stubRoundTripper{
+		responses: []stubClientResponse{
+			{MatchMethod: http.MethodGet, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"files": []any{}})},
+			{MatchMethod: http.MethodPost, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"id": "created-id"})},
+			{MatchMethod: http.MethodPatch, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"id": "uploaded"})},
+		},
+	}
+	writer := newStubWriter(rt, stubTokenSource{token: "ya29.test-token"})
 
 	// When: Write する
 	err := writer.Write(context.Background(), episodeID, []byte(`{"episodeId":"ep'1"}`), models.SpeechAudio{Content: []byte("RIFFWAV")})
@@ -413,7 +447,7 @@ func TestWrite_escapesQuoteInListQuery_whenEpisodeIDContainsQuote(t *testing.T) 
 		t.Fatalf("Write: %v", err)
 	}
 	var sawEscaped bool
-	for _, c := range listCalls(client.calls) {
+	for _, c := range listCalls(rt.calls) {
 		u, parseErr := url.Parse(c.TargetURL)
 		if parseErr != nil {
 			t.Fatalf("parse target: %v", parseErr)
