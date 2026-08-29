@@ -30,6 +30,7 @@ vi.mock("../composition/root.ts", async (importOriginal) => {
 
 import { createPlaybackControllers, PlaybackRuntimeConfigError } from "../composition/root.ts";
 import { app, createApp } from "./app.ts";
+import { validAudioBytes } from "../test/fixtures/audio-bytes.ts";
 
 const origin = "http://example.test";
 const emptyEnv = {};
@@ -65,10 +66,6 @@ const validGet = {
   },
   audioRef: episodeAudioPath("ep-1"),
 };
-
-const validAudioBytes = new Uint8Array([
-  0x52, 0x49, 0x46, 0x46, 0x04, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45,
-]);
 
 const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 

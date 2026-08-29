@@ -7,10 +7,8 @@ import {
   ListEpisodesResponseSchema,
   listEpisodesPath,
 } from "../contracts/index.ts";
-import {
-  validAudioBytes,
-  validGetEpisodeResponse,
-} from "../worker/src/controllers/fake-use-cases.ts";
+import { validAudioBytes } from "../worker/src/test/fixtures/audio-bytes.ts";
+import { validGetEpisodeResponse } from "../worker/src/controllers/fake-use-cases.ts";
 import { createDummyBackendMiddleware } from "./vite.config.ts";
 
 const origin = "http://localhost";
