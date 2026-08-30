@@ -21,7 +21,8 @@ SU から Narrow へ観測を移した結果、実プロセス起動が必須の
 - branch を property name へ改名（`feature/generator-narrow-gate-vendor-cursorcli` → `feature/generator-cursorcli-narrow-integration`）。worktree dir 名は旧名のまま。sandbox が `.git/config` の write を拒むため config 更新は失敗したが branch ref の改名は成立。
 - この session は途中で non-edit Ask / non-edit Question / issue-manager flow / `/pr-completion` と指示形態が切り替わった。詳細な進め方の誤りは lessons へ分割。
 - GitHub Issue は無し（local task file が契約の正、削除済み）。
-- PR: （`/create-pr` で作成）
+- PR 作成前に `origin/develop`（PR #94 マージ済み）を merge（ort strategy、conflict なし）。merge 後も generator gate 全緑を再確認。
+- PR: https://github.com/shim1103/daily-it-podcast/pull/95 （base `develop`）
 
 ### Commits
 
