@@ -78,37 +78,8 @@ func newGDriveWriterWithProxy(t *testing.T, token string, handler http.HandlerFu
 	return gdrive.NewRawEpisodeWriter(httpClient, gdriveNarrowTokenSource{token: token}, gdriveNarrowFolderID), calls
 }
 
-func gdriveNarrowWriteJSONStatus(t *testing.T, w http.ResponseWriter, status int, body any) {
-	t.Helper()
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(body); err != nil {
-		t.Fatalf("encode fixture: %v", err)
-	}
-}
-
 func gdriveNarrowSucceedHandler(t *testing.T) http.HandlerFunc {
-	t.Helper()
-	return func(w http.ResponseWriter, r *http.Request) {
-		target := r.URL.String()
-		method := r.Method
-		switch {
-		case method == http.MethodGet && strings.Contains(target, "/drive/v3/files"):
-			gdriveNarrowWriteJSONStatus(t, w, http.StatusOK, map[string]any{"files": []any{}})
-		case method == http.MethodPost && strings.Contains(target, "/drive/v3/files"):
-			var meta struct {
-				Name string `json:"name"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&meta); err != nil {
-				t.Fatalf("decode create metadata: %v", err)
-			}
-			gdriveNarrowWriteJSONStatus(t, w, http.StatusOK, map[string]any{"id": "created-" + meta.Name})
-		case method == http.MethodPatch && strings.Contains(target, "/upload/drive/v3/files/"):
-			gdriveNarrowWriteJSONStatus(t, w, http.StatusOK, map[string]any{"id": "uploaded"})
-		default:
-			t.Fatalf("unexpected request method=%s url=%s", method, target)
-		}
-	}
+	return integrationGDriveSuccessHandler(t, nil)
 }
 
 func gdriveNarrowListFailHandler(t *testing.T) http.HandlerFunc {
