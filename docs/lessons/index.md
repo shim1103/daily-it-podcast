@@ -53,3 +53,6 @@
 - 2026-08-30 [docs/generator-broad-system-e2e-plan] 後続 Decision が前提（local secret 供給等）を消したら、字面が残る先行 Decision をそのまま適用しない。前提が消えた範囲は新 Decision で置き換え範囲を書き、旧本文は触らない  # → layer:meta
 - 2026-08-30 [docs/generator-broad-system-e2e-plan] Go の build tag は「tagged file を足す」だけで、同一 package の untagged test は -tags 実行時も残る。tagged suite だけ回す入口は別 package（または !tag）で隔離する  # → layer:platform
 - 2026-08-30 [docs/generator-broad-system-e2e-plan] 地図・受け入れは外向き文書、層と test 規則は設計文書、secret 登録と定時運用は運用文書へ分ける。同じ inventory を複数 root 文書へ写さない  # → layer:meta
+- 2026-08-30 [docs/playback-integration-e2e-plan] Decision の「1判断1ファイル」は1つの問いへの1答えであり、議論の論点番号をそのまま1 fileへ機械写経する規則ではない。同じ問いの側面は1 file内の複数箇条で足り、細分化しすぎると Reason/Rejected が薄くなり地図が壊れる  # → layer:meta
+- 2026-08-30 [docs/playback-integration-e2e-plan] GitHub Actions の Secrets/Variables は登録しただけでは job の process.env に出ない。workflow の env 写像が必要。JSON 本文の Secret を Playwright storageState の path 設定へ渡すときは、step で file へ書き出してから path を env にする  # → layer:platform
+- 2026-08-30 [docs/playback-integration-e2e-plan] edge の入場認証（例: メール OTP）と、server 側の外部 API 認可（例: OAuth refresh）は別境界。browser E2E が後者のログイン画面を操作する必要はなく、前者の毎回自動化も必須ではない  # → layer:terms
