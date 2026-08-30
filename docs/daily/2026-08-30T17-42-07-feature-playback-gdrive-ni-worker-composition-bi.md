@@ -2,7 +2,7 @@
 name: Drive Narrow と Worker Broad を Integration gate へ載せる
 date: 2026-08-30T17:42:07
 session_id: none
-branch: feature/playback-narrow-integration-gdrive
+branch: feature/playback-gdrive-ni-worker-composition-bi
 prev: なし
 ---
 
@@ -21,3 +21,8 @@ secret なし Drive Narrow Integration と Worker Composition 正常系 Broad In
 - `244043d`
 - `ad1edae`
 - `2d28cfa`
+- `bc5bf35`
+
+## 3. Append
+
+1. PR #101 を `develop` 向けに作成した（https://github.com/shim1103/daily-it-podcast/pull/101）。
