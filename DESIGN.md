@@ -85,7 +85,7 @@ repo 根 `contracts/` は Drive 表現の SSOT。`apps/playback/contracts/`（HT
 | Scope | 置き場 |
 |-------|--------|
 | Unit | 対象ソースの隣（Go: `*_{分類}_test.go`、TS: `*.{分類}.test.ts`） |
-| Integration / Contract / System | `apps/generator/test/` または `apps/playback/test/`（ブラウザ E2E は `web` 配下可） |
+| Integration / Contract / System | Generator: `apps/generator/test/`。Playback Integration: `apps/playback/test/integration/`。Playback browser E2E: `apps/playback/test/e2e/`（`test/contract/` は置かない） |
 
 1. 分類は **file 名**に出す（`sociable_unit` / `narrow_integration` / `broad_integration` / `contract` / `system` / `e2e`）。`integration` 一語で兼ねない。Generator System 分類語は `system`。Playback browser E2E 分類語は `e2e`（Generator の `system` と混線させない）
 2. 実境界に届かないものに `e2e` と付けない

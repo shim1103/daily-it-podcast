@@ -5,9 +5,9 @@ import {
   episodeAudioPath,
   ListEpisodesResponseSchema,
   listEpisodesPath,
-} from "../contracts/index.ts";
-import { validAudioBytes } from "../worker/src/test/fixtures/audio-bytes.ts";
-import workerEntry from "../worker/src/worker-entry.ts";
+} from "../../contracts/index.ts";
+import { validAudioBytes } from "../../worker/src/test/fixtures/audio-bytes.ts";
+import workerEntry from "../../worker/src/worker-entry.ts";
 
 /**
  * scope: Broad Integration
