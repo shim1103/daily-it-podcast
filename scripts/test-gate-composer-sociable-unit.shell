@@ -1,0 +1,289 @@
+#!/usr/bin/env bash
+# name: test-gate-composer-sociable-unit
+# description: root の集約 script が片系入口へ委譲し、toolchain を直接叩かないことを検証する。
+# @require リポジトリ root から、または本 file を直接実行する。
+# @ensure 片系入口が実行可能で、root 集約が片系 path を実行行に持ち、hook・GHA が同じ script を caller としてだけ使うとき exit 0。
+# @invariant 実 Unit / Integration を実行しない。
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+
+fail() {
+  printf '%s\n' "$1" >&2
+  return 1
+}
+
+need_exec() {
+  local path="$1"
+  if [[ ! -x "$path" ]]; then
+    fail "実行可能 file が無い: $path" || return
+  fi
+}
+
+# Given: 片系と集約の入口 path
+# When: 実行ビットを確認する
+# Then: すべて実行可能である
+test_per_system_entries_are_executable_when_layout_is_split() {
+  need_exec "$root/scripts/generator/check-static.sh" || return
+  need_exec "$root/scripts/generator/test-unit.sh" || return
+  need_exec "$root/scripts/generator/test-race.sh" || return
+  need_exec "$root/scripts/generator/test-integration.sh" || return
+  need_exec "$root/scripts/generator/test-system.sh" || return
+  need_exec "$root/scripts/generator/produce-episode.sh" || return
+  need_exec "$root/scripts/playback/test-unit.sh" || return
+  need_exec "$root/scripts/playback/test-integration.sh" || return
+  need_exec "$root/scripts/playback/test-e2e.sh" || return
+  need_exec "$root/scripts/check-static.sh" || return
+  need_exec "$root/scripts/test-unit.sh" || return
+  need_exec "$root/scripts/test-integration.sh" || return
+}
+
+command_lines() {
+  local path="$1"
+  grep -E '^[[:space:]]*[^#[:space:]]' "$path" || true
+}
+
+need_named() {
+  local file="$1"
+  local needle="$2"
+  if ! command_lines "$file" | grep -Fq "$needle"; then
+    fail "集約 script が $needle を呼ばない: $file" || return
+  fi
+}
+
+# Given: root 集約 script の実行行
+# When: 片系 path を探す
+# Then: 空の委譲にならず、各入口が対応する片系を呼ぶ
+test_root_composers_name_per_system_scripts_when_delegating() {
+  need_named "$root/scripts/test-unit.sh" 'scripts/generator/test-unit.sh' || return
+  need_named "$root/scripts/test-unit.sh" 'scripts/playback/test-unit.sh' || return
+  need_named "$root/scripts/check-static.sh" 'scripts/generator/check-static.sh' || return
+  need_named "$root/scripts/test-integration.sh" 'scripts/generator/test-integration.sh' || return
+  need_named "$root/scripts/test-integration.sh" 'scripts/playback/test-integration.sh' || return
+}
+
+# Given: root 集約 script の実行行
+# When: toolchain 直呼びを探す
+# Then: golangci-lint run と npm run test が無い
+test_root_composer_does_not_invoke_toolchain_directly() {
+  local files=(
+    "$root/scripts/check-static.sh"
+    "$root/scripts/test-unit.sh"
+    "$root/scripts/test-integration.sh"
+  )
+  local file
+  for file in "${files[@]}"; do
+    if command_lines "$file" | grep -Eq 'golangci-lint[[:space:]]+run|npm[[:space:]]+run[[:space:]]+test'; then
+      fail "集約 script が toolchain を直接実行している: $file" || return
+    fi
+  done
+}
+
+# Given: git hook
+# When: 呼び先を読む
+# Then: pre-commit は static と Unit、pre-push は Integration の root 入口だけを呼ぶ
+test_hooks_call_root_scripts_only() {
+  if ! command_lines "$root/scripts/git-hooks/pre-commit" | grep -q 'scripts/check-static.sh'; then
+    fail "pre-commit が check-static.sh を呼ばない" || return
+  fi
+  if ! command_lines "$root/scripts/git-hooks/pre-commit" | grep -q 'scripts/test-unit.sh'; then
+    fail "pre-commit が test-unit.sh を呼ばない" || return
+  fi
+  if command_lines "$root/scripts/git-hooks/pre-commit" | grep -Eq 'golangci-lint[[:space:]]+run|npm[[:space:]]+run[[:space:]]+test'; then
+    fail "pre-commit が toolchain を直接実行している" || return
+  fi
+  if ! command_lines "$root/scripts/git-hooks/pre-push" | grep -q 'scripts/test-integration.sh'; then
+    fail "pre-push が test-integration.sh を呼ばない" || return
+  fi
+}
+
+# Given: generator の static / Unit / race 入口
+# When: 実行 command を読む
+# Then: build、順序非依存 Unit、Unit scope の race を実行する
+test_generator_entrypoints_enforce_ci_contracts() {
+  local static="$root/scripts/generator/check-static.sh"
+  local unit="$root/scripts/generator/test-unit.sh"
+  local race="$root/scripts/generator/test-race.sh"
+  need_named "$static" 'go build ./...' || return
+  need_named "$unit" 'go test ./cmd/... ./internal/... ./test/... -shuffle=on -count=1 -covermode=atomic -coverpkg=./cmd/...,./internal/... "-coverprofile=$profile"' || return
+  need_named "$race" 'go test -race ./cmd/... ./internal/...' || return
+}
+
+# Given: generator の gate Integration 入口
+# When: 実行 command を読む
+# Then: gate は build tag 選択（-tags）を go test へ渡さない
+test_generator_integration_gate_does_not_pass_build_tags() {
+  local gate="$root/scripts/generator/test-integration.sh"
+  if command_lines "$gate" | grep -Eq 'go[[:space:]]+test.*-tags'; then
+    fail "gate Integration script が -tags を go test に渡す: $gate" || return
+  fi
+}
+
+# Given: generator の System 入口と gate / hook / Integration workflow
+# When: 呼び出し関係を読む
+# Then: System 入口だけが -tags を渡し、gate・pre-push・Integration workflow は System 入口を呼ばない
+test_generator_system_entrypoint_is_outside_integration_gate() {
+  local system="$root/scripts/generator/test-system.sh"
+  local gate="$root/scripts/generator/test-integration.sh"
+  local root_integration="$root/scripts/test-integration.sh"
+  local pre_push="$root/scripts/git-hooks/pre-push"
+  local integration_wf="$root/.github/workflows/test-integration.yml"
+  need_exec "$system" || return
+  if ! command_lines "$system" | grep -Eq 'go[[:space:]]+test.*-tags='; then
+    fail "System script が go test へ -tags= を渡さない: $system" || return
+  fi
+  if command_lines "$gate" | grep -Fq 'test-system.sh'; then
+    fail "gate Integration が test-system.sh を呼ぶ: $gate" || return
+  fi
+  if command_lines "$root_integration" | grep -Fq 'test-system.sh'; then
+    fail "root Integration が test-system.sh を呼ぶ: $root_integration" || return
+  fi
+  if command_lines "$pre_push" | grep -Fq 'test-system.sh'; then
+    fail "pre-push が test-system.sh を呼ぶ: $pre_push" || return
+  fi
+  if grep -Fq 'test-system.sh' "$integration_wf"; then
+    fail "Integration workflow が test-system.sh を呼ぶ: $integration_wf" || return
+  fi
+  if grep -Fq 'produce-episode.sh' "$integration_wf"; then
+    fail "Integration workflow が produce-episode.sh を呼ぶ: $integration_wf" || return
+  fi
+  if grep -Fq 'generator-produce-episode.yml' "$integration_wf" || grep -Fq 'generator-system.yml' "$integration_wf"; then
+    fail "Integration workflow が produce/system workflow を参照する: $integration_wf" || return
+  fi
+}
+
+# Given: playback の E2E 入口と gate / hook / Integration workflow
+# When: 呼び出し関係を読む
+# Then: E2E 入口は executable で、gate・pre-push・Integration workflow は E2E 入口 / playback-e2e workflow を呼ばない
+test_playback_e2e_entrypoint_is_outside_integration_gate() {
+  local e2e="$root/scripts/playback/test-e2e.sh"
+  local gate="$root/scripts/playback/test-integration.sh"
+  local root_integration="$root/scripts/test-integration.sh"
+  local pre_push="$root/scripts/git-hooks/pre-push"
+  local integration_wf="$root/.github/workflows/test-integration.yml"
+  need_exec "$e2e" || return
+  if ! command_lines "$e2e" | grep -Fq 'npm run test:e2e'; then
+    fail "E2E script が npm run test:e2e を呼ばない: $e2e" || return
+  fi
+  if command_lines "$gate" | grep -Fq 'test-e2e.sh'; then
+    fail "gate Integration が test-e2e.sh を呼ぶ: $gate" || return
+  fi
+  if command_lines "$root_integration" | grep -Fq 'test-e2e.sh'; then
+    fail "root Integration が test-e2e.sh を呼ぶ: $root_integration" || return
+  fi
+  if command_lines "$pre_push" | grep -Fq 'test-e2e.sh'; then
+    fail "pre-push が test-e2e.sh を呼ぶ: $pre_push" || return
+  fi
+  if grep -Fq 'test-e2e.sh' "$integration_wf"; then
+    fail "Integration workflow が test-e2e.sh を呼ぶ: $integration_wf" || return
+  fi
+  if grep -Fq 'playback-e2e.yml' "$integration_wf"; then
+    fail "Integration workflow が playback-e2e.yml を参照する: $integration_wf" || return
+  fi
+}
+
+test_condition_coverage_report_is_local_and_documented() {
+  local report="$root/scripts/generator/report-condition-coverage.sh"
+  local design="$root/DESIGN.md"
+  need_exec "$report" || return
+  need_named "$report" "go list -f '{{.Dir}}' ./cmd/... ./internal/..." || return
+  need_named "$report" 'go run github.com/rillig/gobco@v1.3.4 "$package_dir"' || return
+  need_named "$report" 'REPORT_SOURCE_PREFIX="$workspace/generator"' || return
+  need_named "$report" 'REPORT_DESTINATION_PREFIX="$root/apps/generator"' || return
+  need_named "$report" "perl -pe 's/\\Q\$ENV{REPORT_SOURCE_PREFIX}\\E/\$ENV{REPORT_DESTINATION_PREFIX}/g'" || return
+  if command_lines "$root/scripts/git-hooks/pre-commit" | grep -Fq 'report-condition-coverage.sh'; then
+    fail "pre-commit が condition report を呼ぶ" || return
+  fi
+  if command_lines "$root/scripts/git-hooks/pre-push" | grep -Fq 'report-condition-coverage.sh'; then
+    fail "pre-push が condition report を呼ぶ" || return
+  fi
+  if grep -Fq 'report-condition-coverage.sh' "$root/.github/workflows/test-unit.yml" ||
+    grep -Fq 'report-condition-coverage.sh' "$root/.github/workflows/test-integration.yml"; then
+    fail "GitHub Actions が condition report を呼ぶ" || return
+  fi
+  if ! grep -Fq 'gobco v1.3.4' "$design" ||
+    ! grep -Fq '未使用 function' "$design" ||
+    ! grep -Fq 'select' "$design" ||
+    ! grep -Fq '完全な branch coverage ではない' "$design" ||
+    ! grep -Fq 'hard gate ではない' "$design"; then
+    fail "DESIGN に condition report の制約が無い" || return
+  fi
+}
+
+# Given: GHA Unit workflow
+# When: 実行 step を読む
+# Then: check-static、Unit、race を順に呼び、両 workflow は go.mod / .nvmrc を version の正本にする
+test_gha_calls_same_scripts_as_hooks() {
+  local unit_wf="$root/.github/workflows/test-unit.yml"
+  local integration_wf="$root/.github/workflows/test-integration.yml"
+  local unit_line
+  local race_line
+  if [[ ! -f "$unit_wf" ]]; then
+    fail "Unit workflow が無い: $unit_wf" || return
+  fi
+  if ! grep -q './scripts/check-static.sh' "$unit_wf"; then
+    fail "Unit workflow が check-static.sh を呼ばない" || return
+  fi
+  if ! grep -q './scripts/test-unit.sh' "$unit_wf"; then
+    fail "Unit workflow が test-unit.sh を呼ばない" || return
+  fi
+  if ! grep -q './scripts/generator/test-race.sh' "$unit_wf"; then
+    fail "Unit workflow が generator test-race.sh を呼ばない" || return
+  fi
+  unit_line="$(grep -n -m1 './scripts/test-unit.sh' "$unit_wf" | cut -d: -f1)"
+  race_line="$(grep -n -m1 './scripts/generator/test-race.sh' "$unit_wf" | cut -d: -f1)"
+  if (( race_line <= unit_line )); then
+    fail "Unit workflow の race が Unit gate より先に実行される" || return
+  fi
+  if grep -Eq 'golangci-lint[[:space:]]+run|npm[[:space:]]+run[[:space:]]+test' "$unit_wf"; then
+    fail "Unit workflow が toolchain を直接実行している" || return
+  fi
+  if ! grep -q './scripts/test-integration.sh' "$integration_wf"; then
+    fail "Integration workflow が test-integration.sh を呼ばない" || return
+  fi
+  if grep -Eq 'golangci-lint[[:space:]]+run|npm[[:space:]]+run[[:space:]]+test' "$integration_wf"; then
+    fail "Integration workflow が toolchain を直接実行している" || return
+  fi
+  if ! grep -q 'go-version-file: apps/generator/go.mod' "$unit_wf"; then
+    fail "Unit workflow が go.mod を version の正本にしない" || return
+  fi
+  if ! grep -q 'go-version-file: apps/generator/go.mod' "$integration_wf"; then
+    fail "Integration workflow が go.mod を version の正本にしない" || return
+  fi
+  if ! grep -q 'node-version-file: apps/playback/.nvmrc' "$unit_wf"; then
+    fail "Unit workflow が .nvmrc を version の正本にしない" || return
+  fi
+  if ! grep -q 'node-version-file: apps/playback/.nvmrc' "$integration_wf"; then
+    fail "Integration workflow が .nvmrc を version の正本にしない" || return
+  fi
+}
+
+test_generator_go_modules_use_pinned_toolchain() {
+  local module="$root/apps/generator/go.mod"
+  if ! grep -Eq '^go [0-9]+\.[0-9]+\.[0-9]+$' "$module"; then
+    fail "Generator module が Go version を宣言しない: $module" || return
+  fi
+}
+
+test_playback_nvmrc_declares_node_version() {
+  local nvmrc="$root/apps/playback/.nvmrc"
+  if [[ ! -f "$nvmrc" ]]; then
+    fail ".nvmrc が無い: $nvmrc" || return
+  fi
+  if ! grep -Eq '^[0-9]+$' "$nvmrc"; then
+    fail ".nvmrc が Node major version を宣言しない: $nvmrc" || return
+  fi
+}
+
+test_per_system_entries_are_executable_when_layout_is_split
+test_root_composers_name_per_system_scripts_when_delegating
+test_root_composer_does_not_invoke_toolchain_directly
+test_hooks_call_root_scripts_only
+test_generator_entrypoints_enforce_ci_contracts
+test_generator_integration_gate_does_not_pass_build_tags
+test_generator_system_entrypoint_is_outside_integration_gate
+test_playback_e2e_entrypoint_is_outside_integration_gate
+test_condition_coverage_report_is_local_and_documented
+test_gha_calls_same_scripts_as_hooks
+test_generator_go_modules_use_pinned_toolchain
+test_playback_nvmrc_declares_node_version
