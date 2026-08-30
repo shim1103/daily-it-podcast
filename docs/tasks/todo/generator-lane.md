@@ -10,7 +10,7 @@
 - [x] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）
 - [x] Broad Integration（`apps/generator/test/*_broad_integration_test.go`。達成契約 file は完了削除）
 - [ ] GHA 本番 produce — workflow 済（`generator-produce-episode.yml`）。Run / Broad 実装済。Secret/Variable 登録は人手
-- [ ] System — suite / Decision / Cursor install 済。TEST_* 登録と master への workflow 到達後に `workflow_dispatch` 緑化（`generator-system-e2e-produce-episode`）
+- [ ] System — suite / Cursor 到達済。**blocker=Gemini 日quota 429**。引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`
 
 ### D（未決・未実測・文案）
 
@@ -21,7 +21,7 @@
 | composite 高度化 | dedup / sort（2 情報源後） |
 | 第 2 情報源 Adapter | 別 Issue 化待ち |
 | GHA production workflow | YAML・inventory 名は済。Run 実装済。repo へ本番 Secret/Variable を登録する人手作業が残る。定時緑化は Secret 登録後 |
-| `generator-system-e2e-produce-episode` | suite・assert・Cursor install 済。TEST_* 人手登録と default branch への workflow 到達後に dispatch 緑化が残る |
+| `generator-system-e2e-produce-episode` | Cursor 到達済。Gemini 429（日quota）が緑化 blocker。詳細は同名 todo |
 | Drive ペア書込の補償・staging | 公開型で残骸許容（Decision `2026-08-30T23-32-00`）。補償 delete / staging→rename の再検討は後回し |
 
 ### Integration test 方針

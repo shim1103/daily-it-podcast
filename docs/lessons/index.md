@@ -66,3 +66,6 @@
 - 2026-08-30 [feature/generator-broad-integration-produce-episode] Narrow と Broad が同じ double（TLS redirect・fake CLI・成功 handler）を持つなら、境界名付き helper のまま相乗りせず中立 support へ出す。上位 Scope が下位 file 固有 helper に依存すると層の逆向き結合になる  # → layer:terms
 - 2026-08-30 [feature/generator-broad-integration-produce-episode] Broad の wire / fixture は「valid な代表が通る」最小で足りる。下位 Scope が所有する range 網羅（max 長 field 等）を Broad fixture に持ち込むと minimization 境界を越える  # → layer:terms
 - 2026-08-30 [feature/generator-broad-integration-produce-episode] issue-manager の途中で委譲 Task が中断しても、既に disk にある成果物を Read で確認し、完了済み step をやり直さず次の role（reviewer 等）から再開する  # → layer:workflow
+- 2026-08-30 [feature/generator-system-e2e-produce-episode] System 用に名前だけ分けた TEST_* secret が本番 secret と値が違うと、本番では通る経路が System だけで落ちる。名前の対称性を実値の同一性と混同しない  # → layer:workflow
+- 2026-08-30 [feature/generator-system-e2e-produce-episode] vendor API の日次・レート上限に当たった失敗は、client 側の exponential backoff を伸ばしても緑にならない。quota 回復・別 credential・契約変更を先に切り分ける  # → layer:platform
+- 2026-08-30 [feature/generator-system-e2e-produce-episode] `env -i` だけの smoke 結果を、親 env 継承の本番経路と同じ結論として扱わない。隔離実験と実経路の失敗原因を分けて再検証する  # → layer:workflow
