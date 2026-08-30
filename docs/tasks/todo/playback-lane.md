@@ -18,8 +18,8 @@ React + Hono 方針の正: `docs/decisions/2026-08-26T00-00-00-architecture-reco
 
 | Phase | 内容 | 状態 |
 |-------|------|------|
-| 1 | deploy 前ゲート | `docs/tasks/todo/playback-deploy-pre-gate.md` |
-| 2 | 初回 `wrangler deploy` + `DEPLOY.md` §7 Verification（OTP・一覧・再生） | 未 |
+| 1 | deploy 前ゲート | `docs/tasks/todo/playback-deploy-pre-gate.md`（whoami / dry-run 済。OAuth consent は shim 確認残） |
+| 2 | 初回 `wrangler deploy` + `DEPLOY.md` §7 Verification（OTP・一覧・再生） | deploy 済（`https://daily-it-podcast.shim1103thy.workers.dev`）。§7 手動 Verification 残 |
 | 3 | 運用後続（下記） | 未（Phase 2 後） |
 
 **依存:** Phase 1 → 2 → 3。
