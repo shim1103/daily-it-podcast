@@ -32,7 +32,8 @@ const (
 	DraftTopicPrefaceMaxSec = 36
 
 	// 各 topic の detail（ソースに基づく説明本文）。
-	DraftTopicDetailMinSec = 50
+	// why: System 実測で detail 348 rune（下限 350）の惜しい不足が観測された（run 33308073574）。
+	DraftTopicDetailMinSec = 48
 	DraftTopicDetailTgtSec = 80
 	DraftTopicDetailMaxSec = 110
 

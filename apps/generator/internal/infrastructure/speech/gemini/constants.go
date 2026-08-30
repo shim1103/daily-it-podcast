@@ -11,7 +11,8 @@ const (
 )
 
 // MaxAttempts は Gemini 呼び出しの最大試行数。無限 retry を防ぐ。
-const MaxAttempts = 4
+// why: System 実測で decode_pcm（output audio is missing）が MaxAttempts=4 でも尽きることがある（run 33308282246）。
+const MaxAttempts = 6
 
 // Gemini TTS が返す raw PCM の形式（公式 L16: 24 kHz / 16-bit / mono）。
 // WAV wrap と decode の前提。HTTP 定数（ModelID 等）とは別責務。
