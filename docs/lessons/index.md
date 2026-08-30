@@ -83,3 +83,8 @@
 - 2026-08-31 [feature/playback-e2e-deploy] 完成稿の durationSec は実音声 Timeline の観測値であり、原稿文字数から導いた想定発話尺との一致を schema は強制しない。E2E が尺・シークを契約するまで stub 短尺で足り、必要になったら差し替える  # → layer:terms
 - 2026-08-31 [feature/playback-e2e-deploy] remote E2E で credential が無いとき、空 suite や常緑 placeholder ではなく skip で入口を緑に保つ。本物 assert は env があるときだけ実行する  # → layer:platform
 - 2026-08-31 [feature/playback-e2e-deploy] Integration と browser E2E は runner・gate・credential 前提が違う。同じ test 直下の平置きより、dir で分け file 名に分類語を残す方が収集境界が読める。未着手の contract 専用 dir を先置きしない  # → layer:terms
+- 2026-08-31 [drafts-playback-ops-ssot] OAuth Client ID 欄に Client Secret（GOCSPX- 形）を入れると、設定不足（configuration_error）ではなく外部 token 失敗（unavailable）として見える。注入区分の形を deploy 後に一回照合する  # → layer:platform
+- 2026-08-31 [drafts-playback-ops-ssot] Workers の console 出力を Dashboard に残すには observability を有効化して再 deploy が要る。未設定なら wrangler tail のリアルタイムだけ  # → layer:platform
+- 2026-08-31 [drafts-playback-ops-ssot] GitHub Actions の workflow_dispatch 対象は default branch に yml があるものに限る。integration branch だけに置いても API/UI から見えない  # → layer:platform
+- 2026-08-31 [drafts-playback-ops-ssot] 共通祖先のない2 branch は通常 PR で合流できない。workflow 載せるだけなら default 由来の薄い branch、全量なら unrelated-histories merge か default 切替を選ぶ  # → layer:workflow
+- 2026-08-31 [drafts-playback-ops-ssot] 達成契約が実質完了したら checkbox 放置より file 削除と進捗 index 縮約の方が、次 session が「まだ未完」と誤読しにくい  # → layer:workflow
