@@ -5,6 +5,6 @@ package constants
 
 const (
 	// OpeningGreetingTemplate の %s には JST 暦日を読み上げ用に整形した文字列を Builder が渡す。
-	OpeningGreetingTemplate = "おはようございます。%sです。"
-	ClosingFarewell         = ""
+	OpeningGreetingTemplate = "おはようございます。%sのITニュースをお伝えします。"
+	ClosingFarewell         = "以上、%sのITニュースでした。"
 )
