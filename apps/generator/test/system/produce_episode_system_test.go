@@ -55,7 +55,8 @@ func TestProduceEpisodeSystem_writesJsonAndWavPair_whenSubprocessSucceeds(t *tes
 
 	// Then: exit 0。新規 stem の json+wav が契約どおり。秘密値はログに出さない
 	if runErr != nil {
-		t.Fatalf("cmd/generator failed: %v\nstdout_bytes=%d stderr_bytes=%d", runErr, stdout.Len(), stderr.Len())
+		// why: System 失敗の切り分けに stderr 本文が要る。Adapter は secret を Error() に載せない契約。
+		t.Fatalf("cmd/generator failed: %v\nstdout_bytes=%d stderr_bytes=%d\nstderr:\n%s", runErr, stdout.Len(), stderr.Len(), stderr.String())
 	}
 
 	after, err := obs.listFolder(ctx)
