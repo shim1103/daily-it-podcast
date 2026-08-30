@@ -4,8 +4,10 @@
 
 取得 → Cursor CLI 原稿 → Gemini TTS → Drive 書込を Go CLI + GHA で通す。
 
-未完了の達成契約は `docs/tasks/todo/generator-*.md` が正。本 lane は進捗 index のみ。decisions は各 task file / 必要時に辿る。
+未完了の達成契約は `docs/tasks/todo/generator-*.md` が正。本 lane は進捗 index のみ。依存順は各 task file の Dependencies を正とする。
 
+
+<<<<<<< HEAD
 - [x] go.mod（module path）と `ItemSource` / `SourceItem` / 監視定数の境界 stub
 - [x] 情報取得 Adapter（GetXAPIはproduction結線済み。TwitterAPI.io旧実装は削除済み）
 - [x] 監視 user 一括取得 UseCase（`application.FetchSourceItems`）
@@ -51,22 +53,32 @@ C-03実測
   └→ child env再設計（済）
         └→ Cursor Narrow（済）
 ```
+=======
+- [ ] composition ProduceEpisode 結線 — `docs/tasks/todo/generator-composition-produce-episode-wiring.md`
+- [ ] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）— **D**
+- [ ] Broad Integration — `docs/tasks/todo/generator-broad-integration-produce-episode.md`
+- [ ] Cursor Narrow — `docs/tasks/todo/generator-narrow-gate-vendor-cursorcli.md`（child env再設計後）
+- [ ] GHA 本番 produce — workflow 済（`generator-produce-episode.yml`）。Run 実装後に緑化。Secret/Variable 登録は人手
+- [ ] System — workflow 済（`generator-system.yml`）。suite 実装と TEST_* 登録は後続（`generator-system-e2e-produce-episode`）
+>>>>>>> 5771e48 (docs(tasks): Broad Integration 達成契約を切り D を lane に残す)
 
 ### D（未決・未実測・文案）
 
 | topic | 概要 |
 |---|---|
-| `ProduceEpisode.Run` | C build + composition 後に orchestration 実装 |
-| Prompt / limits 文案・数値 | 尺モデル（秒正本・合計対象・定数整合）は Decision `2026-08-30T03-06-53` で確定・実装済み。残るのは実運用データを見ての `CharsPerSecond` と各 field 秒数の微調整 |
+| `ProduceEpisode.Run` | composition 後に orchestration 実装 |
+| Prompt / limits 文案・数値 | 尺モデルは Decision `2026-08-30T03-06-53`。残は実運用後の微調整 |
 | 挨拶文案 | `ClosingFarewell` 最終 copy、OpeningGreeting の date 読み上げ整形 |
 | composite 高度化 | dedup / sort（2 情報源後） |
 | 第 2 情報源 Adapter | 別 Issue 化待ち |
-| GHA production workflow | Run green 後 |
-| Broad / System・E2E | Cursor Narrow 後 |
+| GHA production workflow | YAML・inventory 名は済。Run 未完のため定時は赤になりうる。repo へ本番 Secret/Variable を登録する人手作業が残る |
+| `generator-system-e2e-produce-episode` | workflow 済。suite 本体・assert・TEST_* 値の登録が未。schedule / required は Decision `2026-08-30T12-49-01`（週次・required は対象外） |
 
 ### Integration test 方針
 
 ```text
-gate = secret なし Narrow / System 非 CI（DESIGN・既存Decision）
-着手順 = 依存（実装順）を正。Cursor Narrow後回しは Decision 2026-08-28T12-49-01
+gate = secret なし Narrow + Broad（Decision 2026-08-30T11-56-00）
+System = gate 外・週次 + dispatch（Decision 2026-08-30T12-49-01）
+本番 produce = 毎日 07:00 JST + dispatch（同 Decision）
+Cursor Narrow 後回し = Decision 2026-08-28T12-49-01
 ```
