@@ -23,3 +23,8 @@ API Client の secret なし Narrow Integration を Integration gate に載せ�
 - `c28785f`
 - `3850826`
 - `6bd2df3`
+- `953e1d0`
+
+## 3. Append
+
+1. PR #103 を作成した（https://github.com/shim1103/daily-it-podcast/pull/103）。base `develop`。mergeable。net diff は API Client NI + lane + log。
