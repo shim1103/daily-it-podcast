@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # name: generator-test-integration
-# description: generator の Integration Test を実行する。
+# description: generator の secret なし Narrow / Broad Integration Test を実行する。
 # @require リポジトリ内から呼ぶ。Go が PATH にある。apps/generator が存在する。
 # @ensure Integration package が空なら成功。空でなければ go test が exit 0。
 # @invariant Unit 専用 suite を再実行しない。playback を触らない。本番 credential を読まない。
+# @invariant build tag 付き System suite と test-system.sh を実行しない。
 set -euo pipefail
 
 root="$(git rev-parse --show-toplevel)"

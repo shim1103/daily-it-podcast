@@ -28,6 +28,8 @@ test_per_system_entries_are_executable_when_layout_is_split() {
   need_exec "$root/scripts/generator/test-unit.sh" || return
   need_exec "$root/scripts/generator/test-race.sh" || return
   need_exec "$root/scripts/generator/test-integration.sh" || return
+  need_exec "$root/scripts/generator/test-system.sh" || return
+  need_exec "$root/scripts/generator/produce-episode.sh" || return
   need_exec "$root/scripts/playback/test-unit.sh" || return
   need_exec "$root/scripts/playback/test-integration.sh" || return
   need_exec "$root/scripts/check-static.sh" || return
@@ -116,9 +118,42 @@ test_generator_integration_gate_does_not_pass_build_tags() {
   fi
 }
 
+# Given: generator の System 入口と gate / hook / Integration workflow
+# When: 呼び出し関係を読む
+# Then: System 入口だけが -tags を渡し、gate・pre-push・Integration workflow は System 入口を呼ばない
+test_generator_system_entrypoint_is_outside_integration_gate() {
+  local system="$root/scripts/generator/test-system.sh"
+  local gate="$root/scripts/generator/test-integration.sh"
+  local root_integration="$root/scripts/test-integration.sh"
+  local pre_push="$root/scripts/git-hooks/pre-push"
+  local integration_wf="$root/.github/workflows/test-integration.yml"
+  need_exec "$system" || return
+  if ! command_lines "$system" | grep -Eq 'go[[:space:]]+test.*-tags='; then
+    fail "System script が go test へ -tags= を渡さない: $system" || return
+  fi
+  if command_lines "$gate" | grep -Fq 'test-system.sh'; then
+    fail "gate Integration が test-system.sh を呼ぶ: $gate" || return
+  fi
+  if command_lines "$root_integration" | grep -Fq 'test-system.sh'; then
+    fail "root Integration が test-system.sh を呼ぶ: $root_integration" || return
+  fi
+  if command_lines "$pre_push" | grep -Fq 'test-system.sh'; then
+    fail "pre-push が test-system.sh を呼ぶ: $pre_push" || return
+  fi
+  if grep -Fq 'test-system.sh' "$integration_wf"; then
+    fail "Integration workflow が test-system.sh を呼ぶ: $integration_wf" || return
+  fi
+  if grep -Fq 'produce-episode.sh' "$integration_wf"; then
+    fail "Integration workflow が produce-episode.sh を呼ぶ: $integration_wf" || return
+  fi
+  if grep -Fq 'generator-produce-episode.yml' "$integration_wf" || grep -Fq 'generator-system.yml' "$integration_wf"; then
+    fail "Integration workflow が produce/system workflow を参照する: $integration_wf" || return
+  fi
+}
+
 test_condition_coverage_report_is_local_and_documented() {
   local report="$root/scripts/generator/report-condition-coverage.sh"
-  local readme="$root/README.md"
+  local design="$root/DESIGN.md"
   need_exec "$report" || return
   need_named "$report" "go list -f '{{.Dir}}' ./cmd/... ./internal/..." || return
   need_named "$report" 'go run github.com/rillig/gobco@v1.3.4 "$package_dir"' || return
@@ -135,12 +170,12 @@ test_condition_coverage_report_is_local_and_documented() {
     grep -Fq 'report-condition-coverage.sh' "$root/.github/workflows/test-integration.yml"; then
     fail "GitHub Actions が condition report を呼ぶ" || return
   fi
-  if ! grep -Fq 'gobco v1.3.4' "$readme" ||
-    ! grep -Fq '未使用 function' "$readme" ||
-    ! grep -Fq 'select' "$readme" ||
-    ! grep -Fq '完全な branch coverage ではない' "$readme" ||
-    ! grep -Fq 'hard gate ではない' "$readme"; then
-    fail "README に condition report の制約が無い" || return
+  if ! grep -Fq 'gobco v1.3.4' "$design" ||
+    ! grep -Fq '未使用 function' "$design" ||
+    ! grep -Fq 'select' "$design" ||
+    ! grep -Fq '完全な branch coverage ではない' "$design" ||
+    ! grep -Fq 'hard gate ではない' "$design"; then
+    fail "DESIGN に condition report の制約が無い" || return
   fi
 }
 
@@ -215,6 +250,7 @@ test_root_composer_does_not_invoke_toolchain_directly
 test_hooks_call_root_scripts_only
 test_generator_entrypoints_enforce_ci_contracts
 test_generator_integration_gate_does_not_pass_build_tags
+test_generator_system_entrypoint_is_outside_integration_gate
 test_condition_coverage_report_is_local_and_documented
 test_gha_calls_same_scripts_as_hooks
 test_generator_go_modules_use_pinned_toolchain
