@@ -13,6 +13,9 @@ const (
 	OpNoSourceItems          = "no_source_items"
 	OpEpisodeIDMismatch      = "episode_id_mismatch"
 	OpCorruptSpeechAudio     = "corrupt_speech_audio"
+	// OpInconsistentEpisodeAssembly は episode 組み立て時の segment 数・topic 数などの内部不整合。
+	// build helper が検出する。
+	OpInconsistentEpisodeAssembly = "inconsistent_episode_assembly"
 )
 
 type Error struct {
