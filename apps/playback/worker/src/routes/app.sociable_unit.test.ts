@@ -3,18 +3,13 @@ import {
   ErrorResponseSchema,
   episodeAudioContentType,
   episodeAudioPath,
-  episodePath,
-  GetEpisodeResponseSchema,
   ListEpisodesResponseSchema,
   listEpisodesPath,
   NotFoundError,
-  UnavailableError,
-  ValidationError,
 } from "../../../contracts/index.ts";
 
 const listEpisodesController = vi.fn();
-const getEpisodeController = vi.fn();
-const getEpisodeAudioController = vi.fn();
+const getAudioController = vi.fn();
 
 vi.mock("../composition/root.ts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../composition/root.ts")>();
@@ -22,8 +17,7 @@ vi.mock("../composition/root.ts", async (importOriginal) => {
     ...actual,
     createPlaybackControllers: vi.fn(() => ({
       listEpisodesController,
-      getEpisodeController,
-      getEpisodeAudioController,
+      getAudioController,
     })),
   };
 });
@@ -42,38 +36,28 @@ const validList = {
       date: "2026-08-17",
       title: "題",
       durationSec: 60,
-      topics: [{ title: "題" }],
+      body: {
+        opening: "開始",
+        topics: [
+          {
+            title: "題",
+            preface: "前置き",
+            detail: "詳細",
+            startSec: 0,
+          },
+        ],
+        closing: "終了",
+      },
       audioRef: episodeAudioPath("ep-1"),
     },
   ],
-};
-
-const validGet = {
-  episodeId: "ep-1",
-  date: "2026-08-17",
-  title: "題",
-  durationSec: 60,
-  body: {
-    opening: "開始",
-    topics: [
-      {
-        title: "題",
-        preface: "前置き",
-        detail: "詳細",
-        startSec: 0,
-      },
-    ],
-    closing: "終了",
-  },
-  audioRef: episodeAudioPath("ep-1"),
 };
 
 const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 afterEach(() => {
   vi.mocked(listEpisodesController).mockReset();
-  vi.mocked(getEpisodeController).mockReset();
-  vi.mocked(getEpisodeAudioController).mockReset();
+  vi.mocked(getAudioController).mockReset();
   vi.mocked(createPlaybackControllers).mockClear();
   errorSpy.mockClear();
 });
@@ -94,8 +78,7 @@ describe("app", () => {
     const overrides = {
       useCases: {
         listEpisodes: vi.fn(),
-        getEpisode: vi.fn(),
-        getEpisodeAudio: vi.fn(),
+        getAudio: vi.fn(),
       },
     };
     const devApp = createApp(overrides);
@@ -137,118 +120,9 @@ describe("app", () => {
     expect(ListEpisodesResponseSchema.safeParse(body).success).toBe(true);
   });
 
-  it("1件 JSON GET が成功する時、GetEpisodeResponse schema を満たし audioRef がある", async () => {
-    // Given: Composition が契約どおりの 1件を返す
-    vi.mocked(getEpisodeController).mockResolvedValue(validGet);
-
-    // When: 1件 path へ GET する
-    const got = await app.request(`${origin}${episodePath("ep-1")}`, {}, emptyEnv);
-
-    // Then: 200 と契約 schema
-    expect(got.status).toBe(200);
-    const body: unknown = await got.json();
-    expect(GetEpisodeResponseSchema.safeParse(body).success).toBe(true);
-  });
-
-  it("1件 JSON の path param を unknown の episodeId として Controller に渡す", async () => {
-    // Given: Composition が 1件を返す
-    vi.mocked(getEpisodeController).mockResolvedValue(validGet);
-
-    // When: 1件 path へ GET する
-    await app.request(`${origin}${episodePath("ep-1")}`, {}, emptyEnv);
-
-    // Then: schema parse せず unknown で渡す
-    expect(getEpisodeController).toHaveBeenCalledWith({ episodeId: "ep-1" });
-  });
-
-  it("日本語 episodeId を decode して Controller に渡す", async () => {
-    // Given: Composition が 1件を返す
-    vi.mocked(getEpisodeController).mockResolvedValue(validGet);
-
-    // When: 日本語 episodeId を含む 1件 path へ GET する
-    await app.request(`${origin}${episodePath("エピソード1")}`, {}, emptyEnv);
-
-    // Then: decode 済みの episodeId を unknown で渡す
-    expect(getEpisodeController).toHaveBeenCalledWith({ episodeId: "エピソード1" });
-  });
-
-  it("decode 不可能な episodeId の時、decode を諦めてそのまま Controller に渡す", async () => {
-    // Given: Composition が 1件を返す
-    vi.mocked(getEpisodeController).mockResolvedValue(validGet);
-
-    // When: 単独 % を含む decode 不可能な 1件 path へ GET する
-    await app.request(`${origin}${listEpisodesPath}/100%25`, {}, emptyEnv);
-
-    // Then: decodeURIComponent が一度で失敗する元の文字列をそのまま渡す
-    expect(getEpisodeController).toHaveBeenCalledWith({ episodeId: "100%" });
-  });
-
-  it("Controller が ValidationError を throw する時、400 と validation_error を返す", async () => {
-    // Given: 空 episodeId 相当の External Error
-    vi.mocked(getEpisodeController).mockRejectedValue(new ValidationError("入力が契約に不適合"));
-
-    // When: 1件 path へ GET する
-    const got = await app.request(`${origin}${episodePath("ep-1")}`, {}, emptyEnv);
-
-    // Then: 400 と契約 code のみ
-    expect(got.status).toBe(400);
-    const body: unknown = await got.json();
-    expect(ErrorResponseSchema.safeParse(body).success).toBe(true);
-    expect(body).toEqual({ code: "validation_error" });
-  });
-
-  it("Controller が NotFoundError を throw する時、404 と episode_not_found を返す", async () => {
-    // Given: Domain 不在を写した External Error
-    vi.mocked(getEpisodeController).mockRejectedValue(new NotFoundError("エピソードが無い"));
-
-    // When: 1件 path へ GET する
-    const got = await app.request(`${origin}${episodePath("missing")}`, {}, emptyEnv);
-
-    // Then: 404 と契約 code のみ
-    expect(got.status).toBe(404);
-    const body: unknown = await got.json();
-    expect(ErrorResponseSchema.safeParse(body).success).toBe(true);
-    expect(body).toEqual({ code: "episode_not_found" });
-  });
-
-  it("Controller が UnavailableError を throw する時、503 と unavailable を返す", async () => {
-    // Given: Infrastructure 失敗を写した External Error
-    vi.mocked(getEpisodeController).mockRejectedValue(new UnavailableError("利用できない"));
-
-    // When: 1件 path へ GET する
-    const got = await app.request(`${origin}${episodePath("ep-1")}`, {}, emptyEnv);
-
-    // Then: 503 と契約 code のみ
-    expect(got.status).toBe(503);
-    const body: unknown = await got.json();
-    expect(ErrorResponseSchema.safeParse(body).success).toBe(true);
-    expect(body).toEqual({ code: "unavailable" });
-  });
-
-  it("未知の error は契約外として 500 と empty body を返す", async () => {
-    // Given: External Error mapping に存在しない error
-    const thrown = new Error("予期しない失敗");
-    vi.mocked(getEpisodeController).mockRejectedValue(thrown);
-
-    // When: 1件 path へ GET する
-    const got = await app.request(`${origin}${episodePath("ep-1")}`, {}, emptyEnv);
-
-    // Then: 契約 enum を捏造せず、500 と empty body を返して structured log する
-    expect(got.status).toBe(500);
-    expect(await got.text()).toBe("");
-    expect(errorSpy).toHaveBeenCalledTimes(1);
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: "UnmappedError",
-        message: thrown.message,
-        requestId: expect.any(String),
-      }),
-    );
-  });
-
   it("音声 GET が成功する時、契約の Content-Type で byte を返す", async () => {
     // Given: Composition が音声 byte を返す
-    vi.mocked(getEpisodeAudioController).mockResolvedValue(validAudioBytes);
+    vi.mocked(getAudioController).mockResolvedValue(validAudioBytes);
 
     // When: 音声 path へ GET する
     const got = await app.request(`${origin}${episodeAudioPath("ep-1")}`, {}, emptyEnv);
@@ -262,18 +136,18 @@ describe("app", () => {
 
   it("音声 GET の path param を unknown の episodeId として Controller に渡す", async () => {
     // Given: Composition が音声 byte を返す
-    vi.mocked(getEpisodeAudioController).mockResolvedValue(validAudioBytes);
+    vi.mocked(getAudioController).mockResolvedValue(validAudioBytes);
 
     // When: 音声 path へ GET する
     await app.request(`${origin}${episodeAudioPath("ep-1")}`, {}, emptyEnv);
 
     // Then: schema parse せず unknown で渡す
-    expect(getEpisodeAudioController).toHaveBeenCalledWith({ episodeId: "ep-1" });
+    expect(getAudioController).toHaveBeenCalledWith({ episodeId: "ep-1" });
   });
 
   it("音声 GET の Controller が NotFoundError を throw する時、404 と episode_not_found を返す", async () => {
     // Given: Domain 不在を写した External Error
-    vi.mocked(getEpisodeAudioController).mockRejectedValue(new NotFoundError("エピソードが無い"));
+    vi.mocked(getAudioController).mockRejectedValue(new NotFoundError("エピソードが無い"));
 
     // When: 音声 path へ GET する
     const got = await app.request(`${origin}${episodeAudioPath("missing")}`, {}, emptyEnv);

@@ -1,8 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import {
-  createFakeGetEpisodeAudioUseCase,
-  createFakeGetEpisodeUseCase,
+  createFakeGetAudioUseCase,
   createFakeListEpisodesUseCase,
 } from "../worker/src/controllers/fake-use-cases.ts";
 import { createApp } from "../worker/src/routes/app.ts";
@@ -20,8 +19,7 @@ export function createDummyBackendMiddleware() {
   const dummyApp = createApp({
     useCases: {
       listEpisodes: createFakeListEpisodesUseCase(),
-      getEpisode: createFakeGetEpisodeUseCase(),
-      getEpisodeAudio: createFakeGetEpisodeAudioUseCase(),
+      getAudio: createFakeGetAudioUseCase(),
     },
   });
 

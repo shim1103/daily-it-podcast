@@ -10,7 +10,7 @@ export type EpisodePlayerProps = {
 /**
  * baseUrl と audioRef から `<audio controls src>` を組み立てる。
  *
- * @require baseUrl は playback worker の origin相当、audioRef は GetEpisodeResponse["audioRef"]
+ * @require baseUrl は playback worker の origin相当、audioRef は EpisodeItem["audioRef"]
  * @ensure `<audio controls src={buildRequestUrl(baseUrl, audioRef)}>` を返す。ref は audio 要素へ転送する
  * @invariant fetchAudio()は呼ばない。EpisodeList の SelectedEpisodeDetail により
  *   EpisodeManuscript との対描画と topic シークを前提とする

@@ -7,10 +7,6 @@ import { listEpisodes } from "./list-episodes.ts";
  * scope: Sociable Unit
  * real: listEpisodes use-case, verify-manuscript の純関数
  * double: EpisodeRepository を「生 payload の配列を返す」Fake Port に差し替え
- *
- * why: Port は取得したままの json 配列を返すだけ。schema 不適合・stem 不一致 entry の除外は
- * この use-case が `selectValidListItem` を使って行う。Port 生 payload → 検証 → 部分一覧 の
- * 結線をここで固定する。
  */
 const validManuscriptJson = {
   episodeId: "ep-1",
@@ -30,24 +26,21 @@ const validManuscriptJson = {
 function createFakeRepository(entries: RawManuscriptEntry[]): EpisodeRepository {
   return {
     listManuscripts: async () => entries,
-    getManuscript: async () => {
-      throw new Error("not used");
-    },
-    getEpisodeAudio: async () => {
+    getAudio: async () => {
       throw new Error("not used");
     },
   };
 }
 
 describe("listEpisodes", () => {
-  it("Port が返した生 json 配列を検証し、適合分を題名射影して ListEpisodesResponse に包む", async () => {
+  it("Port が返した生 json 配列を検証し、原稿全文付き ListEpisodesResponse に包む", async () => {
     // Given: 適合 json 1件を返す Fake Port
     const repository = createFakeRepository([{ stem: "ep-1", json: validManuscriptJson }]);
 
     // When: 一覧 UseCase を実行する
     const got = await listEpisodes(repository);
 
-    // Then: 契約 schema を満たし、body 無し・topics は title のみ
+    // Then: 契約 schema を満たし、body 全文と audioRef がある
     expect(ListEpisodesResponseSchema.safeParse(got).success).toBe(true);
     expect(got.episodes).toEqual([
       {
@@ -55,7 +48,7 @@ describe("listEpisodes", () => {
         date: "2026-08-17",
         title: "題",
         durationSec: 60,
-        topics: [{ title: "第一" }, { title: "第二" }],
+        body: validManuscriptJson.body,
         audioRef: episodeAudioPath("ep-1"),
       },
     ]);

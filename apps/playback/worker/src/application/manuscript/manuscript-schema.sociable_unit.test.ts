@@ -44,7 +44,7 @@ describe("ManuscriptSchema", () => {
   });
 
   it("HTTP 専用 field の audioRef がある時、success: false を返す", () => {
-    // Given: Drive 原稿に無い audioRef を付けた JSON（HTTP GetEpisodeResponse 形）
+    // Given: Drive 原稿に無い audioRef を付けた JSON（HTTP EpisodeItem 形）
     // When: 検証する
     const got = ManuscriptSchema.safeParse({
       ...validManuscript,

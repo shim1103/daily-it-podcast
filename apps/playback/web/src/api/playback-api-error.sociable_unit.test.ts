@@ -8,6 +8,20 @@ import {
 } from "./playback-api-error.ts";
 
 describe("mapHttpStatusToApiError", () => {
+  it.each([
+    [404, "episode_not_found"],
+    [400, "validation_error"],
+    [500, "configuration_error"],
+    [503, "unavailable"],
+  ] as const)("契約 status %i の時、%s を返す", (status, expected) => {
+    // Given: 契約に定義された status
+    // When: web 側 error へ写す
+    const got = mapHttpStatusToApiError(status);
+
+    // Then: 契約 code に対応する web 側 code
+    expect(got).toBe(expected);
+  });
+
   it("表に無い 4xx の時、client_error を返す", () => {
     // Given: 契約に定義されていない 4xx
     // When: web 側 error へ写す

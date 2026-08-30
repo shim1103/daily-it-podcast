@@ -2,13 +2,12 @@ import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import {
   episodeAudioContentType,
   episodeAudioPath,
-  episodePath,
   ErrorResponseSchema,
   ListEpisodesResponseSchema,
   listEpisodesPath,
 } from "../contracts/index.ts";
 import { createFakeEpisodeAudioBytes } from "../worker/src/test/fixtures/audio-bytes.ts";
-import { validGetEpisodeResponse } from "../worker/src/controllers/fake-use-cases.ts";
+import { validEpisodeItem } from "../worker/src/controllers/fake-use-cases.ts";
 import { createDummyBackendMiddleware } from "./vite.config.ts";
 
 const origin = "http://localhost";
@@ -37,18 +36,6 @@ describe("createDummyBackendMiddleware", () => {
     expect(ListEpisodesResponseSchema.safeParse(body).success).toBe(true);
   });
 
-  it("1件 path へ GET する時、dummy backend 由来の title を含む body を返す", async () => {
-    // Given: dummy backend middleware
-    const handle = createDummyBackendMiddleware();
-
-    // When: 1件 path へ GET する
-    const got = await handle(new Request(`${origin}${episodePath("ep-1")}`));
-
-    // Then: fake-use-cases が持つ title がそのまま配線される
-    const body = (await got.json()) as { title?: string };
-    expect(body.title).toBe(validGetEpisodeResponse.title);
-  });
-
   it("音声 path へ GET する時、契約の Content-Type で dummy backend 由来の byte を返す", async () => {
     // Given: dummy backend middleware
     const handle = createDummyBackendMiddleware();
@@ -59,7 +46,7 @@ describe("createDummyBackendMiddleware", () => {
     // Then: fake-use-cases の byte がそのまま配線される
     expect(got.headers.get("Content-Type")).toBe(episodeAudioContentType);
     const bytes = new Uint8Array(await got.arrayBuffer());
-    const expected = createFakeEpisodeAudioBytes(validGetEpisodeResponse.durationSec);
+    const expected = createFakeEpisodeAudioBytes(validEpisodeItem.durationSec);
     expect(bytes.byteLength).toBe(expected.byteLength);
     expect(bytes[0]).toBe(0x52);
   });
