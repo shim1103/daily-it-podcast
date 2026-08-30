@@ -1,6 +1,7 @@
 package gemini
 
 import (
+	"net/http"
 	"testing"
 	"time"
 )
@@ -8,7 +9,6 @@ import (
 func TestRetryDelay_growsFromBaseAndCapsAtMax(t *testing.T) {
 	t.Parallel()
 
-	// Given / When / Then: 1 回目は base、以降は倍、上限で頭打ち
 	if got := retryDelay(1); got != retryBackoffBase {
 		t.Fatalf("retryDelay(1) = %v, want %v", got, retryBackoffBase)
 	}
@@ -18,7 +18,30 @@ func TestRetryDelay_growsFromBaseAndCapsAtMax(t *testing.T) {
 	if got := retryDelay(10); got != retryBackoffMax {
 		t.Fatalf("retryDelay(10) = %v, want %v", got, retryBackoffMax)
 	}
-	if retryBackoffBase < 15*time.Second {
-		t.Fatalf("retryBackoffBase = %v, want >= 15s（429 対策）", retryBackoffBase)
+	if retryBackoffBase < 60*time.Second {
+		t.Fatalf("retryBackoffBase = %v, want >= 60s（429 対策）", retryBackoffBase)
+	}
+}
+
+func TestParseRetryAfter_returnsDuration_whenSecondsHeaderPresent(t *testing.T) {
+	t.Parallel()
+
+	h := http.Header{}
+	h.Set("Retry-After", "90")
+	if got := parseRetryAfter(h); got != 90*time.Second {
+		t.Fatalf("parseRetryAfter = %v, want 90s", got)
+	}
+}
+
+func TestParseRetryAfter_returnsZero_whenHeaderMissingOrInvalid(t *testing.T) {
+	t.Parallel()
+
+	if got := parseRetryAfter(http.Header{}); got != 0 {
+		t.Fatalf("empty = %v, want 0", got)
+	}
+	h := http.Header{}
+	h.Set("Retry-After", "nope")
+	if got := parseRetryAfter(h); got != 0 {
+		t.Fatalf("invalid = %v, want 0", got)
 	}
 }

@@ -16,11 +16,15 @@ const (
 // why: System 実測で decode_pcm（output audio is missing）が MaxAttempts=4 でも尽きることがある（run 33308282246）。
 const MaxAttempts = 6
 
-// 429 / 503 / 5xx 再試行の待機。System 実測で 1s 起点だと 429 が尽きる（run 33313682450）。
+// 429 / 503 / 5xx 再試行の待機。
+// why: 20s 起点でも System で 429 が尽きる（run 33314746860, ~476s）。60s 起点・上限 3m へ。
 const (
-	retryBackoffBase = 20 * time.Second
-	retryBackoffMax  = 2 * time.Minute
+	retryBackoffBase = 60 * time.Second
+	retryBackoffMax  = 3 * time.Minute
 )
+
+// callGap は成功した Synthesize どうしの最小間隔。連続 segment の 429 を減らす。
+const callGap = 5 * time.Second
 
 // Gemini TTS が返す raw PCM の形式（公式 L16: 24 kHz / 16-bit / mono）。
 // WAV wrap と decode の前提。HTTP 定数（ModelID 等）とは別責務。

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,8 @@ type SpeechSynthesizer struct {
 	client         *http.Client
 	apiKey         string
 	backoffSleepFn func(time.Duration) // why: test の並列実行と共存するため package global に置かない
+	lastCallAt     time.Time
+	nowFn          func() time.Time
 }
 
 // NewSpeechSynthesizer は Gemini TTS Adapter を返す。
@@ -37,7 +40,12 @@ func newSpeechSynthesizerForTest(httpClient *http.Client, apiKey string, backoff
 	if backoffSleepFn == nil {
 		backoffSleepFn = time.Sleep
 	}
-	return &SpeechSynthesizer{client: httpClient, apiKey: apiKey, backoffSleepFn: backoffSleepFn}
+	return &SpeechSynthesizer{
+		client:         httpClient,
+		apiKey:         apiKey,
+		backoffSleepFn: backoffSleepFn,
+		nowFn:          time.Now,
+	}
 }
 
 func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models.SpeechAudio, error) {
@@ -48,6 +56,10 @@ func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models
 	if backoffSleepFn == nil {
 		backoffSleepFn = time.Sleep
 	}
+	nowFn := s.nowFn
+	if nowFn == nil {
+		nowFn = time.Now
+	}
 
 	trimmed := strings.TrimSpace(text)
 	if trimmed == "" {
@@ -56,7 +68,9 @@ func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models
 
 	var lastErr error
 	for attempt := 1; attempt <= MaxAttempts; attempt++ {
-		pcm, retryable, err := s.fetchPCM(ctx, trimmed)
+		s.waitCallGap(backoffSleepFn, nowFn)
+		pcm, retryable, suggestedWait, err := s.fetchPCM(ctx, trimmed)
+		s.lastCallAt = nowFn()
 		if err == nil {
 			wav, err := pcmToWAV(pcm)
 			if err != nil {
@@ -68,13 +82,28 @@ func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models
 		if !retryable || attempt == MaxAttempts {
 			return models.SpeechAudio{}, lastErr
 		}
-		backoffSleepFn(retryDelay(attempt))
+		wait := retryDelay(attempt)
+		if suggestedWait > wait {
+			wait = suggestedWait
+		}
+		backoffSleepFn(wait)
 	}
 	return models.SpeechAudio{}, lastErr
 }
 
+func (s *SpeechSynthesizer) waitCallGap(sleepFn func(time.Duration), nowFn func() time.Time) {
+	if s.lastCallAt.IsZero() {
+		return
+	}
+	elapsed := nowFn().Sub(s.lastCallAt)
+	if elapsed >= callGap {
+		return
+	}
+	sleepFn(callGap - elapsed)
+}
+
 func retryDelay(attempt int) time.Duration {
-	// why: 公式は exponential。System の 429 対策で base を 20s にし上限を 2m にする。
+	// why: 公式は exponential。System の 429 対策で base を 60s・上限 3m にする。
 	if attempt < 1 {
 		attempt = 1
 	}
@@ -85,7 +114,24 @@ func retryDelay(attempt int) time.Duration {
 	return d
 }
 
-func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]byte, bool, error) {
+// parseRetryAfter は Retry-After 秒数 header を読む。無ければ 0。
+func parseRetryAfter(h http.Header) time.Duration {
+	raw := strings.TrimSpace(h.Get("Retry-After"))
+	if raw == "" {
+		return 0
+	}
+	sec, err := strconv.Atoi(raw)
+	if err != nil || sec <= 0 {
+		return 0
+	}
+	d := time.Duration(sec) * time.Second
+	if d > retryBackoffMax {
+		return retryBackoffMax
+	}
+	return d
+}
+
+func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]byte, bool, time.Duration, error) {
 	body, err := json.Marshal(interactionRequest{
 		Model:  ModelID,
 		Input:  buildInput(transcript),
@@ -95,47 +141,49 @@ func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]
 		},
 	})
 	if err != nil {
-		return nil, false, infraErr("marshal_request", err)
+		return nil, false, 0, infraErr("marshal_request", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, EndpointURL, bytes.NewReader(body))
 	if err != nil {
-		return nil, false, infraErr("build_request", err)
+		return nil, false, 0, infraErr("build_request", err)
 	}
 	req.Header.Set(geminiAPIKeyHeader, s.apiKey)
 	res, err := s.client.Do(req)
 	if err != nil {
-		return nil, true, infraErr("do", err)
+		return nil, true, 0, infraErr("do", err)
 	}
 	defer func() { _ = res.Body.Close() }()
 
 	raw, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, true, infraErr("read_body", err)
+		return nil, true, 0, infraErr("read_body", err)
 	}
 
 	if prohibited := detectProhibitedContent(raw); prohibited {
-		return nil, false, infraErr("prohibited_content", fmt.Errorf("PROHIBITED_CONTENT"))
+		return nil, false, 0, infraErr("prohibited_content", fmt.Errorf("PROHIBITED_CONTENT"))
 	}
+
+	retryAfter := parseRetryAfter(res.Header)
 
 	// why: MaxAttempts と公式 troubleshooting（429/503/5xx retry、400/403 は retry しない）に従い retryable を分岐する。
 	switch {
 	case res.StatusCode == http.StatusBadRequest, res.StatusCode == http.StatusForbidden:
-		return nil, false, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
+		return nil, false, 0, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
 	case res.StatusCode == http.StatusTooManyRequests, res.StatusCode == http.StatusServiceUnavailable:
-		return nil, true, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
+		return nil, true, retryAfter, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
 	case res.StatusCode >= 500:
-		return nil, true, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
+		return nil, true, retryAfter, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
 	case res.StatusCode != http.StatusOK:
-		return nil, false, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
+		return nil, false, 0, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
 	}
 
 	pcm, err := decodePCM(raw)
 	if err != nil {
 		// why: 公式 Limitation。audio 欠落 500 相当は一過性として retry する。
-		return nil, true, infraErr("decode_pcm", err)
+		return nil, true, 0, infraErr("decode_pcm", err)
 	}
-	return pcm, false, nil
+	return pcm, false, 0, nil
 }
 
 func buildInput(transcript string) string {
