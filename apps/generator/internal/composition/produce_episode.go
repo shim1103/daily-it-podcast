@@ -1,8 +1,6 @@
 package composition
 
 import (
-	"os"
-
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/config"
 )
@@ -20,7 +18,7 @@ func newProduceEpisode(cfg config.Config) *application.ProduceEpisode {
 	textWriter := newCursorTextWriter(cfg.Cursor)
 	speech := newGeminiSpeechSynthesizer(httpClient, cfg.Gemini)
 	writeEpisode := newGoogleDriveWriteEpisode(httpClient, cfg.Drive)
-	return application.NewProduceEpisode(fetch, textWriter, speech, writeEpisode)
+	return application.NewProduceEpisode(fetch, textWriter, speech, writeEpisode, newEpisodeID, sharedDisplayLocation())
 }
 
 // NewProduceEpisodeFromEnv は process environment から Config を読み、production UseCase を組み立てる。
@@ -28,7 +26,7 @@ func newProduceEpisode(cfg config.Config) *application.ProduceEpisode {
 // @ensure config.Load が違反を返したら *config.Errors をそのまま返し、UseCase は nil。
 // @invariant config.Load 呼び出しは Composition Root に閉じ、cmd / infrastructure へ漏らさない。
 func NewProduceEpisodeFromEnv() (*application.ProduceEpisode, error) {
-	cfg, err := config.Load(os.LookupEnv)
+	cfg, err := config.Load(sharedLookupEnv())
 	if err != nil {
 		return nil, err
 	}
