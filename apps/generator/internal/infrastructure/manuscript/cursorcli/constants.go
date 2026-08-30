@@ -24,9 +24,9 @@ const (
 	ModelFlag    = "--model"
 	ModeFlag     = "--mode"
 
-	// sandbox を有効化して、誤った write を隔離する。
+	// GHA runner が sandbox 非対応（AppArmor 未実装）のため無効化する。
 	SandboxFlag  = "--sandbox"
-	SandboxValue = "enabled"
+	SandboxValue = "disabled"
 
 	// trust は確認待ちを減らすために利用する（write ではなく実行手順の簡略化）。
 	TrustFlag = "--trust"

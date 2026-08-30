@@ -102,7 +102,7 @@ test_generator_entrypoints_enforce_ci_contracts() {
   local unit="$root/scripts/generator/test-unit.sh"
   local race="$root/scripts/generator/test-race.sh"
   need_named "$static" 'go build ./...' || return
-  need_named "$unit" 'go test ./cmd/... ./internal/... -shuffle=on -count=1 -covermode=atomic "-coverprofile=$profile"' || return
+  need_named "$unit" 'go test ./cmd/... ./internal/... ./test/... -shuffle=on -count=1 -covermode=atomic -coverpkg=./cmd/...,./internal/... "-coverprofile=$profile"' || return
   need_named "$race" 'go test -race ./cmd/... ./internal/...' || return
 }
 
