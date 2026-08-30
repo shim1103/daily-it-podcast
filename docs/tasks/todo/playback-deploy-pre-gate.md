@@ -6,7 +6,7 @@
 
 1. C-03（runtime config 4 key）と C-04（Access Application + Allow）は完了済み。
 2. wrangler toolchain と `deploy:dry-run` は C-1/C-2 で repo 内完了。
-3. 初回 deploy 本体と OTP 実検証は `docs/tasks/todo/playback-lane.md` Phase 2–3。
+3. 初回 deploy 本体と OTP 実検証は `docs/tasks/todo/playback-lane.md` Phase 2（deploy + `DEPLOY.md` §7）。
 
 ## 3. Canonical Sources
 
@@ -26,10 +26,9 @@
 
 ### Out of Scope
 
-1. 初回 `wrangler deploy` 実行（lane Phase 2）。
-2. browser による OTP・一覧・再生検証（lane Phase 3）。
-3. rollback 文書化・logging（lane Phase 4）。
-4. CI へ `npm run build` を載せる code 変更。
+1. 初回 `wrangler deploy` と §7 Verification（lane Phase 2）。
+2. rollback 文書化・logging（lane Phase 3）。
+3. CI へ `npm run build` を載せる code 変更。
 
 ## 5. Contract
 

@@ -63,16 +63,36 @@ workflow が test 登録名を process env 名へ写す。Generator は `TEST_` 
 
 credential 付き実 operation は GHA runner のみ。通常 local / Integration gate は実 service を呼ばず local secret を持たない。判断: `docs/decisions/2026-08-27T12-17-00`。
 
-## 5. Generator 定時 workflow
+## 5. 定時 / gate 外 workflow
 
 | workflow | 入口 script | いつ | 使う登録 |
 |------|------|------|------|
 | `generator-produce-episode.yml` | `scripts/generator/produce-episode.sh` | 毎日 07:00 JST（cron UTC `0 22 * * *`）+ `workflow_dispatch` | 本番 Secret / Variable |
 | `generator-system.yml` | `scripts/generator/test-system.sh` | 月曜 07:00 JST（cron UTC `0 22 * * 0`）+ `workflow_dispatch` | `TEST_*` |
+| `playback-e2e.yml` | `scripts/playback/test-e2e.sh` | 月曜 07:00 JST（cron UTC `0 22 * * 0`）+ `workflow_dispatch` | 下表 `PLAYWRIGHT_*` |
 
-必須 Unit / Integration gate には載せない。判断: `docs/decisions/2026-08-30T12-49-01`。
+必須 Unit / Integration gate には載せない。判断: `docs/decisions/2026-08-30T12-49-01` / `2026-08-30T16-20-00` / `2026-08-30T16-20-03`。
 
 暦日は JST 運用に合わせる（定時を JST 朝に置く）。`ProduceEpisode.Run` 未完の間、本番 produce 定時は失敗しうる。
+
+### Playback E2E 登録（`PLAYWRIGHT_*`）
+
+方針: `docs/decisions/2026-08-30T16-20-03`。値は repo に書かない。
+
+| GHA 登録名 | 区分 | 意味 |
+|------|------|------|
+| `PLAYWRIGHT_BASE_URL` | Secret | Access 付き **本番** hostname の origin。`https://daily-it-podcast.<subdomain>.workers.dev` 形式（custom domain なし。preview / version URL は使わない） |
+| `PLAYWRIGHT_STORAGE_STATE_JSON` | Secret | Playwright `storageState` の **JSON 本文**（許可 email で OTP 入場したあとの cookie 等） |
+
+**`storageState` の取得（人手・初回または session 失効時）**
+
+1. 許可 email で本番 URL に OTP 入場する（§7）。
+2. 同じ browser context で Playwright から `storageState` を書き出す（例: 一時 script で `context.storageState()`、または公式の auth setup）。
+3. 出力 JSON を Secret `PLAYWRIGHT_STORAGE_STATE_JSON` に登録する。
+
+**GHA → process.env**
+
+GitHub Secrets は **自動では** `process.env` に入らない。workflow の `env:` で明示写像する。`PLAYWRIGHT_STORAGE_STATE_JSON` は step で file へ書き出し、Playwright が読む path を `PLAYWRIGHT_STORAGE_STATE` に渡す（`playwright.config.ts` は path を読む）。placeholder のみの間は Secret 未登録でも入口は緑でよい。
 
 ## 6. Playback で採用しないもの
 
@@ -90,8 +110,7 @@ custom domain / Pages+別 Worker / app 内 Access JWT / Service Token・WARP / p
 | Phase | 内容 | 正本 |
 |-------|------|------|
 | 1 | deploy 前ゲート | `docs/tasks/todo/playback-deploy-pre-gate.md` |
-| 2 | 初回 `wrangler deploy` | `docs/tasks/todo/playback-lane.md` |
-| 3 | §7 の browser 検証 | 同上 |
-| 4 | rollback 文書化等 | 同上 |
+| 2 | 初回 `wrangler deploy` + §7 の browser Verification（OTP・一覧・再生） | `docs/tasks/todo/playback-lane.md` |
+| 3 | 運用後続（rollback 文書化等） | 同上 |
 
 初回 deploy: `cd apps/playback && npm run build && npx wrangler deploy`

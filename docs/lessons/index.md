@@ -66,3 +66,6 @@
 - 2026-08-30 [feature/generator-broad-integration-produce-episode] Narrow と Broad が同じ double（TLS redirect・fake CLI・成功 handler）を持つなら、境界名付き helper のまま相乗りせず中立 support へ出す。上位 Scope が下位 file 固有 helper に依存すると層の逆向き結合になる  # → layer:terms
 - 2026-08-30 [feature/generator-broad-integration-produce-episode] Broad の wire / fixture は「valid な代表が通る」最小で足りる。下位 Scope が所有する range 網羅（max 長 field 等）を Broad fixture に持ち込むと minimization 境界を越える  # → layer:terms
 - 2026-08-30 [feature/generator-broad-integration-produce-episode] issue-manager の途中で委譲 Task が中断しても、既に disk にある成果物を Read で確認し、完了済み step をやり直さず次の role（reviewer 等）から再開する  # → layer:workflow
+- 2026-08-30 [docs/playback-integration-e2e-plan] Decision の「1判断1ファイル」は1つの問いへの1答えであり、議論の論点番号をそのまま1 fileへ機械写経する規則ではない。同じ問いの側面は1 file内の複数箇条で足り、細分化しすぎると Reason/Rejected が薄くなり地図が壊れる  # → layer:meta
+- 2026-08-30 [docs/playback-integration-e2e-plan] GitHub Actions の Secrets/Variables は登録しただけでは job の process.env に出ない。workflow の env 写像が必要。JSON 本文の Secret を Playwright storageState の path 設定へ渡すときは、step で file へ書き出してから path を env にする  # → layer:platform
+- 2026-08-30 [docs/playback-integration-e2e-plan] edge の入場認証（例: メール OTP）と、server 側の外部 API 認可（例: OAuth refresh）は別境界。browser E2E が後者のログイン画面を操作する必要はなく、前者の毎回自動化も必須ではない  # → layer:terms
