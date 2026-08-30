@@ -23,7 +23,7 @@
 - [x] build ComposeBrief
 - [x] build manuscript draft parse（`ManuscriptDraftFromWriterOutput` 実装済み。尺モデルは Decision `2026-08-30T03-06-53`）
 - [x] build WAV concat / duration（`WavDurationSec` / `ConcatWAV` 実装済み）
-- [ ] composition ProduceEpisode 結線 — `docs/tasks/todo/generator-composition-produce-episode-wiring.md`
+- [x] composition ProduceEpisode 結線（composite `ItemSource` 経由で Fetch。factory は入れず結線直書き）
 - [ ] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）— **D**
 - [ ] GHA workflow で定期または手動実行 — **D**
 - [ ] Cursor Narrow — `docs/tasks/todo/generator-narrow-gate-vendor-cursorcli.md`（child env再設計後）
@@ -44,7 +44,7 @@ C-04 runtime config loader（済）
 
 produce-episode（A/B 済。docs/decisions/2026-08-29T14-10 〜 17-00）
   ├→ build compose-brief / draft parse / wav concat（並行可）
-  ├→ composition ProduceEpisode 結線（並行可）
+  ├→ composition ProduceEpisode 結線（済）
   └→ D: ProduceEpisode.Run → GHA production workflow
 
 C-03実測
