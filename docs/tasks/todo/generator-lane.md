@@ -22,6 +22,8 @@
 | 第 2 情報源 Adapter | 別 Issue 化待ち |
 | GHA production workflow | YAML・inventory 名は済。Run 実装済。repo へ本番 Secret/Variable を登録する人手作業が残る。定時緑化は Secret 登録後 |
 | `generator-system-e2e-produce-episode` | suite・assert・Cursor install 済。TEST_* 人手登録と default branch への workflow 到達後に dispatch 緑化が残る |
+| Drive ペア書込の補償・staging | 公開型で残骸許容（Decision `2026-08-30T23-32-00`）。補償 delete / staging→rename の再検討は後回し |
+| 同日完成 skip の実装 | Decision `2026-08-30T23-30-00` 確定。Port + ProduceEpisode 先頭判定の実装が残る |
 
 ### Integration test 方針
 
