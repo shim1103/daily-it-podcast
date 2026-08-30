@@ -26,7 +26,7 @@
 - [x] composition ProduceEpisode 結線（composite `ItemSource` 経由で Fetch。factory は入れず結線直書き）
 - [ ] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）— **D**
 - [ ] GHA workflow で定期または手動実行 — **D**
-- [ ] Cursor Narrow — `docs/tasks/todo/generator-narrow-gate-vendor-cursorcli.md`（child env再設計後）
+- [x] Cursor Narrow（`cursorcli_narrow_integration_test.go`。processenv SU から実 process 観測を Narrow へ分離。`SandboxValue` は GHA 前提で `disabled`）
 - [ ] Broad Integration / System・E2E — **D**（Decision `2026-08-26T17-47-00`）
 
 ### 依存（実装順）
@@ -48,8 +48,8 @@ produce-episode（A/B 済。docs/decisions/2026-08-29T14-10 〜 17-00）
   └→ D: ProduceEpisode.Run → GHA production workflow
 
 C-03実測
-  └→ child env再設計（D）
-        └→ Cursor Narrow
+  └→ child env再設計（済）
+        └→ Cursor Narrow（済）
 ```
 
 ### D（未決・未実測・文案）
