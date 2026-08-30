@@ -12,9 +12,8 @@ import (
 const httpTimeout = 30 * time.Second
 
 // geminiHTTPTimeout は Gemini TTS 1 呼び出しの Client 全体 timeout である。
-// why: 共有 30s では長文朗読で awaiting headers が切れ、System が
-// context deadline exceeded で落ちた（run 33310692613）。TTS は応答が重い。
-const geminiHTTPTimeout = 120 * time.Second
+// why: 120s でも長文朗読で awaiting headers が切れた（run 33310692613）。
+const geminiHTTPTimeout = 5 * time.Minute
 
 // sharedHTTPClient は GetX / Drive / OAuth が共有する *http.Client を返す。
 //
