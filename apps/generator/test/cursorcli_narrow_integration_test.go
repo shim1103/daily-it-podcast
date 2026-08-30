@@ -12,7 +12,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -30,16 +29,11 @@ const (
 // marker path と stdinSink path を返す。
 func installFakeCursorCLI(t *testing.T, body string) (marker string, stdinSink string) {
 	t.Helper()
-	dir := t.TempDir()
-	marker = filepath.Join(dir, "started")
-	stdinSink = filepath.Join(dir, "stdin")
-	script := "#!/bin/sh\ntouch '" + marker + "'\ncat > '" + stdinSink + "'\n" + body + "\n"
-	program := filepath.Join(dir, cursorcli.BinaryName)
-	if err := os.WriteFile(program, []byte(script), 0o755); err != nil {
-		t.Fatalf("os.WriteFile() error = %v, want nil", err)
-	}
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	return marker, stdinSink
+	result := installFakeAgentCLI(t, body, fakeAgentCLIConfig{
+		recordStart:  true,
+		captureStdin: true,
+	})
+	return result.markerPath, result.stdinSinkPath
 }
 
 func newCursorNarrowWriter(t *testing.T) *cursorcli.TextWriter {
