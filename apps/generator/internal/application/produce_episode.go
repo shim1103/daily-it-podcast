@@ -13,6 +13,7 @@ import (
 
 type ProduceEpisode struct {
 	fetch        *FetchSourceItems
+	lookup       port.CompletedEpisodeLookup
 	textWriter   port.TextWriter
 	speech       port.SpeechSynthesizer
 	writeEpisode *WriteEpisode
@@ -26,10 +27,11 @@ const TextWriterMaxAttempts = 5
 
 // NewProduceEpisode は Fetch から WriteEpisode までを束ねる Builder UseCase を返す。
 //
-// @require fetch != nil かつ textWriter != nil かつ speech != nil かつ writeEpisode != nil かつ newEpisodeID != nil かつ displayLoc != nil
+// @require fetch != nil かつ lookup != nil かつ textWriter != nil かつ speech != nil かつ writeEpisode != nil かつ newEpisodeID != nil かつ displayLoc != nil
 // @ensure 戻りは非 nil。
 func NewProduceEpisode(
 	fetch *FetchSourceItems,
+	lookup port.CompletedEpisodeLookup,
 	textWriter port.TextWriter,
 	speech port.SpeechSynthesizer,
 	writeEpisode *WriteEpisode,
@@ -38,6 +40,7 @@ func NewProduceEpisode(
 ) *ProduceEpisode {
 	return &ProduceEpisode{
 		fetch:        fetch,
+		lookup:       lookup,
 		textWriter:   textWriter,
 		speech:       speech,
 		writeEpisode: writeEpisode,
@@ -48,12 +51,24 @@ func NewProduceEpisode(
 
 // Run は Fetch から WriteEpisode までの全日次手順を orchestrate する Builder である。
 //
-// @require uc != nil かつ uc.fetch != nil かつ uc.textWriter != nil かつ uc.speech != nil かつ uc.writeEpisode != nil かつ uc.newEpisodeID != nil かつ uc.displayLoc != nil。now は CLI 実行時刻（Fetch の since 基準かつ date 暦日化の基準）。
+// @require uc != nil かつ uc.fetch != nil かつ uc.lookup != nil かつ uc.textWriter != nil かつ uc.speech != nil かつ uc.writeEpisode != nil かつ uc.newEpisodeID != nil かつ uc.displayLoc != nil。now は CLI 実行時刻（Fetch の since 基準かつ date 暦日化の基準）。
+// @ensure 表示 Location で now を暦日化した date につき CompletedEpisodeLookup.HasPair が true なら、Fetch より前に成功 return（TextWriter / Speech / WriteEpisode を呼ばない）。
+// @ensure HasPair が false なら通常どおり続行する。
 // @ensure Fetch 後 0 件なら Domain Error（Op = no_source_items）。WriteEpisode.Run を呼ばない。
-// @ensure build.ComposeBrief(items)（constants Prompt へ SOURCES/数値 placeholder/JSON_EXAMPLE 埋め込み）→ TextWriter.Write + ManuscriptDraftFromWriterOutput を最大 TextWriterMaxAttempts 回（draft 検証成功で打ち切り。Write 自体の error は即 return）→ 注入された表示 Location で now を暦日化 → OpeningGreetingTemplate から Greeting 文案（date 注入）→ ClosingFarewell template から Farewell 文案（date 注入）→ TTS 順（Greeting, Intro, 各 topic の Preface, Detail, ClosingSummary, ClosingFarewell）各 1 Synthesize → build.WavDurationSec / 無音込み累積 startSec・durationSec → build.ConcatWAV → opaque UUID episodeId → 完成 manuscript bytes → WriteEpisode.Run。
+// @ensure build.ComposeBrief(items)（constants Prompt へ SOURCES/数値 placeholder/JSON_EXAMPLE 埋め込み）→ TextWriter.Write + ManuscriptDraftFromWriterOutput を最大 TextWriterMaxAttempts 回（draft 検証成功で打ち切り。Write 自体の error は即 return）→ OpeningGreetingTemplate から Greeting 文案（date 注入）→ ClosingFarewell template から Farewell 文案（date 注入）→ TTS 順（Greeting, Intro, 各 topic の Preface, Detail, ClosingSummary, ClosingFarewell）各 1 Synthesize → build.WavDurationSec / 無音込み累積 startSec・durationSec → build.ConcatWAV → opaque UUID episodeId → 完成 manuscript bytes → WriteEpisode.Run。
 // @ensure 途中 error なら WriteEpisode.Run を呼ばない（書込なし）。
-// @invariant 所有しない: manuscript.schema.json の Validate（Gate）、vendor / env。Infrastructure 型を知らない。表示タイムゾーンの解決（tzdata I/O）は Composition の責務。監視対象一覧・情報源種類を知らない。string→Draft を Port / Adapter に委譲しない。
+// @invariant 所有しない: manuscript.schema.json の Validate（Gate）、vendor / env。Infrastructure 型を知らない。表示タイムゾーンの解決（tzdata I/O）は Composition の責務。監視対象一覧・情報源種類を知らない。string→Draft を Port / Adapter に委譲しない。WriteEpisode 内の同日再チェックは持たない。
 func (uc *ProduceEpisode) Run(ctx context.Context, now time.Time) error {
+	dateStr, spokenDate := displayDate(now, uc.displayLoc)
+
+	hasPair, err := uc.lookup.HasPair(ctx, dateStr)
+	if err != nil {
+		return err
+	}
+	if hasPair {
+		return nil
+	}
+
 	items, err := uc.fetch.Run(ctx, now)
 	if err != nil {
 		return err
@@ -69,7 +84,6 @@ func (uc *ProduceEpisode) Run(ctx context.Context, now time.Time) error {
 		return err
 	}
 
-	dateStr, spokenDate := displayDate(now, uc.displayLoc)
 	greeting := fmt.Sprintf(constants.OpeningGreetingTemplate, spokenDate)
 	farewell := fmt.Sprintf(constants.ClosingFarewell, spokenDate)
 

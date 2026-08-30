@@ -72,6 +72,7 @@ func fixedEpisodeIDFunc() string { return fixedEpisodeID }
 type harness struct {
 	uc     *application.ProduceEpisode
 	source *fakeItemSource
+	lookup *fakeCompletedEpisodeLookup
 	writer *stubWriter
 	synth  *spySynth
 	episw  *fakeEpisodeWriter
@@ -82,24 +83,116 @@ type harness struct {
 // UTC 8/30 16:00 → JST 8/31 の跨ぎ検証も +9h で正しく成立する。
 var testDisplayLocation = time.FixedZone("JST", 9*3600)
 
-// newHarness は正常系 default（source 1 件、valid wire、尺 D 秒の固定 WAV）で harness を組む。
+// newHarness は正常系 default（source 1 件、完成ペア無し、valid wire、尺 D 秒の固定 WAV）で harness を組む。
 func newHarness(t *testing.T, segDurationSec float64) *harness {
 	t.Helper()
 	source := &fakeItemSource{items: []models.SourceItem{
 		{SourceID: "x", OccurredAt: time.Date(2026, 8, 30, 10, 0, 0, 0, time.UTC), Context: "item_id: a1"},
 	}}
+	lookup := &fakeCompletedEpisodeLookup{}
 	writer := &stubWriter{out: buildValidWireJSON()}
 	synth := &spySynth{wav: fixedWavOfDuration(t, segDurationSec)}
 	episw := &fakeEpisodeWriter{}
 	uc := application.NewProduceEpisode(
 		application.NewFetchSourceItems(source),
+		lookup,
 		writer,
 		synth,
 		application.NewWriteEpisode(episw),
 		fixedEpisodeIDFunc,
 		testDisplayLocation,
 	)
-	return &harness{uc: uc, source: source, writer: writer, synth: synth, episw: episw}
+	return &harness{uc: uc, source: source, lookup: lookup, writer: writer, synth: synth, episw: episw}
+}
+
+// --- 同日完成 skip ---
+
+func TestProduceEpisodeRun_skipsWithoutFetch_whenCompletedPairExistsForDisplayDate(t *testing.T) {
+	t.Parallel()
+
+	// Given: 表示 date（JST）に完成ペアあり。now は UTC 8/30 16:00 → JST 8/31
+	h := newHarness(t, 1.0)
+	h.lookup.has = true
+	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
+
+	// When: Run を呼ぶ
+	err := h.uc.Run(context.Background(), now)
+
+	// Then: 成功。照会 date は JST 暦日。Fetch / TextWriter / Speech / WriteEpisode は呼ばない
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if h.lookup.calls != 1 {
+		t.Fatalf("HasPair calls = %d, want 1", h.lookup.calls)
+	}
+	if h.lookup.lastDate != "2026-08-31" {
+		t.Fatalf("HasPair date = %q, want 2026-08-31", h.lookup.lastDate)
+	}
+	if len(h.source.calls) != 0 {
+		t.Fatalf("Fetch calls = %d, want 0", len(h.source.calls))
+	}
+	if h.writer.calls != 0 {
+		t.Fatalf("TextWriter calls = %d, want 0", h.writer.calls)
+	}
+	if len(h.synth.texts) != 0 {
+		t.Fatalf("Synthesize calls = %d, want 0", len(h.synth.texts))
+	}
+	if h.episw.calls != 0 {
+		t.Fatalf("WriteEpisode calls = %d, want 0", h.episw.calls)
+	}
+}
+
+func TestProduceEpisodeRun_continuesProduce_whenCompletedPairAbsent(t *testing.T) {
+	t.Parallel()
+
+	// Given: 完成ペア無し（Port が false。json only / wav only / 無しは Adapter が false に畳む）
+	h := newHarness(t, 1.0)
+	h.lookup.has = false
+	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
+
+	// When: Run を呼ぶ
+	err := h.uc.Run(context.Background(), now)
+
+	// Then: 通常 Produce 続行。HasPair は Fetch より前に 1 回。WriteEpisode 1 回
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if h.lookup.calls != 1 {
+		t.Fatalf("HasPair calls = %d, want 1", h.lookup.calls)
+	}
+	if h.lookup.lastDate != "2026-08-31" {
+		t.Fatalf("HasPair date = %q, want 2026-08-31", h.lookup.lastDate)
+	}
+	if len(h.source.calls) != 1 {
+		t.Fatalf("Fetch calls = %d, want 1", len(h.source.calls))
+	}
+	if h.episw.calls != 1 {
+		t.Fatalf("WriteEpisode calls = %d, want 1", h.episw.calls)
+	}
+}
+
+func TestProduceEpisodeRun_returnsErrorWithoutFetch_whenCompletedEpisodeLookupFails(t *testing.T) {
+	t.Parallel()
+
+	// Given: 照会が error
+	boom := errors.New("lookup boom")
+	h := newHarness(t, 1.0)
+	h.lookup.err = boom
+	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
+
+	// When: Run を呼ぶ
+	err := h.uc.Run(context.Background(), now)
+
+	// Then: その error を伝播。Fetch 以降は呼ばない
+	if !errors.Is(err, boom) {
+		t.Fatalf("err = %v, want %v", err, boom)
+	}
+	if len(h.source.calls) != 0 {
+		t.Fatalf("Fetch calls = %d, want 0", len(h.source.calls))
+	}
+	if h.writer.calls != 0 || len(h.synth.texts) != 0 || h.episw.calls != 0 {
+		t.Fatalf("downstream was called: writer=%d synth=%d episw=%d", h.writer.calls, len(h.synth.texts), h.episw.calls)
+	}
 }
 
 // --- 正常系 ---
@@ -341,6 +434,7 @@ func TestProduceEpisodeRun_retriesTextWriter_whenFirstDraftInvalidThenValid(t *t
 	seq := &seqWriter{outs: []string{`{"title": "あ", "intro":`, buildValidWireJSON()}}
 	h.uc = application.NewProduceEpisode(
 		application.NewFetchSourceItems(h.source),
+		h.lookup,
 		seq,
 		h.synth,
 		application.NewWriteEpisode(h.episw),

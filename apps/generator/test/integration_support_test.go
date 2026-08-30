@@ -438,11 +438,13 @@ exit 1`
 	textWriter := cursorcli.NewTextWriter(cursorFactory)
 	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey)
 	tokens := oauth.NewTokenSource(httpClient, broadDummyOAuthClientID, broadDummyOAuthClientSecret, broadDummyOAuthRefreshToken)
+	lookup := gdrive.NewCompletedEpisodeLookup(httpClient, tokens, broadDummyDriveFolderID)
 	rawWriter := gdrive.NewRawEpisodeWriter(httpClient, tokens, broadDummyDriveFolderID)
 	writeEpisode := application.NewWriteEpisode(rawWriter)
 
 	h.uc = application.NewProduceEpisode(
 		fetch,
+		lookup,
 		textWriter,
 		speech,
 		writeEpisode,

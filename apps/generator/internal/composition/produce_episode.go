@@ -15,10 +15,11 @@ import (
 func newProduceEpisode(cfg config.Config) *application.ProduceEpisode {
 	httpClient := sharedHTTPClient()
 	fetch := application.NewFetchSourceItems(newCompositeItemSource(newGetXAPIItemSource(httpClient, cfg.Source)))
+	lookup := newGoogleDriveCompletedEpisodeLookup(httpClient, cfg.Drive)
 	textWriter := newCursorTextWriter(cfg.Cursor)
 	speech := newGeminiSpeechSynthesizer(cfg.Gemini)
 	writeEpisode := newGoogleDriveWriteEpisode(httpClient, cfg.Drive)
-	return application.NewProduceEpisode(fetch, textWriter, speech, writeEpisode, newEpisodeID, sharedDisplayLocation())
+	return application.NewProduceEpisode(fetch, lookup, textWriter, speech, writeEpisode, newEpisodeID, sharedDisplayLocation())
 }
 
 // NewProduceEpisodeFromEnv は process environment から Config を読み、production UseCase を組み立てる。
