@@ -1,10 +1,35 @@
 import { render } from "@testing-library/react";
 import { createElement, createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { EpisodeListState } from "../../view-models/episode-list-view-model.ts";
+import type {
+  EpisodeListItemData,
+  EpisodeListState,
+} from "../../view-models/episode-list-view-model.ts";
 import { EpisodeList, type EpisodeListProps } from "./episode-list.tsx";
 
 const baseUrl = "https://example.test";
+
+const minimalBody = {
+  opening: "開始",
+  topics: [{ title: "小題", preface: "前置き", detail: "詳細", startSec: 0 }],
+  closing: "終了",
+};
+
+function makeEpisode(
+  episodeId: string,
+  title: string,
+  date: string,
+  durationSec: number,
+): EpisodeListItemData {
+  return {
+    episodeId,
+    date,
+    title,
+    durationSec,
+    body: minimalBody,
+    audioRef: `/episodes/${episodeId}/audio`,
+  };
+}
 
 function renderEpisodeList(props: Pick<EpisodeListProps, "state"> & Partial<EpisodeListProps>) {
   return render(
@@ -46,22 +71,8 @@ describe("EpisodeList", () => {
     const state: EpisodeListState = {
       status: "success",
       episodes: [
-        {
-          episodeId: "ep-1",
-          date: "2026-08-17",
-          title: "題1",
-          durationSec: 60,
-          topics: [],
-          audioRef: "/episodes/ep-1/audio",
-        },
-        {
-          episodeId: "ep-2",
-          date: "2026-08-18",
-          title: "題2",
-          durationSec: 90,
-          topics: [],
-          audioRef: "/episodes/ep-2/audio",
-        },
+        makeEpisode("ep-1", "題1", "2026-08-17", 60),
+        makeEpisode("ep-2", "題2", "2026-08-18", 90),
       ],
       selectedEpisodeId: null,
       selectedEpisode: null,
@@ -92,16 +103,7 @@ describe("EpisodeList", () => {
     // Given: episode 1 件を持つ success state
     const state: EpisodeListState = {
       status: "success",
-      episodes: [
-        {
-          episodeId: "ep-1",
-          date: "2026-08-17",
-          title: "題1",
-          durationSec: 60,
-          topics: [],
-          audioRef: "/episodes/ep-1/audio",
-        },
-      ],
+      episodes: [makeEpisode("ep-1", "題1", "2026-08-17", 60)],
       selectedEpisodeId: null,
       selectedEpisode: null,
     };
@@ -118,42 +120,15 @@ describe("EpisodeList", () => {
   });
 
   it("selectedEpisode が success の時、選択中 episode だけを紫枠グループで描画する", () => {
-    // Given: ep-1 を選択済み、詳細取得 success の state
+    // Given: ep-1 を選択済み、詳細 success の state
+    const ep1 = makeEpisode("ep-1", "題1", "2026-08-17", 60);
     const state: EpisodeListState = {
       status: "success",
-      episodes: [
-        {
-          episodeId: "ep-1",
-          date: "2026-08-17",
-          title: "題1",
-          durationSec: 60,
-          topics: [],
-          audioRef: "/episodes/ep-1/audio",
-        },
-        {
-          episodeId: "ep-2",
-          date: "2026-08-18",
-          title: "題2",
-          durationSec: 90,
-          topics: [],
-          audioRef: "/episodes/ep-2/audio",
-        },
-      ],
+      episodes: [ep1, makeEpisode("ep-2", "題2", "2026-08-18", 90)],
       selectedEpisodeId: "ep-1",
       selectedEpisode: {
         status: "success",
-        episode: {
-          episodeId: "ep-1",
-          date: "2026-08-17",
-          title: "題1",
-          durationSec: 60,
-          body: {
-            opening: "開始",
-            topics: [{ title: "小題", preface: "前置き", detail: "詳細", startSec: 0 }],
-            closing: "終了",
-          },
-          audioRef: "/episodes/ep-1/audio",
-        },
+        episode: ep1,
       },
     };
 
@@ -172,51 +147,11 @@ describe("EpisodeList", () => {
     expect(container.querySelector(".episode-selected-group .episode-detail")).not.toBeNull();
   });
 
-  it("selectedEpisode が loading の時、選択中 episode の直後に loading 相当の要素を出す", () => {
-    // Given: ep-1 を選択済み、詳細取得 loading の state
-    const state: EpisodeListState = {
-      status: "success",
-      episodes: [
-        {
-          episodeId: "ep-1",
-          date: "2026-08-17",
-          title: "題1",
-          durationSec: 60,
-          topics: [],
-          audioRef: "/episodes/ep-1/audio",
-        },
-      ],
-      selectedEpisodeId: "ep-1",
-      selectedEpisode: { status: "loading" },
-    };
-
-    // When: JSX として render する
-    const { container } = renderEpisodeList({ state });
-
-    // Then: manuscript・player は無く、loading 表示がある。選択グループ内
-    expect(container.querySelectorAll("[data-topic-title]")).toHaveLength(0);
-    expect(container.querySelectorAll("audio")).toHaveLength(0);
-    expect(
-      container.querySelector(
-        ".episode-selected-group .episode-detail[data-episode-detail-loading]",
-      ),
-    ).not.toBeNull();
-  });
-
   it("selectedEpisode が error の時、選択中 episode の直後に error 相当の要素を出す", () => {
-    // Given: ep-1 を選択済み、詳細取得 error の state
+    // Given: ep-1 を選択済み、lookup 失敗 error の state
     const state: EpisodeListState = {
       status: "success",
-      episodes: [
-        {
-          episodeId: "ep-1",
-          date: "2026-08-17",
-          title: "題1",
-          durationSec: 60,
-          topics: [],
-          audioRef: "/episodes/ep-1/audio",
-        },
-      ],
+      episodes: [makeEpisode("ep-1", "題1", "2026-08-17", 60)],
       selectedEpisodeId: "ep-1",
       selectedEpisode: { status: "error" },
     };
@@ -236,16 +171,7 @@ describe("EpisodeList", () => {
     // Given: EpisodeList を同一 element 参照で 2 回 render する
     const state: EpisodeListState = {
       status: "success",
-      episodes: [
-        {
-          episodeId: "ep-1",
-          date: "2026-08-17",
-          title: "題1",
-          durationSec: 60,
-          topics: [],
-          audioRef: "/episodes/ep-1/audio",
-        },
-      ],
+      episodes: [makeEpisode("ep-1", "題1", "2026-08-17", 60)],
       selectedEpisodeId: null,
       selectedEpisode: null,
     };
