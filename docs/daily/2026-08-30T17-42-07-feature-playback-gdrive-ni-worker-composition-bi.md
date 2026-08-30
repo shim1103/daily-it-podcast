@@ -25,4 +25,4 @@ secret なし Drive Narrow Integration と Worker Composition 正常系 Broad In
 
 ## 3. Append
 
-1. PR #101 を `develop` 向けに作成した（https://github.com/shim1103/daily-it-podcast/pull/101）。
+1. PR #101 を作成後、branch を `feature/playback-gdrive-ni-worker-composition-bi` へ rename したため #101 は閉じ、PR #102 を作り直した（https://github.com/shim1103/daily-it-podcast/pull/102）。
