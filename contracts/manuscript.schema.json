@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://daily-it-podcast.local/contracts/manuscript.schema.json",
+  "title": "Manuscript",
+  "description": "Google Drive 上の {episodeId}.json。Playback が表示・再生制御に使う情報のみ。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["episodeId", "date", "title", "durationSec", "body"],
+  "properties": {
+    "episodeId": {
+      "type": "string",
+      "description": "エピソード対応キー。ファイル名 stem（{episodeId}.wav / {episodeId}.json）と同一。不透明でよい。",
+      "minLength": 1
+    },
+    "date": {
+      "type": "string",
+      "description": "表示用日付。Asia/Tokyo で暦日にしたうえで YYYY-MM-DD。",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "durationSec": {
+      "type": "number",
+      "description": "エピソード音声の合計尺（秒）。",
+      "minimum": 0
+    },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["opening", "topics", "closing"],
+      "properties": {
+        "opening": {
+          "type": "string",
+          "description": "最初の挨拶。"
+        },
+        "topics": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["title", "preface", "detail", "startSec"],
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "preface": {
+                "type": "string",
+                "description": "トピック別前置き原稿。"
+              },
+              "detail": {
+                "type": "string",
+                "description": "トピック別詳細原稿。"
+              },
+              "startSec": {
+                "type": "number",
+                "description": "当該トピックの音声上の開始位置（秒）。シーク用。",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "closing": {
+          "type": "string",
+          "description": "最後の挨拶。"
+        }
+      }
+    }
+  }
+}

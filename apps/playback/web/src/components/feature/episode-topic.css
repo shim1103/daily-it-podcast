@@ -1,0 +1,86 @@
+/* episode-topic — topic 1 件。title / preface / detail の semantic 階層 */
+
+section.episode-topic {
+  display: block;
+  margin: 0 0 1.35rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+section.episode-topic:last-of-type {
+  margin-bottom: 0.5rem;
+}
+
+section.episode-topic [data-topic-title] {
+  margin: 0;
+  color: var(--el-label);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Helvetica Neue",
+    sans-serif;
+  font-size: var(--el-detail-topic-size, var(--el-list-topic-size));
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+}
+
+.episode-topic__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin: 0 0 0.55rem;
+  padding: 0;
+  border: 0;
+  font: inherit;
+}
+
+.episode-topic__seek {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #0a84ff;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Helvetica Neue",
+    sans-serif;
+  font-size: var(--el-detail-topic-size, var(--el-list-topic-size));
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.episode-topic__seek:hover,
+.episode-topic__seek:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
+.episode-topic__heading-title {
+  min-width: 0;
+}
+
+section.episode-topic [data-topic-preface],
+section.episode-topic [data-topic-detail] {
+  margin: 0 0 0.65rem;
+  color: var(--el-secondary);
+  font-size: var(--el-detail-body-size);
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: -0.01em;
+}
+
+section.episode-topic [data-topic-detail] {
+  margin: 0;
+  color: var(--el-secondary);
+}

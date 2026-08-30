@@ -1,0 +1,16 @@
+/* episode-selected-group — 選択中 item + detail を紫枠で囲む（list focus 左線と同系統） */
+
+.episode-selected-group {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--el-accent);
+}
+
+.episode-selected-group > .episode-detail {
+  border-top: 1px solid var(--el-separator);
+}

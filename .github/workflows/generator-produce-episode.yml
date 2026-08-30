@@ -1,0 +1,36 @@
+# scope: Generator 本番 produce（credential 付き実 operation）
+# 実物: scripts/generator/produce-episode.sh → cmd/generator
+# double: なし
+# @require Go（version は apps/generator/go.mod）。本番 Secrets / Variables が登録済み。
+# @ensure produce 入口が exit 0（ProduceEpisode.Run 実装後）。
+# @invariant 必須 Unit / Integration gate に載せない。test 用 TEST_* を使わない。playback を触らない。
+# @invariant toolchain の go test を YAML に直書きしない。secret 値を log に出さない。
+# 判断: docs/decisions/2026-08-30T12-49-00 / 2026-08-30T12-49-01
+name: generator-produce-episode
+
+on:
+  schedule:
+    # 毎日 07:00 Asia/Tokyo = 22:00 UTC（前日）
+    - cron: "0 22 * * *"
+  workflow_dispatch:
+
+jobs:
+  produce:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/generator/go.mod
+
+      - name: Produce episode
+        env:
+          GETX_API_KEY: ${{ secrets.GETX_API_KEY }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+          DRIVE_FOLDER_ID: ${{ vars.DRIVE_FOLDER_ID }}
+        run: ./scripts/generator/produce-episode.sh
