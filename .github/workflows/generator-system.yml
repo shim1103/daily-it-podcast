@@ -72,14 +72,13 @@ jobs:
             exit "${smoke_exit}"
           fi
 
-      # why: smoke（本番 CURSOR_API_KEY）は緑、TEST_CURSOR_API_KEY は親 env 継承でも
-      #      「Failed to reach the Cursor API」で赤（run 33302114216 / 33302168305）。
-      #      PR80 probe と同名 Secret を Cursor だけ暫定採用。他 vendor は TEST_* のまま。
+      # why: smoke / System で Cursor は本番 CURSOR_API_KEY が必要（TEST_ は API 到達失敗）。
+      #      draft 成功後 Gemini が status 403（run 33307390160）。Cursor と同型で本番 key を暫定採用。
       - name: System Test を実行
         env:
           GETX_API_KEY: ${{ secrets.TEST_GETX_API_KEY }}
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.TEST_GOOGLE_OAUTH_CLIENT_SECRET }}
           GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.TEST_GOOGLE_OAUTH_REFRESH_TOKEN }}
           GOOGLE_OAUTH_CLIENT_ID: ${{ vars.TEST_GOOGLE_OAUTH_CLIENT_ID }}
