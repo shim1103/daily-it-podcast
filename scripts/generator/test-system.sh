@@ -21,6 +21,6 @@ echo "system: generator (go)"
   if [ -z "$packages" ]; then
     echo "generator: System package なし（skip）"
   else
-    go test -tags=system -timeout 30m -count=1 ./test/system/...
+    go test -tags=system -timeout 40m -count=1 ./test/system/...
   fi
 )

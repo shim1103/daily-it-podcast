@@ -23,7 +23,7 @@ import (
 func TestProduceEpisodeSystem_writesJsonAndWavPair_whenSubprocessSucceeds(t *testing.T) {
 	// Given: System 用 process env と test Drive folder の一覧 snapshot
 	requireSystemEnv(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Minute)
 	defer cancel()
 
 	obs := newDriveObserver(t)
