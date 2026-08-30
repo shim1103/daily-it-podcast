@@ -16,7 +16,7 @@ func newProduceEpisode(cfg config.Config) *application.ProduceEpisode {
 	httpClient := sharedHTTPClient()
 	fetch := application.NewFetchSourceItems(newCompositeItemSource(newGetXAPIItemSource(httpClient, cfg.Source)))
 	textWriter := newCursorTextWriter(cfg.Cursor)
-	speech := newGeminiSpeechSynthesizer(httpClient, cfg.Gemini)
+	speech := newGeminiSpeechSynthesizer(cfg.Gemini)
 	writeEpisode := newGoogleDriveWriteEpisode(httpClient, cfg.Drive)
 	return application.NewProduceEpisode(fetch, textWriter, speech, writeEpisode, newEpisodeID, sharedDisplayLocation())
 }

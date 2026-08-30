@@ -8,14 +8,26 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 )
 
-// httpTimeout は外向き HTTP Adapter が共有する Client の全体 timeout である。
+// httpTimeout は GetX / Drive / OAuth など共有 HTTP Client の全体 timeout である。
 const httpTimeout = 30 * time.Second
 
-// sharedHTTPClient は全 HTTP Adapter が共有する *http.Client を返す。
+// geminiHTTPTimeout は Gemini TTS 1 呼び出しの Client 全体 timeout である。
+// why: 共有 30s では長文朗読で awaiting headers が切れ、System が
+// context deadline exceeded で落ちた（run 33310692613）。TTS は応答が重い。
+const geminiHTTPTimeout = 120 * time.Second
+
+// sharedHTTPClient は GetX / Drive / OAuth が共有する *http.Client を返す。
 //
 // @ensure 戻りは適切な timeout を持つ標準 *http.Client。
 func sharedHTTPClient() *http.Client {
 	return &http.Client{Timeout: httpTimeout}
+}
+
+// geminiHTTPClient は Gemini TTS 専用の *http.Client を返す。
+//
+// @ensure 戻りは geminiHTTPTimeout を持つ標準 *http.Client。
+func geminiHTTPClient() *http.Client {
+	return &http.Client{Timeout: geminiHTTPTimeout}
 }
 
 // sharedLookupEnv は全 command launcher / config.Load が共有する親環境アクセス手段を返す。
