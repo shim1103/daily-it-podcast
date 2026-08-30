@@ -6,11 +6,6 @@ import { GoogleDriveEpisodeRepository } from "./google-drive-episode-repository.
  * scope: Sociable Unit
  * real: GoogleDriveEpisodeRepository
  * double: Drive HTTP を Stub 化した `fetch`
- *
- * why: Adapter 内分岐だけを見る —— files.list の `q` 絞り込み、stem 抽出、生 payload / decode の
- * 戻り値表現、複数 download の並行開始、「json が無い＝undefined」「wav が無い＝undefined」。
- * 実 HTTP 境界の成功・非 2xx・形式不正 → DriveError は Narrow Integration が所有する。
- * schema 不適合除外・stem 不一致の網羅は use-case test へ委ねる。
  */
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -111,7 +106,7 @@ describe("GoogleDriveEpisodeRepository", () => {
       // When: 一覧を取得する
       const got = await repository.listManuscripts();
 
-      // Then: 不適合分も除外せず返す（成功 payload 完全一致は NI が所有）
+      // Then: 不適合分も除外せず返す
       expect(got.map((entry) => entry.stem).sort()).toEqual(["bad", "ep-1"]);
       expect(got.find((entry) => entry.stem === "bad")?.json).toEqual({ episodeId: "bad" });
     });
@@ -139,53 +134,10 @@ describe("GoogleDriveEpisodeRepository", () => {
       // Then: string のまま渡す
       expect(got).toEqual([{ stem: "ep-1", json: "not json" }]);
     });
-
-    it("getManuscript は download した json と wav 有無をそのまま返す（検証しない）", async () => {
-      // Given: schema 不適合 json + wav あり
-      const repository = createRepository(
-        stubFetch({
-          files: [
-            { id: "j1", name: "ep-1.json" },
-            { id: "w1", name: "ep-1.wav" },
-          ],
-          downloads: { j1: JSON.stringify({ episodeId: "ep-1" }) },
-        }),
-      );
-
-      // When: 1件取得する
-      const got = await repository.getManuscript("ep-1");
-
-      // Then: 検証せず生 payload + hasAudio
-      expect(got).toEqual({ json: { episodeId: "ep-1" }, hasAudio: true });
-    });
-
-    it("getManuscript は wav が無くても hasAudio: false で json を返す（throw しない）", async () => {
-      // Given: json のみ
-      const repository = createRepository(
-        stubFetch({
-          files: [{ id: "j1", name: "ep-1.json" }],
-          downloads: { j1: JSON.stringify(manuscriptJson) },
-        }),
-      );
-
-      // When: 1件取得する
-      const got = await repository.getManuscript("ep-1");
-
-      // Then: hasAudio: false
-      expect(got).toEqual({ json: manuscriptJson, hasAudio: false });
-    });
   });
 
   describe("取得対象の不在は undefined で表現する", () => {
-    it("json エントリが Drive に無い時、getManuscript は undefined", async () => {
-      // Given: フォルダが空
-      const repository = createRepository(stubFetch({ files: [] }));
-
-      // When / Then: throw せず undefined
-      expect(await repository.getManuscript("missing")).toBeUndefined();
-    });
-
-    it("wav エントリが Drive に無い時、getEpisodeAudio は undefined", async () => {
+    it("wav エントリが Drive に無い時、getAudio は undefined", async () => {
       // Given: json のみ
       const repository = createRepository(
         stubFetch({
@@ -195,22 +147,19 @@ describe("GoogleDriveEpisodeRepository", () => {
       );
 
       // When / Then
-      expect(await repository.getEpisodeAudio("ep-1")).toBeUndefined();
+      expect(await repository.getAudio("ep-1")).toBeUndefined();
     });
   });
 
   describe("files.list の絞り込み q", () => {
-    it("getManuscript は files.list へ対象 episodeId の json/wav 名を絞り込む q を渡す", async () => {
+    it("getAudio は files.list へ対象 episodeId の wav 名を絞り込む q を渡す", async () => {
       const fetchStub = stubFetch({
-        files: [
-          { id: "j1", name: "ep-1.json" },
-          { id: "w1", name: "ep-1.wav" },
-        ],
-        downloads: { j1: JSON.stringify(manuscriptJson) },
+        files: [{ id: "w1", name: "ep-1.wav" }],
+        downloads: { w1: validAudioBytes },
       });
       const repository = createRepository(fetchStub);
 
-      await repository.getManuscript("ep-1");
+      await repository.getAudio("ep-1");
 
       const listCall = vi
         .mocked(fetchStub)
@@ -219,32 +168,11 @@ describe("GoogleDriveEpisodeRepository", () => {
         );
       expect(listCall).toBeDefined();
       const query = new URL(listCall?.[0] ?? "").searchParams.get("q") ?? "";
-      expect(query).toContain("name = 'ep-1.json'");
       expect(query).toContain("name = 'ep-1.wav'");
+      expect(query).not.toContain("name = 'ep-1.json'");
     });
 
-    it("getManuscript はフォルダ内の無関係な大量 file を無視し、対象 stem の json+wav だけを見る", async () => {
-      const unrelatedFiles = Array.from({ length: 50 }, (_, i) => ({
-        id: `unrelated-${i}`,
-        name: `other-${i}.json`,
-      }));
-      const repository = createRepository(
-        stubFetch({
-          files: [
-            ...unrelatedFiles,
-            { id: "j1", name: "ep-1.json" },
-            { id: "w1", name: "ep-1.wav" },
-          ],
-          downloads: { j1: JSON.stringify(manuscriptJson) },
-        }),
-      );
-
-      const got = await repository.getManuscript("ep-1");
-      expect(got?.json).toEqual(manuscriptJson);
-      expect(got?.hasAudio).toBe(true);
-    });
-
-    it("getEpisodeAudio はフォルダ内の無関係な大量 file を無視し、対象 stem の wav だけを見る", async () => {
+    it("getAudio はフォルダ内の無関係な大量 file を無視し、対象 stem の wav だけを見る", async () => {
       const unrelatedFiles = Array.from({ length: 50 }, (_, i) => ({
         id: `unrelated-${i}`,
         name: `other-${i}.wav`,
@@ -260,7 +188,7 @@ describe("GoogleDriveEpisodeRepository", () => {
         }),
       );
 
-      const got = await repository.getEpisodeAudio("ep-1");
+      const got = await repository.getAudio("ep-1");
       expect(got).toEqual(validAudioBytes);
     });
   });

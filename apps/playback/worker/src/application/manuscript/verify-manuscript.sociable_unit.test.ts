@@ -89,18 +89,18 @@ describe("verifyManuscript", () => {
 });
 
 describe("selectValidListItem", () => {
-  it("schema 適合かつ stem 一致の時、題名だけへ射影した EpisodeListItem を返す", () => {
+  it("schema 適合かつ stem 一致の時、原稿全文付き EpisodeListItem を返す", () => {
     // Given: 適合 json
     // When: 一覧用に選ぶ
     const got = selectValidListItem(validManuscript, "ep-1");
 
-    // Then: body を持たず topics は title のみ
+    // Then: body 全文と audioRef がある
     expect(got).toEqual({
       episodeId: "ep-1",
       date: "2026-08-17",
       title: "題",
       durationSec: 60,
-      topics: [{ title: "第一" }, { title: "第二" }],
+      body: validManuscript.body,
       audioRef: episodeAudioPath("ep-1"),
     });
   });
@@ -111,7 +111,7 @@ describe("selectValidListItem", () => {
     expect(selectValidListItem({ episodeId: "bad" }, "bad")).toBeUndefined();
   });
 
-  it("不正 JSON 由来の非 object の時、throw せず undefined を返す", () => {
+  it("不正 JSON 由来の non object の時、throw せず undefined を返す", () => {
     expect(selectValidListItem("not json", "ep-1")).toBeUndefined();
   });
 

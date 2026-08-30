@@ -1,12 +1,12 @@
 import {
-  GetEpisodeRequestSchema,
+  EpisodeIdRequestSchema,
   ValidationError,
-  type GetEpisodeRequest,
+  type EpisodeIdRequest,
 } from "../../../contracts/index.ts";
 
-export function parseGetEpisodeRequest(body: unknown): GetEpisodeRequest {
+export function parseEpisodeIdRequest(body: unknown): EpisodeIdRequest {
   try {
-    return GetEpisodeRequestSchema.parse(body);
+    return EpisodeIdRequestSchema.parse(body);
   } catch (error) {
     throw new ValidationError("入力が契約に不適合", { cause: error });
   }
