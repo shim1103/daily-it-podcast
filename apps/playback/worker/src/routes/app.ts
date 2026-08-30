@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import {
   ValidationError,
   episodeAudioRoutePath,
-  episodeRoutePath,
   listEpisodesPath,
 } from "../../../contracts/index.ts";
 import {
@@ -36,24 +35,10 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
       const body = await listEpisodesController(input);
       return Response.json(body, { status: 200 });
     })
-    .get(episodeRoutePath, async (c) => {
-      const { getEpisodeController } = createPlaybackControllers(
-        c.env,
-        undefined,
-        useCaseOverrides,
-      );
-      const input: unknown = { episodeId: c.req.param("episodeId") };
-      const body = await getEpisodeController(input);
-      return Response.json(body, { status: 200 });
-    })
     .get(episodeAudioRoutePath, async (c) => {
-      const { getEpisodeAudioController } = createPlaybackControllers(
-        c.env,
-        undefined,
-        useCaseOverrides,
-      );
+      const { getAudioController } = createPlaybackControllers(c.env, undefined, useCaseOverrides);
       const input: unknown = { episodeId: c.req.param("episodeId") };
-      const bytes = await getEpisodeAudioController(input);
+      const bytes = await getAudioController(input);
       return createAudioResponse(bytes);
     })
     .notFound(() => {

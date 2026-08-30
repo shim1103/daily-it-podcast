@@ -1,7 +1,6 @@
 import { z } from "zod";
 import type {
   EpisodeRepository,
-  RawManuscriptDetail,
   RawManuscriptEntry,
 } from "../../application/ports/episode-repository.ts";
 import { DriveError } from "./drive-error.ts";
@@ -46,8 +45,7 @@ function stemOf(name: string, extension: string): string | undefined {
  * decode したまま返す。schema 適合・stem 一致・不正 JSON・wav 欠落の判定はしない（use-case が行う）。
  *
  * @require deps.folderId は Drive 上の対象フォルダ id
- * @ensure Drive HTTP 自体の失敗（token 取得・network・非 2xx・応答形式不正）は DriveError を throw する。
- *   json エントリが Drive に無い時は getManuscript が undefined を返す（throw しない）
+ * @ensure Drive HTTP 自体の失敗（token 取得・network・非 2xx・応答形式不正）は DriveError を throw する
  * @invariant Drive file id やフォルダ id を Error message に含めない
  */
 export class GoogleDriveEpisodeRepository implements EpisodeRepository {
@@ -81,21 +79,7 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
     return downloaded.filter((entry): entry is RawManuscriptEntry => entry !== undefined);
   }
 
-  async getManuscript(episodeId: string): Promise<RawManuscriptDetail | undefined> {
-    const accessToken = await this.fetchAccessToken();
-    const entries = await this.listEntriesByEpisodeId(accessToken, episodeId);
-
-    const jsonEntry = entries.find((entry) => stemOf(entry.name, jsonExtension) === episodeId);
-    if (jsonEntry === undefined) {
-      return undefined;
-    }
-    const hasAudio = entries.some((entry) => stemOf(entry.name, wavExtension) === episodeId);
-
-    const json = await this.downloadJson(accessToken, jsonEntry.id);
-    return { json, hasAudio };
-  }
-
-  async getEpisodeAudio(episodeId: string): Promise<Uint8Array | undefined> {
+  async getAudio(episodeId: string): Promise<Uint8Array | undefined> {
     const accessToken = await this.fetchAccessToken();
     const entries = await this.listEntriesByEpisodeId(accessToken, episodeId);
 
@@ -155,8 +139,8 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
   /**
    * フォルダ直下の全 file を取得する。
    *
-   * why: `listManuscripts` は全件が必要な唯一の use case。それ以外（`getManuscript` /
-   * `getEpisodeAudio`）は特定 episodeId の json/wav だけが要るため `listEntriesByEpisodeId` を使う。
+   * why: `listManuscripts` は全件が必要。`getAudio` は特定 episodeId の wav だけが要るため
+   * `listEntriesByEpisodeId` を使う。
    */
   private async listFolderEntries(accessToken: string): Promise<DriveFileEntry[]> {
     return this.queryFolderEntries(
@@ -166,20 +150,17 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
   }
 
   /**
-   * フォルダ直下から、対象 episodeId の json/wav 名だけへ絞り込んで file を取得する。
+   * フォルダ直下から、対象 episodeId の wav 名だけへ絞り込んで file を取得する。
    *
-   * why: `getManuscript` / `getEpisodeAudio` は1件の episodeId だけを要求されるため、
-   * Drive API v3 の `q` へ name 条件を足すことで、フォルダ内 file 数に関わらず応答を定数サイズにする。
+   * why: `getAudio` は1件の episodeId だけを要求されるため、Drive API v3 の `q` へ name
+   * 条件を足すことで、フォルダ内 file 数に関わらず応答を定数サイズにする。
    */
   private async listEntriesByEpisodeId(
     accessToken: string,
     episodeId: string,
   ): Promise<DriveFileEntry[]> {
-    const jsonName = `${episodeId}${jsonExtension}`;
     const wavName = `${episodeId}${wavExtension}`;
-    const query =
-      `'${this.folderId}' in parents and trashed = false ` +
-      `and (name = '${jsonName}' or name = '${wavName}')`;
+    const query = `'${this.folderId}' in parents and trashed = false ` + `and name = '${wavName}'`;
     return this.queryFolderEntries(accessToken, query);
   }
 

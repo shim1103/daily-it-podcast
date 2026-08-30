@@ -99,9 +99,9 @@
           "startSec": 760
         },
         {
-          "title": "List と Get の schema 粒度差",
-          "preface": "List と Get で field の粒度が違う時、同じ schema を無理に共有しない方が安全です。topics は title だけと、preface まで持つ差を型で表現します。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
-          "detail": "listEpisode の topics は title だけ、getEpisode の body は preface と detail まで持ちます。余剰 field を拒否する strict schema にしておくと、将来の field 追加が review 可能な差分になります。list 用に detail を落とす transform は repository 層で行い、HTTP response schema はそれぞれ独立させます。client 側も list 用 parser と detail 用 parser を分けると、余計な field に依存する UI が育ちません。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。",
+          "title": "listEpisodes の episodeItem schema 統一",
+          "preface": "listEpisodes の各 item は body 全文と audioRef を1 schema で返します。list と detail の二重契約は廃止し、client は list 1回で原稿表示まで足ります。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。 見落としがちなのは、症状の分類と再現条件の固定です。保存の瞬間に何が起きるかを、network と console で同時に観測する癖を付けましょう。",
+          "detail": "episodeItemSchema は topics の preface と detail まで含む body 全文を持ちます。余剰 field を拒否する strict schema にしておくと、将来の field 追加が review 可能な差分になります。web は load 済み list から episodeId で lookup し、2nd fetch しません。音声だけ GET /episodes/:episodeId/audio で byte 取得します。再現の最小化は、依存を外すより先に観測対象を減らす作業です。branch を固定し、node_modules を更新した直後かどうかもメモに残します。ログは request path、handler 名、error code を一行にまとめると、深夜の grep が速くなります。文案の全文ではなく code で追う方が refactor に強いです。fixture は schema と分離し、invalid 例は safeParse の失敗 object を見ます。message の全文一致 assert は避け、契約の code だけを固定します。",
           "startSec": 1140
         },
         {

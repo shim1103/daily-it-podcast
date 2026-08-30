@@ -1,7 +1,7 @@
-import type { GetEpisodeResponse, ListEpisodesResponse } from "../../../../contracts/index.ts";
+import type { EpisodeItem, ListEpisodesResponse } from "../../../../contracts/index.ts";
 
 export type EpisodeListItem = ListEpisodesResponse["episodes"][number];
-export type EpisodeManuscript = Omit<GetEpisodeResponse, "audioRef">;
+export type EpisodeManuscript = Omit<EpisodeItem, "audioRef">;
 
 /**
  * 取得したままの原稿 json 1 件。`stem` は取得元ファイル名の stem（= 期待 episodeId）。
@@ -9,14 +9,6 @@ export type EpisodeManuscript = Omit<GetEpisodeResponse, "audioRef">;
 export type RawManuscriptEntry = {
   stem: string;
   json: unknown;
-};
-
-/**
- * 対象 episodeId の原稿 json と wav の有無。`json` は download して decode しただけの生 payload。
- */
-export type RawManuscriptDetail = {
-  json: unknown;
-  hasAudio: boolean;
 };
 
 /**
@@ -41,21 +33,10 @@ export interface EpisodeRepository {
   listManuscripts(): Promise<RawManuscriptEntry[]>;
 
   /**
-   * 対象 episodeId の原稿 json と wav 有無を取得したまま返す。
-   *
-   * @ensure `json` は download して decode しただけの生 payload。schema 検証・stem 一致判定はしない。
-   * @ensure 対象 episodeId の json エントリ自体が Drive / メモリに無い時は `undefined` を返す
-   *   （取得対象が存在しないことを戻り値で表現する。throw しない）。
-   * @ensure schema 不適合・stem 不一致・wav 欠落では throw しない。wav の有無は `hasAudio` で返す。
-   * @ensure Drive HTTP 自体の失敗は Infrastructure Error（`DriveError`）を throw する。
-   */
-  getManuscript(episodeId: string): Promise<RawManuscriptDetail | undefined>;
-
-  /**
    * 対象 episodeId の wav byte を取得したまま返す。
    *
    * @ensure wav エントリまたは byte が無い時は `undefined` を返す（throw しない）。
    * @ensure Drive HTTP 自体の失敗は Infrastructure Error（`DriveError`）を throw する。
    */
-  getEpisodeAudio(episodeId: string): Promise<Uint8Array | undefined>;
+  getAudio(episodeId: string): Promise<Uint8Array | undefined>;
 }
