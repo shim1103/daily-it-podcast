@@ -38,7 +38,9 @@ type SecretEnv struct {
 type Launcher interface {
 	// Launch は command を起動し、成功時は stdout bytes を返す。
 	// Program が空なら起動前に error を返す。
-	// error には秘密値、stdin、child stderr を含めない。
+	// error には秘密値と stdin を含めない。
+	// 失敗時は child stderr 先頭最大 300 byte を診断として載せてよい。
+	// stderr に秘密値または stdin 本文が含まれる場合は head を載せない。
 	Launch(ctx context.Context, command Command) ([]byte, error)
 }
 

@@ -3,7 +3,7 @@
 // Double: secret は検証済みの秘密値を直接渡す。本番 credential は使わない。
 // @require Launcher に注入済みの秘密値を契約で検証する。child は controllable な script。
 // @ensure child env は親 environ を継承し、inject secret は同名を上書きする。
-// @ensure error message に secret 値・stdin・child stderr 本文が出ない。
+// @ensure error message に secret 値・stdin 本文が出ない。失敗時は child stderr 先頭を診断へ載せてよい。
 package test
 
 import (
@@ -86,21 +86,23 @@ func TestProcessEnvLauncher_failsBeforeChildStart_whenProgramIsEmpty(t *testing.
 	if _, statErr := os.Stat(marker); !os.IsNotExist(statErr) {
 		t.Fatalf("marker %q exists, want child not started", marker)
 	}
+}
 
+func TestProcessEnvLauncher_returnsProcessenvError_whenProgramIsEmpty(t *testing.T) {
+	// Given: secret は注入済み
+	launcher := newNarrowLauncher(t)
+
+	// When: 空 Program で Launch する
+	_, err := launcher.Launch(context.Background(), commandlaunch.Command{Program: ""})
+
+	// Then: *processenv.Error である
 	var infraErr *processenv.Error
 	if !errors.As(err, &infraErr) {
 		t.Fatalf("errors.As(err, &infraErr) = false, want true; type = %T", err)
 	}
-	errMsg := infraErr.Error()
-	if !strings.HasPrefix(errMsg, "processenv:") {
-		t.Fatalf("error message = %q, want \"processenv:\" prefix", errMsg)
-	}
-	if infraErr.Unwrap() == nil {
-		t.Fatal("infraErr.Unwrap() = nil, want non-nil")
-	}
 }
 
-func TestProcessEnvLauncher_errorOmitsSecretStdinAndStderr_whenChildExitsNonZero(t *testing.T) {
+func TestProcessEnvLauncher_errorIncludesStderrHeadOmitsSecretAndStdin_whenChildExitsNonZero(t *testing.T) {
 	// Given: 識別可能な secret・stdin・stderr を持つ失敗 child
 	launcher := newNarrowLauncher(t)
 
@@ -111,12 +113,61 @@ func TestProcessEnvLauncher_errorOmitsSecretStdinAndStderr_whenChildExitsNonZero
 		Stdin:   []byte(narrowStdinToken),
 	})
 
-	// Then: error は返るが secret・stdin・stderr 本文は message に出ない
+	// Then: error は返り、stderr head は載るが secret・stdin は出ない
 	if err == nil {
 		t.Fatal("Launch() error = nil, want non-nil")
 	}
 	msg := err.Error()
-	for _, leaked := range []string{narrowDummySecretValue, narrowStdinToken, narrowStderrToken} {
+	if !strings.Contains(msg, narrowStderrToken) {
+		t.Fatalf("error message %q, want stderr head %q", msg, narrowStderrToken)
+	}
+	for _, leaked := range []string{narrowDummySecretValue, narrowStdinToken} {
+		if strings.Contains(msg, leaked) {
+			t.Fatalf("error message %q contains leaked token %q", msg, leaked)
+		}
+	}
+}
+
+func TestProcessEnvLauncher_errorOmitsStderrHead_whenStderrContainsSecret(t *testing.T) {
+	// Given: stderr に secret 値を書く失敗 child
+	launcher := newNarrowLauncher(t)
+
+	// When: secret を stderr へ出して非0 exit する実 child を起動する
+	_, err := launcher.Launch(context.Background(), commandlaunch.Command{
+		Program: "sh",
+		Args:    []string{"-c", "printf %s " + narrowDummySecretValue + " 1>&2; exit 1"},
+		Stdin:   []byte(narrowStdinToken),
+	})
+
+	// Then: error は返るが secret も stdin も出ない
+	if err == nil {
+		t.Fatal("Launch() error = nil, want non-nil")
+	}
+	msg := err.Error()
+	for _, leaked := range []string{narrowDummySecretValue, narrowStdinToken} {
+		if strings.Contains(msg, leaked) {
+			t.Fatalf("error message %q contains leaked token %q", msg, leaked)
+		}
+	}
+}
+
+func TestProcessEnvLauncher_errorOmitsStdinToken_whenChildEchoesStdinToStderr(t *testing.T) {
+	// Given: stdin を stderr へ echo する失敗 child
+	launcher := newNarrowLauncher(t)
+
+	// When: stdin を stderr へ写して非0 exit する実 child を起動する
+	_, err := launcher.Launch(context.Background(), commandlaunch.Command{
+		Program: "sh",
+		Args:    []string{"-c", "cat 1>&2; exit 1"},
+		Stdin:   []byte(narrowStdinToken),
+	})
+
+	// Then: error は返るが secret も stdin も出ない
+	if err == nil {
+		t.Fatal("Launch() error = nil, want non-nil")
+	}
+	msg := err.Error()
+	for _, leaked := range []string{narrowDummySecretValue, narrowStdinToken} {
 		if strings.Contains(msg, leaked) {
 			t.Fatalf("error message %q contains leaked token %q", msg, leaked)
 		}

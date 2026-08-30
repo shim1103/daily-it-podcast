@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -57,7 +56,8 @@ func NewSecretEnvLauncherFactory(
 // Launch は command を起動し、成功時は stdout bytes を返す。
 //
 // @require command.Program は trim 後に非空。lookupEnv が注入済み（nil なら error を返す）。
-// @ensure 失敗時の error に秘密値・stdin・child stderr 本文を含めない。
+// @ensure 失敗時の error に秘密値と stdin 本文を含めない。
+// @ensure 失敗時は child stderr 先頭最大 300 byte を cause 診断へ載せる。stderr に秘密値または stdin 本文が含まれる場合は head を省略する。
 // @ensure child env は親 environ を継承し、inject secret で同名を上書きしたものである。
 func (l *Launcher) Launch(ctx context.Context, command commandlaunch.Command) ([]byte, error) {
 	if l == nil {
@@ -85,19 +85,17 @@ func (l *Launcher) Launch(ctx context.Context, command commandlaunch.Command) ([
 	cmd.Env = env
 	cmd.Stdin = bytes.NewReader(command.Stdin)
 	var stdout bytes.Buffer
+	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
-	// why: stderr 本文を読まず error へ写さない契約を、未読 buffer ではなく Discard で明示する。
-	cmd.Stderr = io.Discard
+	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return nil, infraErr("run", err)
+		return nil, infraErr("run", withStderrHead(err, stderr.Bytes(), l.secret.Value, command.Stdin))
 	}
 	return stdout.Bytes(), nil
 }
 
 // buildChildEnv は親 environ を写し、inject 名を除いたうえで secret を載せる。
-// why: PR80 probe は親 env 継承で Cursor API 到達に成功し、allowlist のみ（env -i 相当）では
-//
-//	「Failed to reach the Cursor API」になる。Composition の結線形は変えない。
+// why: allowlist のみ（env -i 相当）では Cursor API に届かない。親 environ 継承を残す。
 func buildChildEnv(parent []string, secretName string, secretValue string) []string {
 	env := make([]string, 0, len(parent)+1)
 	for _, entry := range parent {
