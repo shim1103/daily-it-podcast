@@ -118,10 +118,12 @@ func (uc *ProduceEpisode) Run(ctx context.Context, now time.Time) error {
 }
 
 // writeManuscriptDraft は TextWriter を最大 TextWriterMaxAttempts 回呼び、valid な ManuscriptDraft を得る。
+// 2 回目以降は前回の draft 検証 error を brief 末尾へ付け、同じ失敗の再発を減らす。
 func (uc *ProduceEpisode) writeManuscriptDraft(ctx context.Context, brief string) (models.ManuscriptDraft, error) {
+	attemptBrief := brief
 	var lastErr error
 	for attempt := 1; attempt <= TextWriterMaxAttempts; attempt++ {
-		raw, err := uc.textWriter.Write(ctx, brief)
+		raw, err := uc.textWriter.Write(ctx, attemptBrief)
 		if err != nil {
 			return models.ManuscriptDraft{}, err
 		}
@@ -130,6 +132,8 @@ func (uc *ProduceEpisode) writeManuscriptDraft(ctx context.Context, brief string
 			return draft, nil
 		}
 		lastErr = err
+		attemptBrief = brief + "\n\n# Previous attempt rejected\n" + err.Error() +
+			"\n上記をすべて満たすよう field の文字数を直し、JSON オブジェクトのみを出力せよ。\n"
 	}
 	return models.ManuscriptDraft{}, lastErr
 }

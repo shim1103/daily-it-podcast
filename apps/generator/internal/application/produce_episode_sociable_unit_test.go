@@ -338,21 +338,55 @@ func TestProduceEpisodeRun_retriesTextWriter_whenFirstDraftInvalidThenValid(t *t
 
 	// Given: 1 回目は壊れた wire、2 回目は valid wire
 	h := newHarness(t, 1.0)
-	h.writer.outs = []string{`{"title": "あ", "intro":`, buildValidWireJSON()}
+	seq := &seqWriter{outs: []string{`{"title": "あ", "intro":`, buildValidWireJSON()}}
+	h.uc = application.NewProduceEpisode(
+		application.NewFetchSourceItems(h.source),
+		seq,
+		h.synth,
+		application.NewWriteEpisode(h.episw),
+		fixedEpisodeIDFunc,
+		testDisplayLocation,
+	)
 
 	// When: Run を呼ぶ
 	err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
 
-	// Then: 2 回目で成功し WriteEpisode 1 回
+	// Then: 2 回目で成功し WriteEpisode 1 回。2 回目 brief に前回 reject 理由が入る
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
-	if h.writer.calls != 2 {
-		t.Fatalf("TextWriter calls = %d, want 2", h.writer.calls)
+	if seq.calls != 2 {
+		t.Fatalf("TextWriter calls = %d, want 2", seq.calls)
 	}
 	if h.episw.calls != 1 {
 		t.Fatalf("WriteEpisode calls = %d, want 1", h.episw.calls)
 	}
+	if len(seq.briefs) < 2 {
+		t.Fatalf("briefs = %d, want >= 2", len(seq.briefs))
+	}
+	if !strings.Contains(seq.briefs[1], "Previous attempt rejected") {
+		t.Fatalf("2 回目 brief に reject 理由が無い: %q", seq.briefs[1])
+	}
+	if !strings.Contains(seq.briefs[1], "invalid_manuscript_draft") && !strings.Contains(seq.briefs[1], "looking for beginning") {
+		t.Fatalf("2 回目 brief に前回 error 本文が無い: %q", seq.briefs[1])
+	}
+}
+
+// seqWriter は呼び出し順に out を返し、受け取った brief を記録する。
+type seqWriter struct {
+	outs   []string
+	briefs []string
+	calls  int
+}
+
+func (s *seqWriter) Write(_ context.Context, brief string) (string, error) {
+	s.briefs = append(s.briefs, brief)
+	i := s.calls
+	s.calls++
+	if i >= len(s.outs) {
+		i = len(s.outs) - 1
+	}
+	return s.outs[i], nil
 }
 
 func TestProduceEpisodeRun_returnsErrorWithoutWriting_whenSynthesizeFails(t *testing.T) {
