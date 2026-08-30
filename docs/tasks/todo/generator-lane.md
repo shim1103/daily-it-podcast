@@ -24,7 +24,7 @@
 - [x] build manuscript draft parse（`ManuscriptDraftFromWriterOutput` 実装済み。尺モデルは Decision `2026-08-30T03-06-53`）
 - [x] build WAV concat / duration（`WavDurationSec` / `ConcatWAV` 実装済み）
 - [x] composition ProduceEpisode 結線（composite `ItemSource` 経由で Fetch。factory は入れず結線直書き）
-- [ ] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）— **D**
+- [x] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体。`build` へ `SpeechTexts` / `Timeline` / `MarshalManuscript` 切り出し。`episodeId` UUID・表示 Location は Composition 注入）
 - [ ] GHA workflow で定期または手動実行 — **D**
 - [ ] Cursor Narrow — `docs/tasks/todo/generator-narrow-gate-vendor-cursorcli.md`（child env再設計後）
 - [ ] Broad Integration / System・E2E — **D**（Decision `2026-08-26T17-47-00`）
@@ -45,7 +45,7 @@ C-04 runtime config loader（済）
 produce-episode（A/B 済。docs/decisions/2026-08-29T14-10 〜 17-00）
   ├→ build compose-brief / draft parse / wav concat（並行可）
   ├→ composition ProduceEpisode 結線（済）
-  └→ D: ProduceEpisode.Run → GHA production workflow
+  └→ ProduceEpisode.Run（済）→ D: GHA production workflow
 
 C-03実測
   └→ child env再設計（D）
@@ -56,9 +56,8 @@ C-03実測
 
 | topic | 概要 |
 |---|---|
-| `ProduceEpisode.Run` | C build + composition 後に orchestration 実装 |
 | Prompt / limits 文案・数値 | 尺モデル（秒正本・合計対象・定数整合）は Decision `2026-08-30T03-06-53` で確定・実装済み。残るのは実運用データを見ての `CharsPerSecond` と各 field 秒数の微調整 |
-| 挨拶文案 | `ClosingFarewell` 最終 copy、OpeningGreeting の date 読み上げ整形 |
+| 挨拶文案 | `OpeningGreetingTemplate` / `ClosingFarewell` は date placeholder 入り template で確定。読み上げ日付は `YYYY年M月D日`。実運用での文言微調整のみ残 |
 | composite 高度化 | dedup / sort（2 情報源後） |
 | 第 2 情報源 Adapter | 別 Issue 化待ち |
 | GHA production workflow | Run green 後 |
