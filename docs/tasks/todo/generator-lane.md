@@ -8,8 +8,8 @@
 
 - [ ] error 3層表現統一 — `docs/tasks/todo/generator-error-taxonomy-unify.md`
 - [x] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）
-- [ ] Broad Integration — `docs/tasks/todo/generator-broad-integration-produce-episode.md`
-- [ ] GHA 本番 produce — workflow 済（`generator-produce-episode.yml`）。Run 実装済につき緑化確認へ。Secret/Variable 登録は人手
+- [x] Broad Integration（`apps/generator/test/*_broad_integration_test.go`。達成契約 file は完了削除）
+- [ ] GHA 本番 produce — workflow 済（`generator-produce-episode.yml`）。Run / Broad 実装済。Secret/Variable 登録は人手
 - [ ] System — workflow 済（`generator-system.yml`）。suite 実装と TEST_* 登録は後続（`generator-system-e2e-produce-episode`）
 
 ### D（未決・未実測・文案）
@@ -20,7 +20,7 @@
 | 挨拶文案 | Opening/Closing 定数は date placeholder 入り template で確定。実運用での文言微調整のみ残 |
 | composite 高度化 | dedup / sort（2 情報源後） |
 | 第 2 情報源 Adapter | 別 Issue 化待ち |
-| GHA production workflow | YAML・inventory 名は済。Run 未完のため定時は赤になりうる。repo へ本番 Secret/Variable を登録する人手作業が残る |
+| GHA production workflow | YAML・inventory 名は済。Run 実装済。repo へ本番 Secret/Variable を登録する人手作業が残る。定時緑化は Secret 登録後 |
 | `generator-system-e2e-produce-episode` | workflow 済。suite 本体・assert・TEST_* 値の登録が未 |
 
 ### Integration test 方針

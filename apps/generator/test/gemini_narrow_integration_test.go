@@ -10,8 +10,6 @@ package test
 import (
 	"context"
 	"crypto/tls"
-	"encoding/base64"
-	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -51,29 +49,6 @@ func newGeminiSynthesizerWithProxy(t *testing.T, apiKey string, handler http.Han
 	return gemini.NewSpeechSynthesizer(httpClient, apiKey), probe
 }
 
-func minimalGeminiPCM() []byte {
-	// why: 24 kHz / 16-bit / mono。短い無音でも WAV wrap できる長さにする。
-	const sampleCount = 2400
-	return make([]byte, sampleCount*2)
-}
-
-func writeGeminiAudioResponse(t *testing.T, w http.ResponseWriter, pcm []byte) {
-	t.Helper()
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	body, err := json.Marshal(map[string]any{
-		"output_audio": map[string]any{
-			"data": base64.StdEncoding.EncodeToString(pcm),
-		},
-	})
-	if err != nil {
-		t.Fatalf("marshal fixture: %v", err)
-	}
-	if _, err := w.Write(body); err != nil {
-		t.Fatalf("write fixture: %v", err)
-	}
-}
-
 func isWAVFixture(data []byte) bool {
 	if len(data) < 12 {
 		return false
@@ -86,7 +61,7 @@ func TestGeminiSpeechSynthesizer_deliversPostWithAPIKeyHeader_whenUpstreamSuccee
 	// Given: dummy API key と、成功応答を返す upstream double
 	const apiKey = "narrow-gemini-real-value"
 	synth, probe := newGeminiSynthesizerWithProxy(t, apiKey, func(w http.ResponseWriter, r *http.Request) {
-		writeGeminiAudioResponse(t, w, minimalGeminiPCM())
+		writeIntegrationGeminiAudioResponse(t, w, minimalIntegrationGeminiPCM())
 	})
 
 	// When: Synthesize する
