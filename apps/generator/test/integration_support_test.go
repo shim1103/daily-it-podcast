@@ -434,7 +434,7 @@ exit 1`
 
 	getxSource := getxapi.NewPostSource(httpClient, broadDummyGetXAPIKey)
 	fetch := application.NewFetchSourceItems(compositeItemSource{getxSource})
-	cursorFactory := processenv.NewSecretEnvLauncherFactory(broadDummyCursorKey, os.LookupEnv, nil)
+	cursorFactory := processenv.NewSecretEnvLauncherFactory(broadDummyCursorKey, os.LookupEnv)
 	textWriter := cursorcli.NewTextWriter(cursorFactory)
 	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey)
 	tokens := oauth.NewTokenSource(httpClient, broadDummyOAuthClientID, broadDummyOAuthClientSecret, broadDummyOAuthRefreshToken)

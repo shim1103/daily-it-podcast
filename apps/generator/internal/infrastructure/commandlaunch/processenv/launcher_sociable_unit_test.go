@@ -11,27 +11,16 @@ import (
 const (
 	testSecretName  = "PROCESSENV_TEST_SECRET_KEY"
 	testSecretValue = "processenv-test-dummy-secret-value"
-	testAllowPATH   = "PROCESSENV_TEST_ALLOW_PATH"
-	testAllowHOME   = "PROCESSENV_TEST_ALLOW_HOME"
 )
 
 func newTestLauncher(t *testing.T) *processenv.Launcher {
 	t.Helper()
-	// 最小限の allowlist（PATH、HOME など）を fake で供給
 	lookupEnv := func(key string) (string, bool) {
-		switch key {
-		case testAllowPATH:
-			return "/test-bin", true
-		case testAllowHOME:
-			return "/test-home", true
-		default:
-			return "", false
-		}
+		return "", false
 	}
 	return processenv.NewLauncher(
 		commandlaunch.SecretEnv{Name: testSecretName, Value: testSecretValue},
 		lookupEnv,
-		nil,
 	)
 }
 
@@ -72,7 +61,6 @@ func TestLaunch_returnsNilAndError_whenLookupEnvIsNil(t *testing.T) {
 	launcher := processenv.NewLauncher(
 		commandlaunch.SecretEnv{Name: testSecretName, Value: testSecretValue},
 		nil,
-		nil,
 	)
 
 	// When: Launch する
@@ -94,16 +82,9 @@ func TestNewSecretEnvLauncherFactory_returnsFactoryThatBuildsLauncher_withSecret
 	const secretValue = "factory-test-secret-value"
 	const testEnvName = "FACTORY_TEST_ENV_NAME"
 	lookupEnv := func(key string) (string, bool) {
-		switch key {
-		case "PATH":
-			return "/factory-test-bin", true
-		case "HOME":
-			return "/factory-test-home", true
-		default:
-			return "", false
-		}
+		return "", false
 	}
-	factory := processenv.NewSecretEnvLauncherFactory(secretValue, lookupEnv, nil)
+	factory := processenv.NewSecretEnvLauncherFactory(secretValue, lookupEnv)
 
 	// When: factory を env 名で呼んで Launcher を得る
 	launcher := factory(testEnvName)

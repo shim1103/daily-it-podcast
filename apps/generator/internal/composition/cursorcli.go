@@ -18,12 +18,6 @@ func newCursorTextWriter(cfg config.CursorConfig) port.TextWriter {
 	factory := processenv.NewSecretEnvLauncherFactory(
 		cfg.APIKey.Reveal(),
 		sharedLookupEnv(),
-		[]string{
-			config.GetXAPIKeyEnv,
-			config.GeminiAPIKeyEnv,
-			config.GoogleOAuthClientSecretEnv,
-			config.GoogleOAuthRefreshTokenEnv,
-		},
 	)
 	return cursorcli.NewTextWriter(factory)
 }

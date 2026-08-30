@@ -1,10 +1,9 @@
 // Scope: Narrow Integration
 // 実物境界: processenv.Launcher が起動する child process（test 用 script / env）
 // Double: secret は検証済みの秘密値を直接渡す。本番 credential は使わない。
-// @require Launcher に注入済みの秘密値と denied parent env を契約で検証する。child は controllable な script。
-// @ensure child env は親 environ を継承し、denied 名と親だけの secret は載せない。inject secret は上書きされる。
+// @require Launcher に注入済みの秘密値を契約で検証する。child は controllable な script。
+// @ensure child env は親 environ を継承し、inject secret は同名を上書きする。
 // @ensure error message に secret 値・stdin・child stderr 本文が出ない。
-// @invariant 他 vendor の secret は child environ へ継承されない。
 package test
 
 import (
@@ -15,7 +14,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/config"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch/processenv"
 )
@@ -25,7 +23,6 @@ const (
 	narrowDummySecretValue = "processenv-narrow-integration-dummy-secret-value"
 	narrowHarmlessEnv      = "PROCESSENV_NARROW_HARMLESS"
 	narrowHarmlessValue    = "narrow-harmless-passthrough"
-	narrowDeniedValue      = "narrow-denied-secret-token"
 	narrowStdinToken       = "narrow-integration-stdin-token"
 	narrowStderrToken      = "narrow-integration-stderr-token"
 )
@@ -35,12 +32,6 @@ func newNarrowLauncher(t *testing.T) *processenv.Launcher {
 	return processenv.NewLauncher(
 		commandlaunch.SecretEnv{Name: narrowSecretName, Value: narrowDummySecretValue},
 		os.LookupEnv,
-		[]string{
-			config.GetXAPIKeyEnv,
-			config.GeminiAPIKeyEnv,
-			config.GoogleOAuthClientSecretEnv,
-			config.GoogleOAuthRefreshTokenEnv,
-		},
 	)
 }
 
@@ -56,16 +47,15 @@ func writeNarrowMarkerChild(t *testing.T) (program string, marker string) {
 	return program, marker
 }
 
-func TestProcessEnvLauncher_inheritsParentExceptDeniedSecrets_whenChildPrintsEnviron(t *testing.T) {
-	// Given: 無害な親 env・denied vendor secret・注入 secret
+func TestProcessEnvLauncher_inheritsParentAndOverlaysInjectSecret_whenChildPrintsEnviron(t *testing.T) {
+	// Given: 無害な親 env と注入 secret
 	t.Setenv(narrowHarmlessEnv, narrowHarmlessValue)
-	t.Setenv(config.GetXAPIKeyEnv, narrowDeniedValue)
 	launcher := newNarrowLauncher(t)
 
 	// When: environ を stdout へ出す実 child を起動する
 	got, err := launcher.Launch(context.Background(), commandlaunch.Command{Program: "env"})
 
-	// Then: 無害 env と inject secret は渡り、denied vendor secret は無い
+	// Then: 無害 env と inject secret が渡る
 	if err != nil {
 		t.Fatalf("Launch() error = %v, want nil", err)
 	}
@@ -75,9 +65,6 @@ func TestProcessEnvLauncher_inheritsParentExceptDeniedSecrets_whenChildPrintsEnv
 	}
 	if !strings.Contains(out, narrowHarmlessEnv+"="+narrowHarmlessValue) {
 		t.Fatalf("child environ = %q, want harmless parent entry", out)
-	}
-	if strings.Contains(out, config.GetXAPIKeyEnv+"=") || strings.Contains(out, narrowDeniedValue) {
-		t.Fatalf("child environ = %q, want no denied vendor secret", out)
 	}
 }
 

@@ -15,12 +15,11 @@ import (
 
 var _ commandlaunch.Launcher = (*Launcher)(nil)
 
-// Launcher は Composition が渡した secret と親 environ（denied 除外）から child environment を組み立てる。
+// Launcher は Composition が渡した secret と親 environ から child environment を組み立てる。
 type Launcher struct {
-	secret          commandlaunch.SecretEnv
-	lookupEnv       func(key string) (string, bool)
-	environ         func() []string
-	deniedParentEnv map[string]struct{}
+	secret    commandlaunch.SecretEnv
+	lookupEnv func(key string) (string, bool)
+	environ   func() []string
 }
 
 // NewLauncher は process-env 実装の Launcher を返す。
@@ -30,20 +29,11 @@ type Launcher struct {
 func NewLauncher(
 	secret commandlaunch.SecretEnv,
 	lookupEnv func(key string) (string, bool),
-	deniedParentEnvNames []string,
 ) *Launcher {
-	denied := make(map[string]struct{}, len(deniedParentEnvNames))
-	for _, name := range deniedParentEnvNames {
-		if name == "" {
-			continue
-		}
-		denied[name] = struct{}{}
-	}
 	return &Launcher{
-		secret:          secret,
-		lookupEnv:       lookupEnv,
-		environ:         os.Environ,
-		deniedParentEnv: denied,
+		secret:    secret,
+		lookupEnv: lookupEnv,
+		environ:   os.Environ,
 	}
 }
 
@@ -55,13 +45,11 @@ func NewLauncher(
 func NewSecretEnvLauncherFactory(
 	secretValue string,
 	lookupEnv func(key string) (string, bool),
-	deniedParentEnvNames []string,
 ) commandlaunch.SecretEnvLauncherFactory {
 	return func(envName string) commandlaunch.Launcher {
 		return NewLauncher(
 			commandlaunch.SecretEnv{Name: envName, Value: secretValue},
 			lookupEnv,
-			deniedParentEnvNames,
 		)
 	}
 }
@@ -70,7 +58,7 @@ func NewSecretEnvLauncherFactory(
 //
 // @require command.Program は trim 後に非空。lookupEnv が注入済み（nil なら error を返す）。
 // @ensure 失敗時の error に秘密値・stdin・child stderr 本文を含めない。
-// @ensure child env は親 environ から deniedParentEnv を除き、inject secret を上書きしたものである。
+// @ensure child env は親 environ を継承し、inject secret で同名を上書きしたものである。
 func (l *Launcher) Launch(ctx context.Context, command commandlaunch.Command) ([]byte, error) {
 	if l == nil {
 		return nil, infraErr("launch", fmt.Errorf("launcher is nil"))
@@ -90,7 +78,7 @@ func (l *Launcher) Launch(ctx context.Context, command commandlaunch.Command) ([
 	if l.environ != nil {
 		parent = l.environ()
 	}
-	env := buildChildEnv(parent, l.deniedParentEnv, l.secret.Name, l.secret.Value)
+	env := buildChildEnv(parent, l.secret.Name, l.secret.Value)
 
 	cmd := exec.CommandContext(ctx, program, command.Args...)
 	// why: nil Env は親環境の全継承を意味する。空でも非 nil を渡して継承を断つ。
@@ -106,17 +94,11 @@ func (l *Launcher) Launch(ctx context.Context, command commandlaunch.Command) ([
 	return stdout.Bytes(), nil
 }
 
-// buildChildEnv は親 environ を写し、denied と inject 名を除いたうえで secret を載せる。
-// why: PR80 probe は親 env 継承で Cursor API 到達に成功し、PATH/HOME/TMPDIR+key のみ（env -i）では
+// buildChildEnv は親 environ を写し、inject 名を除いたうえで secret を載せる。
+// why: PR80 probe は親 env 継承で Cursor API 到達に成功し、allowlist のみ（env -i 相当）では
 //
-//	「Failed to reach the Cursor API」になる。allowlist のみは probe 成功条件より狭い。
-//	他 vendor の secret だけを落として Least Privilege を保つ。
-func buildChildEnv(
-	parent []string,
-	denied map[string]struct{},
-	secretName string,
-	secretValue string,
-) []string {
+//	「Failed to reach the Cursor API」になる。Composition の結線形は変えない。
+func buildChildEnv(parent []string, secretName string, secretValue string) []string {
 	env := make([]string, 0, len(parent)+1)
 	for _, entry := range parent {
 		name, _, ok := strings.Cut(entry, "=")
@@ -124,9 +106,6 @@ func buildChildEnv(
 			continue
 		}
 		if name == secretName {
-			continue
-		}
-		if _, block := denied[name]; block {
 			continue
 		}
 		env = append(env, entry)
