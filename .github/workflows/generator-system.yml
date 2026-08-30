@@ -45,13 +45,11 @@ jobs:
           command -v agent
           command -v cursor-agent || true
 
-      # why: PR80 probe 成功条件との差分切り分け。
-      #      probe は絶対 path の cursor-agent + sandbox disabled + 親 env 継承（env -i なし）で緑。
-      #      env -i（PATH/HOME/TMPDIR+key のみ）は「Failed to reach the Cursor API」で落ちる実測あり。
-      #      先に probe 同型（継承あり）で TEST_CURSOR_API_KEY を確認する。
-      - name: Cursor CLI smoke（probe 同型・親 env 継承）
+      # why: PR80 probe と同条件（親 env 継承 + sandbox disabled + 絶対 path）。
+      #      Secret も probe と同じ CURSOR_API_KEY（TEST_ ではない）で切り分ける。
+      - name: Cursor CLI smoke（probe 同型・CURSOR_API_KEY）
         env:
-          CURSOR_API_KEY: ${{ secrets.TEST_CURSOR_API_KEY }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
         run: |
           set -euo pipefail
           export PATH="${HOME}/.local/bin:${PATH}"
