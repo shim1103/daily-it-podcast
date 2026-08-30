@@ -49,13 +49,16 @@ coverage 分母 = SU + secret なし NI（Decision 2026-08-30T16-20-01）
 Page BI 当面なし / API Stub=SU・真 HTTP=NI（Decision 2026-08-30T16-20-02）
 OTP 手動・週次 storageState・Drive=Worker（Decision 2026-08-30T16-20-03）
 deploy = 3 Phase（Decision 2026-08-30T16-20-04）
+test dir = integration/ + e2e/（Decision 2026-08-31T00-12-00）
+E2E 正常系 = 本番 Drive 安定 fixture ≥1（Decision 2026-08-31T00-12-01）
+fixture validation = ProduceEpisode/TextWriter + WriteEpisode（Decision 2026-08-31T00-22-00）
 ```
 
 ### C（達成契約）
 
-1. [x] Drive Narrow Integration（`apps/playback/test/*gdrive*narrow_integration*.test.ts`。達成契約 file は完了削除）
-2. [x] API Client Narrow Integration（`apps/playback/test/*playback_api_client*narrow_integration*.test.ts`。達成契約 file は完了削除）
-3. [x] Worker Broad Integration 正常系（`apps/playback/test/*broad_integration*.test.ts` の Composition 正常系。達成契約 file は完了削除）
+1. [x] Drive Narrow Integration（`apps/playback/test/integration/*gdrive*narrow_integration*.test.ts`。達成契約 file は完了削除）
+2. [x] API Client Narrow Integration（`apps/playback/test/integration/*playback_api_client*narrow_integration*.test.ts`。達成契約 file は完了削除）
+3. [x] Worker Broad Integration 正常系（`apps/playback/test/integration/*broad_integration*.test.ts` の Composition 正常系。達成契約 file は完了削除）
 4. [ ] 認証済み browser E2E — `docs/tasks/todo/playback-e2e-browser-authenticated.md`
 
 音声は wav。generator 書込とは共有しない。
