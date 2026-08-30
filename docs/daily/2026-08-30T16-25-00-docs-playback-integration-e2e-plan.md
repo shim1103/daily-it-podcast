@@ -23,3 +23,10 @@ Playback の NI/BI/E2E について Decision を問い単位で固定し、E2E �
 - `3ed1050`
 - `160cccd`
 - `93df5a8`
+- `3eab3ab`
+- `31587bb`
+
+## 3. Append
+
+1. `origin/develop` を merge し `docs/lessons/index.md` の衝突を双方 lessons 併記で解消した。
+2. PR #99 を `develop` 向けに作成した（https://github.com/shim1103/daily-it-podcast/pull/99）。
