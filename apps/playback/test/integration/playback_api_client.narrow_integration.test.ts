@@ -1,8 +1,8 @@
 // @vitest-environment node
 import http from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
-import { listEpisodesPath } from "../contracts/index.ts";
-import { createPlaybackApiClient } from "../web/src/api/playback-api-client.ts";
+import { listEpisodesPath } from "../../contracts/index.ts";
+import { createPlaybackApiClient } from "../../web/src/api/playback-api-client.ts";
 
 /**
  * scope: Narrow Integration

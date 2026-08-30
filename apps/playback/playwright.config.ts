@@ -12,9 +12,9 @@ export default defineConfig({
   reporter: "list",
   use: {
     ...devices["Desktop Chrome"],
-    // optional: PLAYWRIGHT_BASE_URL（本番 workers.dev origin）。未設定でも placeholder は通る。
+    // optional: PLAYWRIGHT_BASE_URL（本番 workers.dev origin）。未設定時は remote e2e を skip。
     baseURL: process.env.PLAYWRIGHT_BASE_URL,
-    // optional: PLAYWRIGHT_STORAGE_STATE（storageState JSON の path）。未設定でも placeholder は通る。
+    // optional: PLAYWRIGHT_STORAGE_STATE（storageState JSON の path）。未設定時は remote e2e を skip。
     storageState: process.env.PLAYWRIGHT_STORAGE_STATE || undefined,
     trace: "retain-on-failure",
   },
