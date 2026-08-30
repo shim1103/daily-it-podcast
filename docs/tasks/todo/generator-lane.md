@@ -10,7 +10,7 @@
 - [x] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）
 - [x] Broad Integration（`apps/generator/test/*_broad_integration_test.go`。達成契約 file は完了削除）
 - [ ] GHA 本番 produce — workflow 済（`generator-produce-episode.yml`）。Run / Broad 実装済。Secret/Variable 登録は人手
-- [ ] System — workflow 済（`generator-system.yml`）。suite 実装と TEST_* 登録は後続（`generator-system-e2e-produce-episode`）
+- [ ] System — suite / Decision / Cursor install 済。TEST_* 登録と master への workflow 到達後に `workflow_dispatch` 緑化（`generator-system-e2e-produce-episode`）
 
 ### D（未決・未実測・文案）
 
@@ -21,7 +21,7 @@
 | composite 高度化 | dedup / sort（2 情報源後） |
 | 第 2 情報源 Adapter | 別 Issue 化待ち |
 | GHA production workflow | YAML・inventory 名は済。Run 実装済。repo へ本番 Secret/Variable を登録する人手作業が残る。定時緑化は Secret 登録後 |
-| `generator-system-e2e-produce-episode` | workflow 済。suite 本体・assert・TEST_* 値の登録が未 |
+| `generator-system-e2e-produce-episode` | suite・assert・Cursor install 済。TEST_* 人手登録と default branch への workflow 到達後に dispatch 緑化が残る |
 
 ### Integration test 方針
 
