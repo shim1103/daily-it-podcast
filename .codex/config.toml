@@ -1,0 +1,24 @@
+# Project-scoped secret path deny（GitHub 管理対象）.
+# user 側に sandbox_mode があると permission profile は無視されるため、
+# この repo では profile で deny を定義し、sandbox_mode は置かない。
+default_permissions = "secrets-denied"
+
+[permissions.secrets-denied]
+description = "Workspace write + open network; deny .env / secrets / ~/.ssh; agents must not dump environ"
+extends = ":workspace"
+
+[permissions.secrets-denied.filesystem]
+"~/.ssh" = "deny"
+
+[permissions.secrets-denied.filesystem.":workspace_roots"]
+"." = "write"
+"**/.env" = "deny"
+"**/.env.*" = "deny"
+"**/secrets" = "deny"
+"**/secrets/**" = "deny"
+
+[permissions.secrets-denied.network]
+enabled = true
+
+[permissions.secrets-denied.network.domains]
+"*" = "allow"

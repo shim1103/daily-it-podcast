@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": ["vite/client"],
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "worker-configuration.d.ts",
+    "web/*.ts",
+    "web/src/**/*.ts",
+    "web/src/**/*.tsx",
+    "worker/src/**/*.ts",
+    "contracts/**/*.ts",
+    "test/**/*.ts"
+  ]
+}
