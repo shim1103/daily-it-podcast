@@ -31,6 +31,7 @@ func newTestLauncher(t *testing.T) *processenv.Launcher {
 	return processenv.NewLauncher(
 		commandlaunch.SecretEnv{Name: testSecretName, Value: testSecretValue},
 		lookupEnv,
+		nil,
 	)
 }
 
@@ -71,6 +72,7 @@ func TestLaunch_returnsNilAndError_whenLookupEnvIsNil(t *testing.T) {
 	launcher := processenv.NewLauncher(
 		commandlaunch.SecretEnv{Name: testSecretName, Value: testSecretValue},
 		nil,
+		nil,
 	)
 
 	// When: Launch する
@@ -101,7 +103,7 @@ func TestNewSecretEnvLauncherFactory_returnsFactoryThatBuildsLauncher_withSecret
 			return "", false
 		}
 	}
-	factory := processenv.NewSecretEnvLauncherFactory(secretValue, lookupEnv)
+	factory := processenv.NewSecretEnvLauncherFactory(secretValue, lookupEnv, nil)
 
 	// When: factory を env 名で呼んで Launcher を得る
 	launcher := factory(testEnvName)

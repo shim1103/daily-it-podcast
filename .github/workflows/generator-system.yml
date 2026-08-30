@@ -47,8 +47,9 @@ jobs:
 
       # why: PR80 probe 成功条件との差分切り分け。
       #      probe は絶対 path の cursor-agent + sandbox disabled + 親 env 継承（env -i なし）で緑。
-      #      processenv は PATH/HOME/TMPDIR+CURSOR_API_KEY のみ。先に env -i 相当で key/binary を確認する。
-      - name: Cursor CLI smoke（probe 同型・env -i）
+      #      env -i（PATH/HOME/TMPDIR+key のみ）は「Failed to reach the Cursor API」で落ちる実測あり。
+      #      先に probe 同型（継承あり）で TEST_CURSOR_API_KEY を確認する。
+      - name: Cursor CLI smoke（probe 同型・親 env 継承）
         env:
           CURSOR_API_KEY: ${{ secrets.TEST_CURSOR_API_KEY }}
         run: |
@@ -57,12 +58,7 @@ jobs:
           bin="$(command -v cursor-agent || command -v agent)"
           echo "smoke binary=${bin}"
           set +e
-          env -i \
-            PATH="${PATH}" \
-            HOME="${HOME}" \
-            TMPDIR="${TMPDIR:-/tmp}" \
-            CURSOR_API_KEY="${CURSOR_API_KEY}" \
-            "${bin}" -p --mode ask --output-format json --model composer-2.5 --sandbox disabled --trust \
+          "${bin}" -p --mode ask --output-format json --model composer-2.5 --sandbox disabled --trust \
             <<'SMOKE_PROMPT' > /tmp/cursor-smoke.out 2> /tmp/cursor-smoke.err
           1たす1を数字だけで答えよ
           SMOKE_PROMPT
@@ -72,7 +68,6 @@ jobs:
           echo "smoke_stdout_bytes=$(wc -c < /tmp/cursor-smoke.out | tr -d ' ')"
           echo "smoke_stderr_bytes=$(wc -c < /tmp/cursor-smoke.err | tr -d ' ')"
           if [ "${smoke_exit}" -ne 0 ]; then
-            # why: PR80 と同じく失敗時だけ先頭を出し、key 死と sandbox を切り分ける（値・prompt は出さない）。
             echo "smoke_stderr_head:"
             head -c 300 /tmp/cursor-smoke.err || true
             echo

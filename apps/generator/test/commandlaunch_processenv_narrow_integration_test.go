@@ -1,11 +1,10 @@
 // Scope: Narrow Integration
 // 実物境界: processenv.Launcher が起動する child process（test 用 script / env）
 // Double: secret は検証済みの秘密値を直接渡す。本番 credential は使わない。
-// allowlist SSoT: commandlaunch.InheritedEnvNameAllow()（contract package アクセッサ）
-// @require Launcher に注入済みの秘密値と allowlist を契約で検証する。child は controllable な script。
-// @ensure child env は commandlaunch.InheritedEnvNameAllow() + 秘密値だけ。未設定 secret / 空 program は起動前失敗。
+// @require Launcher に注入済みの秘密値と denied parent env を契約で検証する。child は controllable な script。
+// @ensure child env は親 environ を継承し、denied 名と親だけの secret は載せない。inject secret は上書きされる。
 // @ensure error message に secret 値・stdin・child stderr 本文が出ない。
-// @invariant 親固有の secret は child environ へ継承されない。この Narrow は特定 vendor に依存せず、secret 名は任意の環境変数名でよい。
+// @invariant 他 vendor の secret は child environ へ継承されない。
 package test
 
 import (
@@ -16,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/config"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch/processenv"
 )
@@ -23,18 +23,24 @@ import (
 const (
 	narrowSecretName       = "PROCESSENV_NARROW_TEST_SECRET_KEY"
 	narrowDummySecretValue = "processenv-narrow-integration-dummy-secret-value"
-	narrowParentOnlySecret = "NARROW_PARENT_ONLY_SECRET"
-	narrowParentOnlyValue  = "narrow-parent-only-secret-token"
+	narrowHarmlessEnv      = "PROCESSENV_NARROW_HARMLESS"
+	narrowHarmlessValue    = "narrow-harmless-passthrough"
+	narrowDeniedValue      = "narrow-denied-secret-token"
 	narrowStdinToken       = "narrow-integration-stdin-token"
 	narrowStderrToken      = "narrow-integration-stderr-token"
 )
 
 func newNarrowLauncher(t *testing.T) *processenv.Launcher {
 	t.Helper()
-	// production runtime（os.LookupEnv）を injection して Launcher を構築
 	return processenv.NewLauncher(
 		commandlaunch.SecretEnv{Name: narrowSecretName, Value: narrowDummySecretValue},
 		os.LookupEnv,
+		[]string{
+			config.GetXAPIKeyEnv,
+			config.GeminiAPIKeyEnv,
+			config.GoogleOAuthClientSecretEnv,
+			config.GoogleOAuthRefreshTokenEnv,
+		},
 	)
 }
 
@@ -50,15 +56,16 @@ func writeNarrowMarkerChild(t *testing.T) (program string, marker string) {
 	return program, marker
 }
 
-func TestProcessEnvLauncher_passesOnlyAllowlistAndSecret_whenChildPrintsEnviron(t *testing.T) {
-	// Given: contract allowlist SSoT と注入 secret、および親固有 secret
-	t.Setenv(narrowParentOnlySecret, narrowParentOnlyValue)
+func TestProcessEnvLauncher_inheritsParentExceptDeniedSecrets_whenChildPrintsEnviron(t *testing.T) {
+	// Given: 無害な親 env・denied vendor secret・注入 secret
+	t.Setenv(narrowHarmlessEnv, narrowHarmlessValue)
+	t.Setenv(config.GetXAPIKeyEnv, narrowDeniedValue)
 	launcher := newNarrowLauncher(t)
 
 	// When: environ を stdout へ出す実 child を起動する
 	got, err := launcher.Launch(context.Background(), commandlaunch.Command{Program: "env"})
 
-	// Then: commandlaunch.InheritedEnvNameAllow + 注入 secret だけが child に渡り、親固有 secret は無い
+	// Then: 無害 env と inject secret は渡り、denied vendor secret は無い
 	if err != nil {
 		t.Fatalf("Launch() error = %v, want nil", err)
 	}
@@ -66,16 +73,11 @@ func TestProcessEnvLauncher_passesOnlyAllowlistAndSecret_whenChildPrintsEnviron(
 	if !strings.Contains(out, narrowSecretName+"="+narrowDummySecretValue) {
 		t.Fatalf("child environ = %q, want injected secret entry", out)
 	}
-	if strings.Contains(out, narrowParentOnlySecret) || strings.Contains(out, narrowParentOnlyValue) {
-		t.Fatalf("child environ = %q, want no parent-only secret", out)
+	if !strings.Contains(out, narrowHarmlessEnv+"="+narrowHarmlessValue) {
+		t.Fatalf("child environ = %q, want harmless parent entry", out)
 	}
-	for _, name := range commandlaunch.InheritedEnvNameAllow() {
-		if value, ok := os.LookupEnv(name); ok {
-			entry := name + "=" + value
-			if !strings.Contains(out, entry) {
-				t.Fatalf("child environ = %q, want allowlist entry %q", out, entry)
-			}
-		}
+	if strings.Contains(out, config.GetXAPIKeyEnv+"=") || strings.Contains(out, narrowDeniedValue) {
+		t.Fatalf("child environ = %q, want no denied vendor secret", out)
 	}
 }
 
@@ -98,7 +100,6 @@ func TestProcessEnvLauncher_failsBeforeChildStart_whenProgramIsEmpty(t *testing.
 		t.Fatalf("marker %q exists, want child not started", marker)
 	}
 
-	// then: error は *processenv.Error で契約を満たす
 	var infraErr *processenv.Error
 	if !errors.As(err, &infraErr) {
 		t.Fatalf("errors.As(err, &infraErr) = false, want true; type = %T", err)

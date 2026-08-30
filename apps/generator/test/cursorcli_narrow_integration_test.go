@@ -38,7 +38,7 @@ func installFakeCursorCLI(t *testing.T, body string) (marker string, stdinSink s
 
 func newCursorNarrowWriter(t *testing.T) *cursorcli.TextWriter {
 	t.Helper()
-	factory := processenv.NewSecretEnvLauncherFactory(cursorNarrowDummySecretValue, os.LookupEnv)
+	factory := processenv.NewSecretEnvLauncherFactory(cursorNarrowDummySecretValue, os.LookupEnv, nil)
 	return cursorcli.NewTextWriter(factory)
 }
 
