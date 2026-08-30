@@ -20,6 +20,10 @@ type ProduceEpisode struct {
 	displayLoc   *time.Location
 }
 
+// TextWriterMaxAttempts は ManuscriptDraft 検証失敗時の TextWriter 再試行上限。
+// LLM 出力の rune 数揺れを吸収する。無限 retry を防ぐ。
+const TextWriterMaxAttempts = 3
+
 // NewProduceEpisode は Fetch から WriteEpisode までを束ねる Builder UseCase を返す。
 //
 // @require fetch != nil かつ textWriter != nil かつ speech != nil かつ writeEpisode != nil かつ newEpisodeID != nil かつ displayLoc != nil
@@ -46,7 +50,7 @@ func NewProduceEpisode(
 //
 // @require uc != nil かつ uc.fetch != nil かつ uc.textWriter != nil かつ uc.speech != nil かつ uc.writeEpisode != nil かつ uc.newEpisodeID != nil かつ uc.displayLoc != nil。now は CLI 実行時刻（Fetch の since 基準かつ date 暦日化の基準）。
 // @ensure Fetch 後 0 件なら Domain Error（Op = no_source_items）。WriteEpisode.Run を呼ばない。
-// @ensure build.ComposeBrief(items)（constants Prompt へ SOURCES/数値 placeholder/JSON_EXAMPLE 埋め込み）→ TextWriter.Write（1 回）→ build.ManuscriptDraftFromWriterOutput（JSON wire）→ 注入された表示 Location で now を暦日化 → OpeningGreetingTemplate から Greeting 文案（date 注入）→ ClosingFarewell template から Farewell 文案（date 注入）→ TTS 順（Greeting, Intro, 各 topic の Preface, Detail, ClosingSummary, ClosingFarewell）各 1 Synthesize → build.WavDurationSec / 無音込み累積 startSec・durationSec → build.ConcatWAV → opaque UUID episodeId → 完成 manuscript bytes → WriteEpisode.Run。
+// @ensure build.ComposeBrief(items)（constants Prompt へ SOURCES/数値 placeholder/JSON_EXAMPLE 埋め込み）→ TextWriter.Write + ManuscriptDraftFromWriterOutput を最大 TextWriterMaxAttempts 回（draft 検証成功で打ち切り。Write 自体の error は即 return）→ 注入された表示 Location で now を暦日化 → OpeningGreetingTemplate から Greeting 文案（date 注入）→ ClosingFarewell template から Farewell 文案（date 注入）→ TTS 順（Greeting, Intro, 各 topic の Preface, Detail, ClosingSummary, ClosingFarewell）各 1 Synthesize → build.WavDurationSec / 無音込み累積 startSec・durationSec → build.ConcatWAV → opaque UUID episodeId → 完成 manuscript bytes → WriteEpisode.Run。
 // @ensure 途中 error なら WriteEpisode.Run を呼ばない（書込なし）。
 // @invariant 所有しない: manuscript.schema.json の Validate（Gate）、vendor / env。Infrastructure 型を知らない。表示タイムゾーンの解決（tzdata I/O）は Composition の責務。監視対象一覧・情報源種類を知らない。string→Draft を Port / Adapter に委譲しない。
 func (uc *ProduceEpisode) Run(ctx context.Context, now time.Time) error {
@@ -60,12 +64,7 @@ func (uc *ProduceEpisode) Run(ctx context.Context, now time.Time) error {
 		return err
 	}
 
-	raw, err := uc.textWriter.Write(ctx, brief)
-	if err != nil {
-		return err
-	}
-
-	draft, err := build.ManuscriptDraftFromWriterOutput(raw)
+	draft, err := uc.writeManuscriptDraft(ctx, brief)
 	if err != nil {
 		return err
 	}
@@ -116,6 +115,23 @@ func (uc *ProduceEpisode) Run(ctx context.Context, now time.Time) error {
 	}
 
 	return uc.writeEpisode.Run(ctx, episodeID, manuscript, models.SpeechAudio{Content: concatWAV})
+}
+
+// writeManuscriptDraft は TextWriter を最大 TextWriterMaxAttempts 回呼び、valid な ManuscriptDraft を得る。
+func (uc *ProduceEpisode) writeManuscriptDraft(ctx context.Context, brief string) (models.ManuscriptDraft, error) {
+	var lastErr error
+	for attempt := 1; attempt <= TextWriterMaxAttempts; attempt++ {
+		raw, err := uc.textWriter.Write(ctx, brief)
+		if err != nil {
+			return models.ManuscriptDraft{}, err
+		}
+		draft, err := build.ManuscriptDraftFromWriterOutput(raw)
+		if err == nil {
+			return draft, nil
+		}
+		lastErr = err
+	}
+	return models.ManuscriptDraft{}, lastErr
 }
 
 // displayDate は now を表示 Location の暦日へ落とし、原稿 date（YYYY-MM-DD）と読み上げ用日付（YYYY年M月D日）を返す。

@@ -19,15 +19,27 @@ import (
 // --- Test Double ---
 
 // stubWriter は TextWriter の Stub。返す string と error を制御し、呼ばれた回数を記録する。
+// outs が非空なら呼び出し順に返し、尽きたら最後の要素を繰り返す。
 type stubWriter struct {
 	out   string
+	outs  []string
 	err   error
 	calls int
 }
 
 func (s *stubWriter) Write(_ context.Context, _ string) (string, error) {
 	s.calls++
-	return s.out, s.err
+	if s.err != nil {
+		return "", s.err
+	}
+	if n := len(s.outs); n > 0 {
+		i := s.calls - 1
+		if i >= n {
+			i = n - 1
+		}
+		return s.outs[i], nil
+	}
+	return s.out, nil
 }
 
 // spySynth は SpeechSynthesizer の Spy。呼び出し text を順に記録し、指定 call 番号で error を返せる。
@@ -308,14 +320,38 @@ func TestProduceEpisodeRun_returnsInvalidManuscriptDraftWithoutWriting_whenWrite
 	// When: Run を呼ぶ
 	err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
 
-	// Then: Op = invalid_manuscript_draft の Domain Error。Speech/WriteEpisode は呼ばれない
-	//       （ManuscriptDraftFromWriterOutput の validation 網羅は build の test の責務。ここは伝播と非書込だけ）
+	// Then: 上限まで再試行したうえで Op = invalid_manuscript_draft。Speech/WriteEpisode は呼ばれない
 	var de *domainerrors.Error
 	if !errors.As(err, &de) || de.Op != domainerrors.OpInvalidManuscriptDraft {
 		t.Fatalf("err = %v, want Domain Error Op = %q", err, domainerrors.OpInvalidManuscriptDraft)
 	}
+	if h.writer.calls != application.TextWriterMaxAttempts {
+		t.Fatalf("TextWriter calls = %d, want %d", h.writer.calls, application.TextWriterMaxAttempts)
+	}
 	if len(h.synth.texts) != 0 || h.episw.calls != 0 {
 		t.Fatalf("downstream was called: synth=%d episw=%d", len(h.synth.texts), h.episw.calls)
+	}
+}
+
+func TestProduceEpisodeRun_retriesTextWriter_whenFirstDraftInvalidThenValid(t *testing.T) {
+	t.Parallel()
+
+	// Given: 1 回目は壊れた wire、2 回目は valid wire
+	h := newHarness(t, 1.0)
+	h.writer.outs = []string{`{"title": "あ", "intro":`, buildValidWireJSON()}
+
+	// When: Run を呼ぶ
+	err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
+
+	// Then: 2 回目で成功し WriteEpisode 1 回
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if h.writer.calls != 2 {
+		t.Fatalf("TextWriter calls = %d, want 2", h.writer.calls)
+	}
+	if h.episw.calls != 1 {
+		t.Fatalf("WriteEpisode calls = %d, want 1", h.episw.calls)
 	}
 }
 
