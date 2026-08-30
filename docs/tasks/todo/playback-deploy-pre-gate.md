@@ -42,8 +42,8 @@
 
 ## 7. Acceptance Criteria
 
-1. [ ] `npx wrangler whoami` が意図した account を示す。
-2. [ ] `npm run deploy:dry-run` が exit 0。
+1. [x] `npx wrangler whoami` が意図した account を示す。
+2. [x] `npm run deploy:dry-run` が exit 0。
 3. [ ] OAuth consent screen が Production（または Testing でない状態）であることを確認した。
 4. [ ] （任意）workers.dev Disabled → Phase 2 → Enable の手順を取る場合、その順序を守った。
 
