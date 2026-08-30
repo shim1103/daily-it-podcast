@@ -6,13 +6,13 @@ import { GoogleDriveEpisodeRepository } from "./google-drive-episode-repository.
 /**
  * scope: Sociable Unit
  * real: GoogleDriveEpisodeRepository
- * double: Drive HTTP を Stub 化した `fetch`
+ * double: Drive HTTP を Stub 化した `fetch`（境界 provider ではない。実 I/O 契約は Narrow）
  *
- * why: この Adapter 固有の責務は `fetch` 境界の実 I/O 契約 —— OAuth token 取得 / files.list の
- * `q` 絞り込み / bytes download / decode / network error・非 2xx・応答形式不正の DriveError 変換 /
- * file id を message に出さない / 複数 download の並行開始 / 「json が無い＝undefined」「wav が無い＝
- * undefined」の戻り値表現。schema 不適合除外・stem 不一致・4 失敗ケースの網羅は use-case test
- * （`get-episode.sociable_unit.test.ts` / `list-episodes.sociable_unit.test.ts`）へ移した。
+ * why: Adapter 内分岐だけをここへ残す —— files.list の `q` 絞り込み、生 payload の decode 渡し、
+ * Stub 応答からの DriveError 変換、file id / folder id を message に出さないこと、複数 download
+ * の並行開始、「json が無い＝undefined」「wav が無い＝undefined」の戻り値表現。実 TCP/HTTP の
+ * list / download 成功と代表失敗は `test/google_drive_episode_repository.narrow_integration.test.ts`
+ * が所有する。schema 不適合除外・stem 不一致は use-case SU の所有。
  */
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
