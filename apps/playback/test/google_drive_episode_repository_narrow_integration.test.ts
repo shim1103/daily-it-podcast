@@ -201,7 +201,7 @@ describe("GoogleDriveEpisodeRepository Narrow Integration", () => {
     expect(bearerMatchesToken).toBe(true);
   });
 
-  it("getEpisodeAudio returns wav bytes when download succeeds over real HTTP", async () => {
+  it("getAudio returns wav bytes when download succeeds over real HTTP", async () => {
     // Given: token / 絞り込み list / wav download が 2xx を返す local upstream
     const { origin, server } = await listen((req, res) => {
       oauthSuccessHandler(req, res, (innerReq, innerRes) => {
@@ -231,7 +231,7 @@ describe("GoogleDriveEpisodeRepository Narrow Integration", () => {
     const repository = createRepository(createHostRedirectFetch(origin));
 
     // When: 音声を取得する
-    const got = await repository.getEpisodeAudio("narrow-ep-1");
+    const got = await repository.getAudio("narrow-ep-1");
 
     // Then: download 相当が実 HTTP 経由で成功する
     expect(got).toEqual(validAudioBytes);
