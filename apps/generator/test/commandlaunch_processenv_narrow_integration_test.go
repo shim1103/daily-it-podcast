@@ -5,7 +5,7 @@
 // @require Launcher に注入済みの秘密値と allowlist を契約で検証する。child は controllable な script。
 // @ensure child env は commandlaunch.InheritedEnvNameAllow() + 秘密値だけ。未設定 secret / 空 program は起動前失敗。
 // @ensure error message に secret 値・stdin・child stderr 本文が出ない。
-// @invariant 親固有の secret は child environ へ継承されない。
+// @invariant 親固有の secret は child environ へ継承されない。この Narrow は特定 vendor に依存せず、secret 名は任意の環境変数名でよい。
 package test
 
 import (
@@ -18,11 +18,11 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch/processenv"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorcli"
 )
 
 const (
-	narrowDummySecretValue = "narrow-integration-dummy-cursor-api-key"
+	narrowSecretName       = "PROCESSENV_NARROW_TEST_SECRET_KEY"
+	narrowDummySecretValue = "processenv-narrow-integration-dummy-secret-value"
 	narrowParentOnlySecret = "NARROW_PARENT_ONLY_SECRET"
 	narrowParentOnlyValue  = "narrow-parent-only-secret-token"
 	narrowStdinToken       = "narrow-integration-stdin-token"
@@ -33,7 +33,7 @@ func newNarrowLauncher(t *testing.T) *processenv.Launcher {
 	t.Helper()
 	// production runtime（os.LookupEnv）を injection して Launcher を構築
 	return processenv.NewLauncher(
-		commandlaunch.SecretEnv{Name: cursorcli.CursorAPIKeyEnvName, Value: narrowDummySecretValue},
+		commandlaunch.SecretEnv{Name: narrowSecretName, Value: narrowDummySecretValue},
 		os.LookupEnv,
 	)
 }
@@ -50,21 +50,21 @@ func writeNarrowMarkerChild(t *testing.T) (program string, marker string) {
 	return program, marker
 }
 
-func TestProcessEnvLauncher_passesOnlyAllowlistAndCursorSecret_whenChildPrintsEnviron(t *testing.T) {
-	// Given: contract allowlist SSoT と Cursor secret、および親固有 secret
+func TestProcessEnvLauncher_passesOnlyAllowlistAndSecret_whenChildPrintsEnviron(t *testing.T) {
+	// Given: contract allowlist SSoT と注入 secret、および親固有 secret
 	t.Setenv(narrowParentOnlySecret, narrowParentOnlyValue)
 	launcher := newNarrowLauncher(t)
 
 	// When: environ を stdout へ出す実 child を起動する
 	got, err := launcher.Launch(context.Background(), commandlaunch.Command{Program: "env"})
 
-	// Then: commandlaunch.InheritedEnvNameAllow + Cursor secret だけが child に渡り、親固有 secret は無い
+	// Then: commandlaunch.InheritedEnvNameAllow + 注入 secret だけが child に渡り、親固有 secret は無い
 	if err != nil {
 		t.Fatalf("Launch() error = %v, want nil", err)
 	}
 	out := string(got)
-	if !strings.Contains(out, cursorcli.CursorAPIKeyEnvName+"="+narrowDummySecretValue) {
-		t.Fatalf("child environ = %q, want Cursor secret entry", out)
+	if !strings.Contains(out, narrowSecretName+"="+narrowDummySecretValue) {
+		t.Fatalf("child environ = %q, want injected secret entry", out)
 	}
 	if strings.Contains(out, narrowParentOnlySecret) || strings.Contains(out, narrowParentOnlyValue) {
 		t.Fatalf("child environ = %q, want no parent-only secret", out)
