@@ -1,0 +1,61 @@
+# generator の層依存（depguard）に加え、curated subset（errcheck / govet）と gofmt を enforce する。
+# list-mode: strict = allow に無い内部 import は拒否。新層 dir は自動で止まる。
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - depguard
+    - errcheck
+    - govet
+  settings:
+    depguard:
+      rules:
+        entities:
+          list-mode: strict
+          files:
+            - "**/internal/entities/*.go"
+            - "**/internal/entities/**/*.go"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/entities
+        application:
+          list-mode: strict
+          files:
+            - "**/internal/application/*.go"
+            - "**/internal/application/**/*.go"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/entities
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/application
+            - github.com/shim1103/daily-it-podcast/contracts
+            - github.com/santhosh-tekuri/jsonschema/v5
+        infrastructure:
+          list-mode: strict
+          files:
+            - "**/internal/infrastructure/*.go"
+            - "**/internal/infrastructure/**/*.go"
+            - "!$test"
+            - "!**/drive/gdrive/**"
+          allow:
+            - $gostd
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/entities
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure
+        infrastructure-gdrive:
+          list-mode: strict
+          files:
+            - "**/internal/infrastructure/drive/gdrive/**/*.go"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/entities
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure
+        # composition は全層 import 特権のため規則なし
+
+formatters:
+  enable:
+    - gofmt
