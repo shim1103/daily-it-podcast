@@ -73,3 +73,6 @@
 - 2026-08-30 [feature/playback-gdrive-ni-worker-composition-bi] Broad の成功観測は status・契約 schema・配線を示す代表値に留め、下位 Scope が所有する mapping 完全一致を再 assert しない  # → layer:terms
 - 2026-08-30 [feature/playback-gdrive-ni-worker-composition-bi] Adapter が本番 host を定数に持つ Narrow では、host rewrite 後の実 fetch + local listener が DialTLS 相当になる。即 Response 合成は Sociable Unit と同型  # → layer:platform
 - 2026-08-30 [feature/playback-gdrive-ni-worker-composition-bi] issue-manager の no-arg は branch 名対応 file の解決規則であり、明示 path で別達成契約を同じ branch で続けてよい。同時に複数 issue file を編集し続けることとは別  # → layer:workflow
+- 2026-08-30 [feature/playback-narrow-integration-api-client] local の `origin/<base>` が stale なまま「未実装」と判断して再実装すると、remote で既に merge 済みの同契約と二重になる。再実装や並列 lane 着手の前に `fetch` し、remote tip・merged PR・達成契約 file の有無を照合する  # → layer:workflow
+- 2026-08-30 [feature/playback-narrow-integration-api-client] 同契約の成果物が命名だけ違う file として両方残ると Integration gate が二重実行になる。remote 側を正とした merge 後は自前の命名 variant を消し、net diff が契約単位で一意になることを確認する  # → layer:workflow
+- 2026-08-30 [feature/playback-narrow-integration-api-client] uncommitted の破棄・stash が runtime policy で拒まれるとき、意味単位 commit の後に base merge で重複を落とす経路を取る。未 commit のまま「なかったこと」にできない制約を、破棄 command の再試行で回さない  # → layer:workflow

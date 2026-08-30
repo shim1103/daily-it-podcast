@@ -54,7 +54,7 @@ deploy = 3 Phase（Decision 2026-08-30T16-20-04）
 ### C（達成契約）
 
 1. [x] Drive Narrow Integration（`apps/playback/test/*gdrive*narrow_integration*.test.ts`。達成契約 file は完了削除）
-2. [ ] API Client Narrow Integration — `docs/tasks/todo/playback-narrow-integration-api-client.md`
+2. [x] API Client Narrow Integration（`apps/playback/test/*playback_api_client*narrow_integration*.test.ts`。達成契約 file は完了削除）
 3. [x] Worker Broad Integration 正常系（`apps/playback/test/*broad_integration*.test.ts` の Composition 正常系。達成契約 file は完了削除）
 4. [ ] 認証済み browser E2E — `docs/tasks/todo/playback-e2e-browser-authenticated.md`
 
