@@ -45,8 +45,14 @@ Run から排除した。`config.Load` も `os.LookupEnv` 直呼びから `share
   application test 側に別 file で分離。test の Location は tzdata 非依存の
   `time.FixedZone("JST", 9*3600)`。
 - pre-commit / pre-push は generator + playback 全系統。generator unit coverage 91.1%。
-  push は sandbox proxy が git SSH 認証を弾いたため sandbox 無効化で実行。
-- GitHub Issue は無し（local lane が正）。PR: base master。
+  push は sandbox proxy が git SSH 認証・`gh` API TLS を弾いたため sandbox 無効化で実行。
+- GitHub Issue は無し（local lane が正）。PR #97 base `develop`。
+- PR 作成後、session 中に develop が #95（Cursor CLI Narrow）/ #96（Broad・System
+  E2E plan）で先行していたことが判明。`episode_greetings.go`（`ClosingFarewell` 文言）・
+  `generator-lane.md`（lane 再編）・`lessons/index.md`（append 位置）が衝突。
+  `origin/develop` を merge で取り込み、`ClosingFarewell` は develop の文案更新
+  commit（`c14d929`）を採用、lane は develop の再編へ Run 完了を反映、lessons は
+  両 branch の append を統合。merge 後 gate 全 green を確認して push。
 
 ### Commits
 
@@ -55,3 +61,4 @@ Run から排除した。`config.Load` も `os.LookupEnv` 直呼びから `share
 - `f7a55aa`
 - `70bf057`
 - `7163608`
+- `a1da922`（merge origin/develop・conflict 解消）
