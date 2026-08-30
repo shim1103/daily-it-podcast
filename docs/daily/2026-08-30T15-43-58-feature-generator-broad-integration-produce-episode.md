@@ -17,6 +17,7 @@ secret なし Broad Integration で `ProduceEpisode` 合成経路（GetXAPI → 
 - shim 確認: Broad に `NewProduceEpisodeFromEnv` は含めない。一般論としても Broad = Adapter 合成、FromEnv / CLI 入口は System。Decision に固定。
 - Verification: `check-static` / `test-unit`（coverage 92.6%）/ `test-integration` いずれも exit 0。pre-commit / pre-push 通過後 push。
 - GitHub Issue なし（local 達成契約が正）。
+- PR: https://github.com/shim1103/daily-it-podcast/pull/98 （base `develop`）
 
 ### Commits
 
