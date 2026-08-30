@@ -24,3 +24,8 @@ playback の 1件 JSON API を消し、`listEpisodes` が原稿全文と `audioR
 - `d25577d`
 - `02bb3c6`
 - `4944ed1`
+- `a1c924f`
+
+## 3. Append
+
+1. PR #104 を作成した（https://github.com/shim1103/daily-it-podcast/pull/104）。base `develop`。mergeable 確認済み。
