@@ -1,0 +1,49 @@
+# scope: Playback browser E2E（Access session 付き・gate 外）
+# 実物: scripts/playback/test-e2e.sh
+# double: なし（remote 本番 path。Drive / `/episodes*` を double しない）
+# @require Node（version は apps/playback/.nvmrc）。Playwright chromium。
+# @ensure E2E 入口が exit 0。
+# @invariant 必須 Unit / Integration gate に載せない。Service Token で Access を迂回しない。generator を触らない。
+# @invariant toolchain の playwright test を YAML に直書きしない。secret 値を log に出さない。
+# 登録の正: DEPLOY.md「Playback E2E 登録」。判断: docs/decisions/2026-08-30T16-20-00 / 2026-08-30T16-20-03
+name: playback-e2e
+
+on:
+  schedule:
+    # 毎週月曜 07:00 Asia/Tokyo = 日曜 22:00 UTC
+    - cron: "0 22 * * 0"
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/playback/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/playback/package-lock.json
+
+      - name: 依存を install
+        working-directory: apps/playback
+        run: npm ci
+
+      - name: Playwright chromium を install
+        working-directory: apps/playback
+        run: npx playwright install --with-deps chromium
+
+      # Secret が無い（placeholder のみ）でも落ちない。値があるときだけ file 化して env へ渡す。
+      - name: storageState を file 化し E2E を実行
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}
+          PLAYWRIGHT_STORAGE_STATE_JSON: ${{ secrets.PLAYWRIGHT_STORAGE_STATE_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -n "${PLAYWRIGHT_STORAGE_STATE_JSON:-}" ]; then
+            state_path="${RUNNER_TEMP}/playback-storage-state.json"
+            printf '%s' "$PLAYWRIGHT_STORAGE_STATE_JSON" >"$state_path"
+            export PLAYWRIGHT_STORAGE_STATE="$state_path"
+          fi
+          ./scripts/playback/test-e2e.sh

@@ -5,7 +5,6 @@ import {
 } from "../../../contracts/index.ts";
 import { createFakeEpisodeAudioBytes } from "../test/fixtures/audio-bytes.ts";
 import { EpisodeContentError } from "../entities/errors/episode-content-error.ts";
-import { validAudioBytes } from "../test/fixtures/audio-bytes.ts";
 import fakeEpisodesJson from "./fake-episodes.json" with { type: "json" };
 
 type FakeEpisodeRecord = {

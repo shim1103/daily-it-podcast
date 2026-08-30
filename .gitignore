@@ -11,3 +11,7 @@ coverage/
 
 # Playback Vite build output (bundled by wrangler at deploy)
 apps/playback/web/dist/
+
+# Playwright
+apps/playback/test-results/
+apps/playback/playwright-report/
