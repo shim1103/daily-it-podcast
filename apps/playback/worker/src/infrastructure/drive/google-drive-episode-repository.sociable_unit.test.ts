@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { validAudioBytes } from "../../test/fixtures/audio-bytes.ts";
-import { DriveError } from "./drive-error.ts";
 import { GoogleDriveEpisodeRepository } from "./google-drive-episode-repository.ts";
 
 /**
@@ -8,11 +7,10 @@ import { GoogleDriveEpisodeRepository } from "./google-drive-episode-repository.
  * real: GoogleDriveEpisodeRepository
  * double: Drive HTTP を Stub 化した `fetch`
  *
- * why: この Adapter 固有の責務は `fetch` 境界の実 I/O 契約 —— OAuth token 取得 / files.list の
- * `q` 絞り込み / bytes download / decode / network error・非 2xx・応答形式不正の DriveError 変換 /
- * file id を message に出さない / 複数 download の並行開始 / 「json が無い＝undefined」「wav が無い＝
- * undefined」の戻り値表現。schema 不適合除外・stem 不一致・4 失敗ケースの網羅は use-case test
- * （`get-episode.sociable_unit.test.ts` / `list-episodes.sociable_unit.test.ts`）へ移した。
+ * why: Adapter 内分岐だけを見る —— files.list の `q` 絞り込み、stem 抽出、生 payload / decode の
+ * 戻り値表現、複数 download の並行開始、「json が無い＝undefined」「wav が無い＝undefined」。
+ * 実 HTTP 境界の成功・非 2xx・形式不正 → DriveError は Narrow Integration が所有する。
+ * schema 不適合除外・stem 不一致の網羅は use-case test へ委ねる。
  */
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -95,7 +93,7 @@ function createRepository(fetchStub: FetchLike): GoogleDriveEpisodeRepository {
 
 describe("GoogleDriveEpisodeRepository", () => {
   describe("生 payload を検証せず返す", () => {
-    it("listManuscripts は download した json を stem 付きの生 payload として返す（検証しない）", async () => {
+    it("listManuscripts は schema 不適合 json も除外せず返す", async () => {
       // Given: 適合 json 1 + schema 不適合 json 1
       const repository = createRepository(
         stubFetch({
@@ -113,11 +111,9 @@ describe("GoogleDriveEpisodeRepository", () => {
       // When: 一覧を取得する
       const got = await repository.listManuscripts();
 
-      // Then: 不適合分も除外せず、生のまま両方返す
-      expect(got).toEqual([
-        { stem: "ep-1", json: manuscriptJson },
-        { stem: "bad", json: { episodeId: "bad" } },
-      ]);
+      // Then: 不適合分も除外せず返す（成功 payload 完全一致は NI が所有）
+      expect(got.map((entry) => entry.stem).sort()).toEqual(["bad", "ep-1"]);
+      expect(got.find((entry) => entry.stem === "bad")?.json).toEqual({ episodeId: "bad" });
     });
 
     it("listManuscripts は json エントリ 0 件でも空配列を返す（throw しない）", async () => {
@@ -200,25 +196,6 @@ describe("GoogleDriveEpisodeRepository", () => {
 
       // When / Then
       expect(await repository.getEpisodeAudio("ep-1")).toBeUndefined();
-    });
-
-    it("wav エントリがある時、getEpisodeAudio は wav byte を返す", async () => {
-      // Given: json + wav
-      const repository = createRepository(
-        stubFetch({
-          files: [
-            { id: "j1", name: "ep-1.json" },
-            { id: "w1", name: "ep-1.wav" },
-          ],
-          downloads: { j1: JSON.stringify(manuscriptJson), w1: validAudioBytes },
-        }),
-      );
-
-      // When: 音声を取得する
-      const got = await repository.getEpisodeAudio("ep-1");
-
-      // Then: byte 一致
-      expect(got).toEqual(validAudioBytes);
     });
   });
 
@@ -332,141 +309,6 @@ describe("GoogleDriveEpisodeRepository", () => {
         resolve(JSON.stringify(manuscriptJson));
       });
       await got;
-    });
-  });
-
-  describe("Drive HTTP 自体の失敗 → DriveError", () => {
-    it("token 取得が非 2xx の時、DriveError", async () => {
-      const fetchStub: FetchLike = vi.fn(async (input: string) => {
-        if (input === "https://oauth2.googleapis.com/token") {
-          return new Response("invalid_grant", { status: 400 });
-        }
-        throw new Error(`想定外の呼び出し: ${input}`);
-      });
-      await expect(createRepository(fetchStub).listManuscripts()).rejects.toBeInstanceOf(
-        DriveError,
-      );
-    });
-
-    it("network error の時、DriveError になり元 error を cause に持つ", async () => {
-      const networkError = new Error("network down");
-      const fetchStub: FetchLike = vi.fn(async () => {
-        throw networkError;
-      });
-      const act = createRepository(fetchStub).listManuscripts();
-      await expect(act).rejects.toBeInstanceOf(DriveError);
-      await expect(act).rejects.toHaveProperty("cause", networkError);
-    });
-
-    it("token endpoint の応答が不正 JSON の時、DriveError", async () => {
-      const fetchStub: FetchLike = vi.fn(async (input: string) => {
-        if (input === "https://oauth2.googleapis.com/token") {
-          return new Response("not json", { status: 200 });
-        }
-        throw new Error(`想定外の呼び出し: ${input}`);
-      });
-      await expect(createRepository(fetchStub).listManuscripts()).rejects.toBeInstanceOf(
-        DriveError,
-      );
-    });
-
-    it("token endpoint の応答に access_token が無い時、DriveError", async () => {
-      const fetchStub: FetchLike = vi.fn(async (input: string) => {
-        if (input === "https://oauth2.googleapis.com/token") {
-          return new Response(JSON.stringify({}), { status: 200 });
-        }
-        throw new Error(`想定外の呼び出し: ${input}`);
-      });
-      await expect(createRepository(fetchStub).listManuscripts()).rejects.toBeInstanceOf(
-        DriveError,
-      );
-    });
-
-    it("files.list が非 2xx の時、DriveError", async () => {
-      const fetchStub: FetchLike = vi.fn(async (input: string) => {
-        if (input === "https://oauth2.googleapis.com/token") {
-          return new Response(JSON.stringify({ access_token: "dummy-access-token" }), {
-            status: 200,
-          });
-        }
-        if (input.startsWith("https://www.googleapis.com/drive/v3/files?")) {
-          return new Response("server error", { status: 500 });
-        }
-        throw new Error(`想定外の呼び出し: ${input}`);
-      });
-      await expect(createRepository(fetchStub).listManuscripts()).rejects.toBeInstanceOf(
-        DriveError,
-      );
-    });
-
-    it("files.list 失敗時、Drive file id やフォルダ id を DriveError の message に含めない", async () => {
-      const fetchStub: FetchLike = vi.fn(async (input: string) => {
-        if (input === "https://oauth2.googleapis.com/token") {
-          return new Response(JSON.stringify({ access_token: "dummy-access-token" }), {
-            status: 200,
-          });
-        }
-        if (input.startsWith("https://www.googleapis.com/drive/v3/files?")) {
-          return new Response("server error", { status: 500 });
-        }
-        throw new Error(`想定外の呼び出し: ${input}`);
-      });
-      await expect(createRepository(fetchStub).listManuscripts()).rejects.toSatisfy(
-        (error: unknown) => error instanceof DriveError && !error.message.includes(dummyFolderId),
-      );
-    });
-
-    it("files.list の応答が不正 JSON の時、DriveError", async () => {
-      const fetchStub: FetchLike = vi.fn(async (input: string) => {
-        if (input === "https://oauth2.googleapis.com/token") {
-          return new Response(JSON.stringify({ access_token: "dummy-access-token" }), {
-            status: 200,
-          });
-        }
-        if (input.startsWith("https://www.googleapis.com/drive/v3/files?")) {
-          return new Response("not json", { status: 200 });
-        }
-        throw new Error(`想定外の呼び出し: ${input}`);
-      });
-      await expect(createRepository(fetchStub).listManuscripts()).rejects.toBeInstanceOf(
-        DriveError,
-      );
-    });
-
-    it("files.list の要素に name が無い時、DriveError", async () => {
-      const fetchStub: FetchLike = vi.fn(async (input: string) => {
-        if (input === "https://oauth2.googleapis.com/token") {
-          return new Response(JSON.stringify({ access_token: "dummy-access-token" }), {
-            status: 200,
-          });
-        }
-        if (input.startsWith("https://www.googleapis.com/drive/v3/files?")) {
-          return new Response(JSON.stringify({ files: [{ id: "file-1" }] }), { status: 200 });
-        }
-        throw new Error(`想定外の呼び出し: ${input}`);
-      });
-      await expect(createRepository(fetchStub).listManuscripts()).rejects.toBeInstanceOf(
-        DriveError,
-      );
-    });
-
-    it("files.list の要素の id が number 型の時、DriveError", async () => {
-      const fetchStub: FetchLike = vi.fn(async (input: string) => {
-        if (input === "https://oauth2.googleapis.com/token") {
-          return new Response(JSON.stringify({ access_token: "dummy-access-token" }), {
-            status: 200,
-          });
-        }
-        if (input.startsWith("https://www.googleapis.com/drive/v3/files?")) {
-          return new Response(JSON.stringify({ files: [{ id: 1, name: "ep-1.json" }] }), {
-            status: 200,
-          });
-        }
-        throw new Error(`想定外の呼び出し: ${input}`);
-      });
-      await expect(createRepository(fetchStub).listManuscripts()).rejects.toBeInstanceOf(
-        DriveError,
-      );
     });
   });
 });
