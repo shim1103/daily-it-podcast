@@ -9,11 +9,11 @@ import type { EpisodeRepository } from "../ports/episode-repository.ts";
  *
  * @ensure wav が無い時は {@link EpisodeContentError} を throw する。
  */
-export async function getEpisodeAudio(
+export async function getAudio(
   repository: EpisodeRepository,
   episodeId: string,
 ): Promise<Uint8Array> {
-  const audio = await repository.getEpisodeAudio(episodeId);
+  const audio = await repository.getAudio(episodeId);
   if (audio === undefined) {
     throw new EpisodeContentError(`音声が無い: ${episodeId}`);
   }

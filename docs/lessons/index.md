@@ -76,3 +76,6 @@
 - 2026-08-30 [feature/playback-narrow-integration-api-client] local の `origin/<base>` が stale なまま「未実装」と判断して再実装すると、remote で既に merge 済みの同契約と二重になる。再実装や並列 lane 着手の前に `fetch` し、remote tip・merged PR・達成契約 file の有無を照合する  # → layer:workflow
 - 2026-08-30 [feature/playback-narrow-integration-api-client] 同契約の成果物が命名だけ違う file として両方残ると Integration gate が二重実行になる。remote 側を正とした merge 後は自前の命名 variant を消し、net diff が契約単位で一意になることを確認する  # → layer:workflow
 - 2026-08-30 [feature/playback-narrow-integration-api-client] uncommitted の破棄・stash が runtime policy で拒まれるとき、意味単位 commit の後に base merge で重複を落とす経路を取る。未 commit のまま「なかったこと」にできない制約を、破棄 command の再試行で回さない  # → layer:workflow
+- 2026-08-31 [refactor/playback-hooks-components-kiss-slim] 公開面から概念を廃止したあと、同名接頭辞の Request・隣接経路・comment まで残すと「消えた」報告と字列残存が矛盾する。廃止名は入力契約と隣接 identifier も含め部分一致で洗い、歴史記録（decision / daily）だけ意図的に残す  # → layer:terms
+- 2026-08-31 [refactor/playback-hooks-components-kiss-slim] 委譲先の完了報告を採る前に、禁止字列や削除対象は報告の「本番経路」主張ではなく repo 全体の部分一致 grep で独立確認する。型名1つだけ見ると兄弟 schema が漏れる  # → layer:workflow
+- 2026-08-31 [refactor/playback-hooks-components-kiss-slim] review で「関連が残るから旧名を維持」と凍結した判断は、呼び出し側の指摘で覆りうる。凍結表に残置を書くなら Intention-Revealing と字列禁止の両方を先に照合する  # → layer:workflow

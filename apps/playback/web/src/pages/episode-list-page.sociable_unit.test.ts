@@ -1,9 +1,15 @@
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { GetEpisodeResponse, ListEpisodesResponse } from "../../../contracts/index.ts";
+import type { ListEpisodesResponse } from "../../../contracts/index.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 import { EpisodeListPage } from "./episode-list-page.tsx";
+
+const episodeBody = {
+  opening: "開始",
+  topics: [{ title: "小題", preface: "前置き", detail: "詳細", startSec: 0 }],
+  closing: "終了",
+};
 
 const validListEpisodesResponse: ListEpisodesResponse = {
   episodes: [
@@ -12,7 +18,7 @@ const validListEpisodesResponse: ListEpisodesResponse = {
       date: "2026-08-17",
       title: "題1",
       durationSec: 60,
-      topics: [{ title: "小題1" }],
+      body: episodeBody,
       audioRef: "/episodes/ep-1/audio",
     },
     {
@@ -20,29 +26,18 @@ const validListEpisodesResponse: ListEpisodesResponse = {
       date: "2026-08-18",
       title: "題2",
       durationSec: 90,
-      topics: [{ title: "小題2" }],
+      body: {
+        ...episodeBody,
+        topics: [{ title: "小題2", preface: "前2", detail: "詳2", startSec: 0 }],
+      },
       audioRef: "/episodes/ep-2/audio",
     },
   ],
 };
 
-const validGetEpisodeResponse: GetEpisodeResponse = {
-  episodeId: "ep-1",
-  date: "2026-08-17",
-  title: "題1",
-  durationSec: 60,
-  body: {
-    opening: "開始",
-    topics: [{ title: "小題", preface: "前置き", detail: "詳細", startSec: 0 }],
-    closing: "終了",
-  },
-  audioRef: "/episodes/ep-1/audio",
-};
-
 function createStubApiClient(overrides: Partial<PlaybackApiClient> = {}): PlaybackApiClient {
   return {
     listEpisodes: vi.fn(async () => ({ ok: true as const, data: validListEpisodesResponse })),
-    getEpisode: vi.fn(async () => ({ ok: true as const, data: validGetEpisodeResponse })),
     ...overrides,
   };
 }
@@ -141,21 +136,22 @@ describe("EpisodeListPage", () => {
     expect(container.querySelector("[data-manuscript-opening]")).toBeNull();
   });
 
-  it("mount 時の hash から load() 完了後に select() が呼ばれ、その episodeId で詳細を取得する", async () => {
-    // Given: hash に episodeId、詳細取得の呼び出し引数を記録する stub
+  it("mount 時の hash から load() 完了後に select() が呼ばれ、一覧 lookup で詳細を表示する", async () => {
+    // Given: hash に ep-2
     window.location.hash = "#ep-2";
-    const getEpisode = vi.fn(async () => ({
+    const listEpisodes = vi.fn(async () => ({
       ok: true as const,
-      data: { ...validGetEpisodeResponse, episodeId: "ep-2" },
+      data: validListEpisodesResponse,
     }));
-    const apiClient = createStubApiClient({ getEpisode });
+    const apiClient = createStubApiClient({ listEpisodes });
 
     // When: page を render する
-    renderPage(apiClient);
+    const { container } = renderPage(apiClient);
 
-    // Then: mount 時の hash（ep-2）で詳細取得が呼ばれる
+    // Then: 2nd fetch 無しで ep-2 の manuscript が描画される
     await waitFor(() => {
-      expect(getEpisode).toHaveBeenCalledWith("ep-2");
+      expect(listEpisodes).toHaveBeenCalled();
+      expect(container.querySelector("[data-manuscript-opening]")).not.toBeNull();
     });
   });
 
@@ -169,8 +165,7 @@ describe("EpisodeListPage", () => {
           resolveList = resolve;
         }),
     );
-    const getEpisode = vi.fn(async () => ({ ok: true as const, data: validGetEpisodeResponse }));
-    const apiClient = createStubApiClient({ listEpisodes, getEpisode });
+    const apiClient = createStubApiClient({ listEpisodes });
     const { unmount } = renderPage(apiClient);
 
     // When: load() 未解決のまま unmount し、その後で load() を解決させる
@@ -179,8 +174,8 @@ describe("EpisodeListPage", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    // Then: unmount 済みのため hash 由来の詳細取得は呼ばれない
-    expect(getEpisode).not.toHaveBeenCalled();
+    // Then: unmount 済みのため hash 由来 select は走らない（listEpisodes は1回のみ）
+    expect(listEpisodes).toHaveBeenCalledTimes(1);
   });
 
   it("選択中に hash を空にすると、選択が解除され manuscript が消える", async () => {

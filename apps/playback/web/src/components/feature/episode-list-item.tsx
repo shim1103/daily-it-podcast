@@ -29,7 +29,7 @@ export function EpisodeListItem({
   episodeIndex,
   onSelect,
 }: EpisodeListItemProps): ReactElement {
-  const topicTitles = formatTopicTitles(episode.topics);
+  const topicTitles = formatTopicTitles(episode.body.topics);
   const numberedTitle = formatNumberedEpisodeTitle(episodeCount, episodeIndex, episode.title);
 
   return (

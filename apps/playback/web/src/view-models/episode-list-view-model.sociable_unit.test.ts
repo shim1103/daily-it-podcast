@@ -1,8 +1,14 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { GetEpisodeResponse, ListEpisodesResponse } from "../../../contracts/index.ts";
+import type { ListEpisodesResponse } from "../../../contracts/index.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 import { useEpisodeListViewModel } from "./episode-list-view-model.ts";
+
+const episodeBody = {
+  opening: "開始",
+  topics: [{ title: "小題", preface: "前置き", detail: "詳細", startSec: 0 }],
+  closing: "終了",
+};
 
 const validListEpisodesResponse: ListEpisodesResponse = {
   episodes: [
@@ -11,7 +17,7 @@ const validListEpisodesResponse: ListEpisodesResponse = {
       date: "2026-08-17",
       title: "題1",
       durationSec: 60,
-      topics: [{ title: "小題1" }],
+      body: episodeBody,
       audioRef: "/episodes/ep-1/audio",
     },
     {
@@ -19,29 +25,18 @@ const validListEpisodesResponse: ListEpisodesResponse = {
       date: "2026-08-18",
       title: "題2",
       durationSec: 90,
-      topics: [{ title: "小題2" }],
+      body: {
+        ...episodeBody,
+        topics: [{ title: "小題2", preface: "前2", detail: "詳2", startSec: 0 }],
+      },
       audioRef: "/episodes/ep-2/audio",
     },
   ],
 };
 
-const validGetEpisodeResponse: GetEpisodeResponse = {
-  episodeId: "ep-1",
-  date: "2026-08-17",
-  title: "題1",
-  durationSec: 60,
-  body: {
-    opening: "開始",
-    topics: [{ title: "小題", preface: "前置き", detail: "詳細", startSec: 0 }],
-    closing: "終了",
-  },
-  audioRef: "/episodes/ep-1/audio",
-};
-
 function createStubApiClient(overrides: Partial<PlaybackApiClient> = {}): PlaybackApiClient {
   return {
     listEpisodes: vi.fn(async () => ({ ok: true as const, data: validListEpisodesResponse })),
-    getEpisode: vi.fn(async () => ({ ok: true as const, data: validGetEpisodeResponse })),
     ...overrides,
   };
 }
@@ -97,78 +92,9 @@ describe("useEpisodeListViewModel", () => {
   });
 
   describe("select(episodeId)", () => {
-    it("一覧 success 後に select する時、selectedEpisodeId が確定し、詳細を loading → success で持つ", async () => {
+    it("一覧 success 後に select する時、一覧から lookup して selectedEpisode を success で持つ", async () => {
       // Given: 一覧 load 済みの hook
       const apiClient = createStubApiClient();
-      const { result } = renderHook(() => useEpisodeListViewModel(apiClient));
-      await act(async () => {
-        await result.current.load();
-      });
-
-      // When: episode を select する（詳細取得は直後は未解決）
-      let resolveGetEpisode:
-        | ((value: Awaited<ReturnType<PlaybackApiClient["getEpisode"]>>) => void)
-        | undefined;
-      vi.mocked(apiClient.getEpisode).mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveGetEpisode = resolve;
-          }),
-      );
-
-      let selectPromise: Promise<void>;
-      act(() => {
-        selectPromise = result.current.select("ep-1");
-      });
-
-      // Then: 即座に selectedEpisodeId が確定し、詳細は loading
-      expect(result.current.state).toEqual({
-        status: "success",
-        episodes: validListEpisodesResponse.episodes,
-        selectedEpisodeId: "ep-1",
-        selectedEpisode: { status: "loading" },
-      });
-
-      await act(async () => {
-        resolveGetEpisode?.({ ok: true, data: validGetEpisodeResponse });
-        await selectPromise;
-      });
-
-      // Then: 詳細取得後は success
-      expect(result.current.state).toEqual({
-        status: "success",
-        episodes: validListEpisodesResponse.episodes,
-        selectedEpisodeId: "ep-1",
-        selectedEpisode: { status: "success", episode: validGetEpisodeResponse },
-      });
-    });
-
-    it("select(episodeId) は指定した episodeId を api client へそのまま渡す", async () => {
-      // Given: 呼び出し引数を記録する stub api client
-      const getEpisode = vi.fn(async () => ({ ok: true as const, data: validGetEpisodeResponse }));
-      const apiClient = createStubApiClient({ getEpisode });
-      const { result } = renderHook(() => useEpisodeListViewModel(apiClient));
-      await act(async () => {
-        await result.current.load();
-      });
-
-      // When: 特定の episodeId で select を実行する
-      await act(async () => {
-        await result.current.select("ep-1");
-      });
-
-      // Then: 同じ episodeId が渡る
-      expect(getEpisode).toHaveBeenCalledWith("ep-1");
-    });
-
-    it("詳細取得が失敗する時、selectedEpisode が error になる", async () => {
-      // Given: 詳細取得が失敗する stub api client
-      const apiClient = createStubApiClient({
-        getEpisode: vi.fn(async () => ({
-          ok: false as const,
-          error: "episode_not_found" as const,
-        })),
-      });
       const { result } = renderHook(() => useEpisodeListViewModel(apiClient));
       await act(async () => {
         await result.current.load();
@@ -179,11 +105,36 @@ describe("useEpisodeListViewModel", () => {
         await result.current.select("ep-1");
       });
 
-      // Then: selectedEpisode が error
+      // Then: 2nd fetch 無しで一覧 item が詳細になる
       expect(result.current.state).toEqual({
         status: "success",
         episodes: validListEpisodesResponse.episodes,
         selectedEpisodeId: "ep-1",
+        selectedEpisode: {
+          status: "success",
+          episode: validListEpisodesResponse.episodes[0],
+        },
+      });
+    });
+
+    it("一覧に無い episodeId を select する時、selectedEpisode が error になる", async () => {
+      // Given: 一覧 load 済みの hook
+      const apiClient = createStubApiClient();
+      const { result } = renderHook(() => useEpisodeListViewModel(apiClient));
+      await act(async () => {
+        await result.current.load();
+      });
+
+      // When: 存在しない episodeId を select する
+      await act(async () => {
+        await result.current.select("missing");
+      });
+
+      // Then: selectedEpisode が error
+      expect(result.current.state).toEqual({
+        status: "success",
+        episodes: validListEpisodesResponse.episodes,
+        selectedEpisodeId: "missing",
         selectedEpisode: { status: "error" },
       });
     });
@@ -228,99 +179,6 @@ describe("useEpisodeListViewModel", () => {
 
       // Then: state は loading のまま
       expect(result.current.state).toEqual({ status: "loading" });
-    });
-
-    it("詳細取得中に一覧が再読込された時、古い応答で state を上書きしない", async () => {
-      // Given: 詳細取得が未解決の間に一覧の再読込が未解決のまま進む hook
-      let resolveGetEpisode:
-        | ((value: Awaited<ReturnType<PlaybackApiClient["getEpisode"]>>) => void)
-        | undefined;
-      const getEpisode: PlaybackApiClient["getEpisode"] = vi.fn(
-        () =>
-          new Promise<Awaited<ReturnType<PlaybackApiClient["getEpisode"]>>>((resolve) => {
-            resolveGetEpisode = resolve;
-          }),
-      );
-      const listEpisodes: PlaybackApiClient["listEpisodes"] = vi
-        .fn()
-        .mockImplementationOnce(async () => ({
-          ok: true as const,
-          data: validListEpisodesResponse,
-        }))
-        .mockImplementationOnce(() => new Promise<never>(() => {}));
-      const apiClient = createStubApiClient({ getEpisode, listEpisodes });
-      const { result } = renderHook(() => useEpisodeListViewModel(apiClient));
-      await act(async () => {
-        await result.current.load();
-      });
-
-      let selectPromise: Promise<void> | undefined;
-      act(() => {
-        selectPromise = result.current.select("ep-1");
-      });
-      if (selectPromise === undefined) {
-        throw new Error("selectPromise が未設定");
-      }
-      const pendingSelect = selectPromise;
-
-      // When: 詳細取得が未解決のまま一覧を再読込し（loading へ遷移）、その後で詳細取得が解決する
-      act(() => {
-        void result.current.load();
-      });
-      await act(async () => {
-        resolveGetEpisode?.({ ok: true, data: validGetEpisodeResponse });
-        await pendingSelect;
-      });
-
-      // Then: 古い詳細応答で state を上書きせず、再読込後の loading のまま
-      expect(result.current.state).toEqual({ status: "loading" });
-    });
-
-    it("詳細取得中に別の episode が選択された時、古い応答で selectedEpisode を上書きしない", async () => {
-      // Given: 詳細取得が未解決の間に別 episode が選択される hook
-      let resolveFirstGetEpisode:
-        | ((value: Awaited<ReturnType<PlaybackApiClient["getEpisode"]>>) => void)
-        | undefined;
-      const getEpisode: PlaybackApiClient["getEpisode"] = vi
-        .fn()
-        .mockImplementationOnce(
-          () =>
-            new Promise((resolve) => {
-              resolveFirstGetEpisode = resolve;
-            }),
-        )
-        .mockImplementationOnce(async () => ({ ok: true as const, data: validGetEpisodeResponse }));
-      const apiClient = createStubApiClient({ getEpisode });
-      const { result } = renderHook(() => useEpisodeListViewModel(apiClient));
-      await act(async () => {
-        await result.current.load();
-      });
-
-      let firstSelectPromise: Promise<void> | undefined;
-      act(() => {
-        firstSelectPromise = result.current.select("ep-1");
-      });
-      if (firstSelectPromise === undefined) {
-        throw new Error("firstSelectPromise が未設定");
-      }
-      const pendingFirstSelect = firstSelectPromise;
-
-      // When: 1件目の詳細取得が未解決のまま別 episode を選択し、その後で1件目が解決する
-      await act(async () => {
-        await result.current.select("ep-2");
-      });
-      await act(async () => {
-        resolveFirstGetEpisode?.({ ok: true, data: validGetEpisodeResponse });
-        await pendingFirstSelect;
-      });
-
-      // Then: 古い ep-1 の応答で state を上書きせず、ep-2 の選択が保たれる
-      expect(result.current.state).toEqual({
-        status: "success",
-        episodes: validListEpisodesResponse.episodes,
-        selectedEpisodeId: "ep-2",
-        selectedEpisode: { status: "success", episode: validGetEpisodeResponse },
-      });
     });
   });
 

@@ -13,7 +13,7 @@ export type EpisodeListPageProps = {
 /**
  * 一覧 page。ViewModel hook・hash 同期 hook・一覧 Feature Component を組み立てるだけ。
  *
- * @require apiClient は `listEpisodes()` と `getEpisode(episodeId)` を持つ。baseUrl は audio 直結先の origin相当
+ * @require apiClient は `listEpisodes()` を持つ。baseUrl は audio 直結先の origin相当
  * @ensure mount 時に load() を開始し、完了後 hash に episodeId があればその episode を選択する。
  *   以後は useHashSync が選択中 episodeId と location.hash を双方向同期する。hash が空へ変わった時は
  *   選択中 episode を select() へ渡して選択解除する。一覧 Feature Component を state / baseUrl / onSelect で描画する

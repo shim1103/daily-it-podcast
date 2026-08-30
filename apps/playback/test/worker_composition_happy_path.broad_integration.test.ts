@@ -3,8 +3,6 @@ import {
   ErrorResponseSchema,
   episodeAudioContentType,
   episodeAudioPath,
-  episodePath,
-  GetEpisodeResponseSchema,
   ListEpisodesResponseSchema,
   listEpisodesPath,
 } from "../contracts/index.ts";
@@ -16,7 +14,7 @@ import workerEntry from "../worker/src/worker-entry.ts";
  * real: Worker entry・route・Composition Root・Controller・UseCase・GoogleDriveEpisodeRepository
  * double: Drive HTTP（global `fetch` Stub）。真 Google へは行かない
  * precondition: Drive env が揃い production Composition が Drive repository を選ぶ
- * postcondition: list / get episode / get audio の成功応答が入口から見える。代表の Drive 失敗は 503 unavailable
+ * postcondition: list / get audio の成功応答が入口から見える。代表の Drive 失敗は 503 unavailable
  * invariant: PlaybackUseCaseOverrides で use case 直差ししない。secret 実値を assert 失敗文言へ出さない
  */
 
@@ -144,27 +142,7 @@ describe("Playback Worker composition happy path", () => {
       return;
     }
     expect(parsed.data.episodes).toHaveLength(1);
-    expect(parsed.data.episodes[0]?.episodeId).toBe(episodeId);
-    expect(textOmitsSensitiveValues(JSON.stringify(body))).toBe(true);
-  });
-
-  it("returns 200 get episode through Worker entry when Drive env is complete", async () => {
-    // Given: Drive env が揃い、対象 episode の json/wav が Stub にある
-    installHappyDriveFetchStub();
-    const request = new Request(`https://worker.example${episodePath(episodeId)}`);
-
-    // When: Worker HTTP 入口へ 1件 GET
-    const response = await workerEntry.fetch(request, driveEnv);
-
-    // Then: 入口から get episode 成功が見える（下位 mapping の全 field 一致はしない）
-    expect(response.status).toBe(200);
-    const body: unknown = await response.json();
-    const parsed = GetEpisodeResponseSchema.safeParse(body);
-    expect(parsed.success).toBe(true);
-    if (!parsed.success) {
-      return;
-    }
-    expect(parsed.data.episodeId).toBe(episodeId);
+    expect(parsed.data.episodes[0]?.body.opening).toBe("開始");
     expect(textOmitsSensitiveValues(JSON.stringify(body))).toBe(true);
   });
 

@@ -10,7 +10,6 @@ export type PlaybackRpcClientDeps = {
 
 export type PlaybackRpcClient = {
   listEpisodes(): Promise<Response>;
-  getEpisode(episodeId: string): Promise<Response>;
 };
 
 /**
@@ -19,7 +18,7 @@ export type PlaybackRpcClient = {
  *
  * @require deps.baseUrl は worker の origin。末尾の `/` は有無どちらでもよい
  * @require deps.fetch は Fetch API 互換の呼び出し
- * @ensure listEpisodes / getEpisode は throw しうる Response 取得を返す
+ * @ensure listEpisodes は throw しうる Response 取得を返す
  */
 export function createPlaybackRpcClient(deps: PlaybackRpcClientDeps): PlaybackRpcClient {
   const client = hc<AppType>(deps.baseUrl, {
@@ -29,12 +28,6 @@ export function createPlaybackRpcClient(deps: PlaybackRpcClientDeps): PlaybackRp
   return {
     listEpisodes() {
       return client.episodes.$get();
-    },
-    getEpisode(episodeId: string) {
-      // why: Hono RPC は param を encode しない。wire は contracts `episodePath` と一致させる
-      return client.episodes[":episodeId"].$get({
-        param: { episodeId: encodeURIComponent(episodeId) },
-      });
     },
   };
 }

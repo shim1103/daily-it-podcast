@@ -11,7 +11,7 @@ const validateManuscript = ajv.compile(manuscriptJsonSchema);
  * `safeParse` の戻り値。`success` を判別子とする discriminated union。
  *
  * why: `success: false` は理由（zod の `error` 相当）を持たない。呼び出し側（検証層の
- * listEpisodes / getEpisode 経路）は不適合の理由を使わず、除外または EpisodeContentError への
+ * listEpisodes 経路）は不適合の理由を使わず、除外または EpisodeContentError への
  * 変換をするだけなので、失敗理由は保持しない。
  */
 type ManuscriptParseResult = { success: true; data: EpisodeManuscript } | { success: false };

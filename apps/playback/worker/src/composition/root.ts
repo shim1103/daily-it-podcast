@@ -1,12 +1,9 @@
-import type { GetEpisodeResponse, ListEpisodesResponse } from "../../../contracts/index.ts";
+import type { ListEpisodesResponse } from "../../../contracts/index.ts";
 import type { EpisodeRepository } from "../application/ports/episode-repository.ts";
-import { getEpisode } from "../application/use-cases/get-episode.ts";
-import { getEpisodeAudio } from "../application/use-cases/get-episode-audio.ts";
+import { getAudio } from "../application/use-cases/get-audio.ts";
 import { listEpisodes } from "../application/use-cases/list-episodes.ts";
-import type { GetEpisodeAudioController } from "../controllers/get-episode-audio-controller.ts";
-import { createGetEpisodeAudioController } from "../controllers/get-episode-audio-controller.ts";
-import type { GetEpisodeController } from "../controllers/get-episode-controller.ts";
-import { createGetEpisodeController } from "../controllers/get-episode-controller.ts";
+import type { GetAudioController } from "../controllers/get-audio-controller.ts";
+import { createGetAudioController } from "../controllers/get-audio-controller.ts";
 import type { ListEpisodesController } from "../controllers/list-episodes-controller.ts";
 import { createListEpisodesController } from "../controllers/list-episodes-controller.ts";
 import { GoogleDriveEpisodeRepository } from "../infrastructure/drive/google-drive-episode-repository.ts";
@@ -23,8 +20,7 @@ export { PlaybackRuntimeConfigError } from "./runtime-config-error.ts";
 
 export type PlaybackControllers = {
   listEpisodesController: ListEpisodesController;
-  getEpisodeController: GetEpisodeController;
-  getEpisodeAudioController: GetEpisodeAudioController;
+  getAudioController: GetAudioController;
 };
 
 /**
@@ -35,8 +31,7 @@ export type PlaybackControllers = {
 export type PlaybackUseCaseOverrides = {
   useCases: {
     listEpisodes: () => Promise<ListEpisodesResponse>;
-    getEpisode: (episodeId: string) => Promise<GetEpisodeResponse>;
-    getEpisodeAudio: (episodeId: string) => Promise<Uint8Array>;
+    getAudio: (episodeId: string) => Promise<Uint8Array>;
   };
 };
 
@@ -98,8 +93,7 @@ export function createPlaybackControllers(
     const { useCases } = useCaseOverrides;
     return {
       listEpisodesController: createListEpisodesController(useCases.listEpisodes),
-      getEpisodeController: createGetEpisodeController(useCases.getEpisode),
-      getEpisodeAudioController: createGetEpisodeAudioController(useCases.getEpisodeAudio),
+      getAudioController: createGetAudioController(useCases.getAudio),
     };
   }
 
@@ -108,11 +102,6 @@ export function createPlaybackControllers(
   const { repository } = selection;
   return {
     listEpisodesController: createListEpisodesController(() => listEpisodes(repository)),
-    getEpisodeController: createGetEpisodeController((episodeId) =>
-      getEpisode(repository, episodeId),
-    ),
-    getEpisodeAudioController: createGetEpisodeAudioController((episodeId) =>
-      getEpisodeAudio(repository, episodeId),
-    ),
+    getAudioController: createGetAudioController((episodeId) => getAudio(repository, episodeId)),
   };
 }
