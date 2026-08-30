@@ -9,7 +9,14 @@ const episode: EpisodeListItemData = {
   date: "2026-08-17",
   title: "題1",
   durationSec: 60,
-  topics: [{ title: "小題A" }, { title: "小題B" }],
+  body: {
+    opening: "開始",
+    topics: [
+      { title: "小題A", preface: "前A", detail: "詳A", startSec: 0 },
+      { title: "小題B", preface: "前B", detail: "詳B", startSec: 30 },
+    ],
+    closing: "終了",
+  },
   audioRef: "/episodes/ep-1/audio",
 };
 
@@ -52,11 +59,11 @@ describe("EpisodeListItem", () => {
   });
 
   it("topics が空の時は topics 行を描画しない", () => {
-    // Given: topics が空の episode
+    // Given: body.topics が空の episode（component 単体の表示分岐）
     const onSelect = vi.fn();
     const { container } = render(
       createElement(EpisodeListItem, {
-        episode: { ...episode, topics: [] },
+        episode: { ...episode, body: { ...episode.body, topics: [] } },
         episodeCount: 1,
         episodeIndex: 0,
         onSelect,

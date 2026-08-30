@@ -22,10 +22,6 @@ function SelectedEpisodeDetail({
   onSeek: (startSec: number) => void;
   audioElementRef: RefObject<HTMLAudioElement | null>;
 }): ReactElement {
-  if (selectedEpisode.status === "loading") {
-    return <div className="episode-detail" data-episode-detail-loading="" />;
-  }
-
   if (selectedEpisode.status === "error") {
     return <div className="episode-detail" data-episode-detail-error="" />;
   }
