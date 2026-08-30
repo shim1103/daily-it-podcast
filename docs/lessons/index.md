@@ -69,3 +69,7 @@
 - 2026-08-30 [docs/playback-integration-e2e-plan] Decision の「1判断1ファイル」は1つの問いへの1答えであり、議論の論点番号をそのまま1 fileへ機械写経する規則ではない。同じ問いの側面は1 file内の複数箇条で足り、細分化しすぎると Reason/Rejected が薄くなり地図が壊れる  # → layer:meta
 - 2026-08-30 [docs/playback-integration-e2e-plan] GitHub Actions の Secrets/Variables は登録しただけでは job の process.env に出ない。workflow の env 写像が必要。JSON 本文の Secret を Playwright storageState の path 設定へ渡すときは、step で file へ書き出してから path を env にする  # → layer:platform
 - 2026-08-30 [docs/playback-integration-e2e-plan] edge の入場認証（例: メール OTP）と、server 側の外部 API 認可（例: OAuth refresh）は別境界。browser E2E が後者のログイン画面を操作する必要はなく、前者の毎回自動化も必須ではない  # → layer:terms
+- 2026-08-30 [feature/playback-narrow-integration-gdrive] Composition を通す Broad Integration で use case override を使うと repository 解決を迂回する。真外部だけを double し、設定充足で production 結線を通すのが一般形  # → layer:terms
+- 2026-08-30 [feature/playback-narrow-integration-gdrive] Broad の成功観測は status・契約 schema・配線を示す代表値に留め、下位 Scope が所有する mapping 完全一致を再 assert しない  # → layer:terms
+- 2026-08-30 [feature/playback-narrow-integration-gdrive] Adapter が本番 host を定数に持つ Narrow では、host rewrite 後の実 fetch + local listener が DialTLS 相当になる。即 Response 合成は Sociable Unit と同型  # → layer:platform
+- 2026-08-30 [feature/playback-narrow-integration-gdrive] issue-manager の no-arg は branch 名対応 file の解決規則であり、明示 path で別達成契約を同じ branch で続けてよい。同時に複数 issue file を編集し続けることとは別  # → layer:workflow
