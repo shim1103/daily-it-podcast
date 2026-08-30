@@ -21,8 +21,8 @@ type ProduceEpisode struct {
 }
 
 // TextWriterMaxAttempts は ManuscriptDraft 検証失敗時の TextWriter 再試行上限。
-// LLM 出力の rune 数揺れを吸収する。無限 retry を防ぐ。
-const TextWriterMaxAttempts = 3
+// LLM 出力の rune 数・topic 数揺れを吸収する。無限 retry を防ぐ。
+const TextWriterMaxAttempts = 5
 
 // NewProduceEpisode は Fetch から WriteEpisode までを束ねる Builder UseCase を返す。
 //
@@ -133,7 +133,7 @@ func (uc *ProduceEpisode) writeManuscriptDraft(ctx context.Context, brief string
 		}
 		lastErr = err
 		attemptBrief = brief + "\n\n# Previous attempt rejected\n" + err.Error() +
-			"\n上記をすべて満たすよう field の文字数を直し、JSON オブジェクトのみを出力せよ。\n"
+			"\n上記の検証失敗をすべて解消せよ。topics 件数・各 field 文字数・日本語・末尾句点を満たし、JSON オブジェクトのみを出力せよ。\n"
 	}
 	return models.ManuscriptDraft{}, lastErr
 }
