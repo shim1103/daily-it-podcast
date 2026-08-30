@@ -2,9 +2,9 @@
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import { DriveError } from "../worker/src/infrastructure/drive/drive-error.ts";
-import { GoogleDriveEpisodeRepository } from "../worker/src/infrastructure/drive/google-drive-episode-repository.ts";
-import { validAudioBytes } from "../worker/src/test/fixtures/audio-bytes.ts";
+import { DriveError } from "../../worker/src/infrastructure/drive/drive-error.ts";
+import { GoogleDriveEpisodeRepository } from "../../worker/src/infrastructure/drive/google-drive-episode-repository.ts";
+import { validAudioBytes } from "../../worker/src/test/fixtures/audio-bytes.ts";
 
 /**
  * scope: Narrow Integration
