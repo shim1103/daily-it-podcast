@@ -66,7 +66,7 @@ contracts/               # Drive 上の表現（SSOT）
 3. **Playback local:** `cd apps/playback && npm ci && npm run dev`（Node は `.nvmrc`）
 4. **generator:** Go は `apps/generator/go.mod`。`golangci-lint` を PATH へ
 5. **hook:** `./scripts/install-hooks.sh`
-6. **検証入口:** `./scripts/check-static.sh` / `./scripts/test-unit.sh` / `./scripts/test-integration.sh`（詳細・閾値は `DESIGN.md`、credential 付き運用は `DEPLOY.md`）
+6. **検証入口:** `./scripts/check-static.sh` / `./scripts/test-unit.sh` / `./scripts/test-integration.sh`（詳細・閾値は `DESIGN.md`、credential 付き・E2E 定時は `DEPLOY.md`）
 
 ## 受け入れ
 
