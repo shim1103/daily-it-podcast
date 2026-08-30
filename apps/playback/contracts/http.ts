@@ -27,31 +27,27 @@ const bodySchema = z.strictObject({
   closing: z.string(),
 });
 
-const listTopicSchema = z.strictObject({
-  title: titleSchema,
-});
-
-const episodeListItemSchema = z.strictObject({
+export const episodeItemSchema = z.strictObject({
   episodeId: episodeIdSchema,
   date: dateSchema,
   title: titleSchema,
   durationSec: durationSecSchema,
-  topics: z.array(listTopicSchema),
+  body: bodySchema,
   audioRef: z.string().min(1),
 });
 
 export const listEpisodesPath = "/episodes" as const;
 
-/** Hono route template。1件 JSON の path パラメータ付き。 */
+/** Hono route template。音声 GET の path パラメータ付き（`:episodeId` 段）。 */
 export const episodeRoutePath = `${listEpisodesPath}/:episodeId` as const;
 
 /** Hono route template。音声 GET の path パラメータ付き。 */
 export const episodeAudioRoutePath = `${episodeRoutePath}/audio` as const;
 
 /**
- * 1件 JSON の HTTP path。音声バイトの path ではない。
+ * episodeId を含む path 段。音声 GET の親 path として使う。
  *
- * @require episodeId は空でない（GetEpisodeRequest.episodeId）
+ * @require episodeId は空でない
  * @ensure listEpisodesPath の後に path 段が 1 つだけ増える
  */
 export function episodePath(episodeId: string): string {
@@ -61,7 +57,7 @@ export function episodePath(episodeId: string): string {
 /**
  * 音声 GET の path。成功時の body は `audio/wav` のバイト列であり JSON ではない。
  *
- * @require episodeId は空でない（GetEpisodeRequest.episodeId）
+ * @require episodeId は空でない
  * @ensure episodePath の後に `audio` 段が 1 つ続く
  */
 export function episodeAudioPath(episodeId: string): string {
@@ -72,27 +68,19 @@ export function episodeAudioPath(episodeId: string): string {
 export const episodeAudioContentType = "audio/wav";
 
 export const ListEpisodesResponseSchema = z.strictObject({
-  episodes: z.array(episodeListItemSchema),
+  episodes: z.array(episodeItemSchema),
 });
 
-export const GetEpisodeRequestSchema = z.strictObject({
+/** 音声 GET 等、path パラメータ episodeId の入力契約。 */
+export const EpisodeIdRequestSchema = z.strictObject({
   episodeId: episodeIdSchema,
-});
-
-export const GetEpisodeResponseSchema = z.strictObject({
-  episodeId: episodeIdSchema,
-  date: dateSchema,
-  title: titleSchema,
-  durationSec: durationSecSchema,
-  body: bodySchema,
-  audioRef: z.string().min(1),
 });
 
 export const ErrorResponseSchema = z.strictObject({
   code: z.enum(playbackHttpErrorCodes),
 });
 
+export type EpisodeItem = z.infer<typeof episodeItemSchema>;
 export type ListEpisodesResponse = z.infer<typeof ListEpisodesResponseSchema>;
-export type GetEpisodeRequest = z.infer<typeof GetEpisodeRequestSchema>;
-export type GetEpisodeResponse = z.infer<typeof GetEpisodeResponseSchema>;
+export type EpisodeIdRequest = z.infer<typeof EpisodeIdRequestSchema>;
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
