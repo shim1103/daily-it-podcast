@@ -74,11 +74,15 @@ func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models
 }
 
 func retryDelay(attempt int) time.Duration {
-	// why: 公式 troubleshooting の exponential backoff（1s, 2s, 4s…）に合わせる。
+	// why: 公式は exponential。System の 429 対策で base を 20s にし上限を 2m にする。
 	if attempt < 1 {
 		attempt = 1
 	}
-	return time.Second << (attempt - 1)
+	d := retryBackoffBase << (attempt - 1)
+	if d > retryBackoffMax || d <= 0 {
+		return retryBackoffMax
+	}
+	return d
 }
 
 func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]byte, bool, error) {
