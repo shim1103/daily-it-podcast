@@ -16,7 +16,7 @@ Playback (Vite + TypeScript + React + Cloudflare)
   Access → UI → Workers（Hono、Drive 読取の代理）
 ```
 
-旧実装は `archive/2026-08-15-pre-rewrite` に凍結。本流は Playback + Generator へ作り直し。
+2026-08-15 以降の **Playback + Generator** が本流。それ以前の mock MVP 文書・実装は削除済み（rewrite 起点: `2631c16`）。
 
 ## 技術選定
 
@@ -43,21 +43,24 @@ contracts/               # Drive 上の表現（SSOT）
 
 | 知りたいこと | 正本 |
 |------|------|
-| 層・依存・test 配置 | `DESIGN.md` |
+| 層・依存・test 配置・error 3 層 | `DESIGN.md` |
 | deploy・Access・GHA 運用・secret 登録 | `DEPLOY.md` |
 | Drive のファイル契約 | `contracts/` |
 | Playback HTTP 契約 | `apps/playback/contracts/` |
 | 未完了 index | `docs/tasks/todo/*-lane.md` |
 | 再発する判断 | `docs/decisions/` |
+| 全体図 | `docs/diagrams/architecture.mmd` |
 
 ## Branch
 
 | branch | 役割 |
 |--------|------|
-| `develop` | base |
-| `master` | release |
+| **`develop`** | **SSOT**（実装・doc・workflow の正本。PR の base） |
+| `master` | release（shim が `develop` から merge） |
 
-`feature/*` → PR（base: `develop`）→ `master` は shim が release。
+`feature/*` → PR（base: **`develop`**）→ `master` は shim が release。
+
+GitHub の default branch を `develop` にすること（`workflow_dispatch` と定時 workflow の正本）。
 
 ## 使い方
 
@@ -70,6 +73,7 @@ contracts/               # Drive 上の表現（SSOT）
 
 ## 受け入れ
 
+- [x] GHA 本番 Secret / Variable 登録済（Generator produce・Playback E2E。`DEPLOY.md`）
 - [ ] Access 入場は `DEPLOY.md` の Verification を満たす
 - [ ] Generator 成功後、Playback で一覧・再生・原稿表示できる
 - [ ] Drive 上の形は `contracts/` に従う

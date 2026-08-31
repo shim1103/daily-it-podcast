@@ -1,6 +1,6 @@
 # DEPLOY
 
-最終更新: 2026-08-31
+最終更新: 2026-08-31（本番・`TEST_*`・`PLAYWRIGHT_*` の GHA 登録済）
 
 **運用 SSOT**（Playback・Generator の継続運用）。地図は `README.md`、層規則は `DESIGN.md`。Reason / Rejected は `docs/decisions/`。進捗は `docs/tasks/todo/*-lane.md`。
 
@@ -65,10 +65,11 @@ process env の正本は `apps/generator/internal/config/names.go`。`GENERATOR_
 
 GitHub Actions（Settings → Secrets and variables → Actions）:
 
-| 用途 | 登録名 |
-|------|------|
-| 本番 | process env と同名 |
-| test（System） | `TEST_` + 同名 |
+| 用途 | 登録名 | 状態 |
+|------|------|------|
+| 本番 | process env と同名 | **登録済**（2026-08-31） |
+| test（System） | `TEST_` + 同名 | 未（System suite 実装後） |
+| Playback E2E | `PLAYWRIGHT_*`（§5 表） | **登録済**（2026-08-31） |
 
 workflow が test 登録名を process env 名へ写す。Generator は `TEST_` を知らない。判断: `docs/decisions/2026-08-30T12-49-00`。
 
@@ -84,9 +85,9 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 
 必須 Unit / Integration gate には載せない。判断: `docs/decisions/2026-08-30T12-49-01` / `2026-08-30T16-20-00` / `2026-08-30T16-20-03`。
 
-暦日は JST 運用に合わせる。`ProduceEpisode.Run` 未完の間、本番 produce 定時は失敗しうる。
+暦日は JST 運用に合わせる。
 
-workflow file を Actions で `workflow_dispatch` するには、**default branch にその yml があること**が必要。
+workflow file を Actions で `workflow_dispatch` するには、**default branch にその yml があること**が必要。正本 branch は `develop`（`README.md` § Branch）。
 
 ### Playback E2E（`PLAYWRIGHT_*`）
 

@@ -1,8 +1,10 @@
 # DESIGN
 
-最終更新: 2026-08-30
+最終更新: 2026-08-31
 
 地図・使い方・受け入れは `README.md`。deploy・Access・GHA 運用・secret 登録は `DEPLOY.md`。Drive 表現は `contracts/`。本書は **層・依存・所有・test 配置の規則**だけを書く。
+
+**正本 branch:** `develop`（`master` は release のみ。判断・実装・doc の SSOT は `develop`）。
 
 ## 1. システム境界
 
@@ -70,13 +72,27 @@ repo 根 `contracts/` は Drive 表現の SSOT。`apps/playback/contracts/`（HT
 
 ブラウザに Drive credential を置かない。注入の運用は `DEPLOY.md`。
 
-## 4. 認証の層所有
+## 4. Error 表現（generator 3 層）
+
+PR #79 で Domain / Config / Infra を対称化済み。各層は **1 型 + 層専用 helper**（`DomainErr` / `configErr` / `infraErr`）。`Error()` は `"<層 prefix>: <識別子>: <詳細>"` の 3 段。
+
+| 層 | package | 型 | 識別子 field | helper |
+|----|---------|-----|--------------|--------|
+| Domain | `internal/entities/errors` | `Error{Op, Err}` | `Op`（定数化） | `DomainErr(op, err)` |
+| Config | `internal/config` | `Error{Key, Kind}` | `Key` / `Kind`（定数化） | `configErr(key, kind)` |
+| Infra | 各 `internal/infrastructure/*` | `Error{Op, Err}` | `Op` | `infraErr(op, err)` |
+
+- Domain / Use Case は panic を投げない（到達不能枝を除く）。内部前提違反も `DomainErr` で返す。
+- Infra の prefix は package 名（例: `getxapi:`）。Application は Infra 型を import しない。
+- Playback worker の HTTP error は `apps/playback/contracts/` と route 層が所有（generator 3 層とは別系統）。
+
+## 5. 認証の層所有
 
 - UI 入場・hostname・Access は `DEPLOY.md`
 - アプリ内マルチテナント OAuth は作らない
 - Drive credential は worker / generator の Infrastructure が持つ（Web は持たない）
 
-## 5. Test 配置
+## 6. Test 配置
 
 分類・FIRST・最小化の正: [testing-strategy](file:///Users/shim0729/.claude/skills/testing-strategy/SKILL.md)（naming / levels 含む）。
 
