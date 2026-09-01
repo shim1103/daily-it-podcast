@@ -84,9 +84,9 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 
 必須 Unit / Integration gate には載せない。判断: `docs/decisions/2026-08-30T12-49-01` / `2026-08-30T16-20-00` / `2026-08-30T16-20-03`。
 
-暦日は JST 運用に合わせる。`ProduceEpisode.Run` 未完の間、本番 produce 定時は失敗しうる。
+暦日は JST 運用に合わせる。
 
-workflow file を Actions で `workflow_dispatch` するには、**default branch にその yml があること**が必要。
+workflow file を Actions で `workflow_dispatch` するには、**default branch（`develop`）にその yml があること**が必要。
 
 ### Playback E2E（`PLAYWRIGHT_*`）
 

@@ -16,8 +16,6 @@ Playback (Vite + TypeScript + React + Cloudflare)
   Access → UI → Workers（Hono、Drive 読取の代理）
 ```
 
-旧実装は `archive/2026-08-15-pre-rewrite` に凍結。本流は Playback + Generator へ作り直し。
-
 ## 技術選定
 
 | 役割 | 選定 |
@@ -54,7 +52,7 @@ contracts/               # Drive 上の表現（SSOT）
 
 | branch | 役割 |
 |--------|------|
-| `develop` | base |
+| `develop` | SSOT |
 | `master` | release |
 
 `feature/*` → PR（base: `develop`）→ `master` は shim が release。
