@@ -16,9 +16,11 @@ rewrite 以前の mock MVP 文書（`docs/SPEC` 系・旧 `docs/DESIGN`・旧 ar
 2. README から archive 行を除去し、branch 表の `develop` を SSOT とした。
 3. DEPLOY から `ProduceEpisode.Run` 未完の stale 行を削除し、`workflow_dispatch` の default branch を `develop` と明記した。
 4. `generator-lane.md` の済み項目（error 3 層・本番 produce workflow）を要約へ移し、未完了は System のみ残した。
+5. Decision 3 本（history 改変非同梱・README 地図の archive 非掲載・DEPLOY caveat 削除方針）と lessons 4 行を追補した。
 
 ### Commits
 
 - `581d7f0`
 - `07379fc`
 - `a3fe7d6`
+- `bf4c462`（初回 log。decisions/lessons 追補は次 commit）
