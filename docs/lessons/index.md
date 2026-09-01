@@ -88,3 +88,4 @@
 - 2026-08-31 [drafts-playback-ops-ssot] GitHub Actions の workflow_dispatch 対象は default branch に yml があるものに限る。integration branch だけに置いても API/UI から見えない  # → layer:platform
 - 2026-08-31 [drafts-playback-ops-ssot] 共通祖先のない2 branch は通常 PR で合流できない。workflow 載せるだけなら default 由来の薄い branch、全量なら unrelated-histories merge か default 切替を選ぶ  # → layer:workflow
 - 2026-08-31 [drafts-playback-ops-ssot] 達成契約が実質完了したら checkbox 放置より file 削除と進捗 index 縮約の方が、次 session が「まだ未完」と誤読しにくい  # → layer:workflow
+- 2026-09-01 [cursor-docs-ssot-develop-cleanup-9567] obsolete 文書の整理は通常 merge で足りる。git history 改変を同梱すると review 負荷と拒否リスクが上がる  # → layer:workflow
