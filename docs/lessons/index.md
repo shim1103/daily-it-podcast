@@ -89,3 +89,7 @@
 - 2026-08-31 [drafts-playback-ops-ssot] 共通祖先のない2 branch は通常 PR で合流できない。workflow 載せるだけなら default 由来の薄い branch、全量なら unrelated-histories merge か default 切替を選ぶ  # → layer:workflow
 - 2026-08-31 [drafts-playback-ops-ssot] 達成契約が実質完了したら checkbox 放置より file 削除と進捗 index 縮約の方が、次 session が「まだ未完」と誤読しにくい  # → layer:workflow
 - 2026-09-01 [cursor-docs-ssot-develop-cleanup-9567] obsolete 文書の整理は通常 merge で足りる。git history 改変を同梱すると review 負荷と拒否リスクが上がる  # → layer:workflow
+- 2026-09-01 [cursor-docs-ssot-develop-cleanup-9567] 既存 Decision で却下済みの文書形（PROPOSAL/SPEC 等）が物理的に残っていたら、新 Decision を増やさず削除実施として daily に書き、方針は先行 Decision を参照する  # → layer:meta
+- 2026-09-01 [cursor-docs-ssot-develop-cleanup-9567] README 地図に rewrite/archive 履歴を書くと、現行 DESIGN・contracts より旧文書へ読者が迷い込む。凍結は git tag に任せ、地図は latest のみ  # → layer:meta
+- 2026-09-01 [cursor-docs-ssot-develop-cleanup-9567] 運用 SSOT（DEPLOY 等）の「未実装 caveat」は実装到達後に消す。lane index と矛盾する注意書きを残すと、どちらが正かが二重になる  # → layer:workflow
+- 2026-09-01 [cursor-docs-ssot-develop-cleanup-9567] log-session では daily だけでなく、session で新たに固定した方針（history 改変しない・地図から archive を外す等）を Decision に落とし、再発防止の一般則を lessons へ layer 分割して追記する  # → layer:workflow
