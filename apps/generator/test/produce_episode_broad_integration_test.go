@@ -15,8 +15,6 @@ import (
 )
 
 func TestProduceEpisodeBroadIntegration_uploadsEpisodeArtifactsOnce_whenAllProductionAdaptersSucceed(t *testing.T) {
-	t.Skip("C: 3 情報源（HackerNews/Lobsters/ITmedia）の upstream double を integration_support_test.go の compositeItemSource へ結線し、List 実装後に有効化する")
-
 	// Given: 全 production Adapter が success double へ接続された合成 UseCase
 	h := newBroadProduceEpisodeHarness(t, broadProduceEpisodeConfig{})
 	wantSynth := integrationSynthesizeCallCount(broadIntegrationTopicCount)
@@ -33,7 +31,7 @@ func TestProduceEpisodeBroadIntegration_uploadsEpisodeArtifactsOnce_whenAllProdu
 
 func TestProduceEpisodeBroadIntegration_returnsNoSourceItemsWithoutDownstreamCalls_whenFetchReturnsEmpty(t *testing.T) {
 	// Given: 情報源が 0 件を返す合成 UseCase
-	h := newBroadProduceEpisodeHarness(t, broadProduceEpisodeConfig{})
+	h := newBroadProduceEpisodeHarness(t, broadProduceEpisodeConfig{emptySources: true})
 
 	// When: Run する
 	err := h.uc.Run(context.Background(), integrationTestFixedNow)
@@ -48,8 +46,6 @@ func TestProduceEpisodeBroadIntegration_returnsNoSourceItemsWithoutDownstreamCal
 }
 
 func TestProduceEpisodeBroadIntegration_writesNothing_whenTextWriterFails(t *testing.T) {
-	t.Skip("C: 3 情報源（HackerNews/Lobsters/ITmedia）の upstream double を integration_support_test.go の compositeItemSource へ結線し、List 実装後に有効化する")
-
 	// Given: fake Cursor agent が exit 1 する合成 UseCase
 	h := newBroadProduceEpisodeHarness(t, broadProduceEpisodeConfig{cursorFail: true})
 
@@ -65,8 +61,6 @@ func TestProduceEpisodeBroadIntegration_writesNothing_whenTextWriterFails(t *tes
 }
 
 func TestProduceEpisodeBroadIntegration_writesNothing_whenSynthesizeFails(t *testing.T) {
-	t.Skip("C: 3 情報源（HackerNews/Lobsters/ITmedia）の upstream double を integration_support_test.go の compositeItemSource へ結線し、List 実装後に有効化する")
-
 	// Given: Gemini が 2 回目で 400 を返す合成 UseCase
 	h := newBroadProduceEpisodeHarness(t, broadProduceEpisodeConfig{geminiFailAt: 2})
 
