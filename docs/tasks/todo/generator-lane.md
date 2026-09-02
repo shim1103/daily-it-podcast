@@ -14,8 +14,8 @@
 
 1. [ ] System — `generator-system.yml`。suite 本体・`TEST_*` 登録
 2. [ ] 情報源3 Adapter（Decision `2026-09-02T14-41-00` 系）。依存順は各 task file の Dependencies を正とする
-   1. [ ] `generator-hackernews-adapter.md`
-   2. [ ] `generator-lobsters-adapter.md`
+   1. [x] HackerNews Adapter（PR #112 merge 済み）
+   2. [x] Lobsters Adapter（本 branch）
    3. [ ] `generator-itmedia-adapter.md`
    4. [ ] `generator-source-adapters-wiring.md`（上3本の後）
 
