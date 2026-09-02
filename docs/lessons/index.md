@@ -1,5 +1,7 @@
 # lessons
 
+- 2026-09-02 [feature/playback-list-episodes-audio-ref] project Decision は 1 判断 1 file だが、「同じ軸で束ねる」は同一問いの側面に限る。一般 frontend 規則（derive・hook 分割原則）と domain 固有直交（selection⊥playback）を 1 Decision に混ぜると SRP と decisions.md §4-5 を同時に破る。非依存は skill / A へ、依存は project B へ分離する  # → layer:workflow
+- 2026-09-02 [feature/playback-list-episodes-audio-ref] A 契約固定時点で component / lib / view-model に sociable_unit test を置くと、coverage gate を通しつつ C で TDD 着手できる。stub でも export と最小 render / hook smoke を test 化する  # → layer:terms
 - 2026-08-30 [feature/generator-cursorcli-narrow-integration] Sociable Unit から Narrow へ実プロセス／実 I/O 境界の観測を移すと、その production code は SU では原理的に到達できなくなる。Unit coverage を「Unit test だけで計測」する gate だと、移した分がそのまま計測分母から抜けて閾値割れを起こす。coverage は SU + Narrow Integration の合算で production code に対して測るのが一般形。Broad Integration 以上（結線・状態伝播が対象で行を初めて通す test ではない）は分母に入れない  # → layer:terms
 - 2026-08-30 [feature/generator-cursorcli-narrow-integration] 「gate の実行対象を分ける」判断（どの test を CI で走らせるか・secret を持たせるか）と「coverage の計測分母を決める」判断は別軸。前者の Decision（例: Integration gate は secret なし Narrow のみ）を後者の根拠に流用しない。走ってよい test の実行結果を coverage 集計へ算入することは、実行対象を増やすことではない  # → layer:terms
 - 2026-08-30 [feature/generator-cursorcli-narrow-integration] coverage 閾値割れの対処で「その package を除外リストへ追加」を選ぶ前に、除外方針（実行環境で動かない・framework runtime 依存・外部 service wrapper で実通信必須）に本当に該当するか照合する。実ロジック（環境構築・変換等）を持ち test 環境で実行可能な package を除外すると、そのロジックのバグが gate をすり抜ける。閾値を下げるのも同じく検出力を数値に合わせる操作で不可  # → layer:terms
