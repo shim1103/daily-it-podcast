@@ -19,9 +19,14 @@ scope-split A で stub のまま残っていた `infrastructure/hackernews` の 
 5. shim レビュー R2 GWT（RTFM）: `item_source_sociable_unit_test.go` 20 関数（サブテスト含む）と `hackernews_narrow_integration_test.go` 2 関数で、`// @when` が説明句付き（gwt.md 規則3）、`// @then` が期待結果の散文（規則13/14）だった。When ブロックを対象呼び出し1行へ、Then コメントを構造ラベル（「戻り値と error」等）へ全件是正。
 6. 検証: generator は build/vet/gofmt/golangci-lint(depguard) 0 issues、hackernews package SU 20/20、Narrow 2/2、`go test ./...` 全緑（broad integration 3 SKIP は別 task 担当）、generator unit coverage 91.9%。commit 前に playback toolchain（node@22 を PATH 先頭へ置いて npm install）を両系統 install し、pre-commit / pre-push hook を実際に緑で通した。
 7. `npm install` が worktree の dir 名を拾って `package-lock.json` の `name` を書き換えた副産物を手で HEAD 値へ戻し、commit 対象から除外。
-8. pr-completion: `commit --repo --split`（2 commit）→ `log-session` → `create-pr`（`gh pr` で base `develop`）。
+8. pr-completion: `commit --repo --split`（2 commit）→ `log-session` → `create-pr`。log-session commit（`be33691`）とその push は playback toolchain（node@22 を PATH 先頭へ置いて npm install）を両系統 install したうえで pre-commit / pre-push hook を実際に緑で通した。PR は素の `gh pr create`（`shim gh` wrapper は使わない）で base `develop` へ作成。#112。MERGEABLE、CI（static-and-unit / integration）実行中。AgentReview check は無し。GitHub Issue は無く（scope-split C は task file 起票のみ）、PR は関連 Issue なしで作成。
 
 ### Commits
 
 - `9d0a01a` feat(generator): HackerNews ItemSource Adapter の List を実装する
 - `5b7f77d` docs(generator): hackernews task を完了とし lobsters/itmedia へ申し送りを残す
+- `be33691` docs(log): セッションログ
+
+### PR
+
+- #112 → base `develop`（README の branch 方針）。https://github.com/shim1103/daily-it-podcast/pull/112
