@@ -11,8 +11,8 @@ ViewModel 本実装（`playback-web-view-models`）完了後に着手する。�
 ## 3. Canonical Sources
 
 - UI 責務配置 — `docs/decisions/2026-09-02T15-00-00-feature-playback-list-episodes-audio-ref-playback-web-selection-playback-orthogonality.md`
-- 1 page 前提 — `docs/decisions/2026-08-25T05-10-48-feature-playback-ui-structure`
-- 視覚言語 — `docs/decisions/2026-08-28T19-20-01-docs-playback-list-page-design`
+- 1 page 前提 — `docs/decisions/2026-08-25T05-10-48-feature-playback-ui-structure.md`
+- 視覚言語 — `docs/decisions/2026-08-28T19-20-01-docs-playback-list-page-design.md`
 - component 契約 — `apps/playback/web/src/components/feature/episode-row.tsx` 他
 - page compose — `apps/playback/web/src/view-models/use-episode-list-page.ts`
 - Feature 層 — `architecture/frontend/feature-component.md`
