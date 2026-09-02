@@ -1,6 +1,9 @@
-//go:build system
+//go:build system && full
 
-// Scope: System
+// Scope: System（full run）
+// full は課金枠前提。1 run で日次 RPD を数十消費する（Cursor draft + TTS topic+2 束 + Drive）。
+// 既定 gate（scripts/generator/test-system.sh の -tags=system）では compile されず走らない。
+// 課金枠と潤沢な RPD がある時に手動で `-tags="system full"` 実行する（Decision 2026-09-02T13-57-00）。
 // 実物: cmd/generator 入口 → GetX / Cursor CLI / Gemini / OAuth+Drive 出口
 // Double: なし（test 専用 credential。実行場所は GHA）
 // @require process env に config 契約の全 key がある。DRIVE_FOLDER_ID は test 専用 folder。Fetch 窓内に SourceItem ≥1。Cursor CLI の `agent` が PATH で解決できる。

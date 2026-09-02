@@ -37,8 +37,9 @@ import (
 const (
 	broadIntegrationTopicCount = constants.DraftTopicCountMin
 
-	// integrationTTSFixedSegmentCount は TTS 順の固定 segment 数（Greeting + Intro + Summary + Farewell）。
-	integrationTTSFixedSegmentCount = 4
+	// integrationTTSFixedSegmentCount は TTS 束の固定 segment 数（greeting+intro 束 / closingSummary+farewell 束）。
+	// SpeechTexts が topic+2 束を返すため（Decision 2026-09-02T13-55-00）。
+	integrationTTSFixedSegmentCount = 2
 
 	broadDummyGetXAPIKey        = "broad-getxapi-dummy-key-value"
 	broadDummyCursorKey         = "broad-cursor-dummy-key-value"
@@ -155,7 +156,7 @@ func buildIntegrationWireJSON(topicCount int) string {
 }
 
 func integrationSynthesizeCallCount(topicCount int) int {
-	return integrationTTSFixedSegmentCount + 2*topicCount
+	return integrationTTSFixedSegmentCount + topicCount
 }
 
 func assertIntegrationSecretsNotLeaked(t *testing.T, err error) {

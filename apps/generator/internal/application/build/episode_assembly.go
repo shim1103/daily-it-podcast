@@ -9,31 +9,42 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
-// speechSegmentsBeforeTopics は topic 群より前に来る固定 segment 数（Greeting + Intro）。
-const speechSegmentsBeforeTopics = 2
+// speechSegmentsBeforeTopics は topic 群より前に来る固定 segment 数（Greeting+Intro を 1 本に束ねる）。
+const speechSegmentsBeforeTopics = 1
 
-// speechSegmentsPerTopic は 1 topic あたりの segment 数（Preface + Detail）。
-const speechSegmentsPerTopic = 2
+// speechSegmentsPerTopic は 1 topic あたりの segment 数（Preface+Detail を 1 本に束ねる）。
+const speechSegmentsPerTopic = 1
+
+// speechTextBundleDelimiter は束ねる 2 文の連結 delimiter。改行 1 個で TTS の自然な間を保つ。
+const speechTextBundleDelimiter = "\n"
 
 // SpeechTexts は TTS へ渡す朗読 text 列を発話順で返す。
 //
+// TTS の request 回数を無料枠 quota 内へ抑えるため、朗読 text を topic+2 束へまとめる（Decision 2026-09-02T13-55-00）。
+//
 // @require greeting は非空。farewell も非空（date 注入済みの文）。d は検証済み ManuscriptDraft。
-// @ensure 順序は Greeting, Intro, 各 topic の Preface→Detail（topic 順）, ClosingSummary, ClosingFarewell。
+// @ensure 本数は 1 + len(d.Topics) + 1。順序は次のとおり:
+//
+//	texts[0]  = greeting + "\n" + d.Intro
+//	texts[1..] = 各 topic の Preface + "\n" + Detail（topic 順）
+//	texts[末尾] = d.ClosingSummary + "\n" + farewell
 func SpeechTexts(greeting, farewell string, d models.ManuscriptDraft) []string {
-	texts := make([]string, 0, speechSegmentsBeforeTopics+speechSegmentsPerTopic*len(d.Topics)+2)
-	texts = append(texts, greeting, d.Intro)
+	texts := make([]string, 0, speechSegmentsBeforeTopics+speechSegmentsPerTopic*len(d.Topics)+1)
+	texts = append(texts, greeting+speechTextBundleDelimiter+d.Intro)
 	for _, tp := range d.Topics {
-		texts = append(texts, tp.Preface, tp.Detail)
+		texts = append(texts, tp.Preface+speechTextBundleDelimiter+tp.Detail)
 	}
-	texts = append(texts, d.ClosingSummary, farewell)
+	texts = append(texts, d.ClosingSummary+speechTextBundleDelimiter+farewell)
 	return texts
 }
 
-// Timeline は segment 尺列から各 topic の Preface 開始秒と episode 全体尺を求める。
+// Timeline は segment 尺列から各 topic 束の開始秒と episode 全体尺を求める。
 // 隣接 segment 間に constants.SegmentSilenceSec を加算する。
 //
-// @require len(segmentDurations) は SpeechTexts と同じ固定本数（speechSegmentsBeforeTopics + speechSegmentsPerTopic*topicCount + 2 = Greeting + Intro + Preface/Detail×topic + ClosingSummary + Farewell）。
-// @ensure topicStartSecs[i] は i 番目 topic の Preface segment の開始累積秒（Detail は startSec に含めない）。
+// SpeechTexts が topic+2 束を返すため、期待 segment 本数と topicStartSecs の意味も束ね後の単位に合わせる（Decision 2026-09-02T13-55-00）。
+//
+// @require len(segmentDurations) は SpeechTexts と同じ固定本数（1 + topicCount + 1 = greeting+intro 束 / 各 topic の preface+detail 束 / closingSummary+farewell 束）。
+// @ensure topicStartSecs[i] は i 番目 topic 束（Preface+Detail 連結）の開始累積秒。
 // @ensure totalDurationSec == Σ segmentDurations + SegmentSilenceSec*(len(segmentDurations)-1)。
 // @ensure segment 本数が固定本数と不一致、または topicCount < 1 のとき Domain Error（Op = inconsistent_episode_assembly）。
 func Timeline(segmentDurations []float64, topicCount int) (topicStartSecs []float64, totalDurationSec float64, err error) {
@@ -43,7 +54,7 @@ func Timeline(segmentDurations []float64, topicCount int) (topicStartSecs []floa
 			fmt.Errorf("topicCount must be >= 1, got %d", topicCount),
 		)
 	}
-	wantCount := speechSegmentsBeforeTopics + speechSegmentsPerTopic*topicCount + 2
+	wantCount := speechSegmentsBeforeTopics + speechSegmentsPerTopic*topicCount + 1
 	if n := len(segmentDurations); n != wantCount {
 		return nil, 0, domainerrors.DomainErr(
 			domainerrors.OpInconsistentEpisodeAssembly,
@@ -57,7 +68,7 @@ func Timeline(segmentDurations []float64, topicCount int) (topicStartSecs []floa
 		if i > 0 {
 			cursor += constants.SegmentSilenceSec
 		}
-		// topic i の Preface は segment index (speechSegmentsBeforeTopics + i*speechSegmentsPerTopic)。
+		// topic i の束は segment index (speechSegmentsBeforeTopics + i*speechSegmentsPerTopic)。
 		if idx := i - speechSegmentsBeforeTopics; idx >= 0 && idx%speechSegmentsPerTopic == 0 {
 			if topic := idx / speechSegmentsPerTopic; topic < topicCount {
 				starts[topic] = cursor

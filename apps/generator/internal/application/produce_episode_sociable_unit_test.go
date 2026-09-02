@@ -254,7 +254,7 @@ func TestProduceEpisodeRun_writesEpisodeWithAssembledManuscriptAndAudio_whenAllS
 	}
 }
 
-func TestProduceEpisodeRun_synthesizesSegmentsInGreetingIntroTopicsClosingOrder_whenDraftHasTopics(t *testing.T) {
+func TestProduceEpisodeRun_synthesizesTopicPlusTwoBundles_whenDraftHasTopics(t *testing.T) {
 	t.Parallel()
 
 	// Given: 複数 topic の draft
@@ -267,34 +267,30 @@ func TestProduceEpisodeRun_synthesizesSegmentsInGreetingIntroTopicsClosingOrder_
 		t.Fatalf("Run: %v", err)
 	}
 
-	// Then: Synthesize の text 列は Greeting, Intro, (Preface, Detail)×topic, ClosingSummary, ClosingFarewell の順
-	// farewell（date 注入済み）は常に末尾 1 segment。
-	wantCount := 3 + topicCount*2 + 1 // Greeting + Intro + ClosingSummary + Farewell + Preface/Detail×topic
+	// Then: Synthesize の text 列は 1 + topic 数 + 1 束。
+	// texts[0] = greeting+intro、各 topic = preface+detail、末尾 = closingSummary+farewell（いずれも改行連結）。
+	wantCount := 1 + topicCount + 1
 	if len(h.synth.texts) != wantCount {
 		t.Fatalf("Synthesize calls = %d, want %d\ntexts=%q", len(h.synth.texts), wantCount, h.synth.texts)
 	}
 
 	m := unmarshalManuscript(t, h.episw.manuscript)
-	if h.synth.texts[0] != m.Body.Opening {
-		t.Fatalf("texts[0] = %q, want greeting %q", h.synth.texts[0], m.Body.Opening)
+	// 先頭束は greeting（= body.opening）を改行の前に置く。
+	if !strings.HasPrefix(h.synth.texts[0], m.Body.Opening+"\n") {
+		t.Fatalf("texts[0] = %q, want prefix greeting %q + newline", h.synth.texts[0], m.Body.Opening)
 	}
+	// 中間束は topic ごとの preface + "\n" + detail。
 	for i := 0; i < topicCount; i++ {
-		preface := h.synth.texts[2+i*2]
-		detail := h.synth.texts[2+i*2+1]
-		if preface != m.Body.Topics[i].Preface {
-			t.Fatalf("texts[%d] = %q, want topic[%d].preface %q", 2+i*2, preface, i, m.Body.Topics[i].Preface)
-		}
-		if detail != m.Body.Topics[i].Detail {
-			t.Fatalf("texts[%d] = %q, want topic[%d].detail %q", 2+i*2+1, detail, i, m.Body.Topics[i].Detail)
+		want := m.Body.Topics[i].Preface + "\n" + m.Body.Topics[i].Detail
+		if got := h.synth.texts[1+i]; got != want {
+			t.Fatalf("texts[%d] = %q, want topic[%d] bundle %q", 1+i, got, i, want)
 		}
 	}
-	if h.synth.texts[2+topicCount*2] != m.Body.Closing {
-		t.Fatalf("closingSummary segment = %q, want %q", h.synth.texts[2+topicCount*2], m.Body.Closing)
-	}
-	// 末尾は date 注入済みの farewell 文（生 template ではない）。
+	// 末尾束は closingSummary（= body.closing）+ "\n" + farewell（date 注入済み。生 template ではない）。
 	wantFarewell := fmt.Sprintf(constants.ClosingFarewell, "2026年8月31日")
-	if last := h.synth.texts[len(h.synth.texts)-1]; last != wantFarewell {
-		t.Fatalf("last segment = %q, want farewell %q", last, wantFarewell)
+	wantLast := m.Body.Closing + "\n" + wantFarewell
+	if last := h.synth.texts[len(h.synth.texts)-1]; last != wantLast {
+		t.Fatalf("last segment = %q, want %q", last, wantLast)
 	}
 }
 
@@ -312,14 +308,14 @@ func TestProduceEpisodeRun_setsTopicStartSecFromCumulativeSegmentDurationsWithSi
 		t.Fatalf("Run: %v", err)
 	}
 
-	// Then: topic[0].startSec = D(greeting)+S+D(intro)+S
+	// Then: topic[0] 束の startSec = D(greeting+intro 束)+S
 	m := unmarshalManuscript(t, h.episw.manuscript)
-	want0 := d + s + d + s
+	want0 := d + s
 	if math.Abs(m.Body.Topics[0].StartSec-want0) > 1e-9 {
 		t.Fatalf("topics[0].startSec = %v, want %v", m.Body.Topics[0].StartSec, want0)
 	}
-	// topic[1].startSec = topic[0].startSec + D(preface0)+S+D(detail0)+S
-	want1 := want0 + d + s + d + s
+	// topic[1] 束の startSec = topic[0] 束の startSec + D(topic0 束)+S
+	want1 := want0 + d + s
 	if math.Abs(m.Body.Topics[1].StartSec-want1) > 1e-9 {
 		t.Fatalf("topics[1].startSec = %v, want %v", m.Body.Topics[1].StartSec, want1)
 	}
