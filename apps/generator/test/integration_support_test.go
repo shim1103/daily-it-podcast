@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -27,6 +28,9 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch/processenv"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/google/oauth"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/hackernews"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/itmedia"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/lobsters"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorcli"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
 )
@@ -263,9 +267,12 @@ func writeIntegrationGeminiAudioResponse(t *testing.T, w http.ResponseWriter, pc
 }
 
 type integrationTLSRoutes struct {
-	gemini http.HandlerFunc
-	oauth  http.HandlerFunc
-	gdrive http.HandlerFunc
+	gemini     http.HandlerFunc
+	oauth      http.HandlerFunc
+	gdrive     http.HandlerFunc
+	hackernews http.HandlerFunc
+	lobsters   http.HandlerFunc
+	itmedia    http.HandlerFunc
 }
 
 func newIntegrationTLSClient(t *testing.T, routes integrationTLSRoutes) *http.Client {
@@ -274,6 +281,9 @@ func newIntegrationTLSClient(t *testing.T, routes integrationTLSRoutes) *http.Cl
 		"generativelanguage.googleapis.com": httptest.NewTLSServer(routes.gemini),
 		"oauth2.googleapis.com":             httptest.NewTLSServer(routes.oauth),
 		"www.googleapis.com":                httptest.NewTLSServer(routes.gdrive),
+		"hacker-news.firebaseio.com":        httptest.NewTLSServer(routes.hackernews),
+		"lobste.rs":                         httptest.NewTLSServer(routes.lobsters),
+		"rss.itmedia.co.jp":                 httptest.NewTLSServer(routes.itmedia),
 	}
 	for _, srv := range servers {
 		t.Cleanup(srv.Close)
@@ -346,7 +356,101 @@ func writeIntegrationJSONStatus(t *testing.T, w http.ResponseWriter, status int,
 
 type broadProduceEpisodeConfig struct {
 	cursorFail   bool
-	geminiFailAt int // 1-origin。0 なら失敗しない
+	geminiFailAt int  // 1-origin。0 なら失敗しない
+	emptySources bool // true なら 3 情報源すべてが 0 件を返す
+}
+
+// 3 情報源の success / empty handler。時刻は integrationTestFixedNow を使う。
+// FetchSourceItems は since = now - FetchWindow(24h) を渡すため、now 自体は必ず since 以上になる。
+// Broad は「SourceItem が 1 件以上ある」ことだけを要求する。
+func integrationHackerNewsSuccessHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	storyUnix := integrationTestFixedNow.Unix()
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/topstories.json"):
+			_, _ = io.WriteString(w, "[9001]")
+		case strings.HasSuffix(r.URL.Path, "/item/9001.json"):
+			_, _ = io.WriteString(w, fmt.Sprintf(
+				`{"id":9001,"type":"story","time":%d,"title":"Broad HackerNews 記事"}`,
+				storyUnix,
+			))
+		default:
+			http.Error(w, "unexpected hackernews path", http.StatusNotFound)
+		}
+	}
+}
+
+func integrationHackerNewsEmptyHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/topstories.json") {
+			_, _ = io.WriteString(w, "[]")
+			return
+		}
+		http.Error(w, "unexpected hackernews path", http.StatusNotFound)
+	}
+}
+
+func integrationLobstersSuccessHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	createdAt := integrationTestFixedNow.Format(time.RFC3339)
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/hottest.json"):
+			_, _ = io.WriteString(w, fmt.Sprintf(`[{"short_id":"broad1","created_at":%q}]`, createdAt))
+		case strings.HasSuffix(r.URL.Path, "/s/broad1.json"):
+			_, _ = io.WriteString(w, fmt.Sprintf(
+				`{"short_id":"broad1","title":"Broad Lobsters 記事","created_at":%q}`,
+				createdAt,
+			))
+		default:
+			http.Error(w, "unexpected lobsters path", http.StatusNotFound)
+		}
+	}
+}
+
+func integrationLobstersEmptyHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/hottest.json") {
+			_, _ = io.WriteString(w, "[]")
+			return
+		}
+		http.Error(w, "unexpected lobsters path", http.StatusNotFound)
+	}
+}
+
+func integrationITmediaSuccessHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	pubDate := integrationTestFixedNow.Format(time.RFC1123Z)
+	body := `<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
+		`<rss version="2.0">` + "\n<channel>\n" +
+		fmt.Sprintf(
+			"<item><title>%s</title><link>%s</link><description>%s</description><pubDate>%s</pubDate></item>\n",
+			"Broad ITmedia 記事", "https://www.itmedia.co.jp/news/articles/broad.html", "本文", pubDate,
+		) +
+		"</channel>\n</rss>\n"
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/rss/2.0/news_bursts.xml") {
+			_, _ = io.WriteString(w, body)
+			return
+		}
+		http.Error(w, "unexpected itmedia path", http.StatusNotFound)
+	}
+}
+
+func integrationITmediaEmptyHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	body := `<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
+		`<rss version="2.0">` + "\n<channel>\n</channel>\n</rss>\n"
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/rss/2.0/news_bursts.xml") {
+			_, _ = io.WriteString(w, body)
+			return
+		}
+		http.Error(w, "unexpected itmedia path", http.StatusNotFound)
+	}
 }
 
 type broadProduceEpisodeHarness struct {
@@ -401,14 +505,31 @@ exit 1`
 		writeIntegrationGeminiAudioResponse(t, w, minimalIntegrationGeminiPCM())
 	}
 
+	hackernewsHandler := integrationHackerNewsSuccessHandler(t)
+	lobstersHandler := integrationLobstersSuccessHandler(t)
+	itmediaHandler := integrationITmediaSuccessHandler(t)
+	if cfg.emptySources {
+		hackernewsHandler = integrationHackerNewsEmptyHandler(t)
+		lobstersHandler = integrationLobstersEmptyHandler(t)
+		itmediaHandler = integrationITmediaEmptyHandler(t)
+	}
+
 	httpClient := newIntegrationTLSClient(t, integrationTLSRoutes{
-		gemini: http.HandlerFunc(geminiHandler),
-		oauth:  http.HandlerFunc(integrationOAuthSuccessHandler),
-		gdrive: integrationGDriveSuccessHandler(t, gdriveProbe),
+		gemini:     http.HandlerFunc(geminiHandler),
+		oauth:      http.HandlerFunc(integrationOAuthSuccessHandler),
+		gdrive:     integrationGDriveSuccessHandler(t, gdriveProbe),
+		hackernews: hackernewsHandler,
+		lobsters:   lobstersHandler,
+		itmedia:    itmediaHandler,
 	})
 
-	// C: 3 情報源（HackerNews/Lobsters/ITmedia）の upstream double はここで結線する
-	fetch := application.NewFetchSourceItems(compositeItemSource{})
+	// 3 情報源（HackerNews → Lobsters → ITmedia）の upstream double を composite ItemSource へ結線する。
+	// 登録順は composition.newProduceEpisode と同順。真外部は TLS redirect で double 済み。
+	fetch := application.NewFetchSourceItems(compositeItemSource{
+		hackernews.NewListItemSource(httpClient),
+		lobsters.NewListItemSource(httpClient),
+		itmedia.NewListItemSource(httpClient),
+	})
 	cursorFactory := processenv.NewSecretEnvLauncherFactory(broadDummyCursorKey, os.LookupEnv)
 	textWriter := cursorcli.NewTextWriter(cursorFactory)
 	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey)
