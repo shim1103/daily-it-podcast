@@ -46,7 +46,6 @@ jobs:
 
       - name: System Test を実行
         env:
-          GETX_API_KEY: ${{ secrets.TEST_GETX_API_KEY }}
           CURSOR_API_KEY: ${{ secrets.TEST_CURSOR_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_API_KEY }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.TEST_GOOGLE_OAUTH_CLIENT_SECRET }}
