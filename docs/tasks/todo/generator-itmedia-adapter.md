@@ -30,6 +30,7 @@
 - `description` の軽い HTML 正規化 helper（token 効率目的）。
 - `item_source_sociable_unit_test.go` の6本を実装（`t.Skip` を外す。XML fixture で double を組む）。
 - `apps/generator/test/itmedia_narrow_integration_test.go` を新規作成（実 `*http.Client` の外向き HTTP を TLS redirect で観測）。
+- `item_source.go` の `List` godoc から「振る舞い（B/C が実装する）:」の箇条書きブロックを削除する（`@require`/`@ensure`/`@invariant` の契約行は残す）。実装コードと `item_source_sociable_unit_test.go` が振る舞いの SSOT。hackernews Adapter（同 branch）が同じ整理を済ませている。
 
 ### Out of Scope
 

@@ -30,6 +30,7 @@
 - 必要な private helper と API JSON の shape 型。
 - `item_source_sociable_unit_test.go` の6本を実装（`t.Skip` を外す）。
 - `apps/generator/test/lobsters_narrow_integration_test.go` を新規作成（実 `*http.Client` の外向き HTTP を TLS redirect で観測）。
+- `item_source.go` の `List` godoc から「振る舞い（B/C が実装する）:」の箇条書きブロックを削除する（`@require`/`@ensure`/`@invariant` の契約行は残す）。実装コードと `item_source_sociable_unit_test.go` が振る舞いの SSOT。hackernews Adapter（同 branch）が同じ整理を済ませている。
 
 ### Out of Scope
 
@@ -45,6 +46,7 @@
 - `OccurredAt` は story の `created_at`（offset 付き RFC3339 相当）を UTC 化した値。
 - `Context` の行（`docs/decisions/2026-09-02T14-41-02` 準拠、取れた行だけ）: `item_id`（`short_id`） / `actor_id` / `actor_name`（`submitter_user`） / `title` / `text`（`comment_plain` 上位 N 件を改行連結。`description_plain` があれば先頭に足す。空なら行省略） / `permalink`（`short_id_url` か `comments_url`） / `links`（story の `url` があれば）。`score` / `comment_count` は載せない。
 - 取得範囲: `hottest.json` の `created_at >= since` を残し、先頭 `MaxStoriesScanned` 件を対象。各 story の `/s/<short_id>.json` を取得し、`comments[]` から `is_deleted` / `is_moderated` でない comment を先頭 `MaxCommentsPerStory` 件まで、`comment_plain` を本文に使う（`CommentDepth=1`）。
+- `MaxStoriesScanned` は「`since` 通過後の story を最大この件数まで結果に含める」結果件数の上限。hackernews Adapter（同 branch で実装済み）の `MaxStoriesScanned` と同じ意味。実装時に const の doc コメントでこの意味を明記する（hackernews の `item_source.go` の const コメントに倣う）。lobsters は `hottest.json` が1回の GET で全 story を返す（hackernews のような id 個別 fetch の N+1 ではない）ため、走査コストの有界化は hackernews ほど気にしなくてよいが、結果件数の上限として `MaxStoriesScanned` を適用する点は同じ。
 - 失敗時（`docs/decisions/2026-09-02T15-27-00` 準拠）: `*lobsters.Error{Op, Err}` を return。`client.Do` error / 5xx は 1 回だけ即再試行。4xx / parse 失敗は即 return。個別 story 詳細の取得失敗はその story を落として `List` を続行。`hottest.json` の取得失敗は `List` ごと失敗。
 - `ctx` を全 HTTP リクエストへ伝播。Adapter 独自 timeout なし。
 
