@@ -10,7 +10,7 @@
 - [x] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）
 - [x] Broad Integration（`apps/generator/test/*_broad_integration_test.go`。達成契約 file は完了削除）
 - [ ] GHA 本番 produce — workflow 済（`generator-produce-episode.yml`）。Run / Broad 実装済。Secret/Variable 登録は人手
-- [ ] System — TTS 単体到達 test 主体へ移行（Decision `2026-09-02T13-57-00`）。full run は `system && full` tag へ分離。**blocker=Gemini 無料枠 RPD=15**、有料枠移行待ち。引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`
+- [ ] System — TTS 単体到達 test + 「Gemini 以外 full」test へ分割（Decision `2026-09-02T13-57-00` / `16-57-00`）。full run は `system && full` tag へ分離。**blocker=Gemini 無料枠 RPD=15**、有料枠移行待ち（Gemini 以外の実到達は有料枠不要）。引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`
 
 ### D（未決・未実測・文案）
 
