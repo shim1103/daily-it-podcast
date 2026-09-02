@@ -10,7 +10,7 @@
 - [x] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）
 - [x] Broad Integration（`apps/generator/test/*_broad_integration_test.go`。達成契約 file は完了削除）
 - [ ] GHA 本番 produce — workflow 済（`generator-produce-episode.yml`）。Run / Broad 実装済。Secret/Variable 登録は人手
-- [x] System — 既定 gate（`-tags=system`）が緑（run 33610705667）。真因は Gemini の応答 parse バグ（Decision `2026-09-02T18-01-00`）。TTS 単体 test + 「Gemini 以外 full」test へ分割、full run は `system && full` へ分離（Decision `2026-09-02T13-57-00` / `16-57-00`）。引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`
+- [x] System — Gemini 応答 parse バグ修正で緑化（run 33610705667、Decision `2026-09-02T18-01-00`）。Cursor 原稿の尺 flaky は brief prompt の逆算誘導 + Self-check で対策、CursorCLI 単体 test 3 回連続 PASS（run 33627209650、Decision `2026-09-02T18-26-00`）。TTS 単体 / Gemini 以外 full / CursorCLI 単体 / full（`system && full`）に分割。dispatch は `-f test_run=<name>` で単一選択可。引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`
 
 ### D（未決・未実測・文案）
 
