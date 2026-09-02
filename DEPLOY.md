@@ -61,7 +61,6 @@ process env の正本は `apps/generator/internal/config/names.go`。`GENERATOR_
 | `DRIVE_FOLDER_ID` | Variable |
 | `CURSOR_API_KEY` | Secret |
 | `GEMINI_API_KEY` | Secret |
-| `GETX_API_KEY` | Secret |
 
 GitHub Actions（Settings → Secrets and variables → Actions）:
 

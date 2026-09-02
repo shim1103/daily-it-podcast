@@ -10,7 +10,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -30,8 +29,6 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/google/oauth"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorcli"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/x"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/x/getxapi"
 )
 
 const (
@@ -40,7 +37,6 @@ const (
 	// integrationTTSFixedSegmentCount は TTS 順の固定 segment 数（Greeting + Intro + Summary + Farewell）。
 	integrationTTSFixedSegmentCount = 4
 
-	broadDummyGetXAPIKey        = "broad-getxapi-dummy-key-value"
 	broadDummyCursorKey         = "broad-cursor-dummy-key-value"
 	broadDummyGeminiKey         = "broad-gemini-dummy-key-value"
 	broadDummyOAuthClientID     = "broad-oauth-client-id-dummy-value"
@@ -52,7 +48,6 @@ const (
 )
 
 var broadDummySecrets = []string{
-	broadDummyGetXAPIKey,
 	broadDummyCursorKey,
 	broadDummyGeminiKey,
 	broadDummyOAuthClientID,
@@ -268,16 +263,14 @@ func writeIntegrationGeminiAudioResponse(t *testing.T, w http.ResponseWriter, pc
 }
 
 type integrationTLSRoutes struct {
-	getxapi http.HandlerFunc
-	gemini  http.HandlerFunc
-	oauth   http.HandlerFunc
-	gdrive  http.HandlerFunc
+	gemini http.HandlerFunc
+	oauth  http.HandlerFunc
+	gdrive http.HandlerFunc
 }
 
 func newIntegrationTLSClient(t *testing.T, routes integrationTLSRoutes) *http.Client {
 	t.Helper()
 	servers := map[string]*httptest.Server{
-		"api.getxapi.com":                   httptest.NewTLSServer(routes.getxapi),
 		"generativelanguage.googleapis.com": httptest.NewTLSServer(routes.gemini),
 		"oauth2.googleapis.com":             httptest.NewTLSServer(routes.oauth),
 		"www.googleapis.com":                httptest.NewTLSServer(routes.gdrive),
@@ -310,10 +303,6 @@ func integrationOAuthSuccessHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"access_token":"` + broadDummyOAuthAccessToken + `"}`))
-}
-
-func integrationGetXAPITweetResponse() string {
-	return `{"tweets":[{"id":"broad-tweet-1","url":"https://x.example/broad-1","text":"Broad integration 本文","createdAt":"Wed Aug 30 10:00:00 +0000 2026","author":{"id":"author-broad","name":"Broad Author"},"entities":{"urls":[{"expanded_url":"https://example.com/broad"}]},"media":[{"url":"https://img.example/broad.jpg"}]}],"has_more":false}`
 }
 
 type integrationGDriveProbe struct {
@@ -356,7 +345,6 @@ func writeIntegrationJSONStatus(t *testing.T, w http.ResponseWriter, status int,
 }
 
 type broadProduceEpisodeConfig struct {
-	emptyGetXAPI bool
 	cursorFail   bool
 	geminiFailAt int // 1-origin。0 なら失敗しない
 }
@@ -386,10 +374,6 @@ func assertBroadDownstreamCalls(t *testing.T, h *broadProduceEpisodeHarness, wan
 func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) *broadProduceEpisodeHarness {
 	t.Helper()
 
-	previousWatch := x.WatchUserIDs
-	x.WatchUserIDs = []string{"broad-user-1"}
-	t.Cleanup(func() { x.WatchUserIDs = previousWatch })
-
 	wireJSON := buildIntegrationWireJSON(broadIntegrationTopicCount)
 	agentDir := t.TempDir()
 
@@ -405,14 +389,6 @@ exit 1`
 
 	gdriveProbe := &integrationGDriveProbe{}
 
-	getxHandler := func(w http.ResponseWriter, _ *http.Request) {
-		if cfg.emptyGetXAPI {
-			_, _ = io.WriteString(w, `{"tweets":[],"has_more":false}`)
-			return
-		}
-		_, _ = io.WriteString(w, integrationGetXAPITweetResponse())
-	}
-
 	h := &broadProduceEpisodeHarness{gdriveUploads: gdriveProbe}
 	geminiHandler := func(w http.ResponseWriter, r *http.Request) {
 		n := h.geminiPosts.Add(1)
@@ -426,14 +402,13 @@ exit 1`
 	}
 
 	httpClient := newIntegrationTLSClient(t, integrationTLSRoutes{
-		getxapi: http.HandlerFunc(getxHandler),
-		gemini:  http.HandlerFunc(geminiHandler),
-		oauth:   http.HandlerFunc(integrationOAuthSuccessHandler),
-		gdrive:  integrationGDriveSuccessHandler(t, gdriveProbe),
+		gemini: http.HandlerFunc(geminiHandler),
+		oauth:  http.HandlerFunc(integrationOAuthSuccessHandler),
+		gdrive: integrationGDriveSuccessHandler(t, gdriveProbe),
 	})
 
-	getxSource := getxapi.NewPostSource(httpClient, broadDummyGetXAPIKey)
-	fetch := application.NewFetchSourceItems(compositeItemSource{getxSource})
+	// C: 3 情報源（HackerNews/Lobsters/ITmedia）の upstream double はここで結線する
+	fetch := application.NewFetchSourceItems(compositeItemSource{})
 	cursorFactory := processenv.NewSecretEnvLauncherFactory(broadDummyCursorKey, os.LookupEnv)
 	textWriter := cursorcli.NewTextWriter(cursorFactory)
 	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey)

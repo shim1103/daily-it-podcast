@@ -4,14 +4,13 @@ import (
 	"strings"
 )
 
-// configField は Config の field 順（Source.GetXAPIKey → Cursor.APIKey →
-// Gemini.APIKey → Drive.GoogleOAuthClientID → Drive.GoogleOAuthClientSecret →
+// configField は Config の field 順（Cursor.APIKey → Gemini.APIKey →
+// Drive.GoogleOAuthClientID → Drive.GoogleOAuthClientSecret →
 // Drive.GoogleOAuthRefreshToken → Drive.FolderID）に対応する。
 type configField int
 
 const (
-	fieldGetXAPIKey configField = iota
-	fieldCursorAPIKey
+	fieldCursorAPIKey configField = iota
 	fieldGeminiAPIKey
 	fieldGoogleOAuthClientID
 	fieldGoogleOAuthClientSecret
@@ -21,7 +20,6 @@ const (
 )
 
 var configFieldKeys = [configFieldCount]string{
-	fieldGetXAPIKey:              GetXAPIKeyEnv,
 	fieldCursorAPIKey:            CursorAPIKeyEnv,
 	fieldGeminiAPIKey:            GeminiAPIKeyEnv,
 	fieldGoogleOAuthClientID:     GoogleOAuthClientIDEnv,
@@ -53,9 +51,6 @@ func Load(lookup LookupEnv) (Config, error) {
 	}
 
 	return Config{
-		Source: SourceConfig{
-			GetXAPIKey: newSecret(values[fieldGetXAPIKey]),
-		},
 		Cursor: CursorConfig{
 			APIKey: newSecret(values[fieldCursorAPIKey]),
 		},
