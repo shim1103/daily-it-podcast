@@ -11,10 +11,8 @@ import (
 //
 //	載せない契約なので response body 全体を丸ごと出しても credential は漏れない。
 //	長文 base64 で log を溢れさせないよう bounded にする。
-//	bodySnippetMax は実レスポンス構造（audio フィールドの位置）を掴むため一時的に広い。
-//	構造確定後に絞る余地あり。
 const (
-	bodySnippetMax      = 4000
+	bodySnippetMax      = 400
 	bodySnippetEllipsis = "...(truncated)"
 )
 

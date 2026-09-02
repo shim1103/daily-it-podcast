@@ -21,6 +21,7 @@ echo "system: generator (go)"
   if [ -z "$packages" ]; then
     echo "generator: System package なし（skip）"
   else
-    go test -tags=system -timeout 40m -count=1 ./test/system/...
+    # why: 各 System test の skip/実行と t.Logf（区間別所要）を CI ログへ出す。
+    go test -v -tags=system -timeout 40m -count=1 ./test/system/...
   fi
 )
