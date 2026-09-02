@@ -181,7 +181,9 @@ func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]
 	pcm, err := decodePCM(raw)
 	if err != nil {
 		// why: 公式 Limitation。audio 欠落 500 相当は一過性として retry する。
-		return nil, true, 0, infraErr("decode_pcm", err)
+		//      System で MaxAttempts 尽きたとき原因（finish_reason / safety / body 内 quota）を
+		//      読めるよう、応答本文の bounded snippet を error に載せる。
+		return nil, true, 0, infraErr("decode_pcm", fmt.Errorf("%w; response body: %s", err, bodySnippet(raw)))
 	}
 	return pcm, false, 0, nil
 }
