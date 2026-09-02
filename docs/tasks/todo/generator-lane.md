@@ -10,7 +10,7 @@
 - [x] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）
 - [x] Broad Integration（`apps/generator/test/*_broad_integration_test.go`。達成契約 file は完了削除）
 - [ ] GHA 本番 produce — workflow 済（`generator-produce-episode.yml`）。Run / Broad 実装済。Secret/Variable 登録は人手
-- [ ] System — TTS 単体到達 test + 「Gemini 以外 full」test へ分割（Decision `2026-09-02T13-57-00` / `16-57-00`）。full run は `system && full` tag へ分離。**blocker=Gemini 無料枠 RPD=15**、有料枠移行待ち（Gemini 以外の実到達は有料枠不要）。引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`
+- [x] System — 既定 gate（`-tags=system`）が緑（run 33610705667）。真因は Gemini の応答 parse バグ（Decision `2026-09-02T18-01-00`）。TTS 単体 test + 「Gemini 以外 full」test へ分割、full run は `system && full` へ分離（Decision `2026-09-02T13-57-00` / `16-57-00`）。引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`
 
 ### D（未決・未実測・文案）
 
@@ -21,7 +21,7 @@
 | composite 高度化 | dedup / sort（2 情報源後） |
 | 第 2 情報源 Adapter | 別 Issue 化待ち |
 | GHA production workflow | YAML・inventory 名は済。Run 実装済。repo へ本番 Secret/Variable を登録する人手作業が残る。定時緑化は Secret 登録後 |
-| `generator-system-e2e-produce-episode` | TTS 束ね（topic+2）・retry 同種2連続打ち切りは実装済（Decision `2026-09-02T13-55-00` / `13-56-00`）。TTS 単体 test が有料枠で無料枠 RPD 内に収まるか検証待ち。詳細は同名 todo |
+| `generator-system-e2e-produce-episode` | 既定 System gate 緑化済み（parse バグ修正が主因、Decision `2026-09-02T18-01-00`）。残は develop PR と full run（`system && full`）の課金枠移行後確認。詳細は同名 todo |
 | Drive ペア書込の補償・staging | 公開型で残骸許容（Decision `2026-08-30T23-32-00`）。補償 delete / staging→rename の再検討は後回し |
 
 ### Integration test 方針
