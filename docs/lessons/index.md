@@ -69,3 +69,10 @@
 - 2026-08-30 [feature/generator-system-e2e-produce-episode] System 用に名前だけ分けた TEST_* secret が本番 secret と値が違うと、本番では通る経路が System だけで落ちる。名前の対称性を実値の同一性と混同しない  # → layer:workflow
 - 2026-08-30 [feature/generator-system-e2e-produce-episode] vendor API の日次・レート上限に当たった失敗は、client 側の exponential backoff を伸ばしても緑にならない。quota 回復・別 credential・契約変更を先に切り分ける  # → layer:platform
 - 2026-08-30 [feature/generator-system-e2e-produce-episode] `env -i` だけの smoke 結果を、親 env 継承の本番経路と同じ結論として扱わない。隔離実験と実経路の失敗原因を分けて再検証する  # → layer:workflow
+- 2026-09-02 [feature/generator-system-e2e-produce-episode] 失敗境界が特定できたら、その境界だけを叩く単体到達 test を作る。入口〜出口の full 経路を毎回回すと、既に緑の下位境界（token・quota を消費するもの含む）を無駄に焼き、切り分けに必要な試行だけを取れない  # → layer:workflow
+- 2026-09-02 [feature/generator-system-e2e-produce-episode] 同じ失敗が決定論的に繰り返すなら「vendor の一過性 Limitation」「レート上限」で片付けず、応答本文そのものを bounded に error へ載せて構造を疑う。retryable 扱いのまま放置すると retry が quota を焼く増幅装置になり、誤診が複数セッション継続する  # → layer:platform
+- 2026-09-02 [feature/generator-system-e2e-produce-episode] 外部 API のレスポンス構造は SDK ドキュメントの convenience property 例（`interaction.output_audio` 等）ではなく、実 HTTP body を実測して確定する。生 client は入れ子（step / content の配列）で返し、ドキュメント例と一致しないことがある  # → layer:platform
+- 2026-09-02 [feature/generator-system-e2e-produce-episode] 診断用に応答本文を error へ載せるときは bounded にしつつ、まずトップレベルのキー一覧を添える。目的フィールドが本体の後方にあり truncate で見えなくても、キー一覧だけで構造の想定違いを切り分けられる  # → layer:terms
+- 2026-09-02 [feature/generator-system-e2e-produce-episode] 「特定の test だけ除外して」という指示は、その場の実行だけでなく実行機構（tag 一括実行なら -run 選択の口）へ落とす。build tag / suite が一括で走る入口をそのまま起動すると、除外したはずの token・quota 消費 test まで走る  # → layer:workflow
+- 2026-09-02 [feature/generator-system-e2e-produce-episode] LLM へ渡すプロンプト内の形式例（JSON example 等）は、同じプロンプト本文が要求する制約（文字数下限・件数）を例自身が満たしていること。例が下限割れだと本文の指定と矛盾するシグナルになり、出力が例の短さへ引きずられる  # → layer:terms
+- 2026-09-02 [feature/generator-system-e2e-produce-episode] 合計下限が「最小件数 × 各項目下限」で構造的に満たせない検証ルールでは、プロンプトに各項目 range を並べるだけでなく、合計から件数と項目長を逆算する手順と提出前セルフチェックを明示する。range の列挙だけでは LLM が下限付近に寄って合計を割る  # → layer:terms
