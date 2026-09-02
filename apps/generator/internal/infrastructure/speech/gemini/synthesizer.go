@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -67,6 +68,7 @@ func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models
 	}
 
 	var lastErr error
+	consecutiveSameOp := 0
 	for attempt := 1; attempt <= MaxAttempts; attempt++ {
 		s.waitCallGap(backoffSleepFn, nowFn)
 		pcm, retryable, suggestedWait, err := s.fetchPCM(ctx, trimmed)
@@ -78,8 +80,16 @@ func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models
 			}
 			return models.SpeechAudio{Content: wav}, nil
 		}
+		// why: 同種 error（同じ *gemini.Error.Op）が retryable のまま 2 回連続したら、
+		//      その本文に対しては決定論的に失敗しているとみなし打ち切る（Decision 2026-09-02T13-56-00）。
+		//      Op が変われば連続数はリセットする。
+		if retryable && sameGeminiOp(lastErr, err) {
+			consecutiveSameOp++
+		} else {
+			consecutiveSameOp = 1
+		}
 		lastErr = err
-		if !retryable || attempt == MaxAttempts {
+		if !retryable || attempt == MaxAttempts || consecutiveSameOp >= 2 {
 			return models.SpeechAudio{}, lastErr
 		}
 		wait := retryDelay(attempt)
@@ -89,6 +99,19 @@ func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models
 		backoffSleepFn(wait)
 	}
 	return models.SpeechAudio{}, lastErr
+}
+
+// sameGeminiOp は 2 つの error がともに *gemini.Error で Op 文字列が一致するかを返す。
+// 片方でも *gemini.Error でなければ false。
+func sameGeminiOp(prev, cur error) bool {
+	if prev == nil || cur == nil {
+		return false
+	}
+	var prevErr, curErr *Error
+	if !errors.As(prev, &prevErr) || !errors.As(cur, &curErr) {
+		return false
+	}
+	return prevErr.Op == curErr.Op
 }
 
 func (s *SpeechSynthesizer) waitCallGap(sleepFn func(time.Duration), nowFn func() time.Time) {

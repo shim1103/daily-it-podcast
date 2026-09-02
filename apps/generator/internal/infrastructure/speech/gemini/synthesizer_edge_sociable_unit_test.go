@@ -11,7 +11,7 @@ import (
 
 func TestSynthesize_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *testing.T) {
 
-	// Given: HTTP 200 だが output_audio が無い
+	// Given: HTTP 200 だが output_audio が無い（同種 retryable = Op "decode_pcm"）
 	responses := make([]fakeClientResponse, MaxAttempts)
 	for i := range responses {
 		responses[i] = fakeClientResponse{
@@ -24,18 +24,18 @@ func TestSynthesize_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *tes
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "audio 欠落")
 
-	// Then: retry 後 Infrastructure Error
+	// Then: 同種 2 連続で打ち切り Infrastructure Error
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if len(rt.calls) != MaxAttempts {
-		t.Fatalf("call count = %d, want %d", len(rt.calls), MaxAttempts)
+	if len(rt.calls) != 2 {
+		t.Fatalf("call count = %d, want 2（同種 2 連続打ち切り）", len(rt.calls))
 	}
 }
 
 func TestSynthesize_returnsInfrastructureError_whenResponseBodyInvalidJSON(t *testing.T) {
 
-	// Given: 壊れた JSON
+	// Given: 壊れた JSON（同種 retryable = Op "decode_pcm"）
 	responses := make([]fakeClientResponse, MaxAttempts)
 	for i := range responses {
 		responses[i] = fakeClientResponse{status: http.StatusOK, body: []byte(`not-json`)}
@@ -45,12 +45,12 @@ func TestSynthesize_returnsInfrastructureError_whenResponseBodyInvalidJSON(t *te
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "decode 失敗")
 
-	// Then: retry 後 error
+	// Then: 同種 2 連続で打ち切り error
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if len(rt.calls) != MaxAttempts {
-		t.Fatalf("call count = %d, want %d", len(rt.calls), MaxAttempts)
+	if len(rt.calls) != 2 {
+		t.Fatalf("call count = %d, want 2（同種 2 連続打ち切り）", len(rt.calls))
 	}
 }
 
@@ -134,7 +134,7 @@ func TestSynthesize_returnsInfrastructureError_whenUnexpectedStatus(t *testing.T
 
 func TestSynthesize_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
 
-	// Given: 不正 base64
+	// Given: 不正 base64（同種 retryable = Op "decode_pcm"）
 	responses := make([]fakeClientResponse, MaxAttempts)
 	for i := range responses {
 		responses[i] = fakeClientResponse{
@@ -149,12 +149,12 @@ func TestSynthesize_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "bad b64")
 
-	// Then: retry 後 error
+	// Then: 同種 2 連続で打ち切り error
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if len(rt.calls) != MaxAttempts {
-		t.Fatalf("call count = %d, want %d", len(rt.calls), MaxAttempts)
+	if len(rt.calls) != 2 {
+		t.Fatalf("call count = %d, want 2（同種 2 連続打ち切り）", len(rt.calls))
 	}
 }
 
@@ -204,7 +204,7 @@ func TestSynthesize_returnsInfrastructureError_whenReceiverNil(t *testing.T) {
 
 func TestSynthesize_returnsInfrastructureError_whenUpstreamDoFails(t *testing.T) {
 
-	// Given: Client.Do が常に transport error を返す
+	// Given: Client.Do が常に transport error を返す（同種 retryable = Op "do"）
 	responses := make([]fakeClientResponse, MaxAttempts)
 	for i := range responses {
 		responses[i] = fakeClientResponse{err: fmt.Errorf("connection refused")}
@@ -214,11 +214,11 @@ func TestSynthesize_returnsInfrastructureError_whenUpstreamDoFails(t *testing.T)
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "network 失敗")
 
-	// Then: Infrastructure Error
+	// Then: 同種 2 連続で打ち切り Infrastructure Error
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if len(rt.calls) != MaxAttempts {
-		t.Fatalf("call count = %d, want %d", len(rt.calls), MaxAttempts)
+	if len(rt.calls) != 2 {
+		t.Fatalf("call count = %d, want 2（同種 2 連続打ち切り）", len(rt.calls))
 	}
 }

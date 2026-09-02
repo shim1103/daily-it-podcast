@@ -205,9 +205,9 @@ func TestSynthesize_retriesTransientError_thenSucceeds(t *testing.T) {
 	}
 }
 
-func TestSynthesize_returnsInfrastructureError_whenMaxAttemptsExceeded(t *testing.T) {
+func TestSynthesize_returnsInfrastructureError_whenSameRetryableOpRepeatsTwice(t *testing.T) {
 
-	// Given: 常に 503
+	// Given: 常に 503（同種 retryable error = Op "http_status"）
 	responses := make([]fakeClientResponse, MaxAttempts)
 	for i := range responses {
 		responses[i] = fakeClientResponse{status: http.StatusServiceUnavailable, body: jsonBody(t, map[string]any{"error": "UNAVAILABLE"})}
@@ -217,7 +217,7 @@ func TestSynthesize_returnsInfrastructureError_whenMaxAttemptsExceeded(t *testin
 	// When: Synthesize する
 	_, err := synth.Synthesize(context.Background(), "打ち切りテスト")
 
-	// Then: MaxAttempts 回だけ試し Infrastructure Error
+	// Then: 同種 error 2 連続で打ち切り、call は 2 回で Infrastructure Error
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -225,8 +225,29 @@ func TestSynthesize_returnsInfrastructureError_whenMaxAttemptsExceeded(t *testin
 	if !errors.As(err, &infra) {
 		t.Fatalf("error type %T (%v), want *gemini.Error", err, err)
 	}
+	if len(rt.calls) != 2 {
+		t.Fatalf("call count = %d, want 2（同種 2 連続打ち切り）", len(rt.calls))
+	}
+}
+
+func TestSynthesize_retriesUpToMaxAttempts_whenRetryableOpAlternates(t *testing.T) {
+
+	// Given: 503（http_status）と transport error（do）が交互。Op が変わるので連続打ち切りに掛からない
+	synth, rt := newFakeSynthesizer(
+		fakeClientResponse{status: http.StatusServiceUnavailable, body: jsonBody(t, map[string]any{"error": "UNAVAILABLE"})},
+		fakeClientResponse{err: fmt.Errorf("connection reset")},
+		fakeClientResponse{status: http.StatusServiceUnavailable, body: jsonBody(t, map[string]any{"error": "UNAVAILABLE"})},
+	)
+
+	// When: Synthesize する
+	_, err := synth.Synthesize(context.Background(), "交互リトライ")
+
+	// Then: MaxAttempts 回まで回って Infrastructure Error
+	if err == nil {
+		t.Fatal("expected error")
+	}
 	if len(rt.calls) != MaxAttempts {
-		t.Fatalf("call count = %d, want %d", len(rt.calls), MaxAttempts)
+		t.Fatalf("call count = %d, want %d（Op 交互は打ち切らない）", len(rt.calls), MaxAttempts)
 	}
 }
 

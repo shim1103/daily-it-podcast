@@ -13,8 +13,10 @@ const (
 )
 
 // MaxAttempts は Gemini 呼び出しの最大試行数。無限 retry を防ぐ。
-// why: System 実測で decode_pcm（output audio is missing）が MaxAttempts=4 でも尽きることがある（run 33308282246）。
-const MaxAttempts = 6
+// why: 同種 error 2 連続で打ち切るので、実効上限は「異なる Op が交互 = 3 回」程度。
+//
+//	無料枠 RPD=15 を 1 セグメントで焼かないよう 3 に下げる（Decision 2026-09-02T13-56-00）。
+const MaxAttempts = 3
 
 // 429 / 503 / 5xx 再試行の待機。
 // why: 20s 起点でも System で 429 が尽きる（run 33314746860, ~476s）。60s 起点・上限 3m へ。
@@ -23,8 +25,9 @@ const (
 	retryBackoffMax  = 3 * time.Minute
 )
 
-// callGap は成功した Synthesize どうしの最小間隔。連続 segment の 429 を減らす。
-const callGap = 5 * time.Second
+// callGap は client.Do どうしの最小間隔（成功・失敗を問わない）。
+// why: 無料枠 3 RPM = 20s 間隔に合わせ、連続 segment の 429 を防ぐ（Decision 2026-09-02T13-56-00）。
+const callGap = 20 * time.Second
 
 // Gemini TTS が返す raw PCM の形式（公式 L16: 24 kHz / 16-bit / mono）。
 // WAV wrap と decode の前提。HTTP 定数（ModelID 等）とは別責務。
