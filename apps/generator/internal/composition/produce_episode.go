@@ -6,7 +6,7 @@ import (
 )
 
 // newProduceEpisode は検証済み Config の capability ごとに production Adapter を結線した日次 UseCase を返す。
-// 情報源は composite ItemSource 経由で束ね、Application へ情報源個数を渡さない。
+// 情報源は HackerNews / Lobsters / ITmedia を composite ItemSource 経由で束ね、Application へ情報源個数を渡さない。
 //
 // @require cfg は Generator の configuration boundary で検証済みである。
 // @ensure 戻りは非 nil の *application.ProduceEpisode。
@@ -14,7 +14,11 @@ import (
 // @invariant config.Load 呼び出しをここで行わない。Composition Root の結線責務だけを持つ。
 func newProduceEpisode(cfg config.Config) *application.ProduceEpisode {
 	httpClient := sharedHTTPClient()
-	fetch := application.NewFetchSourceItems(newCompositeItemSource(newGetXAPIItemSource(httpClient, cfg.Source)))
+	fetch := application.NewFetchSourceItems(newCompositeItemSource(
+		newHackerNewsItemSource(httpClient),
+		newLobstersItemSource(httpClient),
+		newITmediaItemSource(httpClient),
+	))
 	textWriter := newCursorTextWriter(cfg.Cursor)
 	speech := newGeminiSpeechSynthesizer(httpClient, cfg.Gemini)
 	writeEpisode := newGoogleDriveWriteEpisode(httpClient, cfg.Drive)
