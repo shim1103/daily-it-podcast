@@ -26,4 +26,4 @@ scope-split C の `generator-lobsters-adapter.md` を issue-manager flow（manag
 
 ### PR
 
-- #{pr-number} → base `develop`
+- #113 → base `develop`。https://github.com/shim1103/daily-it-podcast/pull/113
