@@ -61,7 +61,7 @@ repo 根 `contracts/` は Drive 表現の SSOT。`apps/playback/contracts/`（HT
 
 | 役割 | 接続 |
 |------|------|
-| 情報取得 | GetXAPI のみ。Port は `ItemSource`。複数源 merge は Composition の composite。Application は源個数を知らない |
+| 情報取得 | 公式 API / RSS の複数源（HackerNews・Lobsters・ITmedia NEWS）。Port は `ItemSource`。源ごとに専用 Adapter、facade なし（RSS 汎用 Adapter も作らない）。複数源 merge は Composition の composite。Application は源個数を知らない。源の選定理由は `docs/decisions/` |
 | 原稿 | Cursor CLI（Port `TextWriter`） |
 | TTS | Gemini |
 | Drive | Google Drive + OAuth refresh |
