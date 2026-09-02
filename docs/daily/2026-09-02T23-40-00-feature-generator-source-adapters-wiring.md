@@ -25,4 +25,4 @@ scope-split C の最後の 1 本。HackerNews / Lobsters / ITmedia の `List` �
 
 ### PR
 
-- （作成後に追記）
+- #115 test(generator): 3 情報源 Adapter を Broad Integration の composite へ結線する（base: develop）
