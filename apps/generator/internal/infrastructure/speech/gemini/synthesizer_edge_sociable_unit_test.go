@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -30,6 +31,13 @@ func TestSynthesize_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *tes
 	}
 	if len(rt.calls) != 2 {
 		t.Fatalf("call count = %d, want 2（同種 2 連続打ち切り）", len(rt.calls))
+	}
+	// Then: error 文言に body のトップレベルキー一覧が載り、fixture の "status" が含まれる
+	if !strings.Contains(err.Error(), "top-level keys:") {
+		t.Fatalf("Error() = %q, want it to contain %q", err.Error(), "top-level keys:")
+	}
+	if !strings.Contains(err.Error(), "status") {
+		t.Fatalf("Error() = %q, want it to list top-level key %q", err.Error(), "status")
 	}
 }
 

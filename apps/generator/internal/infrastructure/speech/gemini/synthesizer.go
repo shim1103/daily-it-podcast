@@ -226,7 +226,9 @@ func decodePCM(body []byte) ([]byte, error) {
 	}
 	data := strings.TrimSpace(parsed.OutputAudio.Data)
 	if data == "" {
-		return nil, fmt.Errorf("output audio is missing")
+		// why: interactionResponse struct 経由の parse では audio 欠落の原因が読めない。
+		//      body のトップレベルキー一覧を添え、レスポンス構造の想定違いを切り分ける。
+		return nil, fmt.Errorf("output audio is missing%s", topLevelKeysHint(body))
 	}
 	pcm, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {

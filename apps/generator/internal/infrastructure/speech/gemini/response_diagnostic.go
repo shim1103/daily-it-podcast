@@ -1,13 +1,20 @@
 package gemini
 
-import "strings"
+import (
+	"encoding/json"
+	"fmt"
+	"sort"
+	"strings"
+)
 
 // why: System 失敗の切り分けに応答本文が要るが、秘密は x-goog-api-key header にしか
 //
 //	載せない契約なので response body 全体を丸ごと出しても credential は漏れない。
 //	長文 base64 で log を溢れさせないよう bounded にする。
+//	bodySnippetMax は実レスポンス構造（audio フィールドの位置）を掴むため一時的に広い。
+//	構造確定後に絞る余地あり。
 const (
-	bodySnippetMax      = 400
+	bodySnippetMax      = 4000
 	bodySnippetEllipsis = "...(truncated)"
 )
 
@@ -22,4 +29,20 @@ func bodySnippet(raw []byte) string {
 		return s
 	}
 	return s[:bodySnippetMax] + bodySnippetEllipsis
+}
+
+// topLevelKeysHint は body を JSON object として読み、トップレベルキーを sort して
+// " (top-level keys: [a, b, c])" 形式の追加情報へ落とす。
+// body が JSON object でなければ空文字を返す（追加情報は付けない）。
+func topLevelKeysHint(body []byte) string {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(body, &obj); err != nil {
+		return ""
+	}
+	keys := make([]string, 0, len(obj))
+	for k := range obj {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return fmt.Sprintf(" (top-level keys: [%s])", strings.Join(keys, ", "))
 }
