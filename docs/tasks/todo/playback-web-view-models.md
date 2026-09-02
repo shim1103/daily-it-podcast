@@ -11,7 +11,7 @@ A artifact（型・stub・SU test）と B Decision（直交・edge case）は本
 ## 3. Canonical Sources
 
 - 直交と edge case — `docs/decisions/2026-09-02T15-00-00-feature-playback-list-episodes-audio-ref-playback-web-selection-playback-orthogonality.md`
-- hash 同期の React 方針 — `docs/decisions/2026-08-27T19-20-30-feature-playback-web-page-jsx-mount`
+- hash 同期の React 方針 — `docs/decisions/2026-08-27T19-20-30-feature-playback-web-page-jsx-mount.md`
 - hook / derive 契約 — `apps/playback/web/src/view-models/`（`playback-state.ts`、各 `use-episode-*.ts`）
 - hash adapter — `apps/playback/web/src/lib/hash-selection-adapter.ts`
 - 層責務 — `architecture/frontend/view-model.md`
