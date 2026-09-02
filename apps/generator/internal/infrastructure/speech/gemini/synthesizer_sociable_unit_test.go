@@ -23,8 +23,11 @@ func minimalPCM() []byte {
 
 func audioInteractionResponse(pcm []byte) map[string]any {
 	return map[string]any{
-		"output_audio": map[string]any{
-			"data": base64.StdEncoding.EncodeToString(pcm),
+		"status": "completed",
+		"steps": []map[string]any{
+			{"content": []map[string]any{
+				{"data": base64.StdEncoding.EncodeToString(pcm)},
+			}},
 		},
 	}
 }
@@ -285,6 +288,51 @@ func TestSynthesize_doesNotRetry_whenProhibitedContent(t *testing.T) {
 	// Then: 1 回だけ
 	if err == nil {
 		t.Fatal("expected error")
+	}
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(rt.calls))
+	}
+}
+
+func TestSynthesize_extractsAudioFromStepsContentData_whenRealResponseShape(t *testing.T) {
+
+	// Given: 実 Interactions API そっくりの応答（steps[].content[].data に audio base64）
+	pcm := minimalPCM()
+	body := map[string]any{
+		"id":           "v1_real_shape",
+		"object":       "interaction",
+		"model":        ModelID,
+		"status":       "completed",
+		"service_tier": "standard",
+		"created":      "2026-09-02T08:36:33Z",
+		"updated":      "2026-09-02T08:36:33Z",
+		"usage": map[string]any{
+			"total_tokens":        125,
+			"total_output_tokens": 99,
+			"output_tokens_by_modality": []map[string]any{
+				{"modality": "audio", "tokens": 99},
+			},
+		},
+		"steps": []map[string]any{
+			{"content": []map[string]any{
+				{"data": base64.StdEncoding.EncodeToString(pcm)},
+			}},
+		},
+	}
+	synth, rt := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusOK,
+		body:   jsonBody(t, body),
+	})
+
+	// When: Synthesize する
+	got, err := synth.Synthesize(context.Background(), "実応答形テスト")
+
+	// Then: steps 構造から audio を取り出し非空 WAV を返す
+	if err != nil {
+		t.Fatalf("Synthesize: %v", err)
+	}
+	if !isWAV(got.Content) {
+		t.Fatalf("Content is not WAV: %d bytes", len(got.Content))
 	}
 	if len(rt.calls) != 1 {
 		t.Fatalf("call count = %d, want 1", len(rt.calls))

@@ -148,7 +148,11 @@ func TestSynthesize_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
 		responses[i] = fakeClientResponse{
 			status: http.StatusOK,
 			body: jsonBody(t, map[string]any{
-				"output_audio": map[string]any{"data": "!!!not-base64!!!"},
+				"steps": []map[string]any{
+					{"content": []map[string]any{
+						{"data": "!!!not-base64!!!"},
+					}},
+				},
 			}),
 		}
 	}
@@ -173,8 +177,10 @@ func TestSynthesize_returnsInfrastructureError_whenPCMLengthOdd(t *testing.T) {
 	synth, rt := newFakeSynthesizer(fakeClientResponse{
 		status: http.StatusOK,
 		body: jsonBody(t, map[string]any{
-			"output_audio": map[string]any{
-				"data": base64.StdEncoding.EncodeToString(oddPCM),
+			"steps": []map[string]any{
+				{"content": []map[string]any{
+					{"data": base64.StdEncoding.EncodeToString(oddPCM)},
+				}},
 			},
 		}),
 	})

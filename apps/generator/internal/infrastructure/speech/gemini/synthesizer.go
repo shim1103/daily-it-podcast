@@ -224,7 +224,21 @@ func decodePCM(body []byte) ([]byte, error) {
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return nil, err
 	}
-	data := strings.TrimSpace(parsed.OutputAudio.Data)
+	// why: 実 Interactions API（response_format audio）の audio base64 は
+	//      steps[].content[].data に入る（run 33609034783 の診断本文で確定）。
+	//      steps[0].content[0] 決め打ちにせず、空を飛ばして最初に見つかった data を採る。
+	var data string
+	for _, step := range parsed.Steps {
+		for _, content := range step.Content {
+			if trimmed := strings.TrimSpace(content.Data); trimmed != "" {
+				data = trimmed
+				break
+			}
+		}
+		if data != "" {
+			break
+		}
+	}
 	if data == "" {
 		// why: interactionResponse struct 経由の parse では audio 欠落の原因が読めない。
 		//      body のトップレベルキー一覧を添え、レスポンス構造の想定違いを切り分ける。
@@ -260,9 +274,10 @@ type speechConfig struct {
 }
 
 type interactionResponse struct {
-	OutputAudio outputAudio `json:"output_audio"`
-}
-
-type outputAudio struct {
-	Data string `json:"data"`
+	Status string `json:"status"`
+	Steps  []struct {
+		Content []struct {
+			Data string `json:"data"`
+		} `json:"content"`
+	} `json:"steps"`
 }

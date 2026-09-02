@@ -256,8 +256,11 @@ func writeIntegrationGeminiAudioResponse(t *testing.T, w http.ResponseWriter, pc
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	body, err := json.Marshal(map[string]any{
-		"output_audio": map[string]any{
-			"data": base64.StdEncoding.EncodeToString(pcm),
+		"status": "completed",
+		"steps": []map[string]any{
+			{"content": []map[string]any{
+				{"data": base64.StdEncoding.EncodeToString(pcm)},
+			}},
 		},
 	})
 	if err != nil {
