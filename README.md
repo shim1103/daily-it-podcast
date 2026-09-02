@@ -24,6 +24,7 @@ Playback (Vite + TypeScript + React + Cloudflare)
 | UI の裏側 | Cloudflare Workers（Hono、Drive 代理） |
 | UI 入場 | Cloudflare Access（`DEPLOY.md`） |
 | 生成 | Go CLI + GitHub Actions cron |
+| 取得 | 公式 API / RSS の複数源（HackerNews・Lobsters・ITmedia NEWS）。選定理由は `docs/decisions/` |
 | 保存 | 個人 Google Drive |
 | 原稿 | Cursor CLI（非対話） |
 | 音声 | Google Gemini TTS |

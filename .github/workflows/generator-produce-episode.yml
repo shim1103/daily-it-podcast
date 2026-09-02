@@ -26,7 +26,6 @@ jobs:
 
       - name: Produce episode
         env:
-          GETX_API_KEY: ${{ secrets.GETX_API_KEY }}
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}

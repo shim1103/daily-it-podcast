@@ -1,13 +1,13 @@
-package getxapi
+package hackernews
 
-// Error は GetXAPI 呼び出しまたは応答変換の失敗（Infrastructure Error）。
+// Error は Hacker News 呼び出しまたは応答変換の失敗（Infrastructure Error）。
 type Error struct {
 	Op  string
 	Err error
 }
 
 func (e *Error) Error() string {
-	return "getxapi: " + e.Op + ": " + e.Err.Error()
+	return "hackernews: " + e.Op + ": " + e.Err.Error()
 }
 
 func (e *Error) Unwrap() error {

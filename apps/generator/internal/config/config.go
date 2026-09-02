@@ -1,10 +1,5 @@
 package config
 
-// SourceConfig はproduction情報源に必要なconfigである。
-type SourceConfig struct {
-	GetXAPIKey Secret
-}
-
 // CursorConfig は原稿生成に必要なconfigである。
 type CursorConfig struct {
 	APIKey Secret
@@ -29,7 +24,6 @@ type DriveConfig struct {
 //
 // @invariant VariablesとSecretsの保存区分ではなくcapability単位でgroup化する。
 type Config struct {
-	Source SourceConfig
 	Cursor CursorConfig
 	Gemini GeminiConfig
 	Drive  DriveConfig

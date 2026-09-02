@@ -13,6 +13,11 @@
 ### 未完了
 
 1. [ ] System — `generator-system.yml`。suite 本体・`TEST_*` 登録
+2. [ ] 情報源3 Adapter（Decision `2026-09-02T14-41-00` 系）。依存順は各 task file の Dependencies を正とする
+   1. [ ] `generator-hackernews-adapter.md`
+   2. [ ] `generator-lobsters-adapter.md`
+   3. [ ] `generator-itmedia-adapter.md`
+   4. [ ] `generator-source-adapters-wiring.md`（上3本の後）
 
 ### D（未決・未実測・文案）
 
@@ -20,8 +25,11 @@
 |---|---|
 | Prompt / limits 文案・数値 | 尺モデルは Decision `2026-08-30T03-06-53`。残は実運用後の微調整 |
 | 挨拶文案 | Opening/Closing 定数は date placeholder 入り template で確定。実運用での文言微調整のみ残 |
-| composite 高度化 | dedup / sort（2 情報源後） |
-| 第 2 情報源 Adapter | 別 Issue 化待ち |
+| composite の source またぎ sort | 3 情報源化（Decision `2026-09-02T14-41-00`）で `OccurredAt` 順の混在が起きる。dedup は `SourceID` が全源で異なるため不要。時系列 sort を Application/Composition のどちらで持つかは別判断（事実: 現状は登録順 concat のみ） |
+| 別媒体の報道源追加 | Publickey / InfoQ / はてブ IT 等は各々専用 Adapter を新設（`infrastructure/<媒体>/`。RSS 汎用 Adapter は作らない — Decision `2026-09-02T14-41-01`）。RSS 2.0 parse の重複が三度現れたら共通化を検討（未実測） |
+| 議論 comment のスレッド深掘り | HN / Lobsters は 1 階層のみ取得（上限は Adapter stub 定数）。ネストした議論を辿るかは未決 |
+| TextWriter の web_fetch 実測 | `links:` の URL を Cursor CLI が実際に fetch できるか未実測。できない場合の補完は TextWriter 経路の内側（Application には置かない）。Decision `2026-09-02T14-41-02` 参照 |
+| 撤去済み X 関連 Decision | `2026-08-15T16-39-20` 他の X vendor 記述は指示対象を失った。supersede 注記の要否は log-session / migrate-lessons 側の判断 |
 
 ### Integration test 方針
 
