@@ -161,22 +161,73 @@ describe("useHashSelectionSync", () => {
     expect(adapter.getEpisodeId()).toBeNull();
   });
 
-  it("catalog 完了時点の既存 hash を onHashEpisodeIdChange へ流さない（echo 抑止）", () => {
-    // Given: 既に ep-1 を持つ Fake adapter
+  it("catalog 未完了 → 完了へ変わると、既存 hash（非空）を onHashEpisodeIdChange へ 1 回流す（deep-link 復元）", () => {
+    // Given: 既に ep-1 を持つ Fake adapter・catalogReady=false で mount
     const onHashEpisodeIdChange = vi.fn();
     const adapter = createFakeHashSelectionAdapter("ep-1");
+    const { rerender } = renderHook(
+      ({ catalogReady }) =>
+        useHashSelectionSync(
+          { catalogReady, selection: noSelection },
+          onHashEpisodeIdChange,
+          adapter,
+        ),
+      { initialProps: { catalogReady: false } },
+    );
+    expect(onHashEpisodeIdChange).not.toHaveBeenCalled();
 
-    // When: catalogReady=true・選択なしで render する
-    renderHook(() =>
-      useHashSelectionSync(
-        { catalogReady: true, selection: noSelection },
-        onHashEpisodeIdChange,
-        adapter,
-      ),
+    // When: catalog 完了へ遷移する
+    rerender({ catalogReady: true });
+
+    // Then: 既存 hash ep-1 が 1 回だけ流れる
+    expect(onHashEpisodeIdChange).toHaveBeenCalledExactlyOnceWith("ep-1");
+  });
+
+  it("catalog 完了時の既存 hash が空なら onHashEpisodeIdChange は呼ばれない", () => {
+    // Given: 空の Fake adapter・catalogReady=false で mount
+    const onHashEpisodeIdChange = vi.fn();
+    const adapter = createFakeHashSelectionAdapter();
+    const { rerender } = renderHook(
+      ({ catalogReady }) =>
+        useHashSelectionSync(
+          { catalogReady, selection: noSelection },
+          onHashEpisodeIdChange,
+          adapter,
+        ),
+      { initialProps: { catalogReady: false } },
     );
 
-    // Then: 既存 hash は echo されない
+    // When: catalog 完了へ遷移する
+    rerender({ catalogReady: true });
+
+    // Then: 空 hash は流さない
     expect(onHashEpisodeIdChange).not.toHaveBeenCalled();
+  });
+
+  it("deep-link 復元後、caller が selection をその episode へ更新し hash へ書き戻しても無限ループしない", () => {
+    // Given: 既存 hash ep-1・catalog 未完了で mount。caller は流れてきた episodeId を selection へ反映する
+    let currentSelection: SelectionState = noSelection;
+    const onHashEpisodeIdChange = vi.fn((episodeId: string | null) => {
+      currentSelection = episodeId === "ep-1" ? selectOne : noSelection;
+    });
+    const adapter = createFakeHashSelectionAdapter("ep-1");
+    const { rerender } = renderHook(
+      ({ catalogReady, selection }) =>
+        useHashSelectionSync({ catalogReady, selection }, onHashEpisodeIdChange, adapter),
+      { initialProps: { catalogReady: false, selection: currentSelection } },
+    );
+
+    // When: catalog 完了へ遷移（deep-link 復元で ep-1 が流れ caller が selection を更新）→
+    //   その selection を渡して再 render → もう一度発火機会
+    rerender({ catalogReady: true, selection: currentSelection });
+    rerender({ catalogReady: true, selection: currentSelection });
+    act(() => {
+      adapter.setEpisodeId(adapter.getEpisodeId());
+    });
+
+    // Then: onHashEpisodeIdChange は 1 回だけ・hash は ep-1 のまま（無限書き戻しなし）
+    expect(onHashEpisodeIdChange).toHaveBeenCalledExactlyOnceWith("ep-1");
+    expect(adapter.getEpisodeId()).toBe("ep-1");
   });
 
   it("catalog 完了後、外部 hash が非空へ変わると、その episodeId で onHashEpisodeIdChange を呼ぶ", () => {
@@ -266,8 +317,8 @@ describe("useHashSelectionSync", () => {
     expect(adapter.getEpisodeId()).toBe("ep-1");
   });
 
-  it("外部 hash 不変のまま再 render しても余分な再 render・onHashEpisodeIdChange 発火が起きない", () => {
-    // Given: ep-1 を持つ Fake adapter と render 回数 probe
+  it("deep-link 復元の 1 回のあと、外部 hash 不変のまま再 render しても余分な再 render・発火が起きない", () => {
+    // Given: ep-1 を持つ Fake adapter と render 回数 probe（catalog は最初から完了）
     const onHashEpisodeIdChange = vi.fn();
     const adapter = createFakeHashSelectionAdapter("ep-1");
     const rerenderCount = 3;
@@ -283,15 +334,17 @@ describe("useHashSelectionSync", () => {
       );
     };
     const { rerender } = renderHook(() => useProbe());
+    // 初回に deep-link 復元で 1 回だけ流れる
+    expect(onHashEpisodeIdChange).toHaveBeenCalledExactlyOnceWith("ep-1");
 
     // When: 外部 hash を変えずに rerenderCount 回 rerender する
     for (let i = 0; i < rerenderCount; i += 1) {
       rerender();
     }
 
-    // Then: render 回数は 1 + rerenderCount・発火なし
+    // Then: render 回数は 1 + rerenderCount・以後の追加発火はない（1 回のまま）
     expect(renderCount).toBe(1 + rerenderCount);
-    expect(onHashEpisodeIdChange).not.toHaveBeenCalled();
+    expect(onHashEpisodeIdChange).toHaveBeenCalledTimes(1);
   });
 
   it("unmount すると subscription が解除され、以後 onHashEpisodeIdChange を呼ばない", () => {

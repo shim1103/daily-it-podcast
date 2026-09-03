@@ -30,7 +30,6 @@ describe("EpisodeRow", () => {
         episodeCount: 1,
         episodeIndex: 0,
         isSelected: false,
-        isPlayed: false,
         isPlaying: false,
         onSelect: vi.fn(),
         onPlay: vi.fn(),
@@ -52,7 +51,6 @@ describe("EpisodeRow", () => {
         episodeCount: 1,
         episodeIndex: 0,
         isSelected: true,
-        isPlayed: true,
         isPlaying: true,
         onSelect: vi.fn(),
         onPlay: vi.fn(),
@@ -63,7 +61,6 @@ describe("EpisodeRow", () => {
     // When: 再生/停止 button をクリックする
     const article = container.querySelector("article");
     expect(article?.getAttribute("data-selected")).toBe("true");
-    expect(article?.getAttribute("data-played")).toBe("true");
     expect(article?.getAttribute("data-playing")).toBe("true");
     const buttons = container.querySelectorAll("button");
     expect(buttons[1]?.textContent).toBe("停止");
@@ -82,7 +79,6 @@ describe("EpisodeRow", () => {
         episodeCount: 1,
         episodeIndex: 0,
         isSelected: false,
-        isPlayed: false,
         isPlaying: false,
         onSelect: vi.fn(),
         onPlay,
@@ -108,7 +104,6 @@ describe("EpisodeRow", () => {
         episodeCount: 1,
         episodeIndex: 0,
         isSelected: false,
-        isPlayed: false,
         isPlaying: false,
         onSelect,
         onPlay: vi.fn(),
