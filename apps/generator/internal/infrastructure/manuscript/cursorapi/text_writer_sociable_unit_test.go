@@ -83,7 +83,7 @@ type sleepSpy struct {
 func newFakeTextWriterWithSleepSpy(responses ...fakeClientResponse) (*TextWriter, *fakeRoundTripper, *sleepSpy) {
 	rt := &fakeRoundTripper{responses: responses}
 	spy := &sleepSpy{}
-	w := newTextWriterForTest(&http.Client{Transport: rt}, "cursor-fake-key", func(_ context.Context, d time.Duration) {
+	w := newTextWriter(&http.Client{Transport: rt}, "cursor-fake-key", func(_ context.Context, d time.Duration) {
 		spy.waits = append(spy.waits, d)
 	})
 	return w, rt, spy
@@ -443,7 +443,7 @@ func TestWrite_excludesAPIKeyFromErrorMessage_whenCreateFails(t *testing.T) {
 	rt := &fakeRoundTripper{responses: []fakeClientResponse{
 		{status: http.StatusUnauthorized, body: `{"error":"unauthorized"}`},
 	}}
-	w := newTextWriterForTest(&http.Client{Transport: rt}, apiKey, func(context.Context, time.Duration) {})
+	w := newTextWriter(&http.Client{Transport: rt}, apiKey, func(context.Context, time.Duration) {})
 
 	// When: Write する
 	_, err := w.Write(context.Background(), "原稿を書いて")
