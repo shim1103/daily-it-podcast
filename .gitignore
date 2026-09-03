@@ -18,3 +18,7 @@ apps/playback/web/dist/
 # Playwright
 apps/playback/test-results/
 apps/playback/playwright-report/
+
+# Python bytecode (apps/diagrams)
+__pycache__/
+*.pyc
