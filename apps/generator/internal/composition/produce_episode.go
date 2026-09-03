@@ -19,7 +19,7 @@ func newProduceEpisode(cfg config.Config) *application.ProduceEpisode {
 		newLobstersItemSource(httpClient),
 		newITmediaItemSource(httpClient),
 	))
-	textWriter := newCursorTextWriter(cfg.Cursor)
+	textWriter := newCursorTextWriter(sharedHTTPClientWithoutTimeout(), cfg.Cursor)
 	speech := newGeminiSpeechSynthesizer(httpClient, cfg.Gemini)
 	writeEpisode := newGoogleDriveWriteEpisode(httpClient, cfg.Drive)
 	return application.NewProduceEpisode(fetch, textWriter, speech, writeEpisode, newEpisodeID, sharedDisplayLocation())
