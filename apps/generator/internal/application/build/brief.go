@@ -21,11 +21,26 @@ import (
 // @ensure OpeningGreeting / ClosingFarewell は含めない。
 // @invariant Prompt 散文を本 package に hardcode しない。Context を structured parse しない。
 func ComposeBrief(items []models.SourceItem) (string, error) {
+	return ComposeBriefWithTemplate(items, constants.TextWriterBriefPrompt)
+}
+
+// ComposeBriefWithTemplate は brief template 文字列を引数で受け取る ComposeBrief の一般版。
+// rate 計測（system && ratemeasure）が prompt variant を差し替えて A/B するための注入口
+// （Decision 2026-09-03T14-47-00）。
+//
+// @require items は Fetch 成功後の slice。template は brief prompt template（parse しない）。
+// @ensure template の {{…_MIN}} 等の数値 placeholder を manuscript_draft_limits 定数で、
+//
+//	{{SOURCES}} を items の平文列挙で、{{JSON_EXAMPLE}} を models.WriterOutput 形式例で埋める。
+//
+// @ensure ComposeBriefWithTemplate(items, constants.TextWriterBriefPrompt) は ComposeBrief(items) と同一出力。
+// @ensure len(items) == 0 のとき ("", Domain Error Op = no_source_items) を返す。
+func ComposeBriefWithTemplate(items []models.SourceItem, template string) (string, error) {
 	if len(items) == 0 {
 		return "", domainerrors.DomainErr(domainerrors.OpNoSourceItems, nil)
 	}
 
-	brief := embedManuscriptDraftLimits(constants.TextWriterBriefPrompt)
+	brief := embedManuscriptDraftLimits(template)
 	brief = strings.Replace(brief, "{{SOURCES}}", formatSourceItems(items), 1)
 	jsonExample, err := marshalWriterOutputExample()
 	if err != nil {
