@@ -14,7 +14,7 @@
 
 ### 未完了
 
-1. [ ] `generator-cursor-http-text-writer` — Cloud Agents REST TextWriter 本実装（SU / Narrow）
+1. [x] `generator-cursor-http-text-writer` — Cloud Agents REST TextWriter 本実装（SU / Narrow）
 2. [ ] System — `generator-system.yml`。suite 本体・`TEST_*` 登録
 
 ### D（未決・未実測・文案）
