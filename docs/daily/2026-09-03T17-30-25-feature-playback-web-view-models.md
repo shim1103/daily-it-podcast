@@ -20,8 +20,11 @@ playback web の ViewModel hook（catalog / selection / hash-sync / playback / c
 6. 検証: `test:unit` 333 passed（55 files）、`lint:layers` / `typecheck` / `lint` / `format:check` 全 pass、view-models と lib の branch coverage 100%。generator 側も pre-commit hook で全 pass。
 7. lessons に 23 件追記（union の判別子設計、state 正規化、error 3層、media 操作の分離、ref と state 同型化、命令的 API の層分離、上位モデル相談の前提確認 等）。
 8. follow-up として旧 `useEpisodeListViewModel` 撤去・表示側配線・`<audio src>` の ViewModel 管理化を `playback-web-audio-adapter.md` 他へ残した。
+9. PR #116 を base `develop` で作成。`master` は PR #100 まで（555 files 差分）と古く、review tool の changed file 上限に収まらないため `develop`（PR #115 まで）を base に選んだ。`develop` を先に merge して conflict を解消（`docs/lessons/index.md` の append-only 台帳末尾追記の衝突のみ、develop 側 8 件 + 本 branch 23 件を両方残して手動解消）。merge 後も `test:unit` 333 passed / `typecheck` / `lint` / `lint:layers` 全 pass。
 
 ### Commits
 
 - `54c38bd`
 - `68cd110`
+- `20a5392`
+- `946e6a5`（develop の merge）
