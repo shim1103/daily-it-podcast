@@ -8,7 +8,7 @@
 
 ```text
 Generator (Go + GitHub Actions cron)
-  取得 → 原稿 (Cursor CLI) → 音声 (Gemini TTS) → 保存
+  取得 → 原稿 (Cursor Cloud Agents REST) → 音声 (Gemini TTS) → 保存
         ↓
   個人 Google Drive（音声 + 原稿）
         ↑
@@ -26,7 +26,7 @@ Playback (Vite + TypeScript + React + Cloudflare)
 | 生成 | Go CLI + GitHub Actions cron |
 | 取得 | 公式 API / RSS の複数源（HackerNews・Lobsters・ITmedia NEWS）。選定理由は `docs/decisions/` |
 | 保存 | 個人 Google Drive |
-| 原稿 | Cursor CLI（非対話） |
+| 原稿 | Cursor Cloud Agents REST（Port `TextWriter`）。移行判断は `docs/decisions/` |
 | 音声 | Google Gemini TTS |
 
 ## リポジトリ

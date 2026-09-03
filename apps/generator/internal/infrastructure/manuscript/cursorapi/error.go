@@ -1,13 +1,13 @@
-package cursorcli
+package cursorapi
 
-// Error は Cursor CLI 実行または envelope 解釈の失敗（Infrastructure Error）。
+// Error は Cursor Cloud Agents API 呼び出しの失敗（Infrastructure Error）。
 type Error struct {
 	Op  string
 	Err error
 }
 
 func (e *Error) Error() string {
-	return "cursorcli: " + e.Op + ": " + e.Err.Error()
+	return "cursorapi: " + e.Op + ": " + e.Err.Error()
 }
 
 func (e *Error) Unwrap() error {

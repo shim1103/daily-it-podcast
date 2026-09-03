@@ -9,13 +9,12 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -25,13 +24,11 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch/processenv"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/google/oauth"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/hackernews"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/itmedia"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/lobsters"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorcli"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
 )
 
@@ -168,80 +165,6 @@ func assertIntegrationSecretsNotLeaked(t *testing.T, err error) {
 			t.Fatalf("error message contains dummy secret value")
 		}
 	}
-}
-
-func integrationCallCount(t *testing.T, path string) int {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return 0
-		}
-		t.Fatalf("os.ReadFile(%q) error = %v, want nil or not exist", path, err)
-	}
-	if len(data) == 0 {
-		return 0
-	}
-	return strings.Count(string(data), "\n")
-}
-
-type fakeAgentCLIConfig struct {
-	recordStart  bool
-	captureStdin bool
-	countWrites  bool
-}
-
-type fakeAgentCLIResult struct {
-	markerPath     string
-	stdinSinkPath  string
-	writeCountPath string
-}
-
-// installFakeAgentCLI は cursorcli.BinaryName 名の fake script を PATH 先頭へ置く。
-// recordStart / captureStdin は Narrow 用、countWrites は Broad 用の Write 到達回数計測。
-func installFakeAgentCLI(t *testing.T, scriptBody string, cfg fakeAgentCLIConfig) fakeAgentCLIResult {
-	t.Helper()
-	dir := t.TempDir()
-	var result fakeAgentCLIResult
-	preamble := []string{"#!/bin/sh"}
-	if cfg.recordStart {
-		result.markerPath = filepath.Join(dir, "started")
-		preamble = append(preamble, "touch '"+result.markerPath+"'")
-	}
-	if cfg.captureStdin {
-		result.stdinSinkPath = filepath.Join(dir, "stdin")
-		preamble = append(preamble, "cat > '"+result.stdinSinkPath+"'")
-	} else if cfg.countWrites {
-		result.writeCountPath = filepath.Join(dir, "write_count")
-		preamble = append(preamble, "echo 1 >> '"+result.writeCountPath+"'")
-		preamble = append(preamble, "cat > /dev/null")
-	}
-	script := strings.Join(preamble, "\n") + "\n" + scriptBody + "\n"
-	program := filepath.Join(dir, cursorcli.BinaryName)
-	if err := os.WriteFile(program, []byte(script), 0o755); err != nil {
-		t.Fatalf("os.WriteFile() error = %v, want nil", err)
-	}
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	return result
-}
-
-func cursorSuccessScriptBody(t *testing.T, dir, wireJSON string) string {
-	t.Helper()
-	envelope := map[string]any{
-		"type":     "result",
-		"subtype":  "success",
-		"is_error": false,
-		"result":   wireJSON,
-	}
-	raw, err := json.Marshal(envelope)
-	if err != nil {
-		t.Fatalf("json.Marshal() error = %v, want nil", err)
-	}
-	path := filepath.Join(dir, "envelope.json")
-	if err := os.WriteFile(path, raw, 0o644); err != nil {
-		t.Fatalf("os.WriteFile() error = %v, want nil", err)
-	}
-	return fmt.Sprintf("cat %q", path)
 }
 
 func minimalIntegrationGeminiPCM() []byte {
@@ -454,16 +377,31 @@ func integrationITmediaEmptyHandler(t *testing.T) http.HandlerFunc {
 }
 
 type broadProduceEpisodeHarness struct {
-	uc               *application.ProduceEpisode
-	cursorWriteCount string
-	geminiPosts      atomic.Int32
-	gdriveUploads    *integrationGDriveProbe
+	uc            *application.ProduceEpisode
+	textWriter    *broadTextWriter
+	geminiPosts   atomic.Int32
+	gdriveUploads *integrationGDriveProbe
+}
+
+// broadTextWriter は Broad が Application の停止条件を観測するための port.TextWriter double。
+type broadTextWriter struct {
+	fragment string
+	fail     bool
+	calls    atomic.Int32
+}
+
+func (w *broadTextWriter) Write(_ context.Context, _ string) (string, error) {
+	w.calls.Add(1)
+	if w.fail {
+		return "", errors.New("broad text writer failure")
+	}
+	return w.fragment, nil
 }
 
 func assertBroadDownstreamCalls(t *testing.T, h *broadProduceEpisodeHarness, wantCursor, wantGemini, wantUpload int) {
 	t.Helper()
 	if wantCursor >= 0 {
-		if got := integrationCallCount(t, h.cursorWriteCount); got != wantCursor {
+		if got := int(h.textWriter.calls.Load()); got != wantCursor {
 			t.Fatalf("TextWriter calls = %d, want %d", got, wantCursor)
 		}
 	}
@@ -479,21 +417,12 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 	t.Helper()
 
 	wireJSON := buildIntegrationWireJSON(broadIntegrationTopicCount)
-	agentDir := t.TempDir()
-
-	var cursorBody string
-	switch {
-	case cfg.cursorFail:
-		cursorBody = `printf '%s' 'broad cursor failure' 1>&2
-exit 1`
-	default:
-		cursorBody = cursorSuccessScriptBody(t, agentDir, wireJSON)
-	}
-	fakeAgent := installFakeAgentCLI(t, cursorBody, fakeAgentCLIConfig{countWrites: true})
-
 	gdriveProbe := &integrationGDriveProbe{}
 
-	h := &broadProduceEpisodeHarness{gdriveUploads: gdriveProbe}
+	h := &broadProduceEpisodeHarness{
+		gdriveUploads: gdriveProbe,
+		textWriter:    &broadTextWriter{fragment: wireJSON, fail: cfg.cursorFail},
+	}
 	geminiHandler := func(w http.ResponseWriter, r *http.Request) {
 		n := h.geminiPosts.Add(1)
 		if cfg.geminiFailAt != 0 && int(n) == cfg.geminiFailAt {
@@ -530,8 +459,6 @@ exit 1`
 		lobsters.NewListItemSource(httpClient),
 		itmedia.NewListItemSource(httpClient),
 	})
-	cursorFactory := processenv.NewSecretEnvLauncherFactory(broadDummyCursorKey, os.LookupEnv)
-	textWriter := cursorcli.NewTextWriter(cursorFactory)
 	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey)
 	tokens := oauth.NewTokenSource(httpClient, broadDummyOAuthClientID, broadDummyOAuthClientSecret, broadDummyOAuthRefreshToken)
 	rawWriter := gdrive.NewRawEpisodeWriter(httpClient, tokens, broadDummyDriveFolderID)
@@ -539,12 +466,11 @@ exit 1`
 
 	h.uc = application.NewProduceEpisode(
 		fetch,
-		textWriter,
+		h.textWriter,
 		speech,
 		writeEpisode,
 		broadFixedEpisodeIDFunc,
 		integrationTestDisplayLocation,
 	)
-	h.cursorWriteCount = fakeAgent.writeCountPath
 	return h
 }

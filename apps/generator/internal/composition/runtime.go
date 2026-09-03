@@ -18,8 +18,17 @@ func sharedHTTPClient() *http.Client {
 	return &http.Client{Timeout: httpTimeout}
 }
 
-// sharedLookupEnv は全 command launcher / config.Load が共有する親環境アクセス手段を返す。
-// production では os.LookupEnv。sharedHTTPClient と同じ production runtime 既定値。
+// sharedHTTPClientWithoutTimeout は Client.Timeout を置かない *http.Client を返す。
+// request 全体の上限を Client ではなく ctx / process cancel に委ねるときに使う
+// （長時間待ち・streaming 応答など）。短時間の request/response には sharedHTTPClient を使う。
+//
+// @ensure 戻りは全体 timeout を持たない標準 *http.Client。
+func sharedHTTPClientWithoutTimeout() *http.Client {
+	return &http.Client{}
+}
+
+// sharedLookupEnv は config.Load が使う親環境アクセス手段を返す。
+// production では os.LookupEnv。
 //
 // @ensure 戻りは os.LookupEnv。
 func sharedLookupEnv() func(key string) (string, bool) {
