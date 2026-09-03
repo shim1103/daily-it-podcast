@@ -2,32 +2,33 @@
 
 ## 現状
 - 既定 System gate は run 33610705667 で緑（`-tags=system`）だった。真因は Gemini のレスポンス parse バグ（`output_audio.data` を読んでいたが実際は `steps[].content[].data`。Decision `2026-09-02T18-01-00`）。これまで「Gemini preview の Limitation」「無料枠 日次 quota」と記録していた System 失敗の主因はこれ。
-- 続く run 33612303963 で「Gemini 以外 full」が `invalid_manuscript_draft: total rune count 2858`（Cursor 原稿が尺下限未満）で落ちた。flaky。TTS 単体は同 run で 429（当日 RPD 使い切り）。
-- 対策として TextWriter brief prompt に尺の逆算誘導と Self-check を入れ、CursorCLI 単体 System test を追加（Decision `2026-09-02T18-26-00`）。run 33627209650 で 3 回連続 PASS（全体 3825 / 3620 / 3473 文字、いずれも topic 5 件・下限 3360 クリア）。prompt 調整の効果を確認。
-- `test-system.sh` に `SYSTEM_TEST_RUN` を追加し、`workflow_dispatch` の input `test_run` で単一 test を選べる（cron は空で全実行）。TTS 系を焼かずに CursorCLI 単体だけ回せる。
+- 続く run 33612303963 で「Gemini 以外 full」が `invalid_manuscript_draft: total rune count 2858`（Cursor 原稿が尺下限未満）で落ちた。flaky。対策として brief prompt に尺の逆算誘導と Self-check を入れた（Decision `2026-09-02T18-26-00`）。run 33627209650 で 3 連続 PASS（3825 / 3620 / 3473 文字、topic 5 件・下限 3360 クリア）。
+- **再編（Decision `2026-09-03T14-45-00` / `14-46-00` / `14-47-00` / `16-30-00`。executor 実装済み・未 commit）**:
+  - `generator-system.yml` の全 credential を `TEST_*` env へ。`test_run` パターンと inline Cursor smoke を撤去。
+  - **cron 週次 + dispatch は system test を 1 回ずつ通すだけ**（`speech_synthesis` / `cursorcli_draft` 1 回版）。N 回ループも `-count=N` も入れない。壊れは 1 回で落ちる。
+  - `gemini_excluded_full_system_test.go` / `produce_episode_system_test.go`(full) / `drive_observe.go` を削除。`//go:build system && full` 消滅。
+  - PASS 率・所要の計測は dispatch 専用 test（`tts_rate` / `draft_rate`、`system && ratemeasure`）+ 専用 workflow に残す。**1 回通しが落ちた後の切り分け用**。env は `TEST_GEMINI_API_KEY` / `TEST_CURSOR_API_KEY` 直読み。
+  - Cursor CLI install を `scripts/generator/install-cursor-cli.sh` へ切り出し。workflow の長い集計 shell を `scripts/generator/*-summary.sh` へ切り出し。
 
 ## 実装済（Decision 正）
 1. Gemini audio 応答を `steps[].content[].data` から取る（`2026-09-02T18-01-00`、commit `eb72d8d`）。
-2. TTS text を topic+2 束へ（`2026-09-02T13-55-00`）。`SpeechTexts` = `1 + topics + 1` 本。`MarshalManuscript` は preface/detail 分離のまま。Domain 定数不変。
-3. Gemini retry「同種 error 2 連続で打ち切り」+ `MaxAttempts` 3 / `callGap` 20s（`2026-09-02T13-56-00`）。retry は維持。
-4. audio 欠落 error に応答本文 snippet（400 byte）+ トップレベルキー一覧（`41a751a` / `c776db6` / `92eb16e`）。
-5. System suite 分割（`2026-09-02T13-57-00` / `16-57-00`）:
-   - `speech_synthesis_system_test.go`（`system`）= 実 GEMINI で topic+2 回を無料枠 RPD 内で回す。
-   - `gemini_excluded_full_system_test.go`（`system`）= GetX / Cursor / OAuth / Drive を実 secret で通し speech だけ fake。Drive 実書込→読取→削除まで到達。
-   - `produce_episode_system_test.go`（`system && full`）= 入口→出口すべて実物。既定 gate 外。課金枠と潤沢 RPD 時に手動 `-tags="system full"`。
-6. `test-system.sh` に `-v`（区間別 `t.Logf` を CI ログへ）。
-7. TextWriter brief prompt に # Length strategy（全体合計から topic 数・detail 長を逆算）と # Self-check（提出前チェックリスト）+ parse 注意（`2026-09-02T18-26-00`）。`marshalWriterOutputExample` を 3 topic・各 field Domain range 内へ。Domain 定数不変。
-8. `cursorcli_draft_system_test.go`（`system`）= 固定擬似ソース → 実 Cursor `Write` → draft parse を 3 回連続。`CURSOR_API_KEY` のみ要求。Gemini/Drive 不使用。
+2. TTS text を topic+2 束へ（`2026-09-02T13-55-00`）。`SpeechTexts` = `1 + topics + 1` 本。Domain 定数不変。
+3. Gemini retry「同種 error 2 連続で打ち切り」+ `MaxAttempts` 3 / 既定 `callGap` 20s（`2026-09-02T13-56-00`）。retry・`MaxAttempts` は不変。`callGap` / `retryBackoffBase` / `retryBackoffMax` は `SpeechSynthesizer` の field 化し `NewSpeechSynthesizerWithTuning` で注入可（既定 constructor は既定値、挙動不変。`2026-09-03T14-46-00`）。
+4. audio 欠落 error に応答本文 snippet（400 byte）+ トップレベルキー一覧。
+5. `speech_synthesis_system_test.go`（`system`）= 実 GEMINI で topic+2 束を 1 回通す。`cursorcli_draft_system_test.go`（`system`）= 固定擬似ソース → 実 Cursor `Write` → draft parse を 1 回（回帰確認。rate 計測は `draft_rate` へ分離）。
+6. `build.ComposeBriefWithTemplate(items, template)` を分離（`ComposeBrief` は既定 template へ委譲、出力不変。`2026-09-03T14-47-00`）。
+7. brief prompt に # Length strategy と # Self-check + parse 注意（`2026-09-02T18-26-00`）。Domain 定数不変。prompt `const` 本文の改善は `draft_rate` の variant（`testdata/brief_prompt_variant_*.txt`）で A/B。
 
 ## 次
-1. feature → develop PR。既定 gate（`-tags=system`、cron）で走るのは speech_synthesis / gemini_excluded_full / cursorcli_draft。TTS 単体は無料枠 RPD=15 なので定時緑化は有料枠移行後。
-2. 個別 dispatch は `gh workflow run generator-system.yml -f test_run=<TestName>`。TTS 単体（`TestSpeechSynthesisSystem...`）は quota を焼くので有料枠移行まで回さない。
-3. full run（`system && full`）は課金枠移行後に手動 `-tags="system full"`。
-4. 3/3 の全体 3473 は下限 3360 まで 113 文字マージン。ばらつきで下限割れの可能性は残るが、本番 Run は `TextWriterMaxAttempts=5` の retry で回復する。再発が続くなら prompt の detail 目安をさらに上げる。
+1. executor 実装の manager 監査（full 系削除・env 名・script 切り出しの検証）。
+2. `TEST_CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` の repo Secret 登録（人手）。未登録だと TEST key 化後の実 API 部分が Skip / 失敗。
+3. feature → develop PR。cron で走るのは `speech_synthesis` / `cursorcli_draft`(1 回版) の 1 回通しのみ。
+4. cron が赤／不安定なとき rate 計測を dispatch: `gh workflow run generator-tts-rate.yml [-f runs= -f call_gap= ...]` / `gh workflow run generator-draft-rate.yml [-f runs= -f prompt_variant=]`。結果は `generator-system-pass-rate.md` へ記録。
+5. 3/3 の全体 3473 は下限 3360 まで 113 文字マージン。再発が続くなら `draft_rate` の variant で detail 目安を上げた prompt を検証してから `const` へ反映。
 
 ## Drive の実到達
-実 OAuth + 実 Drive list / write（create+upload）/ read / delete は「Gemini 以外 full」test で緑化（run 33610705667）。write 経路は Decision `2026-08-30T23-31-00` / `23-32-00` どおり（同 stem upsert・json→wav 公開順・補償なし）。
+実 OAuth + 実 Drive list / write（create+upload）/ read / delete は旧「Gemini 以外 full」test で緑化（run 33610705667、Decision `2026-09-03T16-30-00` で当該 test は削除）。write 経路は Decision `2026-08-30T23-31-00` / `23-32-00` どおり（同 stem upsert・json→wav 公開順・補償なし）。以後の Drive 実到達確認は system test の 1 回通し（`speech_synthesis` は Drive を触らないため、通し経路での Drive 到達確認は develop 以降の別 test か本番 Run に委ねる）。
 
 ## memo
-- `drive_observe.go` は `//go:build system`。`system` のみビルドで一部 helper が未使用になるが無害。
+- `//go:build system` でビルドされる test file は `speech_synthesis_system_test.go` / `cursorcli_draft_system_test.go` の 2 本。`system && ratemeasure` で `tts_rate` / `draft_rate` が加わる。
 - `interactionResponse.Status` フィールドは現状未使用。`status != "completed"` の扱いは必要になったら別 Decision。

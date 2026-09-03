@@ -10,7 +10,7 @@
 - [x] 原稿 → TTS → 書込 UseCase（`ProduceEpisode.Run` 本体）
 - [x] Broad Integration（`apps/generator/test/*_broad_integration_test.go`。達成契約 file は完了削除）
 - [ ] GHA 本番 produce — workflow 済（`generator-produce-episode.yml`）。Run / Broad 実装済。Secret/Variable 登録は人手
-- [x] System — Gemini 応答 parse バグ修正で緑化（run 33610705667、Decision `2026-09-02T18-01-00`）。Cursor 原稿の尺 flaky は brief prompt の逆算誘導 + Self-check で対策、CursorCLI 単体 test 3 回連続 PASS（run 33627209650、Decision `2026-09-02T18-26-00`）。TTS 単体 / Gemini 以外 full / CursorCLI 単体 / full（`system && full`）に分割。dispatch は `-f test_run=<name>` で単一選択可。引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`
+- [ ] System — parse バグ修正で緑化（run 33610705667、Decision `2026-09-02T18-01-00`）。再編中（Decision `2026-09-03T14-45-00` / `14-46-00` / `14-47-00` / `16-30-00`、executor 実装済み・未 commit）: 全 credential を `TEST_*` 化、cron 週次 + dispatch は **system test を 1 回ずつ通すだけ**（`speech_synthesis` / `cursorcli_draft` 1 回版。N 回ループなし）、`gemini_excluded_full` / `produce_episode`(full) / `drive_observe.go` 削除（`system && full` 消滅）、PASS 率計測は dispatch 専用 test（`system && ratemeasure`）+ 専用 workflow に残し 1 回通し失敗後の切り分け用、Cursor install と集計 shell を script 化。台帳 `docs/tasks/todo/generator-system-pass-rate.md`、引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`
 
 ### D（未決・未実測・文案）
 
@@ -21,7 +21,7 @@
 | composite 高度化 | dedup / sort（2 情報源後） |
 | 第 2 情報源 Adapter | 別 Issue 化待ち |
 | GHA production workflow | YAML・inventory 名は済。Run 実装済。repo へ本番 Secret/Variable を登録する人手作業が残る。定時緑化は Secret 登録後 |
-| `generator-system-e2e-produce-episode` | 既定 System gate 緑化済み（parse バグ修正が主因、Decision `2026-09-02T18-01-00`）。残は develop PR と full run（`system && full`）の課金枠移行後確認。詳細は同名 todo |
+| `generator-system-e2e-produce-episode` | 既定 System gate 緑化済み（parse バグ修正が主因、Decision `2026-09-02T18-01-00`）。再編中: TEST key 固定・パターン撤去・rate 計測 workflow 分離（Decision `2026-09-03T14-45-00` 系、下書き `generator-system-rate-workflows.md`）。残は develop PR と full run（`system && full`）の課金枠移行後確認。詳細は同名 todo |
 | Drive ペア書込の補償・staging | 公開型で残骸許容（Decision `2026-08-30T23-32-00`）。補償 delete / staging→rename の再検討は後回し |
 
 ### Integration test 方針
