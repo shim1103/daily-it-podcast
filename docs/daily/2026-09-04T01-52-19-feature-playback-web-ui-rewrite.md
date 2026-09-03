@@ -21,6 +21,7 @@ playback web の一覧 page を新 ViewModel stack（`useEpisodeListPage` + `Epi
 7. lessons に計 12 件追記（deep-link の 1 行実装、auto-load の寄せ先と test 影響、実 hash adapter test の hash 汚染、compose hook 戻り値の絞り方、契約 stub に合わせた field 追加の禁止、SSoT 変更は Decision supersede を通す、page 薄化と hook 集約の目的/手段の区別、SSoT 逸脱の復元手順、`git checkout <ref>` deny 環境での `git show` 代替、1 段ラッパ component の廃止基準）。
 8. `/commit --repo --split` で 3 commit（`d6cede3` refactor / `82cf44f` docs(lessons) / `c10aa7a` chore(task 削除)）に分割し `origin/feature/playback-web-ui-rewrite` へ push。sandbox 内 push が filtering proxy の SSH 認証で 1 度失敗し、sandbox 無効で再実行して成功。
 9. これに先立ち、この session の最初期に `playback-web-audio-adapter`（audio 操作を `lib/audio-element.ts` Adapter へ分離）が既に PR #116 で merge 済みと audit 確認し、`playback-web-ui-rewrite` + `playback-web-legacy-cleanup` を commit `02a292a` / `7a3f192` として先行 push 済み。branch は `feature/playback-web-audio-adapter` から `feature/playback-web-ui-rewrite` へ rename した。
+10. PR #121 を base `develop` で作成（`gh pr` 直接、`shim gh` 不使用）。関連 GitHub Issue なし（元 task file の AC は commit 時点で達成済み・削除済み）。`master` からは 135 files 差分で review tool 上限超過のため base は `develop`（PR #116 と同じ判断）。`origin/develop`（PR #119/#120 取り込み後）を先に merge して conflict を解消（`docs/lessons/index.md` の append-only 台帳末尾追記の衝突のみ、develop 側 6 行 + 本 branch 側 14 行を両方残して手動解消、merge commit `07c819c`）。merge 後も `test:unit` 310 passed / `typecheck` / `lint` / `lint:layers` / `format:check` 全 pass。
 
 ### Commits
 
@@ -30,3 +31,5 @@ playback web の一覧 page を新 ViewModel stack（`useEpisodeListPage` + `Epi
 - `d6cede3`
 - `82cf44f`
 - `c10aa7a`
+- `ab2c9aa`
+- `07c819c`（develop の merge）
