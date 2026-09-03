@@ -1,95 +1,100 @@
 import { useCallback } from "react";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
-import type { BlockingError, CatalogStatus, EpisodeData } from "./playback-state.ts";
-import {
-  deriveBlockingError,
-  deriveIsPlayed,
-  deriveIsPlaying,
-  deriveIsSelected,
-  derivePlayedEpisode,
-  deriveSelectedEpisode,
+import type { HashSelectionAdapter } from "../lib/hash-selection-adapter.ts";
+import type {
+  CatalogStatus,
+  EpisodeData,
+  EpisodeRowViewModel,
+  PageStatus,
+  PlaybackState,
+  SelectionState,
 } from "./playback-state.ts";
+import { deriveEpisodeRows, derivePageStatus, derivePlayedEpisode } from "./playback-state.ts";
 import { useEpisodeCatalog } from "./use-episode-catalog.ts";
 import { useEpisodePlayback } from "./use-episode-playback.ts";
+import type { EpisodePlaybackViewModel } from "./use-episode-playback.ts";
 import { useEpisodeSelection } from "./use-episode-selection.ts";
 import { useHashSelectionSync } from "./use-hash-selection-sync.ts";
-import type { EpisodePlaybackViewModel } from "./use-episode-playback.ts";
 
 export type EpisodeListPageViewModel = {
   catalogStatus: CatalogStatus;
   episodes: EpisodeData[];
-  selectedEpisodeId: string | null;
+  selection: SelectionState;
   selectedEpisode: EpisodeData | null;
-  playedEpisodeId: string | null;
+  playback: PlaybackState;
   playedEpisode: EpisodeData | null;
-  isPlaying: boolean;
-  blockingError: BlockingError | null;
-  isSelected(episodeId: string): boolean;
-  isPlayed(episodeId: string): boolean;
+  rows: EpisodeRowViewModel[];
+  pageStatus: PageStatus;
   load(): Promise<void>;
   select(episodeId: string): void;
   deselect(): void;
   toggleSelection(episodeId: string): void;
-  play(episodeId: string): void;
+  play(episodeId: string, positionSec?: number): void;
+  seek(episodeId: string, positionSec: number): void;
   stop(): void;
   audioElementRef: EpisodePlaybackViewModel["audioElementRef"];
 };
 
 /**
- * catalog / selection / hash-sync / playback を compose する page 用 hook（契約 stub）。
+ * catalog / selection / hash-sync / playback を compose する page 用 hook。
  *
- * @require apiClient は `listEpisodes()` を持つ
- * @ensure 下位 hook stub を束ね、derive 関数で投影を返す。hash 同期は catalog 完了後に開始する想定だが stub は no-op
- * @invariant page が直接持つのは compose のみ
+ * @require apiClient は `listEpisodes()` を持つ。adapter は test 用の DI で、未指定なら
+ *   `useHashSelectionSync` が既定 adapter を使う
+ * @ensure 下位 hook を束ね、`playback-state.ts` の derive 関数で投影を返す。page が全画面の
+ *   振る舞いを決めるために見るのは `pageStatus` 1 型（`derivePageStatus(catalog.catalogStatus)`）。
+ *   hash 同期の保留判断（catalog 完了まで同期しない）は `useHashSelectionSync` の内部に閉じる。
+ *   hash 変化は episodeId があれば `selection.select`（一覧に無ければ no-op）、null なら
+ *   `selection.deselect` として解釈する
+ * @invariant throw しない。page が直接持つのは compose のみ。state machine は各下位 hook
  */
-export function useEpisodeListPage(apiClient: PlaybackApiClient): EpisodeListPageViewModel {
+export function useEpisodeListPage(
+  apiClient: PlaybackApiClient,
+  adapter?: HashSelectionAdapter,
+): EpisodeListPageViewModel {
   const catalog = useEpisodeCatalog(apiClient);
-  const selection = useEpisodeSelection();
+  const selection = useEpisodeSelection(catalog.episodes);
   const playback = useEpisodePlayback();
 
-  const hashSyncSelectedId =
-    catalog.catalogStatus.status === "success" ? selection.selectedEpisodeId : undefined;
-  useHashSelectionSync(hashSyncSelectedId, () => {
-    // stub: hash 変化の解釈は C で page compose に実装
-  });
-
-  const selectedEpisode = deriveSelectedEpisode(catalog.episodes, selection.selectedEpisodeId);
-  const playedEpisode = derivePlayedEpisode(catalog.episodes, playback.playedEpisodeId);
-  const isPlaying = deriveIsPlaying(playback.playbackPhase);
-  const blockingError = deriveBlockingError({
-    catalogStatus: catalog.catalogStatus,
-    episodes: catalog.episodes,
-    selectedEpisodeId: selection.selectedEpisodeId,
-    playedEpisodeId: playback.playedEpisodeId,
-    playbackPhase: playback.playbackPhase,
-  });
-
-  const isSelected = useCallback(
-    (episodeId: string): boolean => deriveIsSelected(episodeId, selection.selectedEpisodeId),
-    [selection.selectedEpisodeId],
+  const onHashEpisodeIdChange = useCallback(
+    (episodeId: string | null): void => {
+      if (episodeId === null) {
+        selection.deselect();
+        return;
+      }
+      selection.select(episodeId);
+    },
+    [selection.select, selection.deselect],
   );
 
-  const isPlayed = useCallback(
-    (episodeId: string): boolean => deriveIsPlayed(episodeId, playback.playedEpisodeId),
-    [playback.playedEpisodeId],
+  useHashSelectionSync(
+    { catalogReady: catalog.catalogStatus.status === "success", selection: selection.selection },
+    onHashEpisodeIdChange,
+    adapter,
   );
+
+  const selectedEpisode = selection.selection.selected ? selection.selection.episode : null;
+  const playedEpisode = derivePlayedEpisode(catalog.episodes, playback.playback);
+  const rows = deriveEpisodeRows(catalog.episodes, {
+    selection: selection.selection,
+    playback: playback.playback,
+  });
+  const pageStatus = derivePageStatus(catalog.catalogStatus);
 
   return {
     catalogStatus: catalog.catalogStatus,
     episodes: catalog.episodes,
-    selectedEpisodeId: selection.selectedEpisodeId,
+    selection: selection.selection,
     selectedEpisode,
-    playedEpisodeId: playback.playedEpisodeId,
+    playback: playback.playback,
     playedEpisode,
-    isPlaying,
-    blockingError,
-    isSelected,
-    isPlayed,
+    rows,
+    pageStatus,
     load: catalog.load,
     select: selection.select,
     deselect: selection.deselect,
     toggleSelection: selection.toggle,
     play: playback.play,
+    seek: playback.seek,
     stop: playback.stop,
     audioElementRef: playback.audioElementRef,
   };
