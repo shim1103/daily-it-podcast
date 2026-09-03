@@ -1,8 +1,8 @@
 import { render } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { EpisodeListItemData } from "../../view-models/episode-list-view-model.ts";
-import { EpisodeListItem } from "./episode-list-item.tsx";
+import type { EpisodeListItemData } from "../../view-models/episode-list-view-model.legacy.ts";
+import { EpisodeListItem } from "./episode-list-item.legacy.tsx";
 
 const episode: EpisodeListItemData = {
   episodeId: "ep-1",

@@ -1,10 +1,10 @@
 import { Fragment, memo, type ReactElement, type ReactNode, type RefObject } from "react";
-import type { EpisodeListState } from "../../view-models/episode-list-view-model.ts";
-import { EpisodeListItem } from "./episode-list-item.tsx";
+import type { EpisodeListState } from "../../view-models/episode-list-view-model.legacy.ts";
+import { EpisodeListItem } from "./episode-list-item.legacy.tsx";
 import { EpisodeManuscript } from "./episode-manuscript.tsx";
-import { EpisodePlayer } from "./episode-player.tsx";
+import { EpisodePlayer } from "./episode-player.legacy.tsx";
 import "./episode-detail.css";
-import "./episode-list.css";
+import "./episode-list.legacy.css";
 import "./episode-selected-group.css";
 
 type SelectedEpisode = NonNullable<

@@ -3,9 +3,9 @@ import { formatDurationMmSs } from "../../utils/format-duration-mm-ss.ts";
 import { formatEpisodeDate } from "../../utils/format-episode-date.ts";
 import { formatNumberedEpisodeTitle } from "../../utils/format-numbered-episode-title.ts";
 import { formatTopicTitles } from "../../utils/format-topic-titles.ts";
-import type { EpisodeListItemData } from "../../view-models/episode-list-view-model.ts";
+import type { EpisodeListItemData } from "../../view-models/episode-list-view-model.legacy.ts";
 import { LabeledText } from "../primitive/labeled-text.tsx";
-import "./episode-list-item.css";
+import "./episode-list-item.legacy.css";
 
 export type EpisodeListItemProps = {
   episode: EpisodeListItemData;
