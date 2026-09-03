@@ -1,0 +1,66 @@
+# scope: Generator Gemini TTS PASS 率計測（dispatch 専用・gate 外）
+# 実物: scripts/generator/test-tts-rate.sh → go test -tags="system ratemeasure" TestGeminiTTSRate
+# double: なし（test 専用 credential TEST_GEMINI_API_KEY）
+# @require Go（version は apps/generator/go.mod）。TEST_GEMINI_API_KEY Secret が登録済み。
+# @ensure tts-rate 入口が exit 0（PASS 率が閾値以上）。$GITHUB_STEP_SUMMARY に pass/total と平均所要。
+# @invariant 必須 Unit / Integration gate に載せない。cron を持たない（RPM 圧迫回避）。本番 Secrets を使わない。
+# @invariant toolchain の go test を YAML に直書きしない。secret 値を log に出さない。Cursor install step を持たない。
+# 判断: docs/decisions/2026-09-03T14-45-00 / 2026-09-03T14-46-00
+name: generator-tts-rate
+
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: "Synthesize を繰り返す回数"
+        required: false
+        default: "10"
+      call_gap:
+        description: "callGap（client.Do 間の最小間隔。time.ParseDuration 形式）"
+        required: false
+        default: "20s"
+      retry_backoff_base:
+        description: "retry backoff の基準値"
+        required: false
+        default: "60s"
+      retry_backoff_max:
+        description: "retry backoff の上限"
+        required: false
+        default: "3m"
+      pass_threshold:
+        description: "緑にする PASS 率の下限（0,1] の小数"
+        required: false
+        default: "0.8"
+
+jobs:
+  tts-rate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/generator/go.mod
+
+      - name: TTS rate 計測を実行
+        env:
+          GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_API_KEY }}
+          TTS_RATE_RUNS: ${{ inputs.runs }}
+          TTS_CALL_GAP: ${{ inputs.call_gap }}
+          TTS_RETRY_BACKOFF_BASE: ${{ inputs.retry_backoff_base }}
+          TTS_RETRY_BACKOFF_MAX: ${{ inputs.retry_backoff_max }}
+          TTS_PASS_THRESHOLD: ${{ inputs.pass_threshold }}
+        run: |
+          set -euo pipefail
+          ./scripts/generator/test-tts-rate.sh 2>&1 | tee /tmp/tts-rate.log
+
+      - name: PASS 率を summary へ
+        if: always()
+        env:
+          RUNS: ${{ inputs.runs }}
+          CALL_GAP: ${{ inputs.call_gap }}
+          RETRY_BACKOFF_BASE: ${{ inputs.retry_backoff_base }}
+          RETRY_BACKOFF_MAX: ${{ inputs.retry_backoff_max }}
+          PASS_THRESHOLD: ${{ inputs.pass_threshold }}
+        run: ./scripts/generator/tts-rate-summary.sh

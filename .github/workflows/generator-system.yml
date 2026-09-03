@@ -2,11 +2,11 @@
 # 実物: scripts/generator/test-system.sh
 # double: なし（test 専用 credential）
 # @require Go（version は apps/generator/go.mod）。test 用 TEST_* Secrets / Variables が登録済み。Cursor CLI 公式 install が可能。
-# @ensure System 入口が exit 0。
-# @invariant 必須 Unit / Integration gate に載せない。Cursor / Gemini 以外の本番 Secrets / Variables を使わない（Cursor・Gemini は Decision 2026-08-30T17-45-00 / 2026-08-30T19-55-00 の暫定例外）。playback を触らない。
+# @ensure System 入口が exit 0。$GITHUB_STEP_SUMMARY に top-level test の pass/total。
+# @invariant 必須 Unit / Integration gate に載せない。全 credential は TEST_*（本番 Secrets / Variables を使わない。Decision 2026-09-03T14-45-00）。playback を触らない。
 # @invariant toolchain の go test を YAML に直書きしない。secret 値を log に出さない。
-# 判断: docs/decisions/2026-08-30T11-56-01 / 2026-08-30T12-49-00 / 2026-08-30T12-49-01 / 2026-08-30T16-23-00
-# 判断: dispatch は inputs.test_run で単一 test 実行可（cron は空扱いで全実行）
+# 判断: docs/decisions/2026-08-30T11-56-01 / 2026-08-30T12-49-00 / 2026-08-30T12-49-01 / 2026-08-30T16-23-00 / 2026-09-03T14-45-00
+# 判断: cron・dispatch とも -tags=system の全 System test を実行する（実行対象パターン切替なし）。rate 計測は generator-tts-rate.yml / generator-draft-rate.yml へ分離。
 name: generator-system
 
 on:
@@ -14,11 +14,6 @@ on:
     # 毎週月曜 07:00 Asia/Tokyo = 日曜 22:00 UTC
     - cron: "0 22 * * 0"
   workflow_dispatch:
-    inputs:
-      test_run:
-        description: "go test -run パターン（空なら全 system test。例: TestCursorCLIDraftSystem）"
-        required: false
-        default: ""
 
 jobs:
   system:
@@ -32,62 +27,19 @@ jobs:
           go-version-file: apps/generator/go.mod
 
       - name: Cursor CLI を install
-        run: |
-          set -euo pipefail
-          installer="$(mktemp)"
-          curl -fsS https://cursor.com/install -o "$installer"
-          bash "$installer"
-          rm -f "$installer"
-          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
-          export PATH="${HOME}/.local/bin:${PATH}"
-          if ! command -v agent >/dev/null 2>&1; then
-            if command -v cursor-agent >/dev/null 2>&1; then
-              ln -sfn "$(command -v cursor-agent)" "${HOME}/.local/bin/agent"
-            else
-              echo "Cursor CLI binary 未解決" >&2
-              exit 1
-            fi
-          fi
-          command -v agent
-          command -v cursor-agent || true
+        run: ./scripts/generator/install-cursor-cli.sh
 
-      # why: PR80 probe と同条件（親 env 継承 + sandbox disabled + 絶対 path）。
-      #      Secret も probe と同じ CURSOR_API_KEY（TEST_ ではない）で切り分ける。
-      - name: Cursor CLI smoke（probe 同型・CURSOR_API_KEY）
-        env:
-          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-        run: |
-          set -euo pipefail
-          export PATH="${HOME}/.local/bin:${PATH}"
-          bin="$(command -v cursor-agent || command -v agent)"
-          echo "smoke binary=${bin}"
-          set +e
-          "${bin}" -p --mode ask --output-format json --model composer-2.5 --sandbox disabled --trust \
-            <<'SMOKE_PROMPT' > /tmp/cursor-smoke.out 2> /tmp/cursor-smoke.err
-          1たす1を数字だけで答えよ
-          SMOKE_PROMPT
-          smoke_exit=$?
-          set -e
-          echo "smoke_exit=${smoke_exit}"
-          echo "smoke_stdout_bytes=$(wc -c < /tmp/cursor-smoke.out | tr -d ' ')"
-          echo "smoke_stderr_bytes=$(wc -c < /tmp/cursor-smoke.err | tr -d ' ')"
-          if [ "${smoke_exit}" -ne 0 ]; then
-            echo "smoke_stderr_head:"
-            head -c 300 /tmp/cursor-smoke.err || true
-            echo
-            exit "${smoke_exit}"
-          fi
-
-      # why: smoke / System で Cursor は本番 CURSOR_API_KEY が必要（TEST_ は API 到達失敗）。
-      #      draft 成功後 Gemini が status 403（run 33307390160）。Cursor と同型で本番 key を暫定採用。
       - name: System Test を実行
         env:
           GETX_API_KEY: ${{ secrets.TEST_GETX_API_KEY }}
-          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CURSOR_API_KEY: ${{ secrets.TEST_CURSOR_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_API_KEY }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.TEST_GOOGLE_OAUTH_CLIENT_SECRET }}
           GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.TEST_GOOGLE_OAUTH_REFRESH_TOKEN }}
           GOOGLE_OAUTH_CLIENT_ID: ${{ vars.TEST_GOOGLE_OAUTH_CLIENT_ID }}
           DRIVE_FOLDER_ID: ${{ vars.TEST_DRIVE_FOLDER_ID }}
-          SYSTEM_TEST_RUN: ${{ inputs.test_run }}
         run: ./scripts/generator/test-system.sh
+
+      - name: PASS 率を summary へ
+        if: always()
+        run: ./scripts/generator/system-summary.sh
