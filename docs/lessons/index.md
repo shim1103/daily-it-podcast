@@ -161,3 +161,8 @@
 - 2026-09-04 [feature/playback-web-ui-rewrite] SSoT から逸脱した実装を戻すよう指示されたら、user に基準 commit（PR merge 点等）を明示させ、その commit の該当 file を 1 バイト一致まで復元してから、正しい方向の変更だけを積み直す。中途半端に「逸脱部分だけ手で戻す」と別の未 commit 変更と混ざって復元の完全性を検証できない。`git diff <ref> -- <path>` が空になることを復元の完了条件にする  # → layer:workflow
 - 2026-09-04 [feature/playback-web-ui-rewrite] `git checkout <ref> -- <path>` が pre-tool hook で deny される環境では、`git show <ref>:<path>` の出力を対象 file へ書き戻して同じ復元を達成する。hook の禁止は「作業ツリーを別 ref の状態へ巻き戻す破壊的操作」への防御で、意図が「特定 file を既知の正へ戻す」なら show + 書き戻しは同義かつ許容される  # → layer:platform
 - 2026-09-04 [feature/playback-web-ui-rewrite] 1 段のラッパ component（別 component を包んで class を 1 つ足すだけ、props を素通し）は、その class が CSS で参照されていなければ indirection のコスト（file・test・import・JSDoc）に見合わない。domain 上の役割名として意味があるなら Decision の役割記述に残し、専用 component は立てない。役割の制約（原稿以外を重ねない等）は包まれる側の props 型が既に保証している  # → layer:terms
+- 2026-09-04 [feature/playback-deploy-ops-followup] 運用後続の 1 checkbox に、軸が独立した topic（手順文書・観測契約・脆弱性 scanner・依存更新 bot・自動 deploy）を同居させると完了条件が閉じない。完了に入れるものと非 scope を先に分け、進捗 index は薄い参照だけにする  # → layer:workflow
+- 2026-09-04 [feature/playback-deploy-ops-followup] 運用方針の文書・契約固定と、本番への再 deploy による反映確認を同一完了条件にすると「docs 済み / 本番未反映」が二重進捗になる。反映は通常の deploy 手順へ委ね、文書と契約の固定だけを完了にしてよい  # → layer:workflow
+- 2026-09-04 [feature/playback-deploy-ops-followup] 入場制御付きの個人利用 URL に対する動的脆弱性スキャンは、認証越え・許可 identity・対象面が未決なら Issue 化できない。未決のまま完了 checkbox に残さない  # → layer:terms
+- 2026-09-04 [feature/playback-deploy-ops-followup] 「今はやらない」依存更新 bot は Decision を増やさず、採用しない一覧と進捗から外すだけで足りる。未決を Decision に確定したかのように書かない  # → layer:workflow
+- 2026-09-04 [feature/playback-deploy-ops-followup] 束ね workflow（pr-completion）が log-session の append 無しを明示したら、下位 create-pr 完了条件の append 要求より orchestrator の指示を優先する。option の意味は skill_options を正とし推測しない  # → layer:workflow
