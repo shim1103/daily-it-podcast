@@ -7,95 +7,119 @@ export type EpisodeData = ListEpisodesData["episodes"][number];
 
 export type CatalogStatus = { status: "loading" } | { status: "success" } | { status: "error" };
 
-export type PlaybackPhase = "idle" | "loading" | "playing" | "paused" | "ended" | "error";
-
-export type BlockingError =
-  | { kind: "catalog-load-failed" }
-  | { kind: "invalid-selected-episode"; episodeId: string }
-  | { kind: "audio-load-failed"; episodeId: string };
+export type SelectionState = { selected: false } | { selected: true; episode: EpisodeData };
 
 /**
- * `playbackPhase` から再生中かを導出する。
- *
- * @ensure `playbackPhase === "playing"` のときのみ true
+ * audio 取得に失敗した理由。現状は 1 値のみ。将来 decode 失敗等を足す受け皿として union で持つ。
  */
-export function deriveIsPlaying(playbackPhase: PlaybackPhase): boolean {
-  return playbackPhase === "playing";
-}
+export type AudioFailureReason = "audio-load-failed";
 
 /**
- * 一覧 cache と選択 id から選択中 episode を導出する。
- *
- * @ensure `selectedEpisodeId` が null または一覧に無いとき null
+ * 再生中 episode の phase。`error` 枝のみ失敗理由（`reason`）を持ち、他 phase は追加データを持たない。
+ * `lib/audio-element.ts` の `AudioLifecyclePhase`（4 値）に `loading` を足した 5 枝。
  */
-export function deriveSelectedEpisode(
-  episodes: readonly EpisodeData[],
-  selectedEpisodeId: string | null,
-): EpisodeData | null {
-  if (selectedEpisodeId === null) {
-    return null;
-  }
-  return episodes.find((episode) => episode.episodeId === selectedEpisodeId) ?? null;
-}
+export type PlaybackPhase =
+  | { phase: "loading" }
+  | { phase: "playing" }
+  | { phase: "paused" }
+  | { phase: "ended" }
+  | { phase: "error"; reason: AudioFailureReason };
 
 /**
- * 一覧 cache と再生 id から再生中 episode を導出する。
+ * 再生 state。`idle` は再生対象がなく付随データを持たない。`active` は再生対象があり、
+ * `phase` に関わらず現在位置（`positionSec`）と長さ（`durationSec`、metadata 未取得なら null）を
+ * 必ず持つ。停止中でも位置は `positionSec` に残る（B Decision §1-1/§1-2）。
+ */
+export type PlaybackState =
+  | { kind: "idle" }
+  | {
+      kind: "active";
+      episodeId: string;
+      phase: PlaybackPhase;
+      positionSec: number;
+      durationSec: number | null;
+    };
+
+/** `PlaybackState` の `active` 枝。再生対象があり位置・長さを必ず持つ。 */
+export type ActivePlayback = Extract<PlaybackState, { kind: "active" }>;
+
+/**
+ * page 全体の振る舞いを決める blocking 判定のみを持つ型。non-blocking（audio 失敗）は
+ * `PlaybackState` の `phase:"error"` 枝が持ち、この型からは分離する。
+ */
+export type PageStatus =
+  | { kind: "loading" }
+  | { kind: "unavailable"; reason: "catalog-load-failed" }
+  | { kind: "ready" };
+
+/**
+ * component が 1 row に必要とする最小の投影。表示整形は Row component 側が `EpisodeData` から行うため
+ * ここでは raw の `episodeId` と、union の判別で決まる 2 つの boolean のみを持つ。
+ */
+export type EpisodeRowViewModel = {
+  episodeId: string;
+  isSelected: boolean;
+  isPlaying: boolean;
+};
+
+/**
+ * 一覧 cache と再生 union から再生中 episode を導出する。
  *
- * @ensure `playedEpisodeId` が null または一覧に無いとき null
+ * @ensure `playback.kind` が `idle`、または `episodeId` が一覧に無いとき null
  */
 export function derivePlayedEpisode(
   episodes: readonly EpisodeData[],
-  playedEpisodeId: string | null,
+  playback: PlaybackState,
 ): EpisodeData | null {
-  if (playedEpisodeId === null) {
+  if (playback.kind === "idle") {
     return null;
   }
-  return episodes.find((episode) => episode.episodeId === playedEpisodeId) ?? null;
+  return episodes.find((episode) => episode.episodeId === playback.episodeId) ?? null;
 }
 
 /**
- * page 全体を止める blocking error を導出する。
+ * catalog の取得状態から page 全体の振る舞い（`PageStatus`）を導出する。
  *
- * @ensure catalog load 失敗・invalid hash 由来の未知 episodeId・audio load 失敗のいずれか 1 件、
- *   または blocking なしで null
+ * @ensure catalog error は unavailable/catalog-load-failed、catalog loading は loading、
+ *   catalog success は ready。選択・再生の異常は blocking 判定に影響しない
  */
-export function deriveBlockingError(params: {
-  catalogStatus: CatalogStatus;
-  episodes: readonly EpisodeData[];
-  selectedEpisodeId: string | null;
-  playedEpisodeId: string | null;
-  playbackPhase: PlaybackPhase;
-}): BlockingError | null {
-  if (params.catalogStatus.status === "error") {
-    return { kind: "catalog-load-failed" };
-  }
-  if (params.catalogStatus.status === "loading") {
-    return null;
-  }
-  if (params.selectedEpisodeId !== null) {
-    const selectedExists = params.episodes.some(
-      (episode) => episode.episodeId === params.selectedEpisodeId,
-    );
-    if (!selectedExists) {
-      return { kind: "invalid-selected-episode", episodeId: params.selectedEpisodeId };
+export function derivePageStatus(catalogStatus: CatalogStatus): PageStatus {
+  const status = catalogStatus.status;
+  switch (status) {
+    case "error":
+      return { kind: "unavailable", reason: "catalog-load-failed" };
+    case "loading":
+      return { kind: "loading" };
+    case "success":
+      return { kind: "ready" };
+    /* v8 ignore next 6 -- CatalogStatus は 3 値の union 型で、型検査上この分岐へ実行が到達しない。将来値が増えた時に tsc が検知するための exhaustiveness check（defensive-design.md §6）。網羅性ガードの never 代入と到達時 fallback は別責務のため両方置く */
+    default: {
+      const exhaustive: never = status;
+      void exhaustive;
+      // why: 「使えない」を返すのが loading より安全側（本体を描かせない）
+      return { kind: "unavailable", reason: "catalog-load-failed" };
     }
   }
-  if (params.playbackPhase === "error" && params.playedEpisodeId !== null) {
-    return { kind: "audio-load-failed", episodeId: params.playedEpisodeId };
-  }
-  return null;
 }
 
 /**
- * 指定 episode が選択中かを導出する。
+ * 一覧と選択・再生 union から、component が 1 row に必要とする投影の配列を導出する。
+ *
+ * @ensure 各 episode について、選択中なら isSelected=true、`kind:"active"` かつ `phase:"playing"` なら
+ *   isPlaying=true。それ以外は false。順序は入力の `episodes` に一致する
  */
-export function deriveIsSelected(episodeId: string, selectedEpisodeId: string | null): boolean {
-  return selectedEpisodeId === episodeId;
-}
-
-/**
- * 指定 episode が再生対象かを導出する。
- */
-export function deriveIsPlayed(episodeId: string, playedEpisodeId: string | null): boolean {
-  return playedEpisodeId === episodeId;
+export function deriveEpisodeRows(
+  episodes: readonly EpisodeData[],
+  context: { selection: SelectionState; playback: PlaybackState },
+): EpisodeRowViewModel[] {
+  const selectedEpisodeId = context.selection.selected ? context.selection.episode.episodeId : null;
+  const playingEpisodeId =
+    context.playback.kind === "active" && context.playback.phase.phase === "playing"
+      ? context.playback.episodeId
+      : null;
+  return episodes.map((episode) => ({
+    episodeId: episode.episodeId,
+    isSelected: episode.episodeId === selectedEpisodeId,
+    isPlaying: episode.episodeId === playingEpisodeId,
+  }));
 }
