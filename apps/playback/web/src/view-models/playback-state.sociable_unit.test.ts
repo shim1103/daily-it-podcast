@@ -127,9 +127,26 @@ describe("deriveEpisodeRows", () => {
 
     // Then: 全 row が false
     expect(got).toEqual([
-      { episodeId: "ep-1", isSelected: false, isPlaying: false },
-      { episodeId: "ep-2", isSelected: false, isPlaying: false },
+      { episode, episodeId: "ep-1", isSelected: false, isPlayed: false, isPlaying: false },
+      {
+        episode: episodeTwo,
+        episodeId: "ep-2",
+        isSelected: false,
+        isPlayed: false,
+        isPlaying: false,
+      },
     ]);
+  });
+
+  it("各 row は入力 episode の実体を order 通りに持つ", () => {
+    // Given: 選択なし・再生なし
+    // When: row を投影する
+    const got = deriveEpisodeRows(episodes, { selection: noSelection, playback: idlePlayback });
+
+    // Then: row.episode は入力 episode と同一参照・順序一致
+    expect(got.map((row) => row.episode)).toEqual([episode, episodeTwo]);
+    expect(got[0]?.episode).toBe(episode);
+    expect(got[1]?.episode).toBe(episodeTwo);
   });
 
   it("選択中の episode の row だけ isSelected=true になる", () => {
@@ -142,8 +159,14 @@ describe("deriveEpisodeRows", () => {
 
     // Then: ep-1 の row のみ isSelected=true
     expect(got).toEqual([
-      { episodeId: "ep-1", isSelected: true, isPlaying: false },
-      { episodeId: "ep-2", isSelected: false, isPlaying: false },
+      { episode, episodeId: "ep-1", isSelected: true, isPlayed: false, isPlaying: false },
+      {
+        episode: episodeTwo,
+        episodeId: "ep-2",
+        isSelected: false,
+        isPlayed: false,
+        isPlaying: false,
+      },
     ]);
   });
 
@@ -157,9 +180,78 @@ describe("deriveEpisodeRows", () => {
 
     // Then: ep-2 の row のみ isPlaying=true
     expect(got).toEqual([
-      { episodeId: "ep-1", isSelected: false, isPlaying: false },
-      { episodeId: "ep-2", isSelected: false, isPlaying: true },
+      { episode, episodeId: "ep-1", isSelected: false, isPlayed: false, isPlaying: false },
+      {
+        episode: episodeTwo,
+        episodeId: "ep-2",
+        isSelected: false,
+        isPlayed: true,
+        isPlaying: true,
+      },
     ]);
+  });
+
+  it("kind=active の対象 episode は phase 不問で isPlayed=true になる", () => {
+    // Given: ep-2 を loading（まだ playing ではない）
+    // When: row を投影する
+    const got = deriveEpisodeRows(episodes, {
+      selection: noSelection,
+      playback: activePlayback({ episodeId: "ep-2", phase: { phase: "loading" } }),
+    });
+
+    // Then: ep-2 の row は isPlayed=true・isPlaying=false、ep-1 は両方 false
+    expect(got).toEqual([
+      { episode, episodeId: "ep-1", isSelected: false, isPlayed: false, isPlaying: false },
+      {
+        episode: episodeTwo,
+        episodeId: "ep-2",
+        isSelected: false,
+        isPlayed: true,
+        isPlaying: false,
+      },
+    ]);
+  });
+
+  it("kind=active でも phase が paused の対象 episode は isPlayed=true になる", () => {
+    // Given: ep-1 を paused
+    // When: row を投影する
+    const got = deriveEpisodeRows(episodes, {
+      selection: noSelection,
+      playback: activePlayback({ episodeId: "ep-1", phase: { phase: "paused" } }),
+    });
+
+    // Then: ep-1 の row のみ isPlayed=true
+    expect(got).toEqual([
+      { episode, episodeId: "ep-1", isSelected: false, isPlayed: true, isPlaying: false },
+      {
+        episode: episodeTwo,
+        episodeId: "ep-2",
+        isSelected: false,
+        isPlayed: false,
+        isPlaying: false,
+      },
+    ]);
+  });
+
+  it("kind=idle なら全 row が isPlayed=false になる", () => {
+    // Given: 再生なし
+    // When: row を投影する
+    const got = deriveEpisodeRows(episodes, { selection: noSelection, playback: idlePlayback });
+
+    // Then: 全 row が isPlayed=false
+    expect(got.every((row) => row.isPlayed === false)).toBe(true);
+  });
+
+  it("kind=active でも episodeId が一覧に無いなら全 row が isPlayed=false になる", () => {
+    // Given: 一覧に無い episodeId を active
+    // When: row を投影する
+    const got = deriveEpisodeRows(episodes, {
+      selection: noSelection,
+      playback: activePlayback({ episodeId: "missing", phase: { phase: "playing" } }),
+    });
+
+    // Then: 全 row が isPlayed=false
+    expect(got.every((row) => row.isPlayed === false)).toBe(true);
   });
 
   it("kind=active でも phase が playing 以外なら isPlaying=false になる", () => {

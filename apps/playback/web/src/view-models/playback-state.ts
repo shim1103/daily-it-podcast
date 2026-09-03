@@ -53,12 +53,16 @@ export type PageStatus =
   | { kind: "ready" };
 
 /**
- * component が 1 row に必要とする最小の投影。表示整形は Row component 側が `EpisodeData` から行うため
- * ここでは raw の `episodeId` と、union の判別で決まる 2 つの boolean のみを持つ。
+ * component が 1 row に必要とする投影。表示整形は Row component 側が `episode` から行う。
+ * `episode` を持つことで、呼び出し側が別配列との index 結合をせず 1 row を組み立てられる。
+ * `episodeId` は key・identity 参照用の冗長 field（`episode.episodeId` と同値）。
+ * `isPlayed` は再生対象であること（phase 不問）、`isPlaying` は phase が playing であることを表す。
  */
 export type EpisodeRowViewModel = {
+  episode: EpisodeData;
   episodeId: string;
   isSelected: boolean;
+  isPlayed: boolean;
   isPlaying: boolean;
 };
 
@@ -105,21 +109,26 @@ export function derivePageStatus(catalogStatus: CatalogStatus): PageStatus {
 /**
  * 一覧と選択・再生 union から、component が 1 row に必要とする投影の配列を導出する。
  *
- * @ensure 各 episode について、選択中なら isSelected=true、`kind:"active"` かつ `phase:"playing"` なら
- *   isPlaying=true。それ以外は false。順序は入力の `episodes` に一致する
+ * @ensure 各 row は入力 episode の実体を order 通りに持つ。選択中なら isSelected=true、
+ *   `kind:"active"` の対象 episode（phase 不問）なら isPlayed=true、さらに `phase:"playing"` なら
+ *   isPlaying=true。それ以外は false。`active` の episodeId が一覧に無い row は、等値比較が
+ *   一致しないため isPlayed も自然に false になる
  */
 export function deriveEpisodeRows(
   episodes: readonly EpisodeData[],
   context: { selection: SelectionState; playback: PlaybackState },
 ): EpisodeRowViewModel[] {
   const selectedEpisodeId = context.selection.selected ? context.selection.episode.episodeId : null;
+  const playedEpisodeId = context.playback.kind === "active" ? context.playback.episodeId : null;
   const playingEpisodeId =
     context.playback.kind === "active" && context.playback.phase.phase === "playing"
       ? context.playback.episodeId
       : null;
   return episodes.map((episode) => ({
+    episode,
     episodeId: episode.episodeId,
     isSelected: episode.episodeId === selectedEpisodeId,
+    isPlayed: episode.episodeId === playedEpisodeId,
     isPlaying: episode.episodeId === playingEpisodeId,
   }));
 }

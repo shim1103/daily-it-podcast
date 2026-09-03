@@ -34,12 +34,11 @@ test.describe("authenticated playback remote e2e", () => {
     const list = page.locator(".episode-list");
     await expect(list.locator("[data-episode-title]").first()).toBeVisible({ timeout: 60_000 });
 
-    // When: 安定 fixture 行を開く
-    const fixtureHit = list
-      .locator("article.episode-list-item")
-      .filter({ has: page.locator("[data-episode-date]", { hasText: FIXTURE_DATE_UI }) })
-      .locator("button.episode-list-item__hit");
-    await fixtureHit.click();
+    // When: 安定 fixture 行の select ボタン（Row 先頭 button）を押す
+    const fixtureRow = list
+      .locator("article.episode-row")
+      .filter({ has: page.locator("[data-episode-date]", { hasText: FIXTURE_DATE_UI }) });
+    await fixtureRow.locator("button").first().click();
 
     // Then: opening に日付文言があり、topic が見える
     const opening = page.locator("[data-manuscript-opening]");
@@ -49,18 +48,18 @@ test.describe("authenticated playback remote e2e", () => {
   });
 
   test("shows audio controls with src pointing at the fixture episode", async ({ page }) => {
-    // Given: 認証済み一覧から安定 fixture を選択
+    // Given: 認証済み一覧から安定 fixture の再生ボタンを押す
     await page.goto("/");
     const list = page.locator(".episode-list");
     await expect(list.locator("[data-episode-title]").first()).toBeVisible({ timeout: 60_000 });
-    await list
-      .locator("article.episode-list-item")
-      .filter({ has: page.locator("[data-episode-date]", { hasText: FIXTURE_DATE_UI }) })
-      .locator("button.episode-list-item__hit")
-      .click();
+    const fixtureRow = list
+      .locator("article.episode-row")
+      .filter({ has: page.locator("[data-episode-date]", { hasText: FIXTURE_DATE_UI }) });
+    // why: 新 UI では audio は再生（Row の 2 個目の button）で現れる。select では現れない
+    await fixtureRow.getByRole("button", { name: "再生" }).click();
 
     // Then: <audio controls> があり src が /episodes/{id} を含む
-    const audio = page.locator(".episode-player audio");
+    const audio = page.locator(".audio-controls audio");
     await expect(audio).toBeVisible({ timeout: 60_000 });
     await expect(audio).toHaveAttribute("controls", "");
     const src = await audio.getAttribute("src");

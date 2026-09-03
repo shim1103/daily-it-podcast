@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   EpisodeListItemData,
   EpisodeListState,
-} from "../../view-models/episode-list-view-model.ts";
-import { EpisodeList, type EpisodeListProps } from "./episode-list.tsx";
+} from "../../view-models/episode-list-view-model.legacy.ts";
+import { EpisodeList, type EpisodeListProps } from "./episode-list.legacy.tsx";
 
 const baseUrl = "https://example.test";
 

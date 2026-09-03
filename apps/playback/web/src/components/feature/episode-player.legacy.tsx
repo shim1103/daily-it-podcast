@@ -1,6 +1,6 @@
 import { forwardRef, type ReactElement } from "react";
 import { buildRequestUrl } from "../../utils/build-request-url.ts";
-import "./episode-player.css";
+import "./episode-player.legacy.css";
 
 export type EpisodePlayerProps = {
   baseUrl: string;

@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { EpisodePlayer } from "./episode-player.tsx";
+import { EpisodePlayer } from "./episode-player.legacy.tsx";
 
 describe("EpisodePlayer", () => {
   it("root に episode-player class を付ける", () => {

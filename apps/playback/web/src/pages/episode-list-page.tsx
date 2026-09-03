@@ -1,9 +1,11 @@
-import { type ReactElement, useCallback, useEffect, useRef } from "react";
+import { type ReactElement, useEffect, useRef } from "react";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
-import { EpisodeList } from "../components/feature/episode-list.tsx";
+import { AudioControls } from "../components/feature/audio-controls.tsx";
+import { EpisodeEntry } from "../components/feature/episode-entry.tsx";
+import { EpisodeRow } from "../components/feature/episode-row.tsx";
 import { getLocationHash } from "../lib/location-hash.ts";
-import { useEpisodeListViewModel } from "../view-models/episode-list-view-model.ts";
-import { useHashSync } from "../view-models/use-hash-sync.ts";
+import { buildRequestUrl } from "../utils/build-request-url.ts";
+import { useEpisodeListPage } from "../view-models/use-episode-list-page.ts";
 
 export type EpisodeListPageProps = {
   apiClient: PlaybackApiClient;
@@ -11,75 +13,93 @@ export type EpisodeListPageProps = {
 };
 
 /**
- * 一覧 page。ViewModel hook・hash 同期 hook・一覧 Feature Component を組み立てるだけ。
+ * 一覧 page。`useEpisodeListPage` を組み立て、`pageStatus` で全画面を分岐し、
+ * Row + 条件付き Entry + AudioControls を並べるだけ。
  *
  * @require apiClient は `listEpisodes()` を持つ。baseUrl は audio 直結先の origin相当
- * @ensure mount 時に load() を開始し、完了後 hash に episodeId があればその episode を選択する。
- *   以後は useHashSync が選択中 episodeId と location.hash を双方向同期する。hash が空へ変わった時は
- *   選択中 episode を select() へ渡して選択解除する。一覧 Feature Component を state / baseUrl / onSelect で描画する
- * @invariant ここに表示ロジック・API 呼び出しの詳細を書かない。hash 同期の機構は useHashSync が持つ。
- *   load() 完了までは selectedId に undefined を渡し、hash→state 同期を保留させる（完了前に
- *   selectedEpisodeId=null で mount 時の hash を消す race を防ぐ）
+ * @ensure mount 時に load() を開始する。`pageStatus.kind` が loading なら loading marker、
+ *   unavailable なら全画面 Error UI、ready なら本体を描画する。Row は `rows`（各要素が episode 実体を
+ *   持つ）を map し、Entry は選択中 episode の直後、AudioControls は再生対象 episode があれば selection と
+ *   独立に描画する。catalog が初めて ready になった時点で 1 回だけ、mount 時点の location.hash に
+ *   episodeId があれば select() して deep-link を復元する（select 失敗時の retry 経路は現状 scope 外）
+ * @invariant ここに表示ロジック・API 呼び出しの詳細を書かない。row と episode の結合は
+ *   `deriveEpisodeRows` が持ち、page は別配列の index 引きをしない。hash ↔ selection の継続同期は
+ *   useEpisodeListPage が持つ。deep-link 復元は初回のみで、以後は hook 側の同期に委ねる
  */
 export function EpisodeListPage({ apiClient, baseUrl }: EpisodeListPageProps): ReactElement {
-  const { state, load, select, audioElementRef, seek } = useEpisodeListViewModel(apiClient);
+  const {
+    selectedEpisode,
+    playedEpisode,
+    rows,
+    pageStatus,
+    load,
+    select,
+    toggleSelection,
+    play,
+    stop,
+    seek,
+    audioElementRef,
+  } = useEpisodeListPage(apiClient);
 
-  // why: load() 完了前は hash 同期を保留する（ViewModel の load ライフサイクルとの結合であり、
-  //   hash 同期の関心事ではないため useHashSync ではなく page が持つ）
-  const initializedRef = useRef(false);
-
-  // mount 時: load() を開始し、完了後 hash に episodeId があればその episode を選択する
   useEffect(() => {
-    let cancelled = false;
-    void load().then(() => {
-      // why: in-flight 中に unmount / 再 mount された場合、完了後の hash 復元 select を打ち切る
-      if (cancelled) {
-        return;
-      }
-      initializedRef.current = true;
-      const initialHash = getLocationHash();
-      if (initialHash !== "") {
-        void select(initialHash);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [load, select]);
+    void load();
+  }, [load]);
 
-  const onHashSelect = useCallback(
-    (id: string | null) => {
-      if (id !== null) {
-        void select(id);
-        return;
-      }
-      // why: hash が空になった時は、選択中 episode を select() へ渡して選択解除させる
-      //   （select() は同じ episodeId を渡すと選択解除する ViewModel 契約）
-      if (state.status === "success" && state.selectedEpisodeId !== null) {
-        void select(state.selectedEpisodeId);
-      }
-    },
-    [select, state],
-  );
+  // why: hook の hash 同期は echo 抑止で初期 hash を流さないため、deep-link で開いた時の初回展開だけ
+  //   page が担う。mount 時点の hash を控え、catalog が初めて ready になった時に 1 回だけ select する
+  const initialHashRef = useRef<string | null>(null);
+  if (initialHashRef.current === null) {
+    initialHashRef.current = getLocationHash();
+  }
+  const deepLinkRestoredRef = useRef(false);
+  useEffect(() => {
+    if (pageStatus.kind !== "ready" || deepLinkRestoredRef.current) {
+      return;
+    }
+    deepLinkRestoredRef.current = true;
+    const initialEpisodeId = initialHashRef.current;
+    if (initialEpisodeId !== null && initialEpisodeId !== "") {
+      select(initialEpisodeId);
+    }
+  }, [pageStatus.kind, select]);
 
-  const selectedId =
-    initializedRef.current && state.status === "success" ? state.selectedEpisodeId : undefined;
-  useHashSync(selectedId, onHashSelect);
+  if (pageStatus.kind === "loading") {
+    return <p data-page-loading>読み込み中</p>;
+  }
 
-  const onSelect = useCallback(
-    (episodeId: string) => {
-      void select(episodeId);
-    },
-    [select],
-  );
+  if (pageStatus.kind === "unavailable") {
+    return <div data-page-error>一覧を表示できません</div>;
+  }
 
   return (
-    <EpisodeList
-      state={state}
-      baseUrl={baseUrl}
-      onSelect={onSelect}
-      audioElementRef={audioElementRef}
-      onSeek={seek}
-    />
+    <div className="episode-list">
+      {rows.map((row, episodeIndex) => (
+        <div key={row.episodeId} className="episode-list__row">
+          <EpisodeRow
+            episode={row.episode}
+            episodeCount={rows.length}
+            episodeIndex={episodeIndex}
+            isSelected={row.isSelected}
+            isPlayed={row.isPlayed}
+            isPlaying={row.isPlaying}
+            onSelect={toggleSelection}
+            onPlay={play}
+            onStop={stop}
+          />
+          {row.isSelected && selectedEpisode !== null && (
+            <EpisodeEntry
+              body={selectedEpisode.body}
+              onSeek={(startSec) => seek(selectedEpisode.episodeId, startSec)}
+            />
+          )}
+        </div>
+      ))}
+      {playedEpisode !== null && (
+        <AudioControls
+          audioRef={audioElementRef}
+          audioSrc={buildRequestUrl(baseUrl, playedEpisode.audioRef)}
+        />
+      )}
+    </div>
   );
 }

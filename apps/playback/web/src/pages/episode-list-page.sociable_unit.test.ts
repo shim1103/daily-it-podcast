@@ -56,133 +56,224 @@ describe("EpisodeListPage", () => {
     cleanup();
   });
 
-  it("mount 時に location.hash に episodeId があれば、その episode を選択した状態で描画する", async () => {
-    // Given: hash に episodeId が設定済み
-    window.location.hash = "#ep-1";
+  it("catalog loading 中は loading marker を描画し、Row / Entry / AudioControls を出さない", () => {
+    // Given: listEpisodes が未解決の stub
+    const apiClient = createStubApiClient({
+      listEpisodes: vi.fn(() => new Promise<never>(() => {})),
+    });
+
+    // When: page を render する
+    const { container } = renderPage(apiClient);
+
+    // Then: loading marker のみ
+    expect(container.querySelector("[data-page-loading]")).not.toBeNull();
+    expect(container.querySelector("[data-page-error]")).toBeNull();
+    expect(container.querySelector(".episode-row")).toBeNull();
+    expect(container.querySelector(".episode-entry")).toBeNull();
+    expect(container.querySelector(".audio-controls")).toBeNull();
+  });
+
+  it("catalog error 時は全画面 Error UI を描画し、Row も Entry も AudioControls も出さない", async () => {
+    // Given: listEpisodes が失敗する stub
+    const apiClient = createStubApiClient({
+      listEpisodes: vi.fn(async () => ({ ok: false as const, error: "network_error" as const })),
+    });
+
+    // When: page を render する
+    const { container } = renderPage(apiClient);
+
+    // Then: 全画面 Error UI のみ
+    await waitFor(() => {
+      expect(container.querySelector("[data-page-error]")).not.toBeNull();
+    });
+    expect(container.querySelector("[data-page-loading]")).toBeNull();
+    expect(container.querySelector(".episode-row")).toBeNull();
+    expect(container.querySelector(".episode-entry")).toBeNull();
+    expect(container.querySelector(".audio-controls")).toBeNull();
+  });
+
+  it("catalog success 時は Row 一覧を描画する", async () => {
+    // Given: listEpisodes が成功する stub
     const apiClient = createStubApiClient();
 
     // When: page を render する
     const { container } = renderPage(apiClient);
 
-    // Then: 選択中 episode の manuscript（原稿）が描画される
+    // Then: Row が episode 数だけ出る
     await waitFor(() => {
-      expect(container.querySelector("[data-manuscript-opening]")).not.toBeNull();
+      expect(container.querySelectorAll(".episode-row")).toHaveLength(2);
     });
+    expect(container.querySelector("[data-page-loading]")).toBeNull();
+    expect(container.querySelector("[data-page-error]")).toBeNull();
   });
 
-  it("episode を選択すると location.hash が episodeId になる", async () => {
+  it("Row の select ボタンを押すと Entry（manuscript）が出て、もう一度で消える", async () => {
     // Given: mount 済みの page
     const apiClient = createStubApiClient();
     const { container } = renderPage(apiClient);
     await waitFor(() => {
-      expect(container.querySelector("article button")).not.toBeNull();
+      expect(container.querySelector(".episode-row button")).not.toBeNull();
     });
 
-    // When: 一覧 item をクリックする
-    const item = container.querySelector("article button");
-    item?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    // When: 先頭 Row の select ボタン（1 個目の button）を押す
+    const selectButton = () => container.querySelector(".episode-row button") as HTMLButtonElement;
+    selectButton().dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-    // Then: hash が選択した episodeId になる
+    // Then: Entry が出る
     await waitFor(() => {
-      expect(window.location.hash).toBe("#ep-1");
+      expect(container.querySelector(".episode-entry")).not.toBeNull();
+      expect(container.querySelector("[data-manuscript-opening]")).not.toBeNull();
+    });
+
+    // When: もう一度 select ボタンを押す
+    selectButton().dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    // Then: Entry が消える
+    await waitFor(() => {
+      expect(container.querySelector(".episode-entry")).toBeNull();
     });
   });
 
-  it("hashchange で hash が変わると、対応する episode を選択する", async () => {
-    // Given: mount 済みの page（hash 空で一覧のみ）
+  it("Row の再生ボタンを押すと AudioControls が出る（Entry は無くてよい）", async () => {
+    // Given: mount 済みの page
     const apiClient = createStubApiClient();
     const { container } = renderPage(apiClient);
     await waitFor(() => {
-      expect(container.querySelector("article button")).not.toBeNull();
+      expect(container.querySelector(".episode-row")).not.toBeNull();
     });
 
-    // When: hash を変更し hashchange を発火する
-    window.location.hash = "#ep-1";
-    window.dispatchEvent(new Event("hashchange"));
+    // When: 先頭 Row の再生ボタン（2 個目の button）を押す
+    const buttons = container.querySelectorAll(".episode-row button");
+    buttons[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-    // Then: 選択中 episode の manuscript（原稿）が描画される
+    // Then: AudioControls が出る。Entry は出ていない
+    await waitFor(() => {
+      const audio = container.querySelector(".audio-controls audio");
+      expect(audio).not.toBeNull();
+      expect(audio?.getAttribute("src")).toBe("https://example.test/episodes/ep-1/audio");
+    });
+    expect(container.querySelector(".episode-entry")).toBeNull();
+  });
+
+  it("再生中に deselect しても AudioControls は残る（selection と playback の直交）", async () => {
+    // Given: ep-1 を select して再生した page
+    const apiClient = createStubApiClient();
+    const { container } = renderPage(apiClient);
+    await waitFor(() => {
+      expect(container.querySelector(".episode-row")).not.toBeNull();
+    });
+    const buttons = () => container.querySelectorAll(".episode-row button");
+    buttons()[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await waitFor(() => {
+      expect(container.querySelector(".episode-entry")).not.toBeNull();
+    });
+    buttons()[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await waitFor(() => {
+      expect(container.querySelector(".audio-controls")).not.toBeNull();
+    });
+
+    // When: deselect する（select ボタンをもう一度）
+    buttons()[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    // Then: Entry は消えるが AudioControls は残る
+    await waitFor(() => {
+      expect(container.querySelector(".episode-entry")).toBeNull();
+    });
+    expect(container.querySelector(".audio-controls")).not.toBeNull();
+  });
+
+  it("mount 時に location.hash に実在 id があれば、その episode の Entry を描画する", async () => {
+    // Given: render 前に hash へ実在 id をセット
+    window.location.hash = "#ep-1";
+    const apiClient = createStubApiClient();
+
+    // When: page を render する
+    const { container } = renderPage(apiClient);
+
+    // Then: catalog success 後に初期 hash 由来で選択され manuscript が描画される
     await waitFor(() => {
       expect(container.querySelector("[data-manuscript-opening]")).not.toBeNull();
     });
   });
 
-  it("mount 時に location.hash が空の時、episode を選択せず描画する", async () => {
-    // Given: hash が未設定
+  it("mount 時に location.hash が空なら Entry を描画しない", async () => {
+    // Given: hash 空
     const apiClient = createStubApiClient();
 
     // When: page を render する
     const { container } = renderPage(apiClient);
     await waitFor(() => {
-      expect(container.querySelector("article button")).not.toBeNull();
+      expect(container.querySelector(".episode-row")).not.toBeNull();
     });
 
-    // Then: 選択中 episode の詳細（manuscript）は描画されない
+    // Then: manuscript は出ない
     expect(container.querySelector("[data-manuscript-opening]")).toBeNull();
   });
 
-  it("一覧が success になる前に hashchange が起きた時、選択状態を変えない", async () => {
-    // Given: 一覧取得が未解決のまま mount した page
-    const apiClient = createStubApiClient({
-      listEpisodes: vi.fn(() => new Promise<never>(() => {})),
-    });
-    const { container } = renderPage(apiClient);
-
-    // When: hash を変更し hashchange を発火する
+  it("mount 時の hash 由来 select が hash への無限書き戻しを起こさない", async () => {
+    // Given: render 前に hash へ実在 id をセット
     window.location.hash = "#ep-1";
-    window.dispatchEvent(new Event("hashchange"));
-    await Promise.resolve();
-
-    // Then: 一覧が未取得のため選択中 episode の詳細（manuscript）は描画されない
-    expect(container.querySelector("[data-manuscript-opening]")).toBeNull();
-  });
-
-  it("mount 時の hash から load() 完了後に select() が呼ばれ、一覧 lookup で詳細を表示する", async () => {
-    // Given: hash に ep-2
-    window.location.hash = "#ep-2";
     const listEpisodes = vi.fn(async () => ({
       ok: true as const,
       data: validListEpisodesResponse,
     }));
     const apiClient = createStubApiClient({ listEpisodes });
 
+    // When: page を render し、選択が反映されるまで待つ
+    const { container } = renderPage(apiClient);
+    await waitFor(() => {
+      expect(container.querySelector("[data-manuscript-opening]")).not.toBeNull();
+    });
+
+    // Then: hash は #ep-1 のまま・listEpisodes は 1 回のみ（再 render ループで再取得しない）
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(window.location.hash).toBe("#ep-1");
+    expect(listEpisodes).toHaveBeenCalledTimes(1);
+    expect(container.querySelectorAll(".episode-entry")).toHaveLength(1);
+  });
+
+  it("mount 時に location.hash に一覧に無い id があっても Entry を描画しない", async () => {
+    // Given: render 前に hash へ実在しない id をセット
+    window.location.hash = "#ghost";
+    const apiClient = createStubApiClient();
+
     // When: page を render する
     const { container } = renderPage(apiClient);
-
-    // Then: 2nd fetch 無しで ep-2 の manuscript が描画される
     await waitFor(() => {
-      expect(listEpisodes).toHaveBeenCalled();
+      expect(container.querySelector(".episode-row")).not.toBeNull();
+    });
+
+    // Then: manuscript は出ない（select は no-op）
+    expect(container.querySelector("[data-manuscript-opening]")).toBeNull();
+  });
+
+  it("hashchange で hash が実在 id へ変わると、その episode の Entry を描画する", async () => {
+    // Given: mount 済みの page（hash 空で一覧のみ）
+    const apiClient = createStubApiClient();
+    const { container } = renderPage(apiClient);
+    await waitFor(() => {
+      expect(container.querySelector(".episode-row")).not.toBeNull();
+    });
+
+    // When: hash を変更し hashchange を発火する
+    window.location.hash = "#ep-1";
+    window.dispatchEvent(new Event("hashchange"));
+
+    // Then: 選択中 episode の manuscript が描画される
+    await waitFor(() => {
       expect(container.querySelector("[data-manuscript-opening]")).not.toBeNull();
     });
   });
 
-  it("load() 解決前に unmount された時、完了後の hash 由来 select を実行しない", async () => {
-    // Given: 一覧取得を後から解決できる stub と hash 付き mount
-    window.location.hash = "#ep-1";
-    let resolveList: ((value: { ok: true; data: ListEpisodesResponse }) => void) | undefined;
-    const listEpisodes = vi.fn(
-      () =>
-        new Promise<{ ok: true; data: ListEpisodesResponse }>((resolve) => {
-          resolveList = resolve;
-        }),
-    );
-    const apiClient = createStubApiClient({ listEpisodes });
-    const { unmount } = renderPage(apiClient);
-
-    // When: load() 未解決のまま unmount し、その後で load() を解決させる
-    unmount();
-    resolveList?.({ ok: true, data: validListEpisodesResponse });
-    await Promise.resolve();
-    await Promise.resolve();
-
-    // Then: unmount 済みのため hash 由来 select は走らない（listEpisodes は1回のみ）
-    expect(listEpisodes).toHaveBeenCalledTimes(1);
-  });
-
-  it("選択中に hash を空にすると、選択が解除され manuscript が消える", async () => {
-    // Given: ep-1 を選択済みの page
-    window.location.hash = "#ep-1";
+  it("選択中に hash を空にすると、Entry が消える", async () => {
+    // Given: mount 後に hashchange で ep-1 を選択した page
     const apiClient = createStubApiClient();
     const { container } = renderPage(apiClient);
+    await waitFor(() => {
+      expect(container.querySelector(".episode-row")).not.toBeNull();
+    });
+    window.location.hash = "#ep-1";
+    window.dispatchEvent(new Event("hashchange"));
     await waitFor(() => {
       expect(container.querySelector("[data-manuscript-opening]")).not.toBeNull();
     });
@@ -191,7 +282,7 @@ describe("EpisodeListPage", () => {
     window.location.hash = "";
     window.dispatchEvent(new Event("hashchange"));
 
-    // Then: 選択が解除され manuscript が消える
+    // Then: Entry が消える
     await waitFor(() => {
       expect(container.querySelector("[data-manuscript-opening]")).toBeNull();
     });

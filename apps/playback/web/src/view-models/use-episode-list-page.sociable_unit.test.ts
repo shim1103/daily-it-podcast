@@ -162,7 +162,13 @@ describe("useEpisodeListPage", () => {
     expect(result.current.selection).toEqual({ selected: true, episode: episodeOne });
     expect(result.current.pageStatus).toEqual({ kind: "ready" });
     expect(result.current.rows).toEqual([
-      { episodeId: "ep-1", isSelected: true, isPlaying: false },
+      {
+        episode: episodeOne,
+        episodeId: "ep-1",
+        isSelected: true,
+        isPlayed: false,
+        isPlaying: false,
+      },
     ]);
   });
 
@@ -364,9 +370,15 @@ describe("useEpisodeListPage", () => {
       audio.emit("playing");
     });
 
-    // Then: row の isPlaying は true
+    // Then: row の isPlayed / isPlaying はともに true
     expect(result.current.rows).toEqual([
-      { episodeId: "ep-1", isSelected: false, isPlaying: true },
+      {
+        episode: episodeOne,
+        episodeId: "ep-1",
+        isSelected: false,
+        isPlayed: true,
+        isPlaying: true,
+      },
     ]);
   });
 

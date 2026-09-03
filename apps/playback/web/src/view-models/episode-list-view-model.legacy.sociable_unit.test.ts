@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ListEpisodesResponse } from "../../../contracts/index.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
-import { useEpisodeListViewModel } from "./episode-list-view-model.ts";
+import { useEpisodeListViewModel } from "./episode-list-view-model.legacy.ts";
 
 const episodeBody = {
   opening: "開始",
