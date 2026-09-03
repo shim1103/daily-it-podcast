@@ -1,21 +1,19 @@
 //go:build system
 
-// Scope: System（CursorCLI 単体到達・尺安定性）
+// Scope: System（CursorCLI 単体到達・回帰確認）
 // 実物: cursorcli.TextWriter が実 CURSOR_API_KEY で実 Cursor CLI（agent）を叩く。
 // Double: なし。GetX / Gemini / OAuth / Drive は import も呼び出しもしない。
 // 目的: ニュース生成に十分な固定の擬似 SourceItem を build.ComposeBrief へ渡し、
 //
-//	tw.Write → build.ManuscriptDraftFromWriterOutput を N=3 回連続で通す。
-//	毎回 valid な Draft が返ること（尺 range・件数を満たすこと）と各試行の所要秒を検証・記録する
-//	（Decision 2026-09-02T18-26-00）。
+//	tw.Write → build.ManuscriptDraftFromWriterOutput を 1 回通し、valid な Draft
+//	（尺 range・件数を満たす）が返ることを回帰確認する。
+//	rate 計測は draft_rate_system_test.go へ分離。ここは 1 回の回帰確認（Decision 2026-09-03T14-45-00）。
 //
 // @require process env に CURSOR_API_KEY がある（無ければ Skip）。Cursor CLI の `agent` が PATH で
 //
 //	解決できる（無ければ Skip）。他 env（GEMINI / GetX / OAuth / Drive）は要らない。
 //
-// @ensure 3 回の Write がすべて非 error。3 回の draft parse がすべて非 error（1 回でも失敗したら test fail）。
-//
-//	各回の所要秒・topic 数・全体文字数を Logf で出す。
+// @ensure 1 回の Write が非 error。draft parse が非 error（valid Draft）。所要秒・topic 数・全体文字数を Logf で出す。
 //
 // @invariant local に secret を置かない。Gemini / Drive を import も呼び出しもしない。Domain 定数を変更しない。
 package system
@@ -35,10 +33,6 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch/processenv"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorcli"
 )
-
-// cursorDraftAttempts は valid Draft を連続で要求する試行回数。
-// flaky 検証なので 1 回では足りない（Decision 2026-09-02T18-26-00）。
-const cursorDraftAttempts = 3
 
 // seedSourceItems は Cursor 単体到達 test 用の固定擬似ソース。
 // 実在企業名は避け「あるクラウド事業者」等に一般化する。各 Context は複数トピック分の
@@ -107,7 +101,7 @@ func draftTotalRunes(d models.ManuscriptDraft) int {
 	return total
 }
 
-func TestCursorCLIDraftSystem_returnsValidDraftOnEveryAttempt_whenRealAPIKeyPresent(t *testing.T) {
+func TestCursorCLIDraftSystem_returnsValidDraft_whenRealAPIKeyPresent(t *testing.T) {
 	// Given: 実 CURSOR_API_KEY と PATH 上の `agent`（どちらか欠けたら Skip）
 	apiKey := strings.TrimSpace(os.Getenv(config.CursorAPIKeyEnv))
 	if apiKey == "" {
@@ -127,25 +121,23 @@ func TestCursorCLIDraftSystem_returnsValidDraftOnEveryAttempt_whenRealAPIKeyPres
 	cursorFactory := processenv.NewSecretEnvLauncherFactory(os.Getenv(config.CursorAPIKeyEnv), os.LookupEnv)
 	tw := cursorcli.NewTextWriter(cursorFactory)
 
-	// ctx timeout: 15 分（3 回 × Cursor draft 数分）。
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	// ctx timeout: 10 分（Cursor draft 1 回 = 数分）。
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	// When / Then: N 回連続で Write → draft parse。1 回でも parse 失敗したら test は fail。
-	for i := 1; i <= cursorDraftAttempts; i++ {
-		attemptStart := time.Now()
-		raw, err := tw.Write(ctx, brief)
-		if err != nil {
-			t.Fatalf("Cursor Write（%d/%d 回目）: %v", i, cursorDraftAttempts, err)
-		}
-
-		draft, err := build.ManuscriptDraftFromWriterOutput(raw)
-		elapsed := time.Since(attemptStart)
-		if err != nil {
-			t.Errorf("draft parse（%d/%d 回目）が失敗: %v（所要 %.1fs）", i, cursorDraftAttempts, err, elapsed.Seconds())
-			continue
-		}
-		t.Logf("draft OK（%d/%d 回目）: topic %d 件 / 全体 %d 文字 / 所要 %.1fs",
-			i, cursorDraftAttempts, len(draft.Topics), draftTotalRunes(draft), elapsed.Seconds())
+	// When: 1 回だけ Write → draft parse。
+	attemptStart := time.Now()
+	raw, err := tw.Write(ctx, brief)
+	if err != nil {
+		t.Fatalf("Cursor Write: %v", err)
 	}
+
+	// Then: valid な Draft が返る（尺 range・件数を満たす）。
+	draft, err := build.ManuscriptDraftFromWriterOutput(raw)
+	elapsed := time.Since(attemptStart)
+	if err != nil {
+		t.Fatalf("draft parse が失敗: %v（所要 %.1fs）", err, elapsed.Seconds())
+	}
+	t.Logf("draft OK: topic %d 件 / 全体 %d 文字 / 所要 %.1fs",
+		len(draft.Topics), draftTotalRunes(draft), elapsed.Seconds())
 }

@@ -5,10 +5,10 @@
 // Double: なし。Cursor / GetX / Drive は呼ばない。
 // 目的: build.SpeechTexts が返す topic+2 束の朗読 text を順に Synthesize し、
 //
-//	無料枠 quota（RPD / RPM）を超えず完走できることを ensure する（Decision 2026-09-02T13-57-00）。
-//	429 到達は「無料枠に収まらなかった」失敗として扱う。
+//	TEST key の rate 制約（RPD / RPM）内で完走できることを ensure する（Decision 2026-09-02T13-57-00 / 2026-09-03T14-45-00）。
+//	429 到達は「TEST key の rate 制約に収まらなかった」失敗として扱う。
 //
-// @require process env に GEMINI_API_KEY がある（無ければ Skip）。課金枠・full env は要らない。
+// @require process env に GEMINI_API_KEY（TEST key）がある（無ければ Skip）。full env は要らない。
 // @ensure topic+2 回の Synthesize がすべて非空 WAV（RIFF/WAVE）を返し、build.WavDurationSec が正の秒数を返す。
 // @invariant local に secret を置かない。Drive へ書かない。cleanup 不要。
 package system
