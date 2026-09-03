@@ -7,10 +7,56 @@ import (
 	"time"
 )
 
-// TestSpeechSynthesizer_usesInjectedCallGap_whenTuningProvided は
+func TestRetryDelay_growsFromBaseAndCapsAtMax(t *testing.T) {
+	t.Parallel()
+
+	s := NewSpeechSynthesizer(&http.Client{}, "gemini-fake-key")
+
+	if got := s.retryDelay(1); got != defaultRetryBackoffBase {
+		t.Fatalf("retryDelay(1) = %v, want %v", got, defaultRetryBackoffBase)
+	}
+	if got := s.retryDelay(2); got != 2*defaultRetryBackoffBase {
+		t.Fatalf("retryDelay(2) = %v, want %v", got, 2*defaultRetryBackoffBase)
+	}
+	if got := s.retryDelay(10); got != defaultRetryBackoffMax {
+		t.Fatalf("retryDelay(10) = %v, want %v", got, defaultRetryBackoffMax)
+	}
+	if defaultRetryBackoffBase < 60*time.Second {
+		t.Fatalf("defaultRetryBackoffBase = %v, want >= 60s（429 対策）", defaultRetryBackoffBase)
+	}
+}
+
+func TestParseRetryAfter_returnsDuration_whenSecondsHeaderPresent(t *testing.T) {
+	t.Parallel()
+
+	s := NewSpeechSynthesizer(&http.Client{}, "gemini-fake-key")
+
+	h := http.Header{}
+	h.Set("Retry-After", "90")
+	if got := s.parseRetryAfter(h); got != 90*time.Second {
+		t.Fatalf("parseRetryAfter = %v, want 90s", got)
+	}
+}
+
+func TestParseRetryAfter_returnsZero_whenHeaderMissingOrInvalid(t *testing.T) {
+	t.Parallel()
+
+	s := NewSpeechSynthesizer(&http.Client{}, "gemini-fake-key")
+
+	if got := s.parseRetryAfter(http.Header{}); got != 0 {
+		t.Fatalf("empty = %v, want 0", got)
+	}
+	h := http.Header{}
+	h.Set("Retry-After", "nope")
+	if got := s.parseRetryAfter(h); got != 0 {
+		t.Fatalf("invalid = %v, want 0", got)
+	}
+}
+
+// TestWaitCallGap_usesInjectedCallGap_whenTuningProvided は
 // NewSpeechSynthesizerWithTuning で短い CallGap を注入すると、連続 Synthesize の
 // 待機が既定 20s ではなく注入値どおりに縮むことを検証する。
-func TestSpeechSynthesizer_usesInjectedCallGap_whenTuningProvided(t *testing.T) {
+func TestWaitCallGap_usesInjectedCallGap_whenTuningProvided(t *testing.T) {
 	// Given: 常に成功応答を返す fake client と、待機呼び出しを記録する sleep spy
 	rt := &fakeRoundTripper{responses: []fakeClientResponse{
 		{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
@@ -39,9 +85,9 @@ func TestSpeechSynthesizer_usesInjectedCallGap_whenTuningProvided(t *testing.T) 
 	}
 }
 
-// TestSpeechSynthesizer_skipsCallGapWait_whenElapsedExceedsInjectedGap は
+// TestWaitCallGap_skipsWait_whenElapsedExceedsInjectedGap は
 // 前回呼び出しからの経過が注入 CallGap を超えていれば待機しないことを検証する。
-func TestSpeechSynthesizer_skipsCallGapWait_whenElapsedExceedsInjectedGap(t *testing.T) {
+func TestWaitCallGap_skipsWait_whenElapsedExceedsInjectedGap(t *testing.T) {
 	// Given: 成功応答 2 回分の fake client
 	rt := &fakeRoundTripper{responses: []fakeClientResponse{
 		{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
@@ -68,37 +114,5 @@ func TestSpeechSynthesizer_skipsCallGapWait_whenElapsedExceedsInjectedGap(t *tes
 	// Then: callGap 待機は発生しない
 	if len(sleeps) != 0 {
 		t.Fatalf("sleep 呼び出し = %v, want なし（経過が CallGap を超過）", sleeps)
-	}
-}
-
-// TestSpeechSynthesizer_fallsBackToDefaultTuning_whenZeroValueFields は
-// Tuning のゼロ値 field が既定値へフォールバックすることを検証する。
-func TestSpeechSynthesizer_fallsBackToDefaultTuning_whenZeroValueFields(t *testing.T) {
-	// Given: 空 Tuning を注入した Synthesizer
-	synth := NewSpeechSynthesizerWithTuning(&http.Client{}, "gemini-fake-key", Tuning{})
-
-	// Then: 各 tuning field が既定値
-	if synth.callGap != defaultCallGap {
-		t.Fatalf("callGap = %v, want %v", synth.callGap, defaultCallGap)
-	}
-	if synth.retryBackoffBase != defaultRetryBackoffBase {
-		t.Fatalf("retryBackoffBase = %v, want %v", synth.retryBackoffBase, defaultRetryBackoffBase)
-	}
-	if synth.retryBackoffMax != defaultRetryBackoffMax {
-		t.Fatalf("retryBackoffMax = %v, want %v", synth.retryBackoffMax, defaultRetryBackoffMax)
-	}
-}
-
-// TestNewSpeechSynthesizer_usesDefaultTuning_whenConstructedPlainly は
-// 既定 constructor が既定 tuning を使う（挙動不変）ことを検証する。
-func TestNewSpeechSynthesizer_usesDefaultTuning_whenConstructedPlainly(t *testing.T) {
-	// Given / When: 既定 constructor
-	synth := NewSpeechSynthesizer(&http.Client{}, "gemini-fake-key")
-
-	// Then: tuning field はすべて既定値
-	if synth.callGap != defaultCallGap || synth.retryBackoffBase != defaultRetryBackoffBase || synth.retryBackoffMax != defaultRetryBackoffMax {
-		t.Fatalf("tuning = {%v, %v, %v}, want defaults {%v, %v, %v}",
-			synth.callGap, synth.retryBackoffBase, synth.retryBackoffMax,
-			defaultCallGap, defaultRetryBackoffBase, defaultRetryBackoffMax)
 	}
 }

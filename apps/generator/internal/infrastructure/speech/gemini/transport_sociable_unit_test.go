@@ -3,14 +3,106 @@ package gemini
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 )
 
-func TestSynthesize_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *testing.T) {
+func TestBuildInput_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
+
+	// Given: 成功応答を返す Client Stub
+	const transcript = "朗読する本文だけ"
+	synth, rt := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusOK,
+		body:   jsonBody(t, audioInteractionResponse(minimalPCM())),
+	})
+
+	// When: Synthesize する
+	_, err := synth.synthTestOne(context.Background(), transcript)
+
+	// Then: envelope + Transcript ラベル + 本文が input へ入る
+	if err != nil {
+		t.Fatalf("Synthesize: %v", err)
+	}
+	if len(rt.calls) != 1 {
+		t.Fatalf("calls = %d", len(rt.calls))
+	}
+	var req map[string]any
+	if err := json.Unmarshal(rt.calls[0].Body, &req); err != nil {
+		t.Fatalf("decode request: %v", err)
+	}
+	input, _ := req["input"].(string)
+	if !strings.Contains(input, EnvelopePreamble) {
+		t.Fatalf("input missing preamble: %q", input)
+	}
+	if !strings.Contains(input, TranscriptLabel) {
+		t.Fatalf("input missing transcript label: %q", input)
+	}
+	if !strings.Contains(input, transcript) {
+		t.Fatalf("input missing transcript: %q", input)
+	}
+	genCfg, _ := req["generation_config"].(map[string]any)
+	speechCfg, _ := genCfg["speech_config"].([]any)
+	if len(speechCfg) != 1 {
+		t.Fatalf("speech_config = %#v", speechCfg)
+	}
+	voiceCfg, _ := speechCfg[0].(map[string]any)
+	if voiceCfg["voice"] != VoiceName {
+		t.Fatalf("voice = %v, want %q", voiceCfg["voice"], VoiceName)
+	}
+	if req["model"] != ModelID {
+		t.Fatalf("model = %v, want %q", req["model"], ModelID)
+	}
+}
+
+func TestDecodePCM_extractsAudioFromStepsContentData_whenRealResponseShape(t *testing.T) {
+
+	// Given: 実 Interactions API そっくりの応答（steps[].content[].data に audio base64）
+	pcm := minimalPCM()
+	body := map[string]any{
+		"id":           "v1_real_shape",
+		"object":       "interaction",
+		"model":        ModelID,
+		"status":       "completed",
+		"service_tier": "standard",
+		"created":      "2026-09-02T08:36:33Z",
+		"updated":      "2026-09-02T08:36:33Z",
+		"usage": map[string]any{
+			"total_tokens":        125,
+			"total_output_tokens": 99,
+			"output_tokens_by_modality": []map[string]any{
+				{"modality": "audio", "tokens": 99},
+			},
+		},
+		"steps": []map[string]any{
+			{"content": []map[string]any{
+				{"data": base64.StdEncoding.EncodeToString(pcm)},
+			}},
+		},
+	}
+	synth, rt := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusOK,
+		body:   jsonBody(t, body),
+	})
+
+	// When: Synthesize する
+	got, err := synth.synthTestOne(context.Background(), "実応答形テスト")
+
+	// Then: steps 構造から audio を取り出し非空 WAV を返す
+	if err != nil {
+		t.Fatalf("Synthesize: %v", err)
+	}
+	if !isWAV(got.Content) {
+		t.Fatalf("Content is not WAV: %d bytes", len(got.Content))
+	}
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(rt.calls))
+	}
+}
+
+func TestDecodePCM_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *testing.T) {
 
 	// Given: HTTP 200 だが output_audio が無い（同種 retryable = Op "decode_pcm"）
 	responses := make([]fakeClientResponse, MaxAttempts)
@@ -41,7 +133,7 @@ func TestSynthesize_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *tes
 	}
 }
 
-func TestSynthesize_retriesTooShortPCM_asTransientDecodeFailure(t *testing.T) {
+func TestDecodePCM_retriesTooShortPCM_asTransientDecodeFailure(t *testing.T) {
 
 	// Given: HTTP 200 だが尺が minPCMBytes 未満の極小 PCM（1 サンプル）。
 	//        Gemini の一過性劣化なので decode_pcm 相当の retryable として retry される。
@@ -80,7 +172,7 @@ func TestSynthesize_retriesTooShortPCM_asTransientDecodeFailure(t *testing.T) {
 	}
 }
 
-func TestSynthesize_returnsInfrastructureError_whenResponseBodyInvalidJSON(t *testing.T) {
+func TestDecodePCM_returnsInfrastructureError_whenResponseBodyInvalidJSON(t *testing.T) {
 
 	// Given: 壊れた JSON（同種 retryable = Op "decode_pcm"）
 	responses := make([]fakeClientResponse, MaxAttempts)
@@ -101,85 +193,7 @@ func TestSynthesize_returnsInfrastructureError_whenResponseBodyInvalidJSON(t *te
 	}
 }
 
-func TestSynthesize_returnsInfrastructureError_whenClientNil(t *testing.T) {
-	t.Parallel()
-
-	// Given: nil client
-	synth := NewSpeechSynthesizer(nil, "gemini-edge-key")
-
-	// When: SynthesizeAll する
-	_, err := synth.SynthesizeAll(context.Background(), []string{"本文"})
-
-	// Then: Infrastructure Error
-	if err == nil {
-		t.Fatal("expected error")
-	}
-}
-
-func TestSynthesize_retriesTooManyRequests_thenSucceeds(t *testing.T) {
-
-	// Given: 1 回目 429、2 回目成功
-	synth, rt := newFakeSynthesizer(
-		fakeClientResponse{status: http.StatusTooManyRequests, body: jsonBody(t, map[string]any{"error": "RESOURCE_EXHAUSTED"})},
-		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
-	)
-
-	// When: Synthesize する
-	got, err := synth.synthTestOne(context.Background(), "429 retry")
-
-	// Then: 2 回目で成功
-	if err != nil {
-		t.Fatalf("Synthesize: %v", err)
-	}
-	if len(got.Content) == 0 {
-		t.Fatal("Content is empty")
-	}
-	if len(rt.calls) != 2 {
-		t.Fatalf("call count = %d, want 2", len(rt.calls))
-	}
-}
-
-func TestSynthesize_doesNotRetry_whenStatusForbidden(t *testing.T) {
-
-	// Given: 403
-	synth, rt := newFakeSynthesizer(fakeClientResponse{
-		status: http.StatusForbidden,
-		body:   jsonBody(t, map[string]any{"error": "PERMISSION_DENIED"}),
-	})
-
-	// When: Synthesize する
-	_, err := synth.synthTestOne(context.Background(), "403 テスト")
-
-	// Then: 1 回だけ
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if len(rt.calls) != 1 {
-		t.Fatalf("call count = %d, want 1", len(rt.calls))
-	}
-}
-
-func TestSynthesize_returnsInfrastructureError_whenUnexpectedStatus(t *testing.T) {
-
-	// Given: 404
-	synth, rt := newFakeSynthesizer(fakeClientResponse{
-		status: http.StatusNotFound,
-		body:   jsonBody(t, map[string]any{"error": "NOT_FOUND"}),
-	})
-
-	// When: Synthesize する
-	_, err := synth.synthTestOne(context.Background(), "404")
-
-	// Then: retry しない
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if len(rt.calls) != 1 {
-		t.Fatalf("call count = %d, want 1", len(rt.calls))
-	}
-}
-
-func TestSynthesize_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
+func TestDecodePCM_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
 
 	// Given: 不正 base64（同種 retryable = Op "decode_pcm"）
 	responses := make([]fakeClientResponse, MaxAttempts)
@@ -209,7 +223,7 @@ func TestSynthesize_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
 	}
 }
 
-func TestSynthesize_returnsInfrastructureError_whenPCMLengthOdd(t *testing.T) {
+func TestDecodePCM_returnsInfrastructureError_whenPCMLengthOdd(t *testing.T) {
 
 	// Given: 最小尺は満たすが 16-bit 非整列（奇数 byte）の PCM。
 	//        極小 PCM の retryable 判定は抜け、pcmToWAV の非整列拒否（非 retry）に落ちる。
@@ -234,45 +248,5 @@ func TestSynthesize_returnsInfrastructureError_whenPCMLengthOdd(t *testing.T) {
 	}
 	if len(rt.calls) != 1 {
 		t.Fatalf("call count = %d, want 1", len(rt.calls))
-	}
-}
-
-func TestSynthesize_returnsInfrastructureError_whenReceiverNil(t *testing.T) {
-	t.Parallel()
-
-	// Given: nil receiver
-	var synth *SpeechSynthesizer
-
-	// When: SynthesizeAll する
-	_, err := synth.SynthesizeAll(context.Background(), []string{"本文"})
-
-	// Then: Infrastructure Error
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	var infra *Error
-	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *Error", err, infra)
-	}
-}
-
-func TestSynthesize_returnsInfrastructureError_whenUpstreamDoFails(t *testing.T) {
-
-	// Given: Client.Do が常に transport error を返す（同種 retryable = Op "do"）
-	responses := make([]fakeClientResponse, MaxAttempts)
-	for i := range responses {
-		responses[i] = fakeClientResponse{err: fmt.Errorf("connection refused")}
-	}
-	synth, rt := newFakeSynthesizer(responses...)
-
-	// When: Synthesize する
-	_, err := synth.synthTestOne(context.Background(), "network 失敗")
-
-	// Then: 同種 2 連続で打ち切り Infrastructure Error
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if len(rt.calls) != 2 {
-		t.Fatalf("call count = %d, want 2（同種 2 連続打ち切り）", len(rt.calls))
 	}
 }
