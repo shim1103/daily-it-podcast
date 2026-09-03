@@ -62,11 +62,11 @@ repo 根 `contracts/` は Drive 表現の SSOT。`apps/playback/contracts/`（HT
 | 役割 | 接続 |
 |------|------|
 | 情報取得 | 公式 API / RSS の複数源（HackerNews・Lobsters・ITmedia NEWS）。Port は `ItemSource`。源ごとに専用 Adapter、facade なし（RSS 汎用 Adapter も作らない）。複数源 merge は Composition の composite。Application は源個数を知らない。源の選定理由は `docs/decisions/` |
-| 原稿 | Cursor CLI（Port `TextWriter`） |
+| 原稿 | Cursor Cloud Agents REST（Port `TextWriter`）。Adapter は `manuscript/cursorapi` |
 | TTS | Gemini |
 | Drive | Google Drive + OAuth refresh |
 
-`generator/internal/config` が startup で process environment を一度だけ読み、検証済み capability Config を Composition へ渡す。HTTP Adapter は `*http.Client` と必要な capability config / credential だけを受け取る。保存元・environment key は知らない。Cursor CLI 経路の secret 生値は Composition → `processenv` closure に閉じ、`cursorcli` は inject 名・argv だけを持つ。
+`generator/internal/config` が startup で process environment を一度だけ読み、検証済み capability Config を Composition へ渡す。HTTP Adapter は `*http.Client` と必要な capability config / credential だけを受け取る。保存元・environment key は知らない。移行判断は `docs/decisions/2026-09-03T17-03-33-feature-generator-cursor-cli-to-http-api.md`。
 
 ブラウザに Drive credential を置かない。注入の運用は `DEPLOY.md`。
 
