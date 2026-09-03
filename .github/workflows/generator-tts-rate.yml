@@ -45,7 +45,7 @@ jobs:
 
       - name: TTS rate 計測を実行
         env:
-          GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_API_KEY }}
+          TEST_GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_API_KEY }}
           TTS_RATE_RUNS: ${{ inputs.runs }}
           TTS_CALL_GAP: ${{ inputs.call_gap }}
           TTS_RETRY_BACKOFF_BASE: ${{ inputs.retry_backoff_base }}
