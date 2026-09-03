@@ -27,14 +27,49 @@ type SpeechSynthesizer struct {
 	backoffSleepFn func(time.Duration) // why: test の並列実行と共存するため package global に置かない
 	lastCallAt     time.Time
 	nowFn          func() time.Time
+	// why: 429 頻度と総所要のトレードオフを実測で詰めるため、待機系パラメータを field 化して
+	//      rate 計測 test から注入で差し替える（Decision 2026-09-03T14-46-00）。
+	//      既定 constructor は default* const を入れるので挙動は不変。MaxAttempts は注入対象外。
+	callGap          time.Duration
+	retryBackoffBase time.Duration
+	retryBackoffMax  time.Duration
 }
 
-// NewSpeechSynthesizer は Gemini TTS Adapter を返す。
+// Tuning は SpeechSynthesizer の待機系パラメータの注入値。
+// ゼロ値 field は既定値（default*）へフォールバックする。
+type Tuning struct {
+	CallGap          time.Duration
+	RetryBackoffBase time.Duration
+	RetryBackoffMax  time.Duration
+}
+
+// NewSpeechSynthesizer は Gemini TTS Adapter を返す。待機系パラメータは既定値。
 //
 // @require httpClient != nil
 // @ensure apiKey は x-goog-api-key header にだけ使い、保存元の知識は持たない。
 func NewSpeechSynthesizer(httpClient *http.Client, apiKey string) *SpeechSynthesizer {
-	return newSpeechSynthesizerForTest(httpClient, apiKey, time.Sleep)
+	return NewSpeechSynthesizerWithTuning(httpClient, apiKey, Tuning{})
+}
+
+// NewSpeechSynthesizerWithTuning は待機系パラメータを注入できる constructor。
+// rate 計測（system && ratemeasure）専用の差し替え口。
+//
+// @require httpClient != nil
+// @ensure tuning のゼロ値 field は既定値（defaultCallGap / defaultRetryBackoffBase / defaultRetryBackoffMax）へフォールバックする。
+// @ensure Tuning{} を渡した場合の挙動は NewSpeechSynthesizer と同一。
+func NewSpeechSynthesizerWithTuning(httpClient *http.Client, apiKey string, tuning Tuning) *SpeechSynthesizer {
+	s := newSpeechSynthesizerForTest(httpClient, apiKey, time.Sleep)
+	s.callGap = firstNonZeroDuration(tuning.CallGap, defaultCallGap)
+	s.retryBackoffBase = firstNonZeroDuration(tuning.RetryBackoffBase, defaultRetryBackoffBase)
+	s.retryBackoffMax = firstNonZeroDuration(tuning.RetryBackoffMax, defaultRetryBackoffMax)
+	return s
+}
+
+func firstNonZeroDuration(v, fallback time.Duration) time.Duration {
+	if v == 0 {
+		return fallback
+	}
+	return v
 }
 
 func newSpeechSynthesizerForTest(httpClient *http.Client, apiKey string, backoffSleepFn func(time.Duration)) *SpeechSynthesizer {
@@ -42,10 +77,13 @@ func newSpeechSynthesizerForTest(httpClient *http.Client, apiKey string, backoff
 		backoffSleepFn = time.Sleep
 	}
 	return &SpeechSynthesizer{
-		client:         httpClient,
-		apiKey:         apiKey,
-		backoffSleepFn: backoffSleepFn,
-		nowFn:          time.Now,
+		client:           httpClient,
+		apiKey:           apiKey,
+		backoffSleepFn:   backoffSleepFn,
+		nowFn:            time.Now,
+		callGap:          defaultCallGap,
+		retryBackoffBase: defaultRetryBackoffBase,
+		retryBackoffMax:  defaultRetryBackoffMax,
 	}
 }
 
@@ -92,7 +130,7 @@ func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models
 		if !retryable || attempt == MaxAttempts || consecutiveSameOp >= 2 {
 			return models.SpeechAudio{}, lastErr
 		}
-		wait := retryDelay(attempt)
+		wait := s.retryDelay(attempt)
 		if suggestedWait > wait {
 			wait = suggestedWait
 		}
@@ -118,27 +156,51 @@ func (s *SpeechSynthesizer) waitCallGap(sleepFn func(time.Duration), nowFn func(
 	if s.lastCallAt.IsZero() {
 		return
 	}
+	gap := s.effectiveCallGap()
 	elapsed := nowFn().Sub(s.lastCallAt)
-	if elapsed >= callGap {
+	if elapsed >= gap {
 		return
 	}
-	sleepFn(callGap - elapsed)
+	sleepFn(gap - elapsed)
 }
 
-func retryDelay(attempt int) time.Duration {
+func (s *SpeechSynthesizer) effectiveCallGap() time.Duration {
+	if s.callGap != 0 {
+		return s.callGap
+	}
+	return defaultCallGap
+}
+
+func (s *SpeechSynthesizer) effectiveRetryBackoffBase() time.Duration {
+	if s.retryBackoffBase != 0 {
+		return s.retryBackoffBase
+	}
+	return defaultRetryBackoffBase
+}
+
+func (s *SpeechSynthesizer) effectiveRetryBackoffMax() time.Duration {
+	if s.retryBackoffMax != 0 {
+		return s.retryBackoffMax
+	}
+	return defaultRetryBackoffMax
+}
+
+func (s *SpeechSynthesizer) retryDelay(attempt int) time.Duration {
 	// why: 公式は exponential。System の 429 対策で base を 60s・上限 3m にする。
 	if attempt < 1 {
 		attempt = 1
 	}
-	d := retryBackoffBase << (attempt - 1)
-	if d > retryBackoffMax || d <= 0 {
-		return retryBackoffMax
+	base := s.effectiveRetryBackoffBase()
+	max := s.effectiveRetryBackoffMax()
+	d := base << (attempt - 1)
+	if d > max || d <= 0 {
+		return max
 	}
 	return d
 }
 
 // parseRetryAfter は Retry-After 秒数 header を読む。無ければ 0。
-func parseRetryAfter(h http.Header) time.Duration {
+func (s *SpeechSynthesizer) parseRetryAfter(h http.Header) time.Duration {
 	raw := strings.TrimSpace(h.Get("Retry-After"))
 	if raw == "" {
 		return 0
@@ -148,8 +210,8 @@ func parseRetryAfter(h http.Header) time.Duration {
 		return 0
 	}
 	d := time.Duration(sec) * time.Second
-	if d > retryBackoffMax {
-		return retryBackoffMax
+	if max := s.effectiveRetryBackoffMax(); d > max {
+		return max
 	}
 	return d
 }
@@ -187,7 +249,7 @@ func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]
 		return nil, false, 0, infraErr("prohibited_content", fmt.Errorf("PROHIBITED_CONTENT"))
 	}
 
-	retryAfter := parseRetryAfter(res.Header)
+	retryAfter := s.parseRetryAfter(res.Header)
 
 	// why: MaxAttempts と公式 troubleshooting（429/503/5xx retry、400/403 は retry しない）に従い retryable を分岐する。
 	switch {

@@ -18,16 +18,19 @@ const (
 //	無料枠 RPD=15 を 1 セグメントで焼かないよう 3 に下げる（Decision 2026-09-02T13-56-00）。
 const MaxAttempts = 3
 
-// 429 / 503 / 5xx 再試行の待機。
+// 429 / 503 / 5xx 再試行の待機の既定値。
 // why: 20s 起点でも System で 429 が尽きる（run 33314746860, ~476s）。60s 起点・上限 3m へ。
+// why: rate 計測は SpeechSynthesizer の field へ注入して差し替える（Decision 2026-09-03T14-46-00）。
+//
+//	既定 constructor（NewSpeechSynthesizer）はこの const 値を使うので挙動は不変。
 const (
-	retryBackoffBase = 60 * time.Second
-	retryBackoffMax  = 3 * time.Minute
+	defaultRetryBackoffBase = 60 * time.Second
+	defaultRetryBackoffMax  = 3 * time.Minute
 )
 
-// callGap は client.Do どうしの最小間隔（成功・失敗を問わない）。
+// defaultCallGap は client.Do どうしの最小間隔（成功・失敗を問わない）の既定値。
 // why: 無料枠 3 RPM = 20s 間隔に合わせ、連続 segment の 429 を防ぐ（Decision 2026-09-02T13-56-00）。
-const callGap = 20 * time.Second
+const defaultCallGap = 20 * time.Second
 
 // Gemini TTS が返す raw PCM の形式（公式 L16: 24 kHz / 16-bit / mono）。
 // WAV wrap と decode の前提。HTTP 定数（ModelID 等）とは別責務。
