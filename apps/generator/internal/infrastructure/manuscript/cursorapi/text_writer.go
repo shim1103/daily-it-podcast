@@ -30,10 +30,12 @@ type TextWriter struct {
 // @ensure 戻りは port.TextWriter。apiKey は Authorization: Bearer header にだけ使う。
 // @ensure client == nil のとき Write は infraErr("build_request") を返す。
 func NewTextWriter(client *http.Client, apiKey string) *TextWriter {
-	return newTextWriterForTest(client, apiKey, ctxSleep)
+	return newTextWriter(client, apiKey, ctxSleep)
 }
 
-func newTextWriterForTest(client *http.Client, apiKey string, backoffSleepFn func(context.Context, time.Duration)) *TextWriter {
+// newTextWriter は backoff の sleep 関数を差し込める内部 constructor。
+// why: NewTextWriter は本番の ctxSleep を固定し、test は待ちを観測する fake を渡す。
+func newTextWriter(client *http.Client, apiKey string, backoffSleepFn func(context.Context, time.Duration)) *TextWriter {
 	if backoffSleepFn == nil {
 		backoffSleepFn = ctxSleep
 	}
