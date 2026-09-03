@@ -247,7 +247,8 @@ func cursorSuccessScriptBody(t *testing.T, dir, wireJSON string) string {
 }
 
 func minimalIntegrationGeminiPCM() []byte {
-	const sampleCount = 2400
+	// why: Adapter の最小尺閾値（0.5s）を超える長さ。これ未満だと極小 PCM として retry される。
+	const sampleCount = 24000 // 1.0s 相当
 	return make([]byte, sampleCount*2)
 }
 

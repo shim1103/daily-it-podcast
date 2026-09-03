@@ -21,6 +21,11 @@ const geminiAPIKeyHeader = "x-goog-api-key"
 
 var _ port.SpeechSynthesizer = (*SpeechSynthesizer)(nil)
 
+// synthesizeBudget と maxAttempts の関係:
+//   - MaxAttempts   : 1 セグメントが連続で消費してよい上限（暴走ガード）。
+//   - SynthesizeBudget: 1 度の SynthesizeAll 全体で許す合計上限（RPD ガード）。
+//     各セグメントは min(MaxAttempts, 残予算) 回まで。
+
 type SpeechSynthesizer struct {
 	client         *http.Client
 	apiKey         string
@@ -87,10 +92,47 @@ func newSpeechSynthesizerForTest(httpClient *http.Client, apiKey string, backoff
 	}
 }
 
-func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models.SpeechAudio, error) {
+// SynthesizeAll は texts を順に朗読音声へ変換し、セグメント単位の WAV 列（結合しない）を返す。
+// retry 予算・callGap・RPD quota は Adapter 定数 = vendor 固有制約であり、
+// 「1 episode 分の TTS 呼び出し群」を束ねて管理するのは Adapter の責務。
+//
+// @require texts の各要素は trim 後に非空。朗読本文のみ。
+// @ensure 成功時は len(texts) と同数の非空・最小尺 WAV を返す（結合しない）。
+// @ensure 呼び出し全体で Gemini 呼び出し合計を SynthesizeBudget 回以内へ抑える。
+//
+//	1 セグメントは min(MaxAttempts, 残予算) 回まで。合計が SynthesizeBudget へ達したら以降のセグメントは即 error。
+func (s *SpeechSynthesizer) SynthesizeAll(ctx context.Context, texts []string) ([]models.SpeechAudio, error) {
 	if s == nil || s.client == nil {
-		return models.SpeechAudio{}, infraErr("synthesize", fmt.Errorf("client is nil"))
+		return nil, infraErr("synthesize", fmt.Errorf("client is nil"))
 	}
+
+	audios := make([]models.SpeechAudio, 0, len(texts))
+	callsSpent := 0
+	for i, text := range texts {
+		remaining := SynthesizeBudget - callsSpent
+		if remaining <= 0 {
+			// why: ここへ来る前に必ず 1 セグメント以上を消費している。合計予算が尽きた。
+			return nil, infraErr("synthesize_budget", fmt.Errorf(
+				"gemini call budget exhausted at segment %d/%d: spent %d of %d", i+1, len(texts), callsSpent, SynthesizeBudget))
+		}
+		maxAttempts := MaxAttempts
+		if remaining < maxAttempts {
+			maxAttempts = remaining
+		}
+		audio, used, err := s.synthesizeOne(ctx, text, maxAttempts)
+		callsSpent += used
+		if err != nil {
+			return nil, err
+		}
+		audios = append(audios, audio)
+	}
+	return audios, nil
+}
+
+// synthesizeOne は 1 本の text を最大 maxAttempts 回まで Gemini 呼び出しして朗読音声へ変換する。
+// 戻りの int は実際に消費した Gemini 呼び出し回数（SynthesizeAll の残予算計算に使う）。
+// callGap の lastCallAt 機構はそのまま流用するのでセグメントを跨いで効く。
+func (s *SpeechSynthesizer) synthesizeOne(ctx context.Context, text string, maxAttempts int) (models.SpeechAudio, int, error) {
 	backoffSleepFn := s.backoffSleepFn
 	if backoffSleepFn == nil {
 		backoffSleepFn = time.Sleep
@@ -102,21 +144,26 @@ func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models
 
 	trimmed := strings.TrimSpace(text)
 	if trimmed == "" {
-		return models.SpeechAudio{}, infraErr("validate_text", fmt.Errorf("text is empty after trim"))
+		return models.SpeechAudio{}, 0, infraErr("validate_text", fmt.Errorf("text is empty after trim"))
+	}
+	if maxAttempts < 1 {
+		maxAttempts = 1
 	}
 
 	var lastErr error
 	consecutiveSameOp := 0
-	for attempt := 1; attempt <= MaxAttempts; attempt++ {
+	calls := 0
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		s.waitCallGap(backoffSleepFn, nowFn)
 		pcm, retryable, suggestedWait, err := s.fetchPCM(ctx, trimmed)
 		s.lastCallAt = nowFn()
+		calls++
 		if err == nil {
 			wav, err := pcmToWAV(pcm)
 			if err != nil {
-				return models.SpeechAudio{}, infraErr("pcm_to_wav", err)
+				return models.SpeechAudio{}, calls, infraErr("pcm_to_wav", err)
 			}
-			return models.SpeechAudio{Content: wav}, nil
+			return models.SpeechAudio{Content: wav}, calls, nil
 		}
 		// why: 同種 error（同じ *gemini.Error.Op）が retryable のまま 2 回連続したら、
 		//      その本文に対しては決定論的に失敗しているとみなし打ち切る（Decision 2026-09-02T13-56-00）。
@@ -127,8 +174,8 @@ func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models
 			consecutiveSameOp = 1
 		}
 		lastErr = err
-		if !retryable || attempt == MaxAttempts || consecutiveSameOp >= 2 {
-			return models.SpeechAudio{}, lastErr
+		if !retryable || attempt == maxAttempts || consecutiveSameOp >= 2 {
+			return models.SpeechAudio{}, calls, lastErr
 		}
 		wait := s.retryDelay(attempt)
 		if suggestedWait > wait {
@@ -136,7 +183,7 @@ func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models
 		}
 		backoffSleepFn(wait)
 	}
-	return models.SpeechAudio{}, lastErr
+	return models.SpeechAudio{}, calls, lastErr
 }
 
 // sameGeminiOp は 2 つの error がともに *gemini.Error で Op 文字列が一致するかを返す。
@@ -265,7 +312,8 @@ func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]
 
 	pcm, err := decodePCM(raw)
 	if err != nil {
-		// why: 公式 Limitation。audio 欠落 500 相当は一過性として retry する。
+		// why: 公式 Limitation。audio 欠落 500 相当・minPCMBytes 未満の極小 PCM は
+		//      いずれも一過性劣化として retry する。
 		//      System で MaxAttempts 尽きたとき原因（finish_reason / safety / body 内 quota）を
 		//      読めるよう、応答本文の bounded snippet を error に載せる。
 		return nil, true, 0, infraErr("decode_pcm", fmt.Errorf("%w; response body: %s", err, bodySnippet(raw)))
@@ -312,6 +360,11 @@ func decodePCM(body []byte) ([]byte, error) {
 	}
 	if len(pcm) == 0 {
 		return nil, fmt.Errorf("output audio is empty")
+	}
+	// why: Gemini が HTTP 200 で返す極小 PCM（len(pcm)==2 等）は実質無音の一過性劣化。
+	//      audio 欠落 500 相当と同じ扱いで retry する（fetchPCM が decode_pcm op で retryable=true にする）。
+	if len(pcm) < minPCMBytes {
+		return nil, fmt.Errorf("output audio is too short: %d bytes < %d (%.1fs)", len(pcm), minPCMBytes, minSpeechDurationSec)
 	}
 	return pcm, nil
 }

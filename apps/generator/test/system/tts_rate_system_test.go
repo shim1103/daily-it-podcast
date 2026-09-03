@@ -5,7 +5,9 @@
 // Double: なし。Cursor / GetX / Drive は呼ばない。
 // 目的: build.SpeechTexts の先頭 1 束だけを runs 回直列 Synthesize し、
 //
-//	非空 WAV かつ尺 > 0 の率が閾値以上かを計測する（Decision 2026-09-03T14-46-00）。
+//	実 Gemini 応答が err == nil で返る率が閾値以上かを計測する（Decision 2026-09-03T14-46-00）。
+//	Adapter が非空・最小尺（minPCMBytes）の WAV を contract として保証するので、
+//	PASS 判定は err == nil のみ（非空 WAV / 尺 > 0 の再確認は Adapter の責務なのでしない）。
 //	callGap / backoff は env から注入して差し替える。
 //
 // @require process env に TEST_GEMINI_API_KEY がある（無ければ Skip）。本番 env 名（config.GeminiAPIKeyEnv）は読まない。
@@ -95,29 +97,21 @@ func TestGeminiTTSRate_measuresPassRate_overNRuns(t *testing.T) {
 	}
 	head := texts[0]
 
-	// When / Then: 先頭 1 束を runs 回直列 Synthesize。各回 非空 WAV かつ尺 > 0 で PASS。
+	// When / Then: 先頭 1 束を runs 回直列 SynthesizeAll（単一 text）。err == nil で PASS。
+	// Adapter が非空・最小尺の WAV を contract として保証するので、ここでは再確認しない。
 	pass := 0
 	var durations []float64
 	for i := 1; i <= runs; i++ {
 		start := time.Now()
-		audio, err := synth.Synthesize(ctx, head)
+		_, err := synth.SynthesizeAll(ctx, []string{head})
 		elapsed := time.Since(start).Seconds()
 		durations = append(durations, elapsed)
 		if err != nil {
 			t.Logf("run %d/%d: FAIL（%v）所要 %.1fs", i, runs, err, elapsed)
 			continue
 		}
-		if !isWAV(audio.Content) {
-			t.Logf("run %d/%d: FAIL（非 WAV 応答 %d bytes）所要 %.1fs", i, runs, len(audio.Content), elapsed)
-			continue
-		}
-		dur, err := build.WavDurationSec(audio.Content)
-		if err != nil || dur <= 0 {
-			t.Logf("run %d/%d: FAIL（尺 %v err=%v）所要 %.1fs", i, runs, dur, err, elapsed)
-			continue
-		}
 		pass++
-		t.Logf("run %d/%d: PASS（尺 %.1fs）所要 %.1fs", i, runs, dur, elapsed)
+		t.Logf("run %d/%d: PASS 所要 %.1fs", i, runs, elapsed)
 	}
 
 	var avg float64

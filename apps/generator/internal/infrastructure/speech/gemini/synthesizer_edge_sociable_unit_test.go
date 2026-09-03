@@ -23,7 +23,7 @@ func TestSynthesize_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *tes
 	synth, rt := newFakeSynthesizer(responses...)
 
 	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "audio 欠落")
+	_, err := synth.synthTestOne(context.Background(), "audio 欠落")
 
 	// Then: 同種 2 連続で打ち切り Infrastructure Error
 	if err == nil {
@@ -41,6 +41,45 @@ func TestSynthesize_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *tes
 	}
 }
 
+func TestSynthesize_retriesTooShortPCM_asTransientDecodeFailure(t *testing.T) {
+
+	// Given: HTTP 200 だが尺が minPCMBytes 未満の極小 PCM（1 サンプル）。
+	//        Gemini の一過性劣化なので decode_pcm 相当の retryable として retry される。
+	tinyPCM := []byte{0x00, 0x00}
+	responses := make([]fakeClientResponse, MaxAttempts)
+	for i := range responses {
+		responses[i] = fakeClientResponse{
+			status: http.StatusOK,
+			body: jsonBody(t, map[string]any{
+				"steps": []map[string]any{
+					{"content": []map[string]any{
+						{"data": base64.StdEncoding.EncodeToString(tinyPCM)},
+					}},
+				},
+			}),
+		}
+	}
+	synth, rt := newFakeSynthesizer(responses...)
+
+	// When: Synthesize する
+	_, err := synth.synthTestOne(context.Background(), "極小 PCM")
+
+	// Then: 同種 retryable（Op "decode_pcm"）2 連続で打ち切り Infrastructure Error
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	var infra *Error
+	if !errors.As(err, &infra) {
+		t.Fatalf("error type %T (%v), want *gemini.Error", err, err)
+	}
+	if infra.Op != "decode_pcm" {
+		t.Fatalf("Op = %q, want %q（極小 PCM は decode_pcm 系 retryable）", infra.Op, "decode_pcm")
+	}
+	if len(rt.calls) != 2 {
+		t.Fatalf("call count = %d, want 2（同種 2 連続打ち切り）", len(rt.calls))
+	}
+}
+
 func TestSynthesize_returnsInfrastructureError_whenResponseBodyInvalidJSON(t *testing.T) {
 
 	// Given: 壊れた JSON（同種 retryable = Op "decode_pcm"）
@@ -51,7 +90,7 @@ func TestSynthesize_returnsInfrastructureError_whenResponseBodyInvalidJSON(t *te
 	synth, rt := newFakeSynthesizer(responses...)
 
 	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "decode 失敗")
+	_, err := synth.synthTestOne(context.Background(), "decode 失敗")
 
 	// Then: 同種 2 連続で打ち切り error
 	if err == nil {
@@ -68,8 +107,8 @@ func TestSynthesize_returnsInfrastructureError_whenClientNil(t *testing.T) {
 	// Given: nil client
 	synth := NewSpeechSynthesizer(nil, "gemini-edge-key")
 
-	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "本文")
+	// When: SynthesizeAll する
+	_, err := synth.SynthesizeAll(context.Background(), []string{"本文"})
 
 	// Then: Infrastructure Error
 	if err == nil {
@@ -86,7 +125,7 @@ func TestSynthesize_retriesTooManyRequests_thenSucceeds(t *testing.T) {
 	)
 
 	// When: Synthesize する
-	got, err := synth.Synthesize(context.Background(), "429 retry")
+	got, err := synth.synthTestOne(context.Background(), "429 retry")
 
 	// Then: 2 回目で成功
 	if err != nil {
@@ -109,7 +148,7 @@ func TestSynthesize_doesNotRetry_whenStatusForbidden(t *testing.T) {
 	})
 
 	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "403 テスト")
+	_, err := synth.synthTestOne(context.Background(), "403 テスト")
 
 	// Then: 1 回だけ
 	if err == nil {
@@ -129,7 +168,7 @@ func TestSynthesize_returnsInfrastructureError_whenUnexpectedStatus(t *testing.T
 	})
 
 	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "404")
+	_, err := synth.synthTestOne(context.Background(), "404")
 
 	// Then: retry しない
 	if err == nil {
@@ -159,7 +198,7 @@ func TestSynthesize_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
 	synth, rt := newFakeSynthesizer(responses...)
 
 	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "bad b64")
+	_, err := synth.synthTestOne(context.Background(), "bad b64")
 
 	// Then: 同種 2 連続で打ち切り error
 	if err == nil {
@@ -172,8 +211,9 @@ func TestSynthesize_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
 
 func TestSynthesize_returnsInfrastructureError_whenPCMLengthOdd(t *testing.T) {
 
-	// Given: 奇数 byte の PCM
-	oddPCM := []byte{0x00, 0x01, 0x02}
+	// Given: 最小尺は満たすが 16-bit 非整列（奇数 byte）の PCM。
+	//        極小 PCM の retryable 判定は抜け、pcmToWAV の非整列拒否（非 retry）に落ちる。
+	oddPCM := make([]byte, minPCMBytes+1)
 	synth, rt := newFakeSynthesizer(fakeClientResponse{
 		status: http.StatusOK,
 		body: jsonBody(t, map[string]any{
@@ -186,7 +226,7 @@ func TestSynthesize_returnsInfrastructureError_whenPCMLengthOdd(t *testing.T) {
 	})
 
 	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "奇数 pcm")
+	_, err := synth.synthTestOne(context.Background(), "奇数 pcm")
 
 	// Then: pcm 変換失敗（非 retry）
 	if err == nil {
@@ -203,8 +243,8 @@ func TestSynthesize_returnsInfrastructureError_whenReceiverNil(t *testing.T) {
 	// Given: nil receiver
 	var synth *SpeechSynthesizer
 
-	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "本文")
+	// When: SynthesizeAll する
+	_, err := synth.SynthesizeAll(context.Background(), []string{"本文"})
 
 	// Then: Infrastructure Error
 	if err == nil {
@@ -226,7 +266,7 @@ func TestSynthesize_returnsInfrastructureError_whenUpstreamDoFails(t *testing.T)
 	synth, rt := newFakeSynthesizer(responses...)
 
 	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "network 失敗")
+	_, err := synth.synthTestOne(context.Background(), "network 失敗")
 
 	// Then: 同種 2 連続で打ち切り Infrastructure Error
 	if err == nil {

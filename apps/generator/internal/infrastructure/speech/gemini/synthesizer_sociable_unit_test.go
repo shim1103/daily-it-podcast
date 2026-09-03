@@ -12,11 +12,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
 func minimalPCM() []byte {
-	// why: 24 kHz / 16-bit / mono。短い無音でも WAV wrap できる長さにする。
-	const sampleCount = 2400
+	// why: 24 kHz / 16-bit / mono。最小尺閾値（minPCMBytes = 0.5s）を超える長さにする。
+	//      これ未満だと decodePCM が「極小 PCM」として retryable な失敗に落とす。
+	const sampleCount = 24000 // 1.0s 相当（24000 * 2 = 48000 bytes > minPCMBytes 24000）
 	pcm := make([]byte, sampleCount*2)
 	return pcm
 }
@@ -111,6 +114,13 @@ func newFakeSynthesizer(responses ...fakeClientResponse) (*SpeechSynthesizer, *f
 	return synth, rt
 }
 
+// synthTestOne は 1 セグメント分の retry ループ（synthesizeOne）を MaxAttempts 上限で叩く test helper。
+// 単一セグメントの loop 挙動を検証する既存 test 用。合計予算・入口ガードの検証は SynthesizeAll の test が持つ。
+func (s *SpeechSynthesizer) synthTestOne(ctx context.Context, text string) (models.SpeechAudio, error) {
+	audio, _, err := s.synthesizeOne(ctx, text, MaxAttempts)
+	return audio, err
+}
+
 func TestSynthesize_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
 
 	// Given: 成功応答を返す Client Stub
@@ -121,7 +131,7 @@ func TestSynthesize_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
 	})
 
 	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), transcript)
+	_, err := synth.synthTestOne(context.Background(), transcript)
 
 	// Then: envelope + Transcript ラベル + 本文が input へ入る
 	if err != nil {
@@ -164,7 +174,7 @@ func TestSynthesize_returnsInfrastructureError_whenTextEmptyAfterTrim(t *testing
 	synth, rt := newFakeSynthesizer()
 
 	// When: trim 後空の text を渡す
-	_, err := synth.Synthesize(context.Background(), "  \t\n  ")
+	_, err := synth.synthTestOne(context.Background(), "  \t\n  ")
 
 	// Then: Infrastructure Error。Client は呼ばない
 	if err == nil {
@@ -194,7 +204,7 @@ func TestSynthesize_retriesTransientError_thenSucceeds(t *testing.T) {
 	)
 
 	// When: Synthesize する
-	got, err := synth.Synthesize(context.Background(), "retry テスト")
+	got, err := synth.synthTestOne(context.Background(), "retry テスト")
 
 	// Then: 2 回目で成功
 	if err != nil {
@@ -218,7 +228,7 @@ func TestSynthesize_returnsInfrastructureError_whenSameRetryableOpRepeatsTwice(t
 	synth, rt := newFakeSynthesizer(responses...)
 
 	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "打ち切りテスト")
+	_, err := synth.synthTestOne(context.Background(), "打ち切りテスト")
 
 	// Then: 同種 error 2 連続で打ち切り、call は 2 回で Infrastructure Error
 	if err == nil {
@@ -243,7 +253,7 @@ func TestSynthesize_retriesUpToMaxAttempts_whenRetryableOpAlternates(t *testing.
 	)
 
 	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "交互リトライ")
+	_, err := synth.synthTestOne(context.Background(), "交互リトライ")
 
 	// Then: MaxAttempts 回まで回って Infrastructure Error
 	if err == nil {
@@ -263,7 +273,7 @@ func TestSynthesize_doesNotRetry_whenStatusBadRequest(t *testing.T) {
 	})
 
 	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "400 テスト")
+	_, err := synth.synthTestOne(context.Background(), "400 テスト")
 
 	// Then: 1 回だけ
 	if err == nil {
@@ -283,7 +293,7 @@ func TestSynthesize_doesNotRetry_whenProhibitedContent(t *testing.T) {
 	})
 
 	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "禁止テスト")
+	_, err := synth.synthTestOne(context.Background(), "禁止テスト")
 
 	// Then: 1 回だけ
 	if err == nil {
@@ -325,7 +335,7 @@ func TestSynthesize_extractsAudioFromStepsContentData_whenRealResponseShape(t *t
 	})
 
 	// When: Synthesize する
-	got, err := synth.Synthesize(context.Background(), "実応答形テスト")
+	got, err := synth.synthTestOne(context.Background(), "実応答形テスト")
 
 	// Then: steps 構造から audio を取り出し非空 WAV を返す
 	if err != nil {
@@ -348,7 +358,7 @@ func TestSynthesize_retriesMissingAudio_whenStatusInternalError(t *testing.T) {
 	)
 
 	// When: Synthesize する
-	got, err := synth.Synthesize(context.Background(), "500 retry")
+	got, err := synth.synthTestOne(context.Background(), "500 retry")
 
 	// Then: 2 回目で成功
 	if err != nil {

@@ -61,28 +61,33 @@ func TestSpeechSynthesisSystem_synthesizesTopicPlusTwoBundlesWithinFreeQuota_whe
 		t.Fatalf("SpeechTexts 本数 = %d, want %d", len(texts), wantCount)
 	}
 
-	// When / Then: 各束を順に Synthesize。すべて非空 WAV かつ尺 > 0
-	for i, text := range texts {
-		audio, err := synth.Synthesize(ctx, text)
-		if err != nil {
-			if strings.Contains(err.Error(), "status 429") {
-				t.Fatalf("無料枠 quota を超えた（%d/%d 本目で 429）: %v", i+1, len(texts), err)
-			}
-			t.Fatalf("Synthesize(%d/%d): %v", i+1, len(texts), err)
+	// When: topic+2 束を 1 回 SynthesizeAll（retry 予算は Adapter が束ねる）
+	audios, err := synth.SynthesizeAll(ctx, texts)
+	if err != nil {
+		if strings.Contains(err.Error(), "status 429") {
+			t.Fatalf("無料枠 quota を超えた（429）: %v", err)
 		}
+		t.Fatalf("SynthesizeAll: %v", err)
+	}
+
+	// Then: セグメントと同数の非空 WAV かつ尺 > 0
+	if len(audios) != len(texts) {
+		t.Fatalf("audios 本数 = %d, want %d", len(audios), len(texts))
+	}
+	for i, audio := range audios {
 		if !isWAV(audio.Content) {
 			head := audio.Content
 			if len(head) > 12 {
 				head = head[:12]
 			}
-			t.Fatalf("Synthesize(%d/%d): 非 WAV 応答 head=% x", i+1, len(texts), head)
+			t.Fatalf("audios[%d]: 非 WAV 応答 head=% x", i, head)
 		}
 		dur, err := build.WavDurationSec(audio.Content)
 		if err != nil {
-			t.Fatalf("WavDurationSec(%d/%d): %v", i+1, len(texts), err)
+			t.Fatalf("WavDurationSec(%d): %v", i, err)
 		}
 		if dur <= 0 {
-			t.Fatalf("WavDurationSec(%d/%d) = %v, want > 0", i+1, len(texts), dur)
+			t.Fatalf("WavDurationSec(%d) = %v, want > 0", i, dur)
 		}
 	}
 }

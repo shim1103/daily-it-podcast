@@ -42,20 +42,26 @@ func (s *stubWriter) Write(_ context.Context, _ string) (string, error) {
 	return s.out, nil
 }
 
-// spySynth は SpeechSynthesizer の Spy。呼び出し text を順に記録し、指定 call 番号で error を返せる。
-// 各成功呼び出しには既知尺の固定 WAV（wav）を返す。
+// spySynth は SpeechSynthesizer の Spy。SynthesizeAll が受け取った texts 束と呼び出し回数を記録し、
+// error を返すよう設定できる。各セグメントには既知尺の固定 WAV（wav）を返す。
 type spySynth struct {
-	texts      []string
-	failAtCall int // 1-origin。0 なら失敗しない
+	calls      int
+	texts      []string // 最後に SynthesizeAll へ渡された texts 束
+	failAtCall int      // 0 なら成功。>0 なら SynthesizeAll が error を返す（WAV 列は返さない）
 	wav        []byte
 }
 
-func (s *spySynth) Synthesize(_ context.Context, text string) (models.SpeechAudio, error) {
-	s.texts = append(s.texts, text)
-	if s.failAtCall != 0 && len(s.texts) == s.failAtCall {
-		return models.SpeechAudio{}, fmt.Errorf("synthesize failed at call %d", s.failAtCall)
+func (s *spySynth) SynthesizeAll(_ context.Context, texts []string) ([]models.SpeechAudio, error) {
+	s.calls++
+	s.texts = texts
+	if s.failAtCall != 0 {
+		return nil, fmt.Errorf("synthesize failed at segment %d", s.failAtCall)
 	}
-	return models.SpeechAudio{Content: s.wav}, nil
+	audios := make([]models.SpeechAudio, len(texts))
+	for i := range texts {
+		audios[i] = models.SpeechAudio{Content: s.wav}
+	}
+	return audios, nil
 }
 
 var (
@@ -134,8 +140,8 @@ func TestProduceEpisodeRun_skipsWithoutFetch_whenCompletedPairExistsForDisplayDa
 	if h.writer.calls != 0 {
 		t.Fatalf("TextWriter calls = %d, want 0", h.writer.calls)
 	}
-	if len(h.synth.texts) != 0 {
-		t.Fatalf("Synthesize calls = %d, want 0", len(h.synth.texts))
+	if h.synth.calls != 0 {
+		t.Fatalf("SynthesizeAll calls = %d, want 0", h.synth.calls)
 	}
 	if h.episw.calls != 0 {
 		t.Fatalf("WriteEpisode calls = %d, want 0", h.episw.calls)
@@ -190,8 +196,8 @@ func TestProduceEpisodeRun_returnsErrorWithoutFetch_whenCompletedEpisodeLookupFa
 	if len(h.source.calls) != 0 {
 		t.Fatalf("Fetch calls = %d, want 0", len(h.source.calls))
 	}
-	if h.writer.calls != 0 || len(h.synth.texts) != 0 || h.episw.calls != 0 {
-		t.Fatalf("downstream was called: writer=%d synth=%d episw=%d", h.writer.calls, len(h.synth.texts), h.episw.calls)
+	if h.writer.calls != 0 || h.synth.calls != 0 || h.episw.calls != 0 {
+		t.Fatalf("downstream was called: writer=%d synth=%d episw=%d", h.writer.calls, h.synth.calls, h.episw.calls)
 	}
 }
 
@@ -267,11 +273,14 @@ func TestProduceEpisodeRun_synthesizesTopicPlusTwoBundles_whenDraftHasTopics(t *
 		t.Fatalf("Run: %v", err)
 	}
 
-	// Then: Synthesize の text 列は 1 + topic 数 + 1 束。
+	// Then: SynthesizeAll は 1 回だけ呼ばれ、渡された texts 束は 1 + topic 数 + 1 本。
 	// texts[0] = greeting+intro、各 topic = preface+detail、末尾 = closingSummary+farewell（いずれも改行連結）。
+	if h.synth.calls != 1 {
+		t.Fatalf("SynthesizeAll calls = %d, want 1", h.synth.calls)
+	}
 	wantCount := 1 + topicCount + 1
 	if len(h.synth.texts) != wantCount {
-		t.Fatalf("Synthesize calls = %d, want %d\ntexts=%q", len(h.synth.texts), wantCount, h.synth.texts)
+		t.Fatalf("SynthesizeAll texts 束 = %d, want %d\ntexts=%q", len(h.synth.texts), wantCount, h.synth.texts)
 	}
 
 	m := unmarshalManuscript(t, h.episw.manuscript)
@@ -348,8 +357,8 @@ func TestProduceEpisodeRun_returnsNoSourceItemsWithoutWriting_whenFetchReturnsEm
 	if h.writer.calls != 0 {
 		t.Fatalf("TextWriter calls = %d, want 0", h.writer.calls)
 	}
-	if len(h.synth.texts) != 0 {
-		t.Fatalf("Synthesize calls = %d, want 0", len(h.synth.texts))
+	if h.synth.calls != 0 {
+		t.Fatalf("SynthesizeAll calls = %d, want 0", h.synth.calls)
 	}
 	if h.episw.calls != 0 {
 		t.Fatalf("WriteEpisode calls = %d, want 0", h.episw.calls)
@@ -371,8 +380,8 @@ func TestProduceEpisodeRun_returnsErrorWithoutWriting_whenFetchFails(t *testing.
 	if !errors.Is(err, boom) {
 		t.Fatalf("err = %v, want %v", err, boom)
 	}
-	if h.writer.calls != 0 || len(h.synth.texts) != 0 || h.episw.calls != 0 {
-		t.Fatalf("downstream was called: writer=%d synth=%d episw=%d", h.writer.calls, len(h.synth.texts), h.episw.calls)
+	if h.writer.calls != 0 || h.synth.calls != 0 || h.episw.calls != 0 {
+		t.Fatalf("downstream was called: writer=%d synth=%d episw=%d", h.writer.calls, h.synth.calls, h.episw.calls)
 	}
 }
 
@@ -391,8 +400,8 @@ func TestProduceEpisodeRun_returnsErrorWithoutWriting_whenTextWriterFails(t *tes
 	if !errors.Is(err, boom) {
 		t.Fatalf("err = %v, want %v", err, boom)
 	}
-	if len(h.synth.texts) != 0 {
-		t.Fatalf("Synthesize calls = %d, want 0", len(h.synth.texts))
+	if h.synth.calls != 0 {
+		t.Fatalf("SynthesizeAll calls = %d, want 0", h.synth.calls)
 	}
 	if h.episw.calls != 0 {
 		t.Fatalf("WriteEpisode calls = %d, want 0", h.episw.calls)
@@ -417,8 +426,8 @@ func TestProduceEpisodeRun_returnsInvalidManuscriptDraftWithoutWriting_whenWrite
 	if h.writer.calls != application.TextWriterMaxAttempts {
 		t.Fatalf("TextWriter calls = %d, want %d", h.writer.calls, application.TextWriterMaxAttempts)
 	}
-	if len(h.synth.texts) != 0 || h.episw.calls != 0 {
-		t.Fatalf("downstream was called: synth=%d episw=%d", len(h.synth.texts), h.episw.calls)
+	if h.synth.calls != 0 || h.episw.calls != 0 {
+		t.Fatalf("downstream was called: synth=%d episw=%d", h.synth.calls, h.episw.calls)
 	}
 }
 
@@ -482,19 +491,19 @@ func (s *seqWriter) Write(_ context.Context, brief string) (string, error) {
 func TestProduceEpisodeRun_returnsErrorWithoutWriting_whenSynthesizeFails(t *testing.T) {
 	t.Parallel()
 
-	// Given: Speech が 2 回目の呼び出しで error
+	// Given: SpeechSynthesizer.SynthesizeAll が error を返す（retry 予算切れなど、Adapter 内で確定した失敗）
 	h := newHarness(t, 1.0)
 	h.synth.failAtCall = 2
 
 	// When: Run を呼ぶ
 	err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
 
-	// Then: その error を伝播。WriteEpisode は呼ばれない。3 回目以降の Synthesize もない
+	// Then: その error を伝播。SynthesizeAll は 1 回だけ。WriteEpisode は呼ばれない
 	if err == nil {
 		t.Fatal("Run: want error, got nil")
 	}
-	if len(h.synth.texts) != 2 {
-		t.Fatalf("Synthesize calls = %d, want 2 (stops at first failure)", len(h.synth.texts))
+	if h.synth.calls != 1 {
+		t.Fatalf("SynthesizeAll calls = %d, want 1", h.synth.calls)
 	}
 	if h.episw.calls != 0 {
 		t.Fatalf("WriteEpisode calls = %d, want 0", h.episw.calls)

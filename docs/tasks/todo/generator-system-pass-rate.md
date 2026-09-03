@@ -24,7 +24,7 @@ cron の 1 回通し（`generator-system.yml`）は「壊れていないか」�
 ### TestGeminiTTSRate（`generator-tts-rate.yml`・dispatch のみ・`system && ratemeasure`）
 
 **いつ**: cron の 1 回通しで `speech_synthesis` が落ちた／不安定なとき。
-先頭 1 束を `runs` 回 `Synthesize`。非空 WAV かつ尺 > 0 で PASS。env は `TEST_GEMINI_API_KEY` 直読み。
+先頭 1 束を `runs` 回 `Synthesize`。Adapter が `err == nil` で返れば PASS（非空 WAV・最小尺 `minPCMBytes` 保証は Adapter 側）。env は `TEST_GEMINI_API_KEY` 直読み。
 
 | date | run | pass/runs | 平均所要 | callGap | retryBackoffBase | retryBackoffMax | pass_threshold | 備考 |
 |---|---|---|---|---|---|---|---|---|

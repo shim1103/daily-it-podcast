@@ -28,7 +28,7 @@ func TestSynthesize_includesResponseBodySnippet_whenOutputAudioMissingOnOK(t *te
 	synth, _ := newFakeSynthesizer(responses...)
 
 	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "audio 欠落の原因を知りたい")
+	_, err := synth.synthTestOne(context.Background(), "audio 欠落の原因を知りたい")
 
 	// Then: error 文言に本文の marker が含まれる
 	if err == nil {

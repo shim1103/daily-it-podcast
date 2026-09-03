@@ -25,7 +25,7 @@ func TestSpeechSynthesizer_usesInjectedCallGap_whenTuningProvided(t *testing.T) 
 
 	// When: 2 回連続で Synthesize する
 	for i := 0; i < 2; i++ {
-		if _, err := synth.Synthesize(context.Background(), "注入テスト"); err != nil {
+		if _, err := synth.synthTestOne(context.Background(), "注入テスト"); err != nil {
 			t.Fatalf("Synthesize(%d): %v", i+1, err)
 		}
 	}
@@ -60,7 +60,7 @@ func TestSpeechSynthesizer_skipsCallGapWait_whenElapsedExceedsInjectedGap(t *tes
 
 	// When: 2 回連続で Synthesize する
 	for i := 0; i < 2; i++ {
-		if _, err := synth.Synthesize(context.Background(), "経過超過テスト"); err != nil {
+		if _, err := synth.synthTestOne(context.Background(), "経過超過テスト"); err != nil {
 			t.Fatalf("Synthesize(%d): %v", i+1, err)
 		}
 	}
