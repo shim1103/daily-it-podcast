@@ -11,8 +11,8 @@ import type { ActivePlayback, PlaybackPhase, PlaybackState } from "./playback-st
 export type EpisodePlaybackViewModel = {
   playback: PlaybackState;
   audioElementRef: RefObject<HTMLAudioElement | null>;
-  play(episodeId: string, positionSec?: number): void;
-  seek(episodeId: string, positionSec: number): void;
+  play(episodeId: string, audioRef: string, positionSec?: number): void;
+  seek(episodeId: string, audioRef: string, positionSec: number): void;
   stop(): void;
 };
 
@@ -34,11 +34,14 @@ function isPlayingSameEpisode(prev: PlaybackState, episodeId: string): boolean {
  * 再生対象 episode・phase・再生位置・長さを判別可能 union（`PlaybackState`）で持つ hook。
  * `<audio>` の命令的操作と event 購読は `lib/audio-element.ts`（Driven Adapter）へ委譲する。
  *
- * @ensure 初期は idle。`play` は指定秒から再生、`seek` は位置移動のみ（同じ episode が再生中なら
- *   再生継続）。違う episode へ切り替える時は直前 audio を reset。audio 未 mount 時は state だけ進める。
- *   Adapter の phase / position / duration 通知は `active` の間だけ state へ写す。unmount で購読解除。
- * @invariant throw しない。JSX を持たない。選択 id は変えない。Browser API の命令的操作と
- *   event 購読を直接持たない（すべて Adapter に閉じる）
+ * @ensure 初期は idle。`play(episodeId, audioRef, positionSec?)` は指定秒から再生、
+ *   `seek(episodeId, audioRef, positionSec)` は位置移動のみ（同じ episode が再生中なら再生継続）。
+ *   `audioRef` は呼び出し側が catalog から引き当てて渡し、hook はそれを `active` 枝へ載せるだけで
+ *   catalog を参照しない。違う episode へ切り替える時は直前 audio を reset。audio 未 mount 時は
+ *   state だけ進める。Adapter の phase / position / duration 通知は `active` の間だけ state へ写す。
+ *   unmount で購読解除。
+ * @invariant throw しない。JSX を持たない。選択 id は変えない。catalog status を知らない。
+ *   Browser API の命令的操作と event 購読を直接持たない（すべて Adapter に閉じる）
  *
  * 関連 Decision: docs/decisions/2026-09-03T16-20-00-feature-playback-web-view-models.md
  */
@@ -98,6 +101,7 @@ export function useEpisodePlayback(): EpisodePlaybackViewModel {
   const moveTo = useCallback(
     (
       episodeId: string,
+      audioRef: string,
       positionSec: number,
       transition: { phase: PlaybackPhase; shouldPlay: boolean },
     ): void => {
@@ -113,6 +117,7 @@ export function useEpisodePlayback(): EpisodePlaybackViewModel {
       commitPlayback({
         kind: "active",
         episodeId,
+        audioRef,
         phase: transition.phase,
         positionSec,
         durationSec,
@@ -136,22 +141,22 @@ export function useEpisodePlayback(): EpisodePlaybackViewModel {
   );
 
   const play = useCallback(
-    (episodeId: string, positionSec?: number): void => {
+    (episodeId: string, audioRef: string, positionSec?: number): void => {
       const prev = playbackRef.current;
       const isResumingSameEpisode = prev.kind === "active" && prev.episodeId === episodeId;
       const resumeSec = isResumingSameEpisode ? prev.positionSec : 0;
       // why: positionSec が明示 0 のときはその 0 を使う。省略時だけ resume 位置へ倒す
       const startSec = positionSec ?? resumeSec;
-      moveTo(episodeId, startSec, { phase: { phase: "loading" }, shouldPlay: true });
+      moveTo(episodeId, audioRef, startSec, { phase: { phase: "loading" }, shouldPlay: true });
     },
     [moveTo],
   );
 
   const seek = useCallback(
-    (episodeId: string, positionSec: number): void => {
+    (episodeId: string, audioRef: string, positionSec: number): void => {
       const keepPlaying = isPlayingSameEpisode(playbackRef.current, episodeId);
       const phase: PlaybackPhase = keepPlaying ? { phase: "playing" } : { phase: "paused" };
-      moveTo(episodeId, positionSec, { phase, shouldPlay: keepPlaying });
+      moveTo(episodeId, audioRef, positionSec, { phase, shouldPlay: keepPlaying });
     },
     [moveTo],
   );

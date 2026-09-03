@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ApiSuccessData } from "../api/api-result.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 import { createFakeHashSelectionAdapter } from "../lib/hash-selection-adapter.fake.ts";
@@ -81,6 +81,16 @@ function mockCatalog(overrides: Partial<ReturnType<typeof useEpisodeCatalog>> = 
 }
 
 describe("useEpisodeListPage", () => {
+  beforeEach(() => {
+    // why: adapter 未指定のケースは実 hash adapter を使う。前テストの hash 書き込みが
+    //   deep-link 復元で次テストへ漏れないよう毎回クリアする
+    window.location.hash = "";
+  });
+
+  afterEach(() => {
+    window.location.hash = "";
+  });
+
   it("catalog loading 時は pageStatus が loading の compose ViewModel を返す", () => {
     // Given: loading catalog stub
     mockCatalog({ catalogStatus: { status: "loading" }, episodes: [] });
@@ -89,9 +99,8 @@ describe("useEpisodeListPage", () => {
     // When: hook を render する
     const { result } = renderHook(() => useEpisodeListPage(apiClient));
 
-    // Then: loading・選択なし
-    expect(result.current.catalogStatus).toEqual({ status: "loading" });
-    expect(result.current.selection).toEqual({ selected: false });
+    // Then: loading・選択なし（selectedEpisode で観測）
+    expect(result.current.selectedEpisode).toBeNull();
     expect(result.current.pageStatus).toEqual({ kind: "loading" });
   });
 
@@ -103,14 +112,10 @@ describe("useEpisodeListPage", () => {
     // When: hook を render する
     const { result } = renderHook(() => useEpisodeListPage(apiClient));
 
-    // Then: success・選択なし・再生なし・ready・row 空
-    expect(result.current.catalogStatus).toEqual({ status: "success" });
-    expect(result.current.selection).toEqual({ selected: false });
+    // Then: 選択なし・再生なし・ready・row 空
     expect(result.current.selectedEpisode).toBeNull();
     expect(result.current.playback).toEqual({ kind: "idle" });
-    expect(result.current.playedEpisode).toBeNull();
     expect(result.current.pageStatus).toEqual({ kind: "ready" });
-    expect(result.current.episodes).toEqual([]);
     expect(result.current.rows).toEqual([]);
   });
 
@@ -129,40 +134,38 @@ describe("useEpisodeListPage", () => {
     });
   });
 
-  it("catalog success + episodes に無い id を select しても selection は入らず pageStatus は ready のまま", () => {
+  it("catalog success + episodes に無い id を toggleSelection しても selection は入らず pageStatus は ready のまま", () => {
     // Given: success catalog stub（episodes 空）
     mockCatalog({ catalogStatus: { status: "success" }, episodes: [] });
     const apiClient = createStubApiClient();
     const { result } = renderHook(() => useEpisodeListPage(apiClient));
 
-    // When: 一覧に無い id を select する
+    // When: 一覧に無い id を toggleSelection する
     act(() => {
-      result.current.select("ghost");
+      result.current.toggleSelection("ghost");
     });
 
-    // Then: selection は selected=false のまま・pageStatus は ready
-    expect(result.current.selection).toEqual({ selected: false });
+    // Then: selectedEpisode は null のまま・pageStatus は ready
     expect(result.current.selectedEpisode).toBeNull();
     expect(result.current.pageStatus).toEqual({ kind: "ready" });
   });
 
-  it("catalog success + 一覧にある id を select すると selectedEpisode が解決し pageStatus は ready", () => {
+  it("catalog success + 一覧にある id を toggleSelection すると selectedEpisode が解決し pageStatus は ready", () => {
     // Given: ep-1 を持つ success catalog stub
     mockCatalog({ catalogStatus: { status: "success" }, episodes: [episodeOne] });
     const apiClient = createStubApiClient();
     const { result } = renderHook(() => useEpisodeListPage(apiClient));
 
-    // When: ep-1 を select する
+    // When: ep-1 を toggleSelection する
     act(() => {
-      result.current.select("ep-1");
+      result.current.toggleSelection("ep-1");
     });
 
     // Then: selectedEpisode が解決・ready・row の isSelected が true
     expect(result.current.selectedEpisode).toEqual(episodeOne);
-    expect(result.current.selection).toEqual({ selected: true, episode: episodeOne });
     expect(result.current.pageStatus).toEqual({ kind: "ready" });
     expect(result.current.rows).toEqual([
-      { episodeId: "ep-1", isSelected: true, isPlaying: false },
+      { episode: episodeOne, episodeId: "ep-1", isSelected: true, isPlaying: false },
     ]);
   });
 
@@ -174,25 +177,25 @@ describe("useEpisodeListPage", () => {
     const apiClient = createStubApiClient();
     const { result } = renderHook(() => useEpisodeListPage(apiClient, adapter));
 
-    // When: loading 中に select する（一覧に居ないので no-op でもある）
+    // When: loading 中に toggleSelection する（一覧に居ないので no-op でもある）
     act(() => {
-      result.current.select("ep-1");
+      result.current.toggleSelection("ep-1");
     });
 
     // Then: hash へは書き込まれない
     expect(setEpisodeId).not.toHaveBeenCalled();
   });
 
-  it("catalog success 後は select が hash へ反映される", () => {
+  it("catalog success 後は toggleSelection が hash へ反映される", () => {
     // Given: ep-1 を持つ success catalog stub と Fake adapter
     mockCatalog({ catalogStatus: { status: "success" }, episodes: [episodeOne] });
     const adapter = createFakeHashSelectionAdapter();
     const apiClient = createStubApiClient();
     const { result } = renderHook(() => useEpisodeListPage(apiClient, adapter));
 
-    // When: ep-1 を select する
+    // When: ep-1 を toggleSelection する
     act(() => {
-      result.current.select("ep-1");
+      result.current.toggleSelection("ep-1");
     });
 
     // Then: adapter が ep-1 になる
@@ -211,8 +214,8 @@ describe("useEpisodeListPage", () => {
       adapter.externalChange("ep-1");
     });
 
-    // Then: selection が ep-1 の実体になる
-    expect(result.current.selection).toEqual({ selected: true, episode: episodeOne });
+    // Then: selectedEpisode が ep-1 の実体になる
+    expect(result.current.selectedEpisode).toEqual(episodeOne);
   });
 
   it("catalog success 後、hash が外部で一覧に無い id へ変わっても selection に入らず pageStatus は ready のまま", () => {
@@ -227,8 +230,8 @@ describe("useEpisodeListPage", () => {
       adapter.externalChange("ghost");
     });
 
-    // Then: selection は selected=false のまま・pageStatus は ready
-    expect(result.current.selection).toEqual({ selected: false });
+    // Then: selectedEpisode は null のまま・pageStatus は ready
+    expect(result.current.selectedEpisode).toBeNull();
     expect(result.current.pageStatus).toEqual({ kind: "ready" });
   });
 
@@ -239,7 +242,7 @@ describe("useEpisodeListPage", () => {
     const apiClient = createStubApiClient();
     const { result } = renderHook(() => useEpisodeListPage(apiClient, adapter));
     act(() => {
-      result.current.select("ep-1");
+      result.current.toggleSelection("ep-1");
     });
 
     // When: 外部で hash を空へ変える
@@ -247,8 +250,8 @@ describe("useEpisodeListPage", () => {
       adapter.externalChange(null);
     });
 
-    // Then: selection が selected=false になる
-    expect(result.current.selection).toEqual({ selected: false });
+    // Then: selectedEpisode が null になる
+    expect(result.current.selectedEpisode).toBeNull();
   });
 
   it("Deselect しても playback は維持される（selection と playback の直交）", () => {
@@ -258,21 +261,70 @@ describe("useEpisodeListPage", () => {
     const { result } = renderHook(() => useEpisodeListPage(apiClient));
     act(() => {
       result.current.play("ep-1");
-      result.current.select("ep-1");
+      result.current.toggleSelection("ep-1");
     });
 
-    // When: deselect する
+    // When: 選択中の id を再度 toggleSelection して deselect する
     act(() => {
-      result.current.deselect();
+      result.current.toggleSelection("ep-1");
     });
 
-    // Then: selection は selected=false だが playback の episodeId は ep-1 のまま
-    expect(result.current.selection).toEqual({ selected: false });
+    // Then: selectedEpisode は null だが playback の episodeId は ep-1 のまま
+    expect(result.current.selectedEpisode).toBeNull();
     expect(result.current.playback).toMatchObject({
       kind: "active",
       episodeId: "ep-1",
       phase: { phase: "loading" },
     });
+  });
+
+  it("一覧に居る episodeId を play すると playback が active になり audioRef が一覧の値と一致する", () => {
+    // Given: ep-1 を持つ success catalog stub
+    mockCatalog({ catalogStatus: { status: "success" }, episodes: [episodeOne] });
+    const apiClient = createStubApiClient();
+    const { result } = renderHook(() => useEpisodeListPage(apiClient));
+
+    // When: 一覧に居る ep-1 を外部 signature（audioRef なし）で play する
+    act(() => {
+      result.current.play("ep-1");
+    });
+
+    // Then: active・audioRef は catalog の episodeOne.audioRef
+    expect(result.current.playback).toMatchObject({
+      kind: "active",
+      episodeId: "ep-1",
+      audioRef: episodeOne.audioRef,
+    });
+  });
+
+  it("一覧に居ない episodeId を play しても no-op（playback は idle のまま）", () => {
+    // Given: ep-1 のみの success catalog stub
+    mockCatalog({ catalogStatus: { status: "success" }, episodes: [episodeOne] });
+    const apiClient = createStubApiClient();
+    const { result } = renderHook(() => useEpisodeListPage(apiClient));
+
+    // When: 一覧に無い id を play する
+    act(() => {
+      result.current.play("ghost");
+    });
+
+    // Then: audioRef を解決できないので idle のまま
+    expect(result.current.playback).toEqual({ kind: "idle" });
+  });
+
+  it("一覧に居ない episodeId を seek しても no-op（playback は idle のまま）", () => {
+    // Given: ep-1 のみの success catalog stub
+    mockCatalog({ catalogStatus: { status: "success" }, episodes: [episodeOne] });
+    const apiClient = createStubApiClient();
+    const { result } = renderHook(() => useEpisodeListPage(apiClient));
+
+    // When: 一覧に無い id を seek する
+    act(() => {
+      result.current.seek("ghost", 30);
+    });
+
+    // Then: idle のまま
+    expect(result.current.playback).toEqual({ kind: "idle" });
   });
 
   it("実在する別 episode を Play しても selection は変わらない（playback と selection の直交）", () => {
@@ -281,7 +333,7 @@ describe("useEpisodeListPage", () => {
     const apiClient = createStubApiClient();
     const { result } = renderHook(() => useEpisodeListPage(apiClient));
     act(() => {
-      result.current.select("ep-1");
+      result.current.toggleSelection("ep-1");
     });
 
     // When: 実在する ep-2 を play する
@@ -290,7 +342,7 @@ describe("useEpisodeListPage", () => {
     });
 
     // Then: selection は ep-1 のまま・playback のみ ep-2・ready
-    expect(result.current.selection).toEqual({ selected: true, episode: episodeOne });
+    expect(result.current.selectedEpisode).toEqual(episodeOne);
     expect(result.current.playback).toMatchObject({
       kind: "active",
       episodeId: "ep-2",
@@ -330,7 +382,7 @@ describe("useEpisodeListPage", () => {
     const apiClient = createStubApiClient();
     const { result } = renderHook(() => useEpisodeListPage(apiClient));
     act(() => {
-      result.current.select("ep-1");
+      result.current.toggleSelection("ep-1");
     });
 
     // When: seek する（audioElementRef を張っていないので state だけ倒るが compose の配線を確認）
@@ -340,7 +392,7 @@ describe("useEpisodeListPage", () => {
 
     // Then: seek は関数として公開され、selection は ep-1 のまま・playback は ep-1 の active
     expect(typeof result.current.seek).toBe("function");
-    expect(result.current.selection).toEqual({ selected: true, episode: episodeOne });
+    expect(result.current.selectedEpisode).toEqual(episodeOne);
     expect(result.current.playback).toMatchObject({
       kind: "active",
       episodeId: "ep-1",
@@ -366,27 +418,29 @@ describe("useEpisodeListPage", () => {
 
     // Then: row の isPlaying は true
     expect(result.current.rows).toEqual([
-      { episodeId: "ep-1", isSelected: false, isPlaying: true },
+      { episode: episodeOne, episodeId: "ep-1", isSelected: false, isPlaying: true },
     ]);
   });
 
-  it("load / select / deselect / toggleSelection / play / stop / seek を compose して公開する", () => {
+  it("page 実使用の投影とアクション（toggleSelection / play / seek / stop / audioElementRef）だけを公開する", () => {
     // Given: success catalog stub
-    const load = vi.fn(async (): Promise<void> => {});
-    mockCatalog({ catalogStatus: { status: "success" }, episodes: [episodeOne], load });
+    mockCatalog({ catalogStatus: { status: "success" }, episodes: [episodeOne] });
     const apiClient = createStubApiClient();
 
     // When: hook を render する
     const { result } = renderHook(() => useEpisodeListPage(apiClient));
 
-    // Then: catalog.load がそのまま公開される
-    expect(result.current.load).toBe(load);
-    expect(typeof result.current.select).toBe("function");
-    expect(typeof result.current.deselect).toBe("function");
+    // Then: page が使うものだけ公開・生 union と select/deselect/load は外へ出さない
     expect(typeof result.current.toggleSelection).toBe("function");
     expect(typeof result.current.play).toBe("function");
     expect(typeof result.current.stop).toBe("function");
     expect(typeof result.current.seek).toBe("function");
     expect(result.current.audioElementRef.current).toBeNull();
+    expect(result.current).not.toHaveProperty("selection");
+    expect(result.current).not.toHaveProperty("catalogStatus");
+    expect(result.current).not.toHaveProperty("episodes");
+    expect(result.current).not.toHaveProperty("select");
+    expect(result.current).not.toHaveProperty("deselect");
+    expect(result.current).not.toHaveProperty("load");
   });
 });

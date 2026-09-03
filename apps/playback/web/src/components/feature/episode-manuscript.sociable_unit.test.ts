@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { EpisodeData } from "../../view-models/episode-list-view-model.ts";
+import type { EpisodeData } from "../../view-models/playback-state.ts";
 import { EpisodeManuscript } from "./episode-manuscript.tsx";
 
 type Body = EpisodeData["body"];

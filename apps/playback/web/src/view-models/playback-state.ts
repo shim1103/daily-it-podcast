@@ -29,12 +29,16 @@ export type PlaybackPhase =
  * 再生 state。`idle` は再生対象がなく付随データを持たない。`active` は再生対象があり、
  * `phase` に関わらず現在位置（`positionSec`）と長さ（`durationSec`、metadata 未取得なら null）を
  * 必ず持つ。停止中でも位置は `positionSec` に残る（B Decision §1-1/§1-2）。
+ * `audioRef` は再生対象 episode の音源 path（契約 `ListEpisodesResponse` 由来）。episode が在る限り
+ * 不変で、一覧が再取得されても変わらないため、catalog 非依存のまま `active` 枝が直接保持できる
+ * （Decision 2026-09-04 §1-1）。`episodeId` は `deriveEpisodeRows` の `isPlaying` 判定等が使うため残す。
  */
 export type PlaybackState =
   | { kind: "idle" }
   | {
       kind: "active";
       episodeId: string;
+      audioRef: string;
       phase: PlaybackPhase;
       positionSec: number;
       durationSec: number | null;
@@ -53,29 +57,15 @@ export type PageStatus =
   | { kind: "ready" };
 
 /**
- * component が 1 row に必要とする最小の投影。表示整形は Row component 側が `EpisodeData` から行うため
- * ここでは raw の `episodeId` と、union の判別で決まる 2 つの boolean のみを持つ。
+ * Row がそのまま描ける形。表示整形に要る episode 実体と、識別 id、union 判別で決まる 2 つの boolean を持つ。
+ * `episodeId` は `key` と識別に使う識別用の冗長 field（`episode.episodeId` と同値）。
  */
 export type EpisodeRowViewModel = {
+  episode: EpisodeData;
   episodeId: string;
   isSelected: boolean;
   isPlaying: boolean;
 };
-
-/**
- * 一覧 cache と再生 union から再生中 episode を導出する。
- *
- * @ensure `playback.kind` が `idle`、または `episodeId` が一覧に無いとき null
- */
-export function derivePlayedEpisode(
-  episodes: readonly EpisodeData[],
-  playback: PlaybackState,
-): EpisodeData | null {
-  if (playback.kind === "idle") {
-    return null;
-  }
-  return episodes.find((episode) => episode.episodeId === playback.episodeId) ?? null;
-}
 
 /**
  * catalog の取得状態から page 全体の振る舞い（`PageStatus`）を導出する。
@@ -103,10 +93,11 @@ export function derivePageStatus(catalogStatus: CatalogStatus): PageStatus {
 }
 
 /**
- * 一覧と選択・再生 union から、component が 1 row に必要とする投影の配列を導出する。
+ * 一覧と選択・再生 union から、Row がそのまま描ける形の配列を導出する。
  *
- * @ensure 各 episode について、選択中なら isSelected=true、`kind:"active"` かつ `phase:"playing"` なら
- *   isPlaying=true。それ以外は false。順序は入力の `episodes` に一致する
+ * @ensure 各 row は入力 episode の実体（同一参照）と識別 id を持つ。選択中なら isSelected=true、
+ *   `kind:"active"` かつ `phase:"playing"` なら isPlaying=true。それ以外は false。
+ *   順序は入力の `episodes` に一致する
  */
 export function deriveEpisodeRows(
   episodes: readonly EpisodeData[],
@@ -118,6 +109,7 @@ export function deriveEpisodeRows(
       ? context.playback.episodeId
       : null;
   return episodes.map((episode) => ({
+    episode,
     episodeId: episode.episodeId,
     isSelected: episode.episodeId === selectedEpisodeId,
     isPlaying: episode.episodeId === playingEpisodeId,
