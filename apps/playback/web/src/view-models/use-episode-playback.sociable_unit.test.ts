@@ -96,18 +96,39 @@ describe("useEpisodePlayback", () => {
 
       // When: ep-1 を play する
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
 
       // Then: active/loading/0/null・再生付き seek を Adapter へ委譲
       expect(result.current.playback).toEqual({
         kind: "active",
         episodeId: "ep-1",
+        audioRef: "/episodes/ep-1/audio",
         phase: { phase: "loading" },
         positionSec: 0,
         durationSec: null,
       });
       expect(seekAudioElementMock).toHaveBeenCalledExactlyOnceWith(audio, 0, { play: true });
+    });
+
+    it("play は渡された audioRef をそのまま active 枝へ載せる（catalog から引き当てない）", () => {
+      // Given: audio を張った hook
+      const { result } = renderHook(() => useEpisodePlayback());
+      act(() => {
+        result.current.audioElementRef.current = createAudioRefTarget();
+      });
+
+      // When: 任意の audioRef を渡して play する
+      act(() => {
+        result.current.play("ep-9", "/custom/path/ep-9.mp3");
+      });
+
+      // Then: active 枝の audioRef は引数の値
+      expect(result.current.playback).toMatchObject({
+        kind: "active",
+        episodeId: "ep-9",
+        audioRef: "/custom/path/ep-9.mp3",
+      });
     });
 
     it("play('ep-1', 90) は positionSec:90 にし、seekAudioElement(audio, 90, {play:true}) を呼ぶ", () => {
@@ -120,7 +141,7 @@ describe("useEpisodePlayback", () => {
 
       // When: 90 秒指定で play する
       act(() => {
-        result.current.play("ep-1", 90);
+        result.current.play("ep-1", "/episodes/ep-1/audio", 90);
       });
 
       // Then: positionSec=90・(audio, 90, {play:true})
@@ -141,7 +162,7 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = audio;
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
       act(() => {
         subscribe.emitPosition(55);
@@ -150,7 +171,7 @@ describe("useEpisodePlayback", () => {
 
       // When: positionSec 省略で同じ ep-1 を play する
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
 
       // Then: prev.positionSec=55 から再開
@@ -171,7 +192,7 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = audio;
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
       act(() => {
         subscribe.emitDuration(600);
@@ -182,7 +203,7 @@ describe("useEpisodePlayback", () => {
 
       // When: 別 episode ep-2 を play する
       act(() => {
-        result.current.play("ep-2");
+        result.current.play("ep-2", "/episodes/ep-2/audio");
       });
 
       // Then: 直前 audio を reset・ep-2/loading/0/null（duration は引き継がない）
@@ -190,6 +211,7 @@ describe("useEpisodePlayback", () => {
       expect(result.current.playback).toEqual({
         kind: "active",
         episodeId: "ep-2",
+        audioRef: "/episodes/ep-2/audio",
         phase: { phase: "loading" },
         positionSec: 0,
         durationSec: null,
@@ -204,13 +226,13 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = createAudioRefTarget();
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
       resetAudioElementMock.mockClear();
 
       // When: 同じ ep-1 を play する
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
 
       // Then: reset は起きない
@@ -223,13 +245,14 @@ describe("useEpisodePlayback", () => {
 
       // When: 45 秒指定で play する
       act(() => {
-        result.current.play("ep-1", 45);
+        result.current.play("ep-1", "/episodes/ep-1/audio", 45);
       });
 
       // Then: 例外なし・state だけ倒る・audio 操作は呼ばれない
       expect(result.current.playback).toEqual({
         kind: "active",
         episodeId: "ep-1",
+        audioRef: "/episodes/ep-1/audio",
         phase: { phase: "loading" },
         positionSec: 45,
         durationSec: null,
@@ -250,13 +273,14 @@ describe("useEpisodePlayback", () => {
 
       // When: ep-1 を 120 秒へ seek する
       act(() => {
-        result.current.seek("ep-1", 120);
+        result.current.seek("ep-1", "/episodes/ep-1/audio", 120);
       });
 
       // Then: active/paused/120/null・play なし seek
       expect(result.current.playback).toEqual({
         kind: "active",
         episodeId: "ep-1",
+        audioRef: "/episodes/ep-1/audio",
         phase: { phase: "paused" },
         positionSec: 120,
         durationSec: null,
@@ -273,7 +297,7 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = audio;
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
       act(() => {
         subscribe.emitPhase("playing");
@@ -282,13 +306,14 @@ describe("useEpisodePlayback", () => {
 
       // When: 120 秒へ seek する
       act(() => {
-        result.current.seek("ep-1", 120);
+        result.current.seek("ep-1", "/episodes/ep-1/audio", 120);
       });
 
       // Then: playing 継続・(audio, 120, {play:true})
       expect(result.current.playback).toMatchObject({
         kind: "active",
         episodeId: "ep-1",
+        audioRef: "/episodes/ep-1/audio",
         phase: { phase: "playing" },
         positionSec: 120,
       });
@@ -304,7 +329,7 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = audio;
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
       act(() => {
         subscribe.emitPhase("paused");
@@ -313,13 +338,14 @@ describe("useEpisodePlayback", () => {
 
       // When: 120 秒へ seek する
       act(() => {
-        result.current.seek("ep-1", 120);
+        result.current.seek("ep-1", "/episodes/ep-1/audio", 120);
       });
 
       // Then: paused 継続・(audio, 120, {play:false})
       expect(result.current.playback).toMatchObject({
         kind: "active",
         episodeId: "ep-1",
+        audioRef: "/episodes/ep-1/audio",
         phase: { phase: "paused" },
         positionSec: 120,
       });
@@ -335,7 +361,7 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = audio;
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
       act(() => {
         subscribe.emitPhase("playing");
@@ -346,7 +372,7 @@ describe("useEpisodePlayback", () => {
 
       // When: 別 episode ep-2 へ seek する
       act(() => {
-        result.current.seek("ep-2", 30);
+        result.current.seek("ep-2", "/episodes/ep-2/audio", 30);
       });
 
       // Then: reset・ep-2/paused/30/null（違う episode なので play 継続せず duration も引き継がない）
@@ -354,11 +380,33 @@ describe("useEpisodePlayback", () => {
       expect(result.current.playback).toEqual({
         kind: "active",
         episodeId: "ep-2",
+        audioRef: "/episodes/ep-2/audio",
         phase: { phase: "paused" },
         positionSec: 30,
         durationSec: null,
       });
       expect(seekAudioElementMock).toHaveBeenCalledExactlyOnceWith(audio, 30, { play: false });
+    });
+
+    it("seek は渡された audioRef をそのまま active 枝へ載せる", () => {
+      // Given: audio を張った idle の hook
+      const { result } = renderHook(() => useEpisodePlayback());
+      act(() => {
+        result.current.audioElementRef.current = createAudioRefTarget();
+      });
+
+      // When: 任意の audioRef を渡して seek する
+      act(() => {
+        result.current.seek("ep-9", "/custom/path/ep-9.mp3", 12);
+      });
+
+      // Then: active 枝の audioRef は引数の値
+      expect(result.current.playback).toMatchObject({
+        kind: "active",
+        episodeId: "ep-9",
+        audioRef: "/custom/path/ep-9.mp3",
+        positionSec: 12,
+      });
     });
 
     it("audioElementRef 未設定でも seek は例外を投げず、state だけ引数の positionSec へ倒す", () => {
@@ -367,13 +415,14 @@ describe("useEpisodePlayback", () => {
 
       // When: seek する
       act(() => {
-        result.current.seek("ep-1", 42);
+        result.current.seek("ep-1", "/episodes/ep-1/audio", 42);
       });
 
       // Then: 例外なし・state だけ倒る・audio 操作は呼ばれない
       expect(result.current.playback).toEqual({
         kind: "active",
         episodeId: "ep-1",
+        audioRef: "/episodes/ep-1/audio",
         phase: { phase: "paused" },
         positionSec: 42,
         durationSec: null,
@@ -391,7 +440,7 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = createAudioRefTarget();
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
 
       // When: playing phase を通知する
@@ -403,6 +452,7 @@ describe("useEpisodePlayback", () => {
       expect(result.current.playback).toMatchObject({
         kind: "active",
         episodeId: "ep-1",
+        audioRef: "/episodes/ep-1/audio",
         phase: { phase: "playing" },
       });
     });
@@ -415,7 +465,7 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = createAudioRefTarget();
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
 
       // When: error phase を通知する
@@ -438,7 +488,7 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = createAudioRefTarget();
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
 
       // When: 位置通知が来る
@@ -450,6 +500,7 @@ describe("useEpisodePlayback", () => {
       expect(result.current.playback).toEqual({
         kind: "active",
         episodeId: "ep-1",
+        audioRef: "/episodes/ep-1/audio",
         phase: { phase: "loading" },
         positionSec: 37.2,
         durationSec: null,
@@ -464,7 +515,7 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = createAudioRefTarget();
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
       act(() => {
         result.current.stop();
@@ -487,7 +538,7 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = createAudioRefTarget();
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
 
       // When: 長さ通知が来る
@@ -499,6 +550,7 @@ describe("useEpisodePlayback", () => {
       expect(result.current.playback).toEqual({
         kind: "active",
         episodeId: "ep-1",
+        audioRef: "/episodes/ep-1/audio",
         phase: { phase: "loading" },
         positionSec: 0,
         durationSec: 1234,
@@ -513,7 +565,7 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = createAudioRefTarget();
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
       act(() => {
         result.current.stop();
@@ -536,7 +588,7 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = createAudioRefTarget();
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
       act(() => {
         result.current.stop();
@@ -561,7 +613,7 @@ describe("useEpisodePlayback", () => {
 
       // When: ep-1 を play する
       await act(async () => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
         await Promise.resolve();
       });
 
@@ -569,6 +621,7 @@ describe("useEpisodePlayback", () => {
       expect(result.current.playback).toMatchObject({
         kind: "active",
         episodeId: "ep-1",
+        audioRef: "/episodes/ep-1/audio",
         phase: { phase: "error", reason: "audio-load-failed" },
       });
     });
@@ -583,7 +636,7 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = audio;
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
       pauseAudioElementMock.mockClear();
       resetAudioElementMock.mockClear();
@@ -603,7 +656,7 @@ describe("useEpisodePlayback", () => {
       // Given: play 済みだが ref 未設定の hook
       const { result } = renderHook(() => useEpisodePlayback());
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
 
       // When: stop する
@@ -624,12 +677,12 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = createAudioRefTarget();
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
 
       // When: ep-2 を play する
       act(() => {
-        result.current.play("ep-2");
+        result.current.play("ep-2", "/episodes/ep-2/audio");
       });
 
       // Then: 購読は 2 回、解除は 1 回以上
@@ -645,7 +698,7 @@ describe("useEpisodePlayback", () => {
         result.current.audioElementRef.current = createAudioRefTarget();
       });
       act(() => {
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
       const playbackBefore = result.current.playback;
 
@@ -670,7 +723,7 @@ describe("useEpisodePlayback", () => {
       // When: state を変えて再 render する
       act(() => {
         result.current.audioElementRef.current = createAudioRefTarget();
-        result.current.play("ep-1");
+        result.current.play("ep-1", "/episodes/ep-1/audio");
       });
       rerender();
 

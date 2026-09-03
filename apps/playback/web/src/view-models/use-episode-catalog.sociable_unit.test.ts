@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { ApiSuccessData } from "../api/api-result.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
@@ -42,9 +42,24 @@ describe("useEpisodeCatalog", () => {
     // When: hook を render する
     const { result } = renderHook(() => useEpisodeCatalog(apiClient));
 
-    // Then: loading・episodes 空
+    // Then: 同期時点は loading・episodes 空（auto-load の effect は render 後に走る）
     expect(result.current.catalogStatus).toEqual({ status: "loading" });
     expect(result.current.episodes).toEqual([]);
+  });
+
+  it("mount 時に自動で listEpisodes を呼び、成功なら success + episodes になる", async () => {
+    // Given: 成功 ApiResult を返す stub api client
+    const apiClient = createStubApiClient();
+
+    // When: hook を render するだけ（明示 load を呼ばない）
+    const { result } = renderHook(() => useEpisodeCatalog(apiClient));
+
+    // Then: auto-load で listEpisodes が呼ばれ success + episodes になる
+    await waitFor(() => {
+      expect(result.current.catalogStatus).toEqual({ status: "success" });
+    });
+    expect(apiClient.listEpisodes).toHaveBeenCalledTimes(1);
+    expect(result.current.episodes).toEqual(validListEpisodesResponse.episodes);
   });
 
   it("load() が成功する時、catalogStatus が success になり episodes を保持する", async () => {
@@ -52,7 +67,7 @@ describe("useEpisodeCatalog", () => {
     const apiClient = createStubApiClient();
     const { result } = renderHook(() => useEpisodeCatalog(apiClient));
 
-    // When: load を実行する
+    // When: 明示 reload として load を実行する
     await act(async () => {
       await result.current.load();
     });
@@ -80,36 +95,41 @@ describe("useEpisodeCatalog", () => {
   });
 
   it("load() の再実行前に catalogStatus を loading へ戻す", async () => {
-    // Given: 1 回目成功、2 回目は未解決の stub api client
-    let resolveSecond: ((value: { ok: true; data: ListEpisodesData }) => void) | undefined;
+    // Given: auto-load 分と明示 1 回目は成功、明示 2 回目は未解決の stub api client
+    let resolveThird: ((value: { ok: true; data: ListEpisodesData }) => void) | undefined;
     const listEpisodes = vi
       .fn<PlaybackApiClient["listEpisodes"]>()
+      .mockImplementationOnce(async () => ({ ok: true as const, data: validListEpisodesResponse }))
       .mockImplementationOnce(async () => ({ ok: true as const, data: validListEpisodesResponse }))
       .mockImplementationOnce(
         () =>
           new Promise((resolve) => {
-            resolveSecond = resolve;
+            resolveThird = resolve;
           }),
       );
     const apiClient = createStubApiClient({ listEpisodes });
     const { result } = renderHook(() => useEpisodeCatalog(apiClient));
+    // auto-load の完了を待ってから明示 reload を検証する
+    await waitFor(() => {
+      expect(result.current.catalogStatus).toEqual({ status: "success" });
+    });
     await act(async () => {
       await result.current.load();
     });
 
-    // When: 2 回目の load を起動する（完了待ちしない）
-    let secondLoad: Promise<void> = Promise.resolve();
+    // When: さらに load を起動する（完了待ちしない）
+    let thirdLoad: Promise<void> = Promise.resolve();
     act(() => {
-      secondLoad = result.current.load();
+      thirdLoad = result.current.load();
     });
 
     // Then: 完了前は loading へ戻っている
     expect(result.current.catalogStatus).toEqual({ status: "loading" });
 
-    // cleanup: 2 回目を解決させて hook を安定させる
+    // cleanup: 未解決分を解決させて hook を安定させる
     await act(async () => {
-      resolveSecond?.({ ok: true, data: validListEpisodesResponse });
-      await secondLoad;
+      resolveThird?.({ ok: true, data: validListEpisodesResponse });
+      await thirdLoad;
     });
   });
 });

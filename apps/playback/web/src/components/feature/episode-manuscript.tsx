@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import type { EpisodeData } from "../../view-models/episode-list-view-model.ts";
+import type { EpisodeData } from "../../view-models/playback-state.ts";
 import { LabeledText } from "../primitive/labeled-text.tsx";
 import { EpisodeTopic } from "./episode-topic.tsx";
 import "./episode-manuscript.css";

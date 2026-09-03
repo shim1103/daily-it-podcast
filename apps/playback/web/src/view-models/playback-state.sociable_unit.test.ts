@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   deriveEpisodeRows,
   derivePageStatus,
-  derivePlayedEpisode,
   type EpisodeData,
   type PlaybackPhase,
   type PlaybackState,
@@ -35,6 +34,7 @@ const idlePlayback: PlaybackState = { kind: "idle" };
 function activePlayback(
   overrides: Partial<{
     episodeId: string;
+    audioRef: string;
     phase: PlaybackPhase;
     positionSec: number;
     durationSec: number | null;
@@ -43,43 +43,12 @@ function activePlayback(
   return {
     kind: "active",
     episodeId: overrides.episodeId ?? "ep-1",
+    audioRef: overrides.audioRef ?? "/episodes/ep-1/audio",
     phase: overrides.phase ?? { phase: "loading" },
     positionSec: overrides.positionSec ?? 0,
     durationSec: overrides.durationSec ?? null,
   };
 }
-
-describe("derivePlayedEpisode", () => {
-  it("playback が kind=idle の時、null を返す", () => {
-    // Given: 再生なし
-    // When: 再生中 episode を導出する
-    const got = derivePlayedEpisode(episodes, idlePlayback);
-
-    // Then: null
-    expect(got).toBeNull();
-  });
-
-  it("playback が kind=active で episodeId が一覧に無い時、null を返す", () => {
-    // Given: 存在しない再生 id
-    // When: 再生中 episode を導出する
-    const got = derivePlayedEpisode(episodes, activePlayback({ episodeId: "missing" }));
-
-    // Then: null
-    expect(got).toBeNull();
-  });
-
-  it("playback が kind=active で episodeId が一覧に存在する時、その episode を返す", () => {
-    // Given: ep-2 を再生
-    // When: 再生中 episode を導出する
-    const got = derivePlayedEpisode(
-      episodes,
-      activePlayback({ episodeId: "ep-2", phase: { phase: "playing" } }),
-    );
-
-    // Then: ep-2
-    expect(got?.episodeId).toBe("ep-2");
-  });
-});
 
 describe("derivePageStatus", () => {
   it("catalogStatus が error の時、kind=unavailable reason=catalog-load-failed を返す", () => {
@@ -127,9 +96,19 @@ describe("deriveEpisodeRows", () => {
 
     // Then: 全 row が false
     expect(got).toEqual([
-      { episodeId: "ep-1", isSelected: false, isPlaying: false },
-      { episodeId: "ep-2", isSelected: false, isPlaying: false },
+      { episode, episodeId: "ep-1", isSelected: false, isPlaying: false },
+      { episode: episodeTwo, episodeId: "ep-2", isSelected: false, isPlaying: false },
     ]);
+  });
+
+  it("各 row が入力 episode の実体を order 通りに同一参照で持つ", () => {
+    // Given: 2 件の episode
+    // When: row を投影する
+    const got = deriveEpisodeRows(episodes, { selection: noSelection, playback: idlePlayback });
+
+    // Then: episode 実体が入力順で同一参照
+    expect(got[0]?.episode).toBe(episode);
+    expect(got[1]?.episode).toBe(episodeTwo);
   });
 
   it("選択中の episode の row だけ isSelected=true になる", () => {
@@ -142,8 +121,8 @@ describe("deriveEpisodeRows", () => {
 
     // Then: ep-1 の row のみ isSelected=true
     expect(got).toEqual([
-      { episodeId: "ep-1", isSelected: true, isPlaying: false },
-      { episodeId: "ep-2", isSelected: false, isPlaying: false },
+      { episode, episodeId: "ep-1", isSelected: true, isPlaying: false },
+      { episode: episodeTwo, episodeId: "ep-2", isSelected: false, isPlaying: false },
     ]);
   });
 
@@ -157,8 +136,8 @@ describe("deriveEpisodeRows", () => {
 
     // Then: ep-2 の row のみ isPlaying=true
     expect(got).toEqual([
-      { episodeId: "ep-1", isSelected: false, isPlaying: false },
-      { episodeId: "ep-2", isSelected: false, isPlaying: true },
+      { episode, episodeId: "ep-1", isSelected: false, isPlaying: false },
+      { episode: episodeTwo, episodeId: "ep-2", isSelected: false, isPlaying: true },
     ]);
   });
 

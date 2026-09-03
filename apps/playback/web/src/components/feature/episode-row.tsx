@@ -11,7 +11,6 @@ export type EpisodeRowProps = {
   episodeCount: number;
   episodeIndex: number;
   isSelected: boolean;
-  isPlayed: boolean;
   isPlaying: boolean;
   onSelect: (episodeId: string) => void;
   onPlay: (episodeId: string) => void;
@@ -21,7 +20,7 @@ export type EpisodeRowProps = {
 /**
  * 1 episode の meta と select / play・stop affordance を描画する（契約 stub）。
  *
- * @require isSelected / isPlayed / isPlaying は caller が derive して渡す
+ * @require isSelected / isPlaying は caller が derive して渡す
  * @ensure Row 自身は derive しない。表示整形は utils に委譲する
  */
 export function EpisodeRow({
@@ -29,7 +28,6 @@ export function EpisodeRow({
   episodeCount,
   episodeIndex,
   isSelected,
-  isPlayed,
   isPlaying,
   onSelect,
   onPlay,
@@ -42,7 +40,6 @@ export function EpisodeRow({
     <article
       className="episode-row"
       data-selected={isSelected ? "true" : "false"}
-      data-played={isPlayed ? "true" : "false"}
       data-playing={isPlaying ? "true" : "false"}
     >
       <button type="button" onClick={() => onSelect(episode.episodeId)}>

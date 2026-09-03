@@ -15,13 +15,12 @@ React + Hono 方針の正: `docs/decisions/2026-08-26T00-00-00-architecture-reco
 3. 認証済み browser E2E（週次 `playback-e2e` + `workflow_dispatch`。安定 fixture は本番 `DRIVE_FOLDER_ID`）
 4. Narrow / Broad Integration（gate 内）と `test/integration` + `test/e2e` 配置
 5. playback web 直交 Decision（B）と A 契約（型・stub・SU test）
-6. 運用後続 docs（Decision 2026-09-04T02-04-00〜02）
+6. playback web UI rewrite / ViewModel stack 差し替え（達成契約 file 削除済み）
+7. 運用後続 docs（Decision 2026-09-04T02-04-00〜02）
 
 ### 未完了
 
-1. [ ] `docs/tasks/todo/playback-web-view-models.md`
-2. [ ] `docs/tasks/todo/playback-web-ui-rewrite.md`
-3. [ ] `docs/tasks/todo/playback-web-legacy-cleanup.md`
+（なし）
 
 ### 方針 index（Decision）
 
