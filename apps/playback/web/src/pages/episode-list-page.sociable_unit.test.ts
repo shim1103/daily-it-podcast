@@ -69,7 +69,7 @@ describe("EpisodeListPage", () => {
     expect(container.querySelector("[data-page-loading]")).not.toBeNull();
     expect(container.querySelector("[data-page-error]")).toBeNull();
     expect(container.querySelector(".episode-row")).toBeNull();
-    expect(container.querySelector(".episode-entry")).toBeNull();
+    expect(container.querySelector(".episode-manuscript")).toBeNull();
     expect(container.querySelector(".audio-controls")).toBeNull();
   });
 
@@ -88,7 +88,7 @@ describe("EpisodeListPage", () => {
     });
     expect(container.querySelector("[data-page-loading]")).toBeNull();
     expect(container.querySelector(".episode-row")).toBeNull();
-    expect(container.querySelector(".episode-entry")).toBeNull();
+    expect(container.querySelector(".episode-manuscript")).toBeNull();
     expect(container.querySelector(".audio-controls")).toBeNull();
   });
 
@@ -121,7 +121,7 @@ describe("EpisodeListPage", () => {
 
     // Then: Entry が出る
     await waitFor(() => {
-      expect(container.querySelector(".episode-entry")).not.toBeNull();
+      expect(container.querySelector(".episode-manuscript")).not.toBeNull();
       expect(container.querySelector("[data-manuscript-opening]")).not.toBeNull();
     });
 
@@ -130,7 +130,7 @@ describe("EpisodeListPage", () => {
 
     // Then: Entry が消える
     await waitFor(() => {
-      expect(container.querySelector(".episode-entry")).toBeNull();
+      expect(container.querySelector(".episode-manuscript")).toBeNull();
     });
   });
 
@@ -152,7 +152,7 @@ describe("EpisodeListPage", () => {
       expect(audio).not.toBeNull();
       expect(audio?.getAttribute("src")).toBe("https://example.test/episodes/ep-1/audio");
     });
-    expect(container.querySelector(".episode-entry")).toBeNull();
+    expect(container.querySelector(".episode-manuscript")).toBeNull();
   });
 
   it("再生中に deselect しても AudioControls は残る（selection と playback の直交）", async () => {
@@ -165,7 +165,7 @@ describe("EpisodeListPage", () => {
     const buttons = () => container.querySelectorAll(".episode-row button");
     buttons()[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await waitFor(() => {
-      expect(container.querySelector(".episode-entry")).not.toBeNull();
+      expect(container.querySelector(".episode-manuscript")).not.toBeNull();
     });
     buttons()[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await waitFor(() => {
@@ -177,7 +177,7 @@ describe("EpisodeListPage", () => {
 
     // Then: Entry は消えるが AudioControls は残る
     await waitFor(() => {
-      expect(container.querySelector(".episode-entry")).toBeNull();
+      expect(container.querySelector(".episode-manuscript")).toBeNull();
     });
     expect(container.querySelector(".audio-controls")).not.toBeNull();
   });
@@ -229,7 +229,7 @@ describe("EpisodeListPage", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(window.location.hash).toBe("#ep-1");
     expect(listEpisodes).toHaveBeenCalledTimes(1);
-    expect(container.querySelectorAll(".episode-entry")).toHaveLength(1);
+    expect(container.querySelectorAll(".episode-manuscript")).toHaveLength(1);
   });
 
   it("mount 時に location.hash に一覧に無い id があっても Entry を描画しない", async () => {
