@@ -147,3 +147,8 @@
 - 2026-09-04 [feature-generator-cursor-http-text-writer] retry ループの「待たずにもう 1 回」を `continue`/`break` 無しで `switch` を抜けて `for` 先頭へ戻す形は、コードだけ見ると「なぜここで再試行されるのか」が追いにくい。方針種別（transient once / rate-limited）を named enum にし、各 case が「フラグを立てるだけ」か「sleep してから」かを分けると、再試行の起点と待ちの有無が読める  # → layer:terms
 - 2026-09-04 [feature-generator-cursor-http-text-writer] TDD で「AC-1 の Green」に success path 以外（retry 分岐等）まで一括で書くと、後続 AC で契約違反が見つかって Refactor の手戻りになる。1 挙動 1 サイクルを守り、success path のみ Green にしてから retry 挙動を個別サイクルで足す。委譲先が front-load したら self-review で明示させ、次段の reviewer で境界を pin する  # → layer:workflow
 - 2026-09-04 [docs/architecture-diagram] `pr-completion`（commit → log-session → `gh pr create`）では、生成物（`docs/architecture/runtime.png`）を手編集しない。更新は `apps/diagrams/**` のコードをSSoTにして再生成し、参照元を `docs/architecture/README.md` へ寄せる
+- 2026-09-04 [feature/playback-deploy-ops-followup] 運用後続の 1 checkbox に、軸が独立した topic（手順文書・観測契約・脆弱性 scanner・依存更新 bot・自動 deploy）を同居させると完了条件が閉じない。完了に入れるものと非 scope を先に分け、進捗 index は薄い参照だけにする  # → layer:workflow
+- 2026-09-04 [feature/playback-deploy-ops-followup] 運用方針の文書・契約固定と、本番への再 deploy による反映確認を同一完了条件にすると「docs 済み / 本番未反映」が二重進捗になる。反映は通常の deploy 手順へ委ね、文書と契約の固定だけを完了にしてよい  # → layer:workflow
+- 2026-09-04 [feature/playback-deploy-ops-followup] 入場制御付きの個人利用 URL に対する動的脆弱性スキャンは、認証越え・許可 identity・対象面が未決なら Issue 化できない。未決のまま完了 checkbox に残さない  # → layer:terms
+- 2026-09-04 [feature/playback-deploy-ops-followup] 「今はやらない」依存更新 bot は Decision を増やさず、採用しない一覧と進捗から外すだけで足りる。未決を Decision に確定したかのように書かない  # → layer:workflow
+- 2026-09-04 [feature/playback-deploy-ops-followup] 束ね workflow（pr-completion）が log-session の append 無しを明示したら、下位 create-pr 完了条件の append 要求より orchestrator の指示を優先する。option の意味は skill_options を正とし推測しない  # → layer:workflow
