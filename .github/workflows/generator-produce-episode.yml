@@ -17,6 +17,10 @@ on:
 jobs:
   produce:
     runs-on: ubuntu-latest
+    # why: Cloud Agents no-repo の run 時間は未実測（lane D）。正常系 ~10 分想定に対し、
+    #      Cursor ハング時の最終防壁として 25 分で job を打ち切る。Adapter は Client Timeout を
+    #      置かず ctx / この job timeout に run 全体の上限を委ねる（Decision 2026-09-03T17-03-33 §6）。
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 
