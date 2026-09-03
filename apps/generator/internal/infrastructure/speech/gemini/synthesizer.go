@@ -30,10 +30,12 @@ type SpeechSynthesizer struct {
 // @require httpClient != nil
 // @ensure apiKey は x-goog-api-key header にだけ使い、保存元の知識は持たない。
 func NewSpeechSynthesizer(httpClient *http.Client, apiKey string) *SpeechSynthesizer {
-	return newSpeechSynthesizerForTest(httpClient, apiKey, time.Sleep)
+	return newSpeechSynthesizer(httpClient, apiKey, time.Sleep)
 }
 
-func newSpeechSynthesizerForTest(httpClient *http.Client, apiKey string, backoffSleepFn func(time.Duration)) *SpeechSynthesizer {
+// newSpeechSynthesizer は backoff の sleep 関数を差し込める内部 constructor。
+// why: NewSpeechSynthesizer は本番の time.Sleep を固定し、test は待ちを潰す fake を渡す。
+func newSpeechSynthesizer(httpClient *http.Client, apiKey string, backoffSleepFn func(time.Duration)) *SpeechSynthesizer {
 	if backoffSleepFn == nil {
 		backoffSleepFn = time.Sleep
 	}
