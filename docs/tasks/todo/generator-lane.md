@@ -9,15 +9,11 @@
 ### 済み（要約）
 
 1. `ProduceEpisode.Run` / Broad Integration / error 3 層 / 本番 produce workflow
+2. 情報源3 Adapter（HackerNews PR #112 / Lobsters PR #113 / ITmedia PR #114）を composite `ItemSource` へ結線。Broad Integration が3源 double で緑（本 branch）
 
 ### 未完了
 
 1. [ ] System — `generator-system.yml`。suite 本体・`TEST_*` 登録
-2. [ ] 情報源3 Adapter（Decision `2026-09-02T14-41-00` 系）。依存順は各 task file の Dependencies を正とする
-   1. [ ] `generator-hackernews-adapter.md`
-   2. [ ] `generator-lobsters-adapter.md`
-   3. [ ] `generator-itmedia-adapter.md`
-   4. [ ] `generator-source-adapters-wiring.md`（上3本の後）
 
 ### D（未決・未実測・文案）
 
