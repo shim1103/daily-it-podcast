@@ -1,10 +1,10 @@
 # DEPLOY
 
-最終更新: 2026-08-31
+最終更新: 2026-09-04
 
 **運用 SSOT**（Playback・Generator の継続運用）。地図は `README.md`、層規則は `DESIGN.md`。Reason / Rejected は `docs/decisions/`。進捗は `docs/tasks/todo/*-lane.md`。
 
-Worker 境界契約（`name` / `main` / assets / `/episodes*`）の正本は `apps/playback/wrangler.jsonc` と `apps/playback/worker/src/worker-entry.ts`。本書は写さない。
+Worker 境界契約（`name` / `main` / assets / `/episodes*` / `observability`）の正本は `apps/playback/wrangler.jsonc` と `apps/playback/worker/src/worker-entry.ts`。本書は写さない。
 
 ## 1. Playback 公開形
 
@@ -47,7 +47,13 @@ HTTP 切り分け（応答 body は契約 code のみ。詳細は Worker log）:
 | `500` / `configuration_error` | runtime config 不足・不正 |
 | `503` / `unavailable` | Drive / OAuth token など外部一時不能（CLIENT_ID 取り違え含む） |
 
-永続 log を使うなら `wrangler.jsonc` の `observability.enabled` と再 deploy。即時は `npx wrangler tail`。
+### Workers Logs
+
+方針: `docs/decisions/2026-09-04T02-04-01`。契約は `wrangler.jsonc` の `observability`。
+
+1. 永続 log: 上記契約が有効な Version が本番に載っていること（通常の再 deploy で反映）
+2. 即時: `cd apps/playback && npx wrangler tail`
+3. log に Secret・token・許可 email を出さない
 
 ## 4. Generator process env と GHA 登録
 
@@ -116,8 +122,23 @@ npm run build
 npx wrangler deploy
 ```
 
-Variable / Secret の値変更は Dashboard または `wrangler secret put`。code だけの更新は上記で足りる。
+Variable / Secret の値変更は Dashboard または `wrangler secret put`。code だけの更新は上記で足りる。`observability` 契約の本番反映もこの手順。
 
-## 7. Playback で採用しないもの
+## 7. rollback
 
-custom domain / Pages+別 Worker / app 内 Access JWT / Service Token・WARP / preview URL 共有 / CD・git hook 自動 deploy（別 scope）
+方針: `docs/decisions/2026-09-04T02-04-00`。command 名・flag は現行 `npx wrangler --help` / 公式で確認する。
+
+1. `cd apps/playback`
+2. `npx wrangler versions list` で戻したい Version ID を特定する
+3. `npx wrangler rollback <version-id>` で全量戻す（preview / version URL は共有しない）
+4. Access 付き本番 hostname で一覧・原稿・再生を人手 smoke する
+
+二次: 既知 good commit を checkout して §6 の再 deploy。
+
+対象外: Variable / Secret / Access（Dashboard または `wrangler secret put` 等の別手順）。
+
+## 8. Playback で採用しないもの
+
+custom domain / Pages+別 Worker / app 内 Access JWT / Service Token・WARP / preview URL 共有 / CD・git hook 自動 deploy / DAST / Dependabot・Renovate
+
+Reason / Rejected: `docs/decisions/2026-08-25T17-10-00`（公開境界）、`docs/decisions/2026-09-04T02-04-02`（運用後続の完了境界）。
