@@ -18,6 +18,7 @@ A stub と B Decision（`2026-09-03T17-03-33`）で固定済みの transport 移
 4. `.github/workflows/generator-produce-episode.yml` の `produce` job は `timeout-minutes` 未設定で GitHub 既定 360 分まで走りうる状態だった。Adapter が Client Timeout を持たず run 全体上限を job timeout に委ねる設計の受け皿として `timeout-minutes: 25` を追加。厳密値は no-repo run の実測（lane D）後に絞る。
 5. `.claude/settings.json` の `defaultMode: bypassPermissions` 差分は本 task 無関係で、shim が別途 `5bbb49c` で commit 済み。
 6. DESIGN.md §3 / lane は既に現行前提（Cloud Agents REST / `manuscript/cursorapi` / Decision 参照）を指しており、stub → 本実装で更新すべき差分なし。
+7. PR #119 を `gh pr` 経由で作成（base `develop`）。対応 GitHub Issue は無く（local task file 運用のため）関連 Issue なし。`develop` と conflict なし、`MERGEABLE`。CI（`static-and-unit` / `integration`）は起動時点で実行中。AgentReview check は無し。
 
 ### Commits
 
@@ -26,3 +27,4 @@ A stub と B Decision（`2026-09-03T17-03-33`）で固定済みの transport 移
 - `c09cfda`
 - `03f1835`
 - `73be459`
+- `83d375a`
