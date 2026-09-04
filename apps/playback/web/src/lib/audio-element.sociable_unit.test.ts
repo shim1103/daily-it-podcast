@@ -281,15 +281,23 @@ describe("seekAudioElement", () => {
     expect(audio.currentTime).toBe(120);
   });
 
-  it("play:true のとき seek 後に再生を開始し、戻り Promise が解決する", async () => {
-    // Given: audio
+  it("play:true のとき currentTime 代入後 seeked を待ってから再生を開始し、戻り Promise が解決する", async () => {
+    // Given: audio（seek 完了に seeked event が要る想定）
     const audio = createFakeAudioElement();
 
     // When: play:true で seek する
     const result = seekAudioElement(audio, 45, { play: true });
 
-    // Then: currentTime=45・play が呼ばれる・戻り Promise は解決する
+    // Then: currentTime は即座に 45 になるが、seeked が来るまで play は呼ばない
+    //   （seek 未完了のデータで再生を始めると、seek 先ではなく先頭から再生される）
     expect(audio.currentTime).toBe(45);
+    expect(audio.playCalls).toBe(0);
+
+    // When: ブラウザが seek を完了する
+    audio.emit("seeked");
+    await Promise.resolve();
+
+    // Then: そこで初めて play が呼ばれ、戻り Promise が解決する
     expect(audio.playCalls).toBe(1);
     await expect(result).resolves.toBeUndefined();
   });
@@ -312,8 +320,9 @@ describe("seekAudioElement", () => {
     const audio = createFakeAudioElement();
     vi.spyOn(audio, "play").mockReturnValue(undefined as unknown as Promise<void>);
 
-    // When: play:true で seek する
+    // When: play:true で seek し、seeked を待つ
     const result = seekAudioElement(audio, 10, { play: true });
+    audio.emit("seeked");
 
     // Then: Promise として解決する
     await expect(result).resolves.toBeUndefined();
@@ -324,8 +333,9 @@ describe("seekAudioElement", () => {
     const audio = createFakeAudioElement();
     vi.spyOn(audio, "play").mockRejectedValue(new Error("再生失敗"));
 
-    // When: play:true で seek する
+    // When: play:true で seek し、seeked を待つ
     const result = seekAudioElement(audio, 10, { play: true });
+    audio.emit("seeked");
 
     // Then: 同じ rejection が戻り Promise で伝わる
     await expect(result).rejects.toThrow("再生失敗");
@@ -377,8 +387,15 @@ describe("seekAudioElement", () => {
     audio.readyState = 1;
     audio.emit("loadedmetadata");
 
-    // Then: currentTime=45 のあと play が呼ばれ、戻り Promise は解決する
+    // Then: currentTime は 45 になるが、seeked が来るまで play は呼ばない
     expect(audio.currentTime).toBe(45);
+    expect(audio.playCalls).toBe(0);
+
+    // When: ブラウザが seek を完了する
+    audio.emit("seeked");
+    await Promise.resolve();
+
+    // Then: そこで play が呼ばれ、戻り Promise は解決する
     expect(audio.playCalls).toBe(1);
     await expect(result).resolves.toBeUndefined();
   });

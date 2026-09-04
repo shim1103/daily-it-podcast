@@ -118,17 +118,37 @@ export function pauseAudioElement(el: HTMLAudioElement): void {
 const HAVE_METADATA = 1;
 
 /**
+ * `currentTime` 代入後、その位置への実 seek が終わるのを待つ。
+ *
+ * why: `currentTime` 代入は即座に `seeking` 状態へ入るが、対象位置のデータ取得が終わるまで
+ *   `seeked` event は発火しない。`seeked` を待たずに `play()` すると、ブラウザが「今取得できて
+ *   いるデータ」（多くは先頭付近）から再生を始めてしまい、seek 先ではなく 0:00 付近から再生される。
+ *
+ * @ensure `el.currentTime` を `positionSec` にしたあと、`seeked` event の発火で解決する Promise を返す。
+ */
+function waitForSeekComplete(el: HTMLAudioElement, positionSec: number): Promise<void> {
+  el.currentTime = positionSec;
+  return new Promise<void>((resolve) => {
+    const onSeeked: EventListener = () => {
+      el.removeEventListener("seeked", onSeeked);
+      resolve();
+    };
+    el.addEventListener("seeked", onSeeked);
+  });
+}
+
+/**
  * `<audio>` の再生位置を移動する。`opts.play` のときだけ続けて `play()` する（B Decision §1-3）。
  *
  * why: `setAudioSource`（`load()`）直後は `readyState` が `HAVE_NOTHING` で、その状態の
  *   `currentTime` 代入は browser に無視され 0 のまま残る（topic の sec bar / 位置付き play が
- *   0:00 に飛ぶ原因）。metadata 未取得なら `loadedmetadata` を一度だけ待ってから代入・再生する。
+ *   0:00 に飛ぶ原因）。metadata 未取得なら `loadedmetadata` を一度だけ待ってから代入する。
  *
- * @ensure `readyState >= HAVE_METADATA` なら即座に `currentTime` を `positionSec` にし、
- *   `opts.play` が true のとき `el.play()` の結果を `Promise.resolve()` で包んで返す
- *   （古い実装が undefined を返しても Promise 化）。false なら `play()` を呼ばず解決済み Promise。
- *   `readyState < HAVE_METADATA` なら `loadedmetadata` の一度きり listener を張り、発火時に
- *   同じ手順（代入 → 必要なら再生）を行う。戻り Promise はその再生結果（false なら即解決）で解決する。
+ * @ensure `readyState < HAVE_METADATA` なら `loadedmetadata` の一度きり listener を張り、発火を
+ *   待ってから `currentTime` を `positionSec` にする（`readyState >= HAVE_METADATA` なら即座に）。
+ *   `opts.play` が false ならそこで解決した Promise を返す。`opts.play` が true なら、その代入が
+ *   実際に反映される `seeked` event まで待ってから `el.play()` を呼び、その結果を
+ *   `Promise.resolve()` で包んで返す（古い実装が undefined を返しても Promise 化）。
  *   rejection は呼び出し側が握る。`load()` は呼ばない
  *   （source 読み直しは別 episode 切替専用の `setAudioSource` の責務）
  */
@@ -138,8 +158,11 @@ export function seekAudioElement(
   opts: { play: boolean },
 ): Promise<void> {
   const applySeek = (): Promise<void> => {
-    el.currentTime = positionSec;
-    return opts.play ? Promise.resolve(el.play()) : Promise.resolve();
+    if (!opts.play) {
+      el.currentTime = positionSec;
+      return Promise.resolve();
+    }
+    return waitForSeekComplete(el, positionSec).then(() => Promise.resolve(el.play()));
   };
 
   if (el.readyState >= HAVE_METADATA) {
