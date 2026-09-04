@@ -1,9 +1,34 @@
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ListEpisodesResponse } from "../../../contracts/index.ts";
-import type { PlaybackApiClient } from "../api/playback-api-client.ts";
-import { EpisodeListPage } from "./episode-list-page.tsx";
+import type { ListEpisodesResponse } from "../../contracts/index.ts";
+import type { PlaybackApiClient } from "../../web/src/api/playback-api-client.ts";
+import { EpisodeListPage } from "../../web/src/pages/episode-list-page.tsx";
+
+// why: happy-dom の生 <audio> は lifecycle event を発火せず play() も no-op なので、
+//   phase 通知 → derive → DOM の合成経路と audio 失敗の非 blocking 伝播を検証できない。
+//   `audio-element.ts` を module-level で Fake へ差し替える（既定 pass-through、install() で capture mode）
+const audioFake = vi.hoisted(async () => {
+  const { createFakeAudioElementModule } = await import("../../web/src/lib/audio-element.fake.ts");
+  const original = await vi.importActual<typeof import("../../web/src/lib/audio-element.ts")>(
+    "../../web/src/lib/audio-element.ts",
+  );
+  return createFakeAudioElementModule(original);
+});
+
+vi.mock("../../web/src/lib/audio-element.ts", async () => (await audioFake).module);
+
+/**
+ * scope: Broad Integration
+ * real: EpisodeListPage・useEpisodeListPage 配下の catalog/selection/hash-sync/playback・
+ *   全 feature/primitive Component・hash-selection-adapter（実 location.hash / hashchange）・
+ *   playback-state.ts の derive 関数
+ * double: PlaybackApiClient（listEpisodes を ApiResult で返す Stub）、
+ *   lib/audio-element.ts（<audio> 命令 API：play/pause/currentTime/event 購読を Fake）
+ * precondition: apiClient.listEpisodes が成功/失敗を返す。location.hash を各 case で操作
+ * postcondition: 合成入口（Page）から見た配線・状態伝播・error 伝播・直交性が observable
+ * invariant: 下位 hook の内部分岐を再 assert しない。代表 failure のみ
+ */
 
 const episodeBody = {
   opening: { text: "開始", startSec: 0 },
@@ -47,8 +72,10 @@ function renderPage(apiClient: PlaybackApiClient) {
 }
 
 describe("EpisodeListPage", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     window.location.hash = "";
+    // why: audio Fake は module singleton。前 case の capture mode / 失敗フラグを持ち越さない
+    (await audioFake).control.reset();
   });
 
   afterEach(() => {
@@ -325,5 +352,61 @@ describe("EpisodeListPage", () => {
     await waitFor(() => {
       expect(container.querySelector("[data-manuscript-opening]")).toBeNull();
     });
+  });
+
+  it("renders the playing episode's row emphasis when the audio adapter reports the playing phase", async () => {
+    // Given: catalog success + 先頭 Row の再生ボタン押下済み + audio Fake が capture mode
+    const fake = (await audioFake).control;
+    fake.install();
+    const apiClient = createStubApiClient();
+    const { container } = renderPage(apiClient);
+    await waitFor(() => {
+      expect(container.querySelector(".episode-item")).not.toBeNull();
+    });
+    (container.querySelectorAll(".episode-row__play")[0] as HTMLButtonElement).dispatchEvent(
+      new MouseEvent("click", { bubbles: true }),
+    );
+
+    // When: audio Fake が playing phase を通知する
+    fake.emitPhase("playing");
+
+    // Then: 先頭 Row に isPlaying 由来の DOM 強調（data-playing="true"）が出る。他 Row は出ない
+    await waitFor(() => {
+      const rows = container.querySelectorAll(".episode-row");
+      expect(rows[0]?.getAttribute("data-playing")).toBe("true");
+      expect(rows[1]?.getAttribute("data-playing")).toBe("false");
+    });
+  });
+
+  it("keeps the catalog list visible when audio playback fails, surfacing the error only on the mini-player", async () => {
+    // Given: catalog success + audio Fake が capture mode で再生失敗を仕込み済み + 再生ボタン押下済み
+    const fake = (await audioFake).control;
+    fake.install();
+    fake.failPlayback();
+    const apiClient = createStubApiClient();
+    const { container } = renderPage(apiClient);
+    await waitFor(() => {
+      expect(container.querySelector(".episode-item")).not.toBeNull();
+    });
+
+    // When: 先頭 Row の再生ボタンを押す（seekAudioElement({play:true}) が reject する）→ phase:error
+    (container.querySelectorAll(".episode-row__play")[0] as HTMLButtonElement).dispatchEvent(
+      new MouseEvent("click", { bubbles: true }),
+    );
+    fake.emitPhase("error");
+
+    // Then: 本体一覧（.episode-list）は残り、全画面 Error（[data-page-error]）は出ない。
+    //   audio 失敗は non-blocking で derivePageStatus を汚さない（blocking と non-blocking の分離が
+    //   合成で保たれる）。playing 強調も出ない（error phase は isPlaying=false）
+    await waitFor(() => {
+      const rows = container.querySelectorAll(".episode-row");
+      expect(rows[0]?.getAttribute("data-playing")).toBe("false");
+    });
+    expect(container.querySelector(".episode-list")).not.toBeNull();
+    expect(container.querySelectorAll(".episode-item")).toHaveLength(2);
+    expect(container.querySelector("[data-page-error]")).toBeNull();
+    expect(container.querySelector("[data-page-loading]")).toBeNull();
+    // mini-player は再生対象 episode を指したまま残る（失敗は full-screen へ昇格しない）
+    expect(container.querySelector(".audio-controls [data-now-playing]")).not.toBeNull();
   });
 });
