@@ -2,7 +2,7 @@
 
 最終更新: 2026-09-04
 
-**運用 SSOT**（Playback・Generator の継続運用）。地図は `README.md`、層規則は `DESIGN.md`。Reason / Rejected は `docs/decisions/`。進捗は `docs/tasks/todo/*-lane.md`。
+**運用 SSOT**（Playback・Generator の継続運用）。地図は `README.md`、層規則は `DESIGN.md`。Reason / Rejected・再発する判断は `docs/decisions/`。進捗は `docs/tasks/todo/*-lane.md`。
 
 Worker 境界契約（`name` / `main` / assets / `/episodes*` / `observability`）の正本は `apps/playback/wrangler.jsonc` と `apps/playback/worker/src/worker-entry.ts`。本書は写さない。
 
@@ -49,7 +49,7 @@ HTTP 切り分け（応答 body は契約 code のみ。詳細は Worker log）:
 
 ### Workers Logs
 
-方針: `docs/decisions/2026-09-04T02-04-01`。契約は `wrangler.jsonc` の `observability`。
+契約は `wrangler.jsonc` の `observability`（常時 ON）。
 
 1. 永続 log: 上記契約が有効な Version が本番に載っていること（通常の再 deploy で反映）
 2. 即時: `cd apps/playback && npx wrangler tail`
@@ -75,9 +75,9 @@ GitHub Actions（Settings → Secrets and variables → Actions）:
 | 本番 | process env と同名 |
 | test（System） | `TEST_` + 同名 |
 
-workflow が test 登録名を process env 名へ写す。Generator は `TEST_` を知らない。判断: `docs/decisions/2026-08-30T12-49-00`。
+workflow が test 登録名を process env 名へ写す。Generator は `TEST_` を知らない。
 
-credential 付き実 operation は GHA runner のみ。通常 local / Integration gate は実 service を呼ばず local secret を持たない。判断: `docs/decisions/2026-08-27T12-17-00`。
+credential 付き実 operation は GHA runner のみ。通常 local / Integration gate は実 service を呼ばず local secret を持たない。
 
 ## 5. 定時 / gate 外 workflow
 
@@ -89,11 +89,11 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 | `generator-draft-rate.yml` | `scripts/generator/test-draft-rate.sh` | `workflow_dispatch` のみ（cron なし） | `TEST_CURSOR_API_KEY` |
 | `playback-e2e.yml` | `scripts/playback/test-e2e.sh` | 月曜 07:00 JST（cron UTC `0 22 * * 0`）+ `workflow_dispatch` | 下表 `PLAYWRIGHT_*` |
 
-必須 Unit / Integration gate には載せない。判断: `docs/decisions/2026-08-30T12-49-01` / `2026-08-30T16-20-00` / `2026-08-30T16-20-03`。
+必須 Unit / Integration gate には載せない。
 
 暦日は JST 運用に合わせる。
 
-workflow file を Actions で `workflow_dispatch` するには、**default branch（`develop`）にその yml があること**が必要。
+workflow file を Actions で `workflow_dispatch` するには、**default branch（`master`）にその yml があること**が必要（feature branch にしか無い新規 workflow は `HTTP 404 workflow not found on the default branch` で dispatch できない）。
 
 ### Generator System（`generator-system.yml`）
 
@@ -130,7 +130,7 @@ env は `TEST_CURSOR_API_KEY` 直読み（本番 `CURSOR_API_KEY` を計測へ�
 
 ### Playback E2E（`PLAYWRIGHT_*`）
 
-方針: `docs/decisions/2026-08-30T16-20-03`。値は repo に書かない。
+OTP 手動・週次 storageState・Drive=Worker。値は repo に書かない。
 
 | GHA 登録名 | 区分 | 意味 |
 |------|------|------|
@@ -161,7 +161,7 @@ Variable / Secret の値変更は Dashboard または `wrangler secret put`。co
 
 ## 7. rollback
 
-方針: `docs/decisions/2026-09-04T02-04-00`。command 名・flag は現行 `npx wrangler --help` / 公式で確認する。
+`wrangler rollback` で全量戻す。command 名・flag は現行 `npx wrangler --help` / 公式で確認する。
 
 1. `cd apps/playback`
 2. `npx wrangler versions list` で戻したい Version ID を特定する

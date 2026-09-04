@@ -1,0 +1,50 @@
+/* episode-list — page 根の semantic 色・寸法 token と全幅 layout
+ *
+ * 色の軸の正本は `docs/decisions/2026-08-28T19-20-01-docs-playback-list-page-design.md`。
+ * 面はほぼ黒の夜地、accent は Apple system purple `#bf5af2`（`--app-purple`）。
+ * 紫は interactive（hover / keyboard focus / 選択中）に限り、常時の塗り全面には使わない。
+ * label / secondary / tertiary の階層は Apple 風。文字サイズは旧 design に揃える。数値の正は本 file。
+ */
+
+.episode-list {
+  --el-label: #f5f5f7;
+  --el-secondary: rgba(235, 235, 245, 0.55);
+  --el-tertiary: rgba(235, 235, 245, 0.38);
+  --el-accent: var(--app-purple);
+  --el-separator: rgba(235, 235, 245, 0.22);
+
+  /* 旧 design（commit 7a84b1f）の文字サイズ */
+  --el-item-title-size: 17px;
+  --el-item-meta-size: 12px;
+  --el-item-play-size: 15px;
+  --el-list-topic-size: 13px;
+  --el-detail-body-size: 12px;
+  --el-detail-topic-size: 13px;
+
+  --el-item-pad-x: 28px;
+  --el-item-pad-y: 18px;
+  /* item 同士の行間（EpisodeItem が上下 padding として使う） */
+  --el-item-gap-y: 6px;
+  /* 行内の title と topic 一覧の間の余白（EpisodeRow が使う） */
+  --el-row-title-topic-gap: 6px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  /* fixed mini-player と重ならないよう下に逃がす */
+  padding-bottom: 120px;
+  background: transparent;
+  color: var(--el-label);
+}
+
+/* PC / 広い viewport: 概ね中央 1000px 幅。mobile は全幅 */
+@media (min-width: 768px) {
+  .episode-list {
+    width: min(1000px, 80%);
+    max-width: 1000px;
+    margin-inline: auto;
+  }
+}

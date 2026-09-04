@@ -68,7 +68,7 @@ describe("EpisodeListPage", () => {
     // Then: loading marker のみ
     expect(container.querySelector("[data-page-loading]")).not.toBeNull();
     expect(container.querySelector("[data-page-error]")).toBeNull();
-    expect(container.querySelector(".episode-row")).toBeNull();
+    expect(container.querySelector(".episode-item")).toBeNull();
     expect(container.querySelector(".episode-manuscript")).toBeNull();
     expect(container.querySelector(".audio-controls")).toBeNull();
   });
@@ -87,7 +87,7 @@ describe("EpisodeListPage", () => {
       expect(container.querySelector("[data-page-error]")).not.toBeNull();
     });
     expect(container.querySelector("[data-page-loading]")).toBeNull();
-    expect(container.querySelector(".episode-row")).toBeNull();
+    expect(container.querySelector(".episode-item")).toBeNull();
     expect(container.querySelector(".episode-manuscript")).toBeNull();
     expect(container.querySelector(".audio-controls")).toBeNull();
   });
@@ -101,7 +101,7 @@ describe("EpisodeListPage", () => {
 
     // Then: Row が episode 数だけ出る
     await waitFor(() => {
-      expect(container.querySelectorAll(".episode-row")).toHaveLength(2);
+      expect(container.querySelectorAll(".episode-item")).toHaveLength(2);
     });
     expect(container.querySelector("[data-page-loading]")).toBeNull();
     expect(container.querySelector("[data-page-error]")).toBeNull();
@@ -112,11 +112,11 @@ describe("EpisodeListPage", () => {
     const apiClient = createStubApiClient();
     const { container } = renderPage(apiClient);
     await waitFor(() => {
-      expect(container.querySelector(".episode-row button")).not.toBeNull();
+      expect(container.querySelector(".episode-row__select")).not.toBeNull();
     });
 
     // When: 先頭 Row の select ボタン（1 個目の button）を押す
-    const selectButton = () => container.querySelector(".episode-row button") as HTMLButtonElement;
+    const selectButton = () => container.querySelector(".episode-row__select") as HTMLButtonElement;
     selectButton().dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     // Then: Entry が出る
@@ -134,22 +134,60 @@ describe("EpisodeListPage", () => {
     });
   });
 
-  it("Row の再生ボタンを押すと AudioControls が出る（Entry は無くてよい）", async () => {
+  it("選択中 Row の manuscript の topic sec bar を押すと、その episode をその位置から再生する", async () => {
+    // Given: ep-1 を選択して manuscript を開いた page
+    const apiClient = createStubApiClient();
+    const { container } = renderPage(apiClient);
+    await waitFor(() => {
+      expect(container.querySelector(".episode-row__select")).not.toBeNull();
+    });
+    (container.querySelector(".episode-row__select") as HTMLButtonElement).dispatchEvent(
+      new MouseEvent("click", { bubbles: true }),
+    );
+    await waitFor(() => {
+      expect(container.querySelector(".episode-manuscript")).not.toBeNull();
+    });
+
+    // When: topic（bookend でない最初の一件）の sec bar を押す
+    const topicBar = container.querySelector(
+      ".episode-manuscript .episode-topic:not(.episode-topic--bookend) [data-topic-start-sec]",
+    ) as HTMLButtonElement;
+    topicBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    // Then: fixture の topic startSec 0 で ep-1 の音源が張られる（page の onSeek 配線を通す）
+    await waitFor(() => {
+      const audio = container.querySelector(".audio-controls audio");
+      expect(audio?.getAttribute("src")).toBe("https://example.test/episodes/ep-1/audio");
+    });
+  });
+
+  it("AudioControls は catalog success 時に常に在り、再生前は src を持たない", async () => {
+    // Given: mount 済みの page（未再生）
+    const apiClient = createStubApiClient();
+    const { container } = renderPage(apiClient);
+
+    // Then: 再生していなくても AudioControls の <audio> は在る。src は付かない
+    await waitFor(() => {
+      expect(container.querySelector(".audio-controls audio")).not.toBeNull();
+    });
+    expect(container.querySelector(".audio-controls audio")?.hasAttribute("src")).toBe(false);
+  });
+
+  it("Row の再生ボタンを押すと AudioControls の <audio> に src が付く（Entry は無くてよい）", async () => {
     // Given: mount 済みの page
     const apiClient = createStubApiClient();
     const { container } = renderPage(apiClient);
     await waitFor(() => {
-      expect(container.querySelector(".episode-row")).not.toBeNull();
+      expect(container.querySelector(".episode-item")).not.toBeNull();
     });
 
-    // When: 先頭 Row の再生ボタン（2 個目の button）を押す
-    const buttons = container.querySelectorAll(".episode-row button");
-    buttons[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    // When: 先頭 Row の再生ボタンを押す
+    const playButtons = container.querySelectorAll(".episode-row__play");
+    playButtons[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-    // Then: AudioControls が出る。Entry は出ていない
+    // Then: 同じ <audio> に src が入る。Entry は出ていない
     await waitFor(() => {
       const audio = container.querySelector(".audio-controls audio");
-      expect(audio).not.toBeNull();
       expect(audio?.getAttribute("src")).toBe("https://example.test/episodes/ep-1/audio");
     });
     expect(container.querySelector(".episode-manuscript")).toBeNull();
@@ -160,20 +198,21 @@ describe("EpisodeListPage", () => {
     const apiClient = createStubApiClient();
     const { container } = renderPage(apiClient);
     await waitFor(() => {
-      expect(container.querySelector(".episode-row")).not.toBeNull();
+      expect(container.querySelector(".episode-item")).not.toBeNull();
     });
-    const buttons = () => container.querySelectorAll(".episode-row button");
-    buttons()[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const selectButtons = () => container.querySelectorAll(".episode-row__select");
+    const playButtons = () => container.querySelectorAll(".episode-row__play");
+    selectButtons()[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await waitFor(() => {
       expect(container.querySelector(".episode-manuscript")).not.toBeNull();
     });
-    buttons()[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    playButtons()[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await waitFor(() => {
       expect(container.querySelector(".audio-controls")).not.toBeNull();
     });
 
     // When: deselect する（select ボタンをもう一度）
-    buttons()[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    selectButtons()[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     // Then: Entry は消えるが AudioControls は残る
     await waitFor(() => {
@@ -203,7 +242,7 @@ describe("EpisodeListPage", () => {
     // When: page を render する
     const { container } = renderPage(apiClient);
     await waitFor(() => {
-      expect(container.querySelector(".episode-row")).not.toBeNull();
+      expect(container.querySelector(".episode-item")).not.toBeNull();
     });
 
     // Then: manuscript は出ない
@@ -240,7 +279,7 @@ describe("EpisodeListPage", () => {
     // When: page を render する
     const { container } = renderPage(apiClient);
     await waitFor(() => {
-      expect(container.querySelector(".episode-row")).not.toBeNull();
+      expect(container.querySelector(".episode-item")).not.toBeNull();
     });
 
     // Then: manuscript は出ない（select は no-op）
@@ -252,7 +291,7 @@ describe("EpisodeListPage", () => {
     const apiClient = createStubApiClient();
     const { container } = renderPage(apiClient);
     await waitFor(() => {
-      expect(container.querySelector(".episode-row")).not.toBeNull();
+      expect(container.querySelector(".episode-item")).not.toBeNull();
     });
 
     // When: hash を変更し hashchange を発火する
@@ -270,7 +309,7 @@ describe("EpisodeListPage", () => {
     const apiClient = createStubApiClient();
     const { container } = renderPage(apiClient);
     await waitFor(() => {
-      expect(container.querySelector(".episode-row")).not.toBeNull();
+      expect(container.querySelector(".episode-item")).not.toBeNull();
     });
     window.location.hash = "#ep-1";
     window.dispatchEvent(new Event("hashchange"));

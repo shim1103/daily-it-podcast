@@ -57,13 +57,19 @@ export type PageStatus =
   | { kind: "ready" };
 
 /**
- * Row がそのまま描ける形。表示整形に要る episode 実体と、識別 id、union 判別で決まる 2 つの boolean を持つ。
+ * Row がそのまま描ける形。表示整形に要る episode 実体と、識別 id、union 判別で決まる boolean を持つ。
  * `episodeId` は `key` と識別に使う識別用の冗長 field（`episode.episodeId` と同値）。
+ *
+ * `isActivePlayback` は「この episode が今 再生進行中か（phase:"loading" か "playing"）」。
+ * 再生 button の「再生 ↔ 停止」トグルはこれで決める（loading 中でも停止できるようにするため）。
+ * 停止中（phase:"paused"）・ended・error は false ＝ button は「再生」に戻り、押すと続きから再開する。
+ * `isPlaying` は「今まさに音が出ているか（phase:"playing"）」で、"再生中" の視覚強調にだけ使う。
  */
 export type EpisodeRowViewModel = {
   episode: EpisodeData;
   episodeId: string;
   isSelected: boolean;
+  isActivePlayback: boolean;
   isPlaying: boolean;
 };
 
@@ -95,8 +101,9 @@ export function derivePageStatus(catalogStatus: CatalogStatus): PageStatus {
 /**
  * 一覧と選択・再生 union から、Row がそのまま描ける形の配列を導出する。
  *
- * @ensure 各 row は入力 episode の実体（同一参照）と識別 id を持つ。選択中なら isSelected=true、
- *   `kind:"active"` かつ `phase:"playing"` なら isPlaying=true。それ以外は false。
+ * @ensure 各 row は入力 episode の実体（同一参照）と識別 id を持つ。選択中なら isSelected=true。
+ *   `kind:"active"` かつ `phase` が "loading" / "playing" でその episodeId なら isActivePlayback=true。
+ *   さらに `phase:"playing"` なら isPlaying=true。どちらも一致しなければ false。
  *   順序は入力の `episodes` に一致する
  */
 export function deriveEpisodeRows(
@@ -104,6 +111,11 @@ export function deriveEpisodeRows(
   context: { selection: SelectionState; playback: PlaybackState },
 ): EpisodeRowViewModel[] {
   const selectedEpisodeId = context.selection.selected ? context.selection.episode.episodeId : null;
+  const activeEpisodeId =
+    context.playback.kind === "active" &&
+    (context.playback.phase.phase === "loading" || context.playback.phase.phase === "playing")
+      ? context.playback.episodeId
+      : null;
   const playingEpisodeId =
     context.playback.kind === "active" && context.playback.phase.phase === "playing"
       ? context.playback.episodeId
@@ -112,6 +124,7 @@ export function deriveEpisodeRows(
     episode,
     episodeId: episode.episodeId,
     isSelected: episode.episodeId === selectedEpisodeId,
+    isActivePlayback: episode.episodeId === activeEpisodeId,
     isPlaying: episode.episodeId === playingEpisodeId,
   }));
 }
