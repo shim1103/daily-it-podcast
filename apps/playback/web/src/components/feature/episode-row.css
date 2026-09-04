@@ -9,9 +9,11 @@
  *   │ │ topic 一覧                      │                       │
  *   │ └────────────────────────────────┘                       │
  *   └────────────────────────────────────────────────────────┘
- * hover の色変化は `.episode-row` 全体で起こす（__select だけにしない）。
- * 「再生」は右端中央、「再生」の文字ぶんだけを hit にする（pill 面・余白なし）。
+ * hover の面強調（黄）は親（EpisodeItem）が持つ。Row は keyboard focus だけ行内で薄く示す。
+ * 「再生 / 停止」は右端中央の固定サイズの丸 button（非再生=薄灰の丸 / 再生=白い丸。hover は拡大のみ）。
  * 色の軸の正本は `docs/decisions/2026-08-28T19-20-01-docs-playback-list-page-design.md`。
+ * interactive 色（hover 黄と再生ボタンの丸）の正本は
+ *   `docs/decisions/2026-09-04T16-57-15-refactor-playback-web-list-interactive-color.md`。
  * 面はほぼ黒の夜地、accent は Apple system purple。紫は interactive 表示のみ。
  * 文字サイズは旧 design（`--el-item-*-size`）に揃える。
  * 選択中の横線・背景色・行間の空白は親（EpisodeItem）が持つ。ここでは持たない。
@@ -23,11 +25,9 @@
   gap: 16px;
   width: 100%;
   color: var(--el-label);
-  transition: background-color 160ms ease;
 }
 
-/* hover / keyboard focus は行全体で色を変える（__select の中に閉じない） */
-.episode-row:hover,
+/* keyboard focus だけ行内で薄く示す。hover の面強調は親（EpisodeItem）が黄で担う */
 .episode-row:focus-within {
   background-color: rgba(235, 235, 245, 0.06);
 }
@@ -119,33 +119,64 @@
   display: none;
 }
 
-/* 再生 / 停止 — 右端中央。Icon（▶ / ⏸）ぶんだけの hit（pill 面・padding なし）。
- * 行 hover の色変化とは独立に、この Icon だけ accent 色で「押せる」ことを示す。 */
+/* 再生 / 停止 — 右端中央。固定サイズの丸 button。
+ * icon は ▶（再生）と CSS 2 本バー（停止）で、視覚サイズを揃える（accent 色）。
+ * 丸い背景は非再生時は薄い灰、再生時は白（`data-active`）。hover は拡大のみ。
+ * 行 hover の面強調（黄）とは独立。 */
 .episode-row > .episode-row__play {
   flex: 0 0 auto;
   align-self: center;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 36px;
+  height: 36px;
   margin: 0 var(--el-item-pad-x) 0 0;
   padding: 0;
   border: 0;
-  border-radius: 0;
-  background: transparent;
+  border-radius: 50%;
+  background: rgba(235, 235, 245, 0.14);
   box-shadow: none;
   color: var(--el-accent);
-  font-size: calc(var(--el-item-play-size) * 1.15);
   line-height: 1;
   cursor: pointer;
-  transition: transform 120ms ease;
+  transition:
+    transform 120ms ease,
+    background-color 160ms ease;
 }
 
+/* 再生中: 丸い背景を白へ */
+.episode-row > .episode-row__play[data-active="true"] {
+  background: rgba(235, 235, 245, 0.823);
+}
+
+/* ▶（再生）— 丸の中心に置く。視覚サイズの基準 */
+.episode-row__play-glyph {
+  font-size: calc(var(--el-item-play-size) * 1.05);
+  line-height: 1;
+  /* ▶ は字面が左に寄るので光学中央へ寄せる */
+  transform: translateX(1px);
+}
+
+/* 停止 — ▶ と同じ高さに収まる 2 本バー */
+.episode-row__play-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: calc(var(--el-item-play-size) * 1.05);
+}
+
+.episode-row__play-bar {
+  display: block;
+  width: 3px;
+  height: 100%;
+  border-radius: 1px;
+  background: currentcolor;
+}
+
+/* hover / keyboard focus: 少しだけ拡大するだけ（背景色は変えない） */
 .episode-row > .episode-row__play:hover,
 .episode-row > .episode-row__play:focus-visible {
-  transform: scale(1.15);
+  transform: scale(1.1);
   outline: none;
-}
-
-.episode-row[data-playing="true"] > .episode-row__play {
-  color: var(--el-label);
 }

@@ -17,10 +17,10 @@ export type EpisodeManuscriptProps = {
  * EpisodeItem の body（opening・topics・closing）を組み合わせて描画する。
  *
  * @require body は EpisodeItem["body"]、durationSec は総尺、onSeek は audio の currentTime を変える handler
- * @ensure opening を「導入」（`00:00` の seek bar 付き）、closing を「まとめ」（総尺 `durationSec` の
- *   seek bar 付き）として描き、間に topics[] を EpisodeTopic として順番通りに並べる。
- *   opening / closing 本文の加工・変換はしない
- * @invariant sec の正は contract に無いため、導入は 0、まとめは総尺（`durationSec`）を使う
+ * @ensure opening を `00:00` の seek bar 付き、closing を総尺（`durationSec`）の seek bar 付きで描き、
+ *   間に topics[] を EpisodeTopic として順番通りに並べる。見出しの文言（「導入」「まとめ」）は
+ *   持たず seek bar だけを見出しに置く。opening / closing 本文の加工・変換はしない
+ * @invariant sec の正は contract に無いため、opening は 0、closing は総尺（`durationSec`）を使う
  */
 export function EpisodeManuscript({
   body,
@@ -41,7 +41,6 @@ export function EpisodeManuscript({
           >
             {formatDurationMmSs(0)}
           </button>
-          <h3 className="episode-topic__heading-title">導入</h3>
         </div>
         <LabeledText tag="p" datasetKey="manuscriptOpening" text={body.opening} />
       </section>
@@ -61,7 +60,6 @@ export function EpisodeManuscript({
           >
             {formatDurationMmSs(durationSec)}
           </button>
-          <h3 className="episode-topic__heading-title">まとめ</h3>
         </div>
         <LabeledText tag="p" datasetKey="manuscriptClosing" text={body.closing} />
       </section>

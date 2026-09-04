@@ -12,6 +12,10 @@
   --el-tertiary: rgba(235, 235, 245, 0.38);
   --el-accent: var(--app-purple);
   --el-separator: rgba(235, 235, 245, 0.22);
+  /* item の左 edge 線（非選択・非 hover）。選択中は accent（紫）へ切り替える */
+  --el-edge-idle: rgba(235, 235, 245, 0.35);
+  /* hover の強調色（Apple system yellow 系）。左 edge 線と面の持ち上げに使う */
+  --el-hover: #ffd60a;
 
   /* 旧 design（commit 7a84b1f）の文字サイズ */
   --el-item-title-size: 17px;
