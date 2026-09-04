@@ -55,11 +55,42 @@ export default defineConfig({
           const response = await handle(
             new Request(new URL(req.url, "http://localhost"), { method: req.method }),
           );
-          res.statusCode = response.status;
           response.headers.forEach((value, key) => {
             res.setHeader(key, value);
           });
           const body = Buffer.from(await response.arrayBuffer());
+
+          // why: dummy 音声は数十 MB の無音 WAV。browser の <audio> は Range 応答が無いと
+          //   全長 buffer 完了まで再生・seek できず、実質「再生されない」ように見える。
+          //   dev middleware だけ Range/HEAD をエミュレートして streaming・seek 可能にする
+          //   （本番相当の Hono app は変更しない）。
+          const rangeHeader = req.headers.range;
+          if (res.statusCode === 200 && response.status === 200 && body.byteLength > 0) {
+            res.setHeader("Accept-Ranges", "bytes");
+            res.setHeader("Content-Length", String(body.byteLength));
+          }
+          if (req.method === "HEAD") {
+            res.statusCode = response.status;
+            res.end();
+            return;
+          }
+          const rangeMatch = rangeHeader?.match(/^bytes=(\d*)-(\d*)$/);
+          if (response.status === 200 && rangeMatch && body.byteLength > 0) {
+            const start = rangeMatch[1] === "" ? 0 : Number(rangeMatch[1]);
+            const end = rangeMatch[2] === "" ? body.byteLength - 1 : Number(rangeMatch[2]);
+            if (start <= end && end < body.byteLength) {
+              res.statusCode = 206;
+              res.setHeader("Content-Range", `bytes ${start}-${end}/${body.byteLength}`);
+              res.setHeader("Content-Length", String(end - start + 1));
+              res.end(body.subarray(start, end + 1));
+              return;
+            }
+            res.statusCode = 416;
+            res.setHeader("Content-Range", `bytes */${body.byteLength}`);
+            res.end();
+            return;
+          }
+          res.statusCode = response.status;
           res.end(body);
         });
       },

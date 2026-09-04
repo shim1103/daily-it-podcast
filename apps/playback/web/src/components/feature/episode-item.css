@@ -1,0 +1,39 @@
+/* episode-item — 一覧 1 件分の枠。選択中の紫線・背景色と行間の空白をここが持つ
+ *
+ * 色の軸の正本は `docs/decisions/2026-08-28T19-20-01-docs-playback-list-page-design.md`。
+ * 未選択の item 同士は gray hairline で区切る。選択中は左 edge に紫線を出し、面を少しだけ持ち上げる。
+ * 行間の空白、選択中の横線・背景色、原稿カードの左右 gutter はこの枠の責務。
+ * 原稿カード自身の内側 padding と薄い背景は `episode-manuscript.css` が持つ。
+ * `EpisodeRow` はこれらを持たず、`data-selected` を反映するだけ。
+ */
+
+.episode-item {
+  display: block;
+  width: 100%;
+  margin: 0;
+  /* 行間の空白。選択中は原稿ぶん下側を広げる */
+  padding: var(--el-item-gap-y) 0;
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+  /* 未選択時の左 edge（gray hairline と同系。選択中に紫へ切り替える） */
+  box-shadow: inset 3px 0 0 0 transparent;
+  transition:
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.episode-item + .episode-item {
+  border-top: 1px solid var(--el-separator);
+}
+
+/* 選択中: 横（左 edge）に紫線 + 面をわずかに持ち上げる背景色 */
+.episode-item[data-selected="true"] {
+  box-shadow: inset 3px 0 0 0 var(--el-accent);
+  background-color: color-mix(in srgb, var(--el-accent) 8%, transparent);
+}
+
+/* 選択中に開く原稿カードは、行の左右 padding に合わせて gutter を空け、下に少し余白 */
+.episode-item[data-selected="true"] > .episode-manuscript {
+  margin: 4px var(--el-item-pad-x) var(--el-item-gap-y);
+}

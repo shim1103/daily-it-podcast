@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 import type { HashSelectionAdapter } from "../lib/hash-selection-adapter.ts";
+import { buildRequestUrl } from "../utils/build-request-url.ts";
 import type {
   EpisodeData,
   EpisodeRowViewModel,
@@ -37,8 +38,9 @@ export type EpisodeListPageViewModel = {
  *   hash 変化は episodeId があれば `selection.select`（一覧に無ければ no-op）、null なら
  *   `selection.deselect` として解釈する。公開する `play(episodeId, positionSec?)` /
  *   `seek(episodeId, positionSec)` は外部 signature を保ったまま、内部で `episodes` から
- *   `audioRef` を引き当てて下位 `playback.play` / `playback.seek` へ渡す。episodeId が一覧に
- *   無ければ `audioRef` を解決できず no-op（`useEpisodeSelection.select` の実在検証と対称）。
+ *   `audioRef` を引き当て `buildRequestUrl(baseUrl, audioRef)` で絶対 URL 化して下位
+ *   `playback.play` / `playback.seek` へ渡す。episodeId が一覧に無ければ URL を解決できず
+ *   no-op（`useEpisodeSelection.select` の実在検証と対称）。
  *   戻り値は page が使う投影とアクションだけ。生 union（`selection` / `catalogStatus`）と
  *   `select` / `deselect` / `load` / `episodes` は内部合成材料として使い、外へは出さない。
  *   catalog の起動は `useEpisodeCatalog` の auto-load、deep-link 復元は `useHashSelectionSync`
@@ -46,6 +48,7 @@ export type EpisodeListPageViewModel = {
  */
 export function useEpisodeListPage(
   apiClient: PlaybackApiClient,
+  baseUrl: string,
   adapter?: HashSelectionAdapter,
 ): EpisodeListPageViewModel {
   const catalog = useEpisodeCatalog(apiClient);
@@ -79,27 +82,35 @@ export function useEpisodeListPage(
   const episodes = catalog.episodes;
   const playbackPlay = playback.play;
   const playbackSeek = playback.seek;
-  // why: play/seek の外部 signature は episodeId だけ受ける形を維持し、audioRef 解決は hook 内部へ隠す。
-  //   一覧に無い episodeId は audioRef を引けないので no-op（use-episode-selection.select と対称）
+  // why: play/seek の外部 signature は episodeId だけ受ける形を維持し、audioRef→絶対 URL の
+  //   解決は hook 内部へ隠す。一覧に無い episodeId は URL を引けないので no-op
+  //   （use-episode-selection.select と対称）。page は baseUrl を渡すだけで組み立てを持たない
+  const resolveAudioUrl = useCallback(
+    (episodeId: string): string | null => {
+      const audioRef = episodes.find((episode) => episode.episodeId === episodeId)?.audioRef;
+      return audioRef === undefined ? null : buildRequestUrl(baseUrl, audioRef);
+    },
+    [episodes, baseUrl],
+  );
   const play = useCallback(
     (episodeId: string, positionSec?: number): void => {
-      const audioRef = episodes.find((episode) => episode.episodeId === episodeId)?.audioRef;
-      if (audioRef === undefined) {
+      const audioUrl = resolveAudioUrl(episodeId);
+      if (audioUrl === null) {
         return;
       }
-      playbackPlay(episodeId, audioRef, positionSec);
+      playbackPlay(episodeId, audioUrl, positionSec);
     },
-    [episodes, playbackPlay],
+    [resolveAudioUrl, playbackPlay],
   );
   const seek = useCallback(
     (episodeId: string, positionSec: number): void => {
-      const audioRef = episodes.find((episode) => episode.episodeId === episodeId)?.audioRef;
-      if (audioRef === undefined) {
+      const audioUrl = resolveAudioUrl(episodeId);
+      if (audioUrl === null) {
         return;
       }
-      playbackSeek(episodeId, audioRef, positionSec);
+      playbackSeek(episodeId, audioUrl, positionSec);
     },
-    [episodes, playbackSeek],
+    [resolveAudioUrl, playbackSeek],
   );
 
   return {

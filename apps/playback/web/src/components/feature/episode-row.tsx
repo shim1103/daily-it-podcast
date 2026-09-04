@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import "./episode-row.css";
 import { formatDurationMmSs } from "../../utils/format-duration-mm-ss.ts";
 import { formatEpisodeDate } from "../../utils/format-episode-date.ts";
 import { formatNumberedEpisodeTitle } from "../../utils/format-numbered-episode-title.ts";
@@ -11,6 +12,7 @@ export type EpisodeRowProps = {
   episodeCount: number;
   episodeIndex: number;
   isSelected: boolean;
+  isActivePlayback: boolean;
   isPlaying: boolean;
   onSelect: (episodeId: string) => void;
   onPlay: (episodeId: string) => void;
@@ -18,16 +20,24 @@ export type EpisodeRowProps = {
 };
 
 /**
- * 1 episode の meta と select / play・stop affordance を描画する（契約 stub）。
+ * 1 episode の行本体。行全体が select hit（日付 / 通し番号付き title / topic 一覧）で、
+ * 「再生 / 停止」だけは title・topics の横、右端に独立した兄弟 button として置き、再生を優先する。
  *
- * @require isSelected / isPlaying は caller が derive して渡す
- * @ensure Row 自身は derive しない。表示整形は utils に委譲する
+ * @require isSelected / isActivePlayback / isPlaying は caller が derive して渡す
+ * @ensure select button と play button を `<div>` 直下の兄弟に置く（button の入れ子を作らない）。
+ *   select button クリックで onSelect。play button は isActivePlayback（phase 不問。loading 中も
+ *   含む）なら「停止」表示で onStop、そうでなければ「再生」表示で onPlay を呼ぶ。
+ *   isPlaying（音が出ている phase）は `data-playing` の視覚強調にだけ使う。
+ *   表示整形は utils へ委譲し、Row 自身は derive しない
+ * @invariant 見た目は CSS 側の責務。ここに色・寸法を書かない。選択中の横線・行間の余白は
+ *   親（EpisodeItem）の責務であり、Row は持たない
  */
 export function EpisodeRow({
   episode,
   episodeCount,
   episodeIndex,
   isSelected,
+  isActivePlayback,
   isPlaying,
   onSelect,
   onPlay,
@@ -37,30 +47,48 @@ export function EpisodeRow({
   const numberedTitle = formatNumberedEpisodeTitle(episodeCount, episodeIndex, episode.title);
 
   return (
-    <article
+    <div
       className="episode-row"
       data-selected={isSelected ? "true" : "false"}
       data-playing={isPlaying ? "true" : "false"}
     >
-      <button type="button" onClick={() => onSelect(episode.episodeId)}>
-        <LabeledText tag="span" datasetKey="episodeDate" text={formatEpisodeDate(episode.date)} />
-        <LabeledText tag="span" datasetKey="episodeTitle" text={numberedTitle} />
+      <button
+        type="button"
+        className="episode-row__select"
+        onClick={(event) => {
+          onSelect(episode.episodeId);
+          // why: click 後に残る :focus が別 row の :hover と二重に紫線を出すのを防ぐ
+          event.currentTarget.blur();
+        }}
+      >
+        <span className="episode-row__date">
+          <LabeledText tag="span" datasetKey="episodeDate" text={formatEpisodeDate(episode.date)} />
+        </span>
+        <span className="episode-row__title">
+          <LabeledText tag="span" datasetKey="episodeTitle" text={numberedTitle} />
+        </span>
         {topicTitles !== "" && (
-          <LabeledText tag="span" datasetKey="episodeTopics" text={topicTitles} />
+          <span className="episode-row__topics">
+            <LabeledText tag="span" datasetKey="episodeTopics" text={topicTitles} />
+          </span>
         )}
-        <LabeledText
-          tag="span"
-          datasetKey="episodeDurationSec"
-          text={formatDurationMmSs(episode.durationSec)}
-        />
+        <span className="episode-row__duration" aria-hidden="true">
+          <LabeledText
+            tag="span"
+            datasetKey="episodeDurationSec"
+            text={formatDurationMmSs(episode.durationSec)}
+          />
+        </span>
       </button>
       <button
         type="button"
-        aria-label={isPlaying ? "停止" : "再生"}
-        onClick={() => (isPlaying ? onStop() : onPlay(episode.episodeId))}
+        className="episode-row__play"
+        aria-label={isActivePlayback ? "停止" : "再生"}
+        onClick={() => (isActivePlayback ? onStop() : onPlay(episode.episodeId))}
       >
-        {isPlaying ? "停止" : "再生"}
+        {/* 見た目は Icon（▶ 再生 / ⏸ 停止）。文言は aria-label が担う */}
+        <span aria-hidden="true">{isActivePlayback ? "⏸" : "▶"}</span>
       </button>
-    </article>
+    </div>
   );
 }

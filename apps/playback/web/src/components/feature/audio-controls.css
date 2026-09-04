@@ -1,0 +1,37 @@
+/* audio-controls — 画面下部に固定される mini-player
+ *
+ * 再生中（page が active のときだけ描画）は scroll しても画面下へ貼り付く。
+ * 色の軸の正本は `docs/decisions/2026-08-28T19-20-01-docs-playback-list-page-design.md`。
+ * 夜地に沈む半透明の黒面 + 上辺 hairline。紫は audio の focus 時のみ。
+ */
+
+.audio-controls {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  padding: 12px max(16px, env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  background: color-mix(in srgb, #050508 88%, transparent);
+  border-top: 1px solid var(--el-separator, rgba(235, 235, 245, 0.22));
+  backdrop-filter: saturate(140%) blur(12px);
+}
+
+.audio-controls > audio {
+  display: block;
+  width: min(1000px, 100%);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--el-label, #f5f5f7);
+  color-scheme: dark;
+}
+
+.audio-controls > audio:focus-visible {
+  outline: 2px solid var(--el-accent, #bf5af2);
+  outline-offset: 3px;
+}

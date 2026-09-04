@@ -17,7 +17,8 @@ export type EpisodeTopicProps = {
  * topics[] の1要素から seek 可能な見出しと preface・detail を描画する。
  *
  * @require topic は topics[] の1要素、topicIndex は 0 始まりの出現位置、onSeek は startSec へシークする handler
- * @ensure 見出しは「mm:ss + 通し番号付き title」。preface・detail はそのまま描画する
+ * @ensure 見出しは mm:ss（seek bar）を上、通し番号付き title を下の 2 行に分けて描画する。
+ *   preface・detail はそのまま描画する
  * @invariant preface・detail の加工・変換・分岐を持たない
  */
 export function EpisodeTopic({ topic, topicIndex, onSeek }: EpisodeTopicProps): ReactElement {
@@ -26,7 +27,7 @@ export function EpisodeTopic({ topic, topicIndex, onSeek }: EpisodeTopicProps): 
 
   return (
     <section className="episode-topic">
-      <h3 className="episode-topic__heading">
+      <div className="episode-topic__heading">
         <button
           type="button"
           className="episode-topic__seek"
@@ -37,10 +38,10 @@ export function EpisodeTopic({ topic, topicIndex, onSeek }: EpisodeTopicProps): 
         >
           {startLabel}
         </button>
-        <span className="episode-topic__heading-title" data-topic-title="">
+        <h3 className="episode-topic__heading-title" data-topic-title="">
           {numberedTitle}
-        </span>
-      </h3>
+        </h3>
+      </div>
       <LabeledText tag="p" datasetKey="topicPreface" text={topic.preface} />
       <LabeledText tag="p" datasetKey="topicDetail" text={topic.detail} />
     </section>
