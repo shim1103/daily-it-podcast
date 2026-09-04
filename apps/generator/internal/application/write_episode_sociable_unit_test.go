@@ -18,14 +18,20 @@ const validManuscript = `{
 	"title": "今日の IT",
 	"durationSec": 12,
 	"body": {
-		"opening": "こんにちは",
+		"opening": {
+			"text": "こんにちは",
+			"startSec": 0
+		},
 		"topics": [{
 			"title": "話題",
 			"preface": "前置き",
 			"detail": "詳細",
 			"startSec": 0
 		}],
-		"closing": "また明日"
+		"ending": {
+			"text": "また明日",
+			"startSec": 10
+		}
 	}
 }`
 

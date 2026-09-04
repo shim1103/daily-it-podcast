@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://daily-it-podcast.local/contracts/manuscript.schema.json",
   "title": "Manuscript",
-  "description": "Google Drive 上の {episodeId}.json。Playback が表示・再生制御に使う情報のみ。",
+  "description": "Google Drive 上の {episodeId}.json。TTS が読み上げる原稿そのものを入れる SSoT。Playback は同じ本文を表示・再生制御に使う。",
   "type": "object",
   "additionalProperties": false,
   "required": ["episodeId", "date", "title", "durationSec", "body"],
@@ -14,7 +14,7 @@
     },
     "date": {
       "type": "string",
-      "description": "表示用日付。Asia/Tokyo で暦日にしたうえで YYYY-MM-DD。",
+      "description": "表示用日付。Asia/Tokyo で暦日化したうえで YYYY-MM-DD。",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
     },
     "title": {
@@ -29,11 +29,23 @@
     "body": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["opening", "topics", "closing"],
+      "required": ["opening", "topics", "ending"],
       "properties": {
         "opening": {
-          "type": "string",
-          "description": "最初の挨拶。"
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text", "startSec"],
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "導入の朗読全文。定型挨拶（OpeningGreeting）と intro をこの順で連結した、TTS が読み上げる原稿そのもの。"
+            },
+            "startSec": {
+              "type": "number",
+              "description": "オープニング（導入）の音声上の開始位置（秒）。先頭 segment なので構造上つねに 0。シーク用。",
+              "minimum": 0
+            }
+          }
         },
         "topics": {
           "type": "array",
@@ -63,9 +75,21 @@
             }
           }
         },
-        "closing": {
-          "type": "string",
-          "description": "最後の挨拶。"
+        "ending": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text", "startSec"],
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "締めの朗読全文。closingSummary と定型締め（ClosingFarewell）をこの順で連結した、TTS が読み上げる原稿そのもの。"
+            },
+            "startSec": {
+              "type": "number",
+              "description": "エンディング（まとめ）の音声上の開始位置（秒）。シーク用。",
+              "minimum": 0
+            }
+          }
         }
       }
     }

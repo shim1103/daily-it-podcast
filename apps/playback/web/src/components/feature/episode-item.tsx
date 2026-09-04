@@ -52,9 +52,7 @@ export function EpisodeItem({
         onPlay={onPlay}
         onStop={onStop}
       />
-      {isSelected && (
-        <EpisodeManuscript body={episode.body} durationSec={episode.durationSec} onSeek={onSeek} />
-      )}
+      {isSelected && <EpisodeManuscript body={episode.body} onSeek={onSeek} />}
     </article>
   );
 }

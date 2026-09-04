@@ -35,8 +35,9 @@ import (
 const (
 	broadIntegrationTopicCount = constants.DraftTopicCountMin
 
-	// integrationTTSFixedSegmentCount は TTS 順の固定 segment 数（Greeting + Intro + Summary + Farewell）。
-	integrationTTSFixedSegmentCount = 4
+	// integrationTTSFixedSegmentCount は TTS 束の固定 segment 数（greeting+intro 束 / closingSummary+farewell 束）。
+	// SpeechTexts が topic+2 束を返すため（Decision 2026-09-02T13-55-00）。
+	integrationTTSFixedSegmentCount = 2
 
 	broadDummyCursorKey         = "broad-cursor-dummy-key-value"
 	broadDummyGeminiKey         = "broad-gemini-dummy-key-value"
@@ -151,7 +152,7 @@ func buildIntegrationWireJSON(topicCount int) string {
 }
 
 func integrationSynthesizeCallCount(topicCount int) int {
-	return integrationTTSFixedSegmentCount + 2*topicCount
+	return integrationTTSFixedSegmentCount + topicCount
 }
 
 func assertIntegrationSecretsNotLeaked(t *testing.T, err error) {
@@ -168,7 +169,8 @@ func assertIntegrationSecretsNotLeaked(t *testing.T, err error) {
 }
 
 func minimalIntegrationGeminiPCM() []byte {
-	const sampleCount = 2400
+	// why: Adapter の最小尺閾値（0.5s）を超える長さ。これ未満だと極小 PCM として retry される。
+	const sampleCount = 24000 // 1.0s 相当
 	return make([]byte, sampleCount*2)
 }
 
@@ -177,8 +179,11 @@ func writeIntegrationGeminiAudioResponse(t *testing.T, w http.ResponseWriter, pc
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	body, err := json.Marshal(map[string]any{
-		"output_audio": map[string]any{
-			"data": base64.StdEncoding.EncodeToString(pcm),
+		"status": "completed",
+		"steps": []map[string]any{
+			{"content": []map[string]any{
+				{"data": base64.StdEncoding.EncodeToString(pcm)},
+			}},
 		},
 	})
 	if err != nil {
@@ -461,11 +466,13 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 	})
 	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey)
 	tokens := oauth.NewTokenSource(httpClient, broadDummyOAuthClientID, broadDummyOAuthClientSecret, broadDummyOAuthRefreshToken)
+	lookup := gdrive.NewCompletedEpisodeLookup(httpClient, tokens, broadDummyDriveFolderID)
 	rawWriter := gdrive.NewRawEpisodeWriter(httpClient, tokens, broadDummyDriveFolderID)
 	writeEpisode := application.NewWriteEpisode(rawWriter)
 
 	h.uc = application.NewProduceEpisode(
 		fetch,
+		lookup,
 		h.textWriter,
 		speech,
 		writeEpisode,

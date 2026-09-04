@@ -4,7 +4,8 @@
 HTTP 契約の正: `apps/playback/contracts/`  
 Drive 読みの正: `contracts/drive-layout.md`  
 deploy・Access・GHA 運用の正: `DEPLOY.md`  
-React + Hono 方針の正: `docs/decisions/2026-08-26T00-00-00-architecture-reconsider-react-hono.md`
+層規則・test 配置の正: `DESIGN.md`  
+再発する判断の正: `docs/decisions/`
 
 未完了の達成契約は `docs/tasks/todo/playback-*.md` が正。本 lane は進捗 index のみ。GitHub Issue 化しない運用。
 
@@ -15,27 +16,17 @@ React + Hono 方針の正: `docs/decisions/2026-08-26T00-00-00-architecture-reco
 3. 認証済み browser E2E（週次 `playback-e2e` + `workflow_dispatch`。安定 fixture は本番 `DRIVE_FOLDER_ID`）
 4. Narrow / Broad Integration（gate 内）と `test/integration` + `test/e2e` 配置
 5. playback web 直交 Decision（B）と A 契約（型・stub・SU test）
-6. 運用後続 docs（Decision 2026-09-04T02-04-00〜02）
+6. playback web UI rewrite / ViewModel stack 差し替え（達成契約 file 削除済み）
+7. 運用後続 docs（rollback / observability / 完了境界）
+8. 原稿 body の opening / ending を `{ text, startSec }` object へ（3 bookend を「本文 + startSec」へ揃える。text は定型込み朗読全文）。判断は `docs/decisions/2026-09-04T19-30-00-feature-playback-e2e-redeploy-master.md`（先行 `16-44-46` / `16-00-00` を reconcile）
+9. 音源 load 直後の seek が 0:00 に落ちる bug を修正（`readyState` 未達なら `loadedmetadata` を待って `currentTime` 代入）。e2e に seek 回帰 test 追加。安定 fixture を新契約 episode へ差し替え
 
 ### 未完了
 
-1. [ ] `docs/tasks/todo/playback-web-view-models.md`
-2. [ ] `docs/tasks/todo/playback-web-ui-rewrite.md`
-3. [ ] `docs/tasks/todo/playback-web-legacy-cleanup.md`
+（なし）
 
-### 方針 index（Decision）
+### 方針 index
 
-```text
-gate = secret なし Narrow + Broad（Decision 2026-08-30T16-20-00）
-E2E = gate 外・週次月曜 07:00 JST + dispatch（同 Decision）
-coverage 分母 = SU + secret なし NI（Decision 2026-08-30T16-20-01）
-OTP 手動・週次 storageState・Drive=Worker（Decision 2026-08-30T16-20-03）
-test dir = integration/ + e2e/（Decision 2026-08-31T00-12-00）
-E2E 正常系 = 本番 Drive 安定 fixture ≥1（Decision 2026-08-31T00-12-01 / 2026-08-31T00-22-00）
-selection⊥playback = Decision 2026-09-02T15-00-00-feature-playback-list-episodes-audio-ref-playback-web-selection-playback-orthogonality
-rollback = wrangler rollback 全量（Decision 2026-09-04T02-04-00）
-observability = 常時 ON・契約は wrangler.jsonc（Decision 2026-09-04T02-04-01）
-運用後続完了 = docs/契約まで・再 deploy 非 scope（Decision 2026-09-04T02-04-02）
-```
+各判断の Reason / Rejected は `docs/decisions/`。閾値・入口の正は `DESIGN.md` / `DEPLOY.md`。
 
 音声は wav。generator 書込とは共有しない。

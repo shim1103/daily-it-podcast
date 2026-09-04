@@ -11,7 +11,7 @@ import (
 // newGeminiSpeechSynthesizer は Gemini TTS Adapter を組み立てる。
 //
 // @require httpClient != nil。cfg は検証済み。
-// @ensure 戻りは port.SpeechSynthesizer。
+// @ensure 戻りは port.SpeechSynthesizer。TTS 1 呼び出しの長い timeout は Adapter が付け直す。
 func newGeminiSpeechSynthesizer(httpClient *http.Client, cfg config.GeminiConfig) port.SpeechSynthesizer {
 	return gemini.NewSpeechSynthesizer(httpClient, cfg.APIKey.Reveal())
 }

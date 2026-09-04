@@ -65,8 +65,11 @@ export function createEpisodeRepository(
 
     return {
       kind: "drive",
+      // why: global fetch を直渡しする。呼び出し側（GoogleDriveEpisodeRepository.request）が
+      //   free function として呼ぶため、method 呼び出しによる Illegal invocation は起きない。
+      //   ラッパ `(input, init) => fetch(...)` は unit で到達不能な dead branch になるので置かない。
       repository: new GoogleDriveEpisodeRepository({
-        fetch: (input, init) => fetch(input, init),
+        fetch,
         oauth: { clientId, clientSecret, refreshToken },
         folderId,
       }),

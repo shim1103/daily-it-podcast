@@ -24,8 +24,10 @@ playback web の一覧/詳細 UI を、旧 design（PR #87/#93 の頃）の夜�
 10. Decision 1 本（`2026-09-04T13-17-57`）を作成。`2026-09-03T16-20-00` の §1-3（seek は移動のみ）・§1-5 前提の頭出し専用操作・§6（src の ViewModel 管理は別 Issue）を supersede し、`2026-09-04T00-45-00` の §1-3 が page に置いた `buildRequestUrl` を hook へ移す旨を記した。
 11. e2e（`authenticated_playback.e2e.spec.ts`）の locator を `article.episode-row` から `article.episode-item` へ追随（component 分割で container class が変わったため）。
 12. `/commit --repo --split` で 2 commit に分割し `origin/refactor/playback-web-audio-adapter-design-2` へ push。sandbox 内 push が filtering proxy の SSH 認証で失敗し、sandbox 無効で再実行して成功。
+13. `/pr-completion`: Decision `2026-09-04T13-17-57` + daily + lessons 16 件を `66764bb` で commit・push。PR #124 を base `develop` で作成（`gh pr create` 直接、`shim gh` 不使用）。`master` は 174 files 差分で review tool 上限超過、`develop` は 32 files かつ merge-base が branch 起点 `3fd4cd4` と一致で divergence なし。対応 GitHub Issue なし（Issue 番号 0）。`mergeable: MERGEABLE`。AgentReview は無し（Copilot は quota 上限で findings なし）。GitHub Actions（`static-and-unit` / `integration`）は pre-commit/pre-push と同内容。
 
 ### Commits
 
 - `3598903`
 - `63f7acf`
+- `66764bb`

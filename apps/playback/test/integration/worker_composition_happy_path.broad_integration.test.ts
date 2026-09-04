@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ErrorResponseSchema,
@@ -37,9 +38,9 @@ const manuscriptJson = {
   title: "題",
   durationSec: 60,
   body: {
-    opening: "開始",
+    opening: { text: "開始", startSec: 0 },
     topics: [{ title: "題", preface: "前置き", detail: "詳細", startSec: 0 }],
-    closing: "終了",
+    ending: { text: "終了", startSec: 55 },
   },
 };
 
@@ -142,7 +143,7 @@ describe("Playback Worker composition happy path", () => {
       return;
     }
     expect(parsed.data.episodes).toHaveLength(1);
-    expect(parsed.data.episodes[0]?.body.opening).toBe("開始");
+    expect(parsed.data.episodes[0]?.body.opening).toEqual({ text: "開始", startSec: 0 });
     expect(textOmitsSensitiveValues(JSON.stringify(body))).toBe(true);
   });
 

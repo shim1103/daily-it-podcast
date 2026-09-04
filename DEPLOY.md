@@ -2,7 +2,7 @@
 
 最終更新: 2026-09-04
 
-**運用 SSOT**（Playback・Generator の継続運用）。地図は `README.md`、層規則は `DESIGN.md`。Reason / Rejected は `docs/decisions/`。進捗は `docs/tasks/todo/*-lane.md`。
+**運用 SSOT**（Playback・Generator の継続運用）。地図は `README.md`、層規則は `DESIGN.md`。Reason / Rejected・再発する判断は `docs/decisions/`。進捗は `docs/tasks/todo/*-lane.md`。
 
 Worker 境界契約（`name` / `main` / assets / `/episodes*` / `observability`）の正本は `apps/playback/wrangler.jsonc` と `apps/playback/worker/src/worker-entry.ts`。本書は写さない。
 
@@ -49,7 +49,7 @@ HTTP 切り分け（応答 body は契約 code のみ。詳細は Worker log）:
 
 ### Workers Logs
 
-方針: `docs/decisions/2026-09-04T02-04-01`。契約は `wrangler.jsonc` の `observability`。
+契約は `wrangler.jsonc` の `observability`（常時 ON）。
 
 1. 永続 log: 上記契約が有効な Version が本番に載っていること（通常の再 deploy で反映）
 2. 即時: `cd apps/playback && npx wrangler tail`
@@ -75,9 +75,9 @@ GitHub Actions（Settings → Secrets and variables → Actions）:
 | 本番 | process env と同名 |
 | test（System） | `TEST_` + 同名 |
 
-workflow が test 登録名を process env 名へ写す。Generator は `TEST_` を知らない。判断: `docs/decisions/2026-08-30T12-49-00`。
+workflow が test 登録名を process env 名へ写す。Generator は `TEST_` を知らない。
 
-credential 付き実 operation は GHA runner のみ。通常 local / Integration gate は実 service を呼ばず local secret を持たない。判断: `docs/decisions/2026-08-27T12-17-00`。
+credential 付き実 operation は GHA runner のみ。通常 local / Integration gate は実 service を呼ばず local secret を持たない。
 
 ## 5. 定時 / gate 外 workflow
 
@@ -85,17 +85,52 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 |------|------|------|------|
 | `generator-produce-episode.yml` | `scripts/generator/produce-episode.sh` | 毎日 07:00 JST（cron UTC `0 22 * * *`）+ `workflow_dispatch` | 本番 Secret / Variable |
 | `generator-system.yml` | `scripts/generator/test-system.sh` | 月曜 07:00 JST（cron UTC `0 22 * * 0`）+ `workflow_dispatch` | `TEST_*` |
+| `generator-tts-rate.yml` | `scripts/generator/test-tts-rate.sh` | `workflow_dispatch` のみ（cron なし） | `TEST_GEMINI_API_KEY` |
+| `generator-draft-rate.yml` | `scripts/generator/test-draft-rate.sh` | `workflow_dispatch` のみ（cron なし） | `TEST_CURSOR_API_KEY` |
 | `playback-e2e.yml` | `scripts/playback/test-e2e.sh` | 月曜 07:00 JST（cron UTC `0 22 * * 0`）+ `workflow_dispatch` | 下表 `PLAYWRIGHT_*` |
 
-必須 Unit / Integration gate には載せない。判断: `docs/decisions/2026-08-30T12-49-01` / `2026-08-30T16-20-00` / `2026-08-30T16-20-03`。
+必須 Unit / Integration gate には載せない。
 
 暦日は JST 運用に合わせる。
 
-workflow file を Actions で `workflow_dispatch` するには、**default branch（`develop`）にその yml があること**が必要。
+workflow file を Actions で `workflow_dispatch` するには、**default branch（`master`）にその yml があること**が必要（feature branch にしか無い新規 workflow は `HTTP 404 workflow not found on the default branch` で dispatch できない）。
+
+### Generator System（`generator-system.yml`）
+
+`-tags=system` の system test を **1 回ずつ通すだけ**。「壊れていないか」だけを測り、PASS 率は定常で測らない。1 回でも FAIL なら run が赤。判断: `docs/decisions/2026-09-03T14-45-00` / `16-30-00`。
+
+- 実体は `TestProduceEpisodeSystem`（`//go:build system`）1 本。`composition.NewProduceEpisodeFromEnv` → `Run` を 1 度通し、実 3 情報源 → Cursor API 原稿 → Gemini TTS → OAuth+Drive 書込 の疎通と通し経路の Drive 実到達を見る。Fetch 窓に SourceItem 0 件だった日は `no_source_items` Domain Error で PASS 扱い（fetch は疎通しており system は壊れていない）。他の error は system 故障として赤。
+- 必要 credential は config 契約の全 key（`TEST_CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` / `TEST_GOOGLE_OAUTH_*` / `TEST_DRIVE_FOLDER_ID`）。1 つでも欠けたら Skip。
+- cron の 1 回通しが **2 週連続で落ちたら** bug 扱いで Issue 化する。1 週だけの赤は provider 起因として再 `workflow_dispatch` する。
+- 赤になったら故障区間に応じて `generator-tts-rate.yml`（TTS 側）/ `generator-draft-rate.yml`（Cursor 原稿側）を手動 dispatch して切り分ける。
+- 定時緑化を運用目標にするのは課金枠移行後。無料枠のうちは「dispatch で回せたとき緑」で可。
+
+一次 evidence は GHA run URL（`go test -v` の `t.Logf` と `$GITHUB_STEP_SUMMARY`）。
+
+### Gemini TTS rate 計測（`generator-tts-rate.yml` / `TestGeminiTTSRate`）
+
+`system && ratemeasure` の dispatch 専用。**e2e 1 回通しが TTS 区間で落ちた／不安定なときの事後調査**に使う。cron は持たない（RPM 圧迫回避）。
+
+- 本番 topic 束（`TTS_DOUBLE` = `max` / `tgt` / `min` で尺帯を選ぶ。既定 `max`）を `runs` 回 `SynthesizeAll` し、Adapter が `err == nil` で返る率が `pass_threshold`（既定 0.8）以上なら緑。
+- 待機系パラメータの既定は `callGap` 20s / `retryBackoffBase` 60s / `retryBackoffMax` 3m。`generator-tts-rate.yml` の `inputs.default` が SSOT。429 が続くときは dispatch input でこれらを上げて所要の変化を観測する。
+- dispatch 例: `gh workflow run generator-tts-rate.yml -f runs=10 -f double=max [-f call_gap= -f retry_backoff_base= -f retry_backoff_max= -f pass_threshold=]`。
+
+env は `TEST_GEMINI_API_KEY` 直読み（本番 `GEMINI_API_KEY` を計測へ流さない）。判断: `docs/decisions/2026-09-03T14-45-00` / `14-46-00`。
+
+### Cursor draft rate 計測（`generator-draft-rate.yml` / `TestCursorAPIDraftRate`）
+
+`system && ratemeasure` の dispatch 専用。**e2e 1 回通しで Cursor 原稿が尺下限割れ／件数外れを再発したときの事後調査**と prompt の A/B に使う。cron は持たない（Cursor draft は 1 回数分）。Cursor は Cloud Agents HTTP API 移行済みで `agent` binary install は不要（判断: `docs/decisions/2026-09-03T17-03-33`）。
+
+- 固定擬似ソース → `ComposeBriefWithTemplate(items, variant)` → `Write` → `ManuscriptDraftFromWriterOutput` を `runs` 回直列に通し、valid Draft が返る率が `pass_threshold`（既定 0.8）以上なら緑。
+- `prompt_variant` = `default`（現行 `constants.TextWriterBriefPrompt`）/ `a`（`apps/generator/test/system/testdata/brief_prompt_variant_a.txt`）。下限マージンの薄さが続くなら variant で detail 目安を上げた prompt を検証してから `const` へ反映する。
+- `*cursorapi.Error` の `Op=="do"`（API へ到達すらできない環境要因）はその回を分母から除外する。全回が除外なら Skip。
+- dispatch 例: `gh workflow run generator-draft-rate.yml -f runs=5 [-f prompt_variant=a -f pass_threshold=]`。
+
+env は `TEST_CURSOR_API_KEY` 直読み（本番 `CURSOR_API_KEY` を計測へ流さない）。判断: `docs/decisions/2026-09-03T14-45-00` / `14-47-00`。
 
 ### Playback E2E（`PLAYWRIGHT_*`）
 
-方針: `docs/decisions/2026-08-30T16-20-03`。値は repo に書かない。
+OTP 手動・週次 storageState・Drive=Worker。値は repo に書かない。
 
 | GHA 登録名 | 区分 | 意味 |
 |------|------|------|
@@ -126,7 +161,7 @@ Variable / Secret の値変更は Dashboard または `wrangler secret put`。co
 
 ## 7. rollback
 
-方針: `docs/decisions/2026-09-04T02-04-00`。command 名・flag は現行 `npx wrangler --help` / 公式で確認する。
+`wrangler rollback` で全量戻す。command 名・flag は現行 `npx wrangler --help` / 公式で確認する。
 
 1. `cd apps/playback`
 2. `npx wrangler versions list` で戻したい Version ID を特定する

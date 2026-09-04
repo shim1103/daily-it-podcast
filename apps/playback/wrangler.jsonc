@@ -15,5 +15,9 @@
   // why: Dashboard に Worker console を残す。即時は wrangler tail。方針は docs/decisions/2026-09-04T02-04-01。
   "observability": {
     "enabled": true
-  }
+  },
+  // why: workers.dev route 有効時は既定で Preview URL が deploy ごとに生える。個人利用 podcast に
+  //   Access を経由しない別 URL は不要な攻撃面。明示的に無効化する。方針は
+  //   docs/decisions/2026-09-04T23-15-00-feature-playback-e2e-redeploy-master.md
+  "preview_urls": false
 }

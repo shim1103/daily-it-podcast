@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  ListEpisodesResponseSchema,
   episodeAudioPath,
   episodePath,
+  ListEpisodesResponseSchema,
   listEpisodesPath,
 } from "./http.ts";
 
@@ -13,15 +13,25 @@ const validTopic = {
   startSec: 0,
 };
 
+const validOpening = {
+  text: "開始",
+  startSec: 0,
+};
+
+const validEnding = {
+  text: "終了",
+  startSec: 30,
+};
+
 const validEpisodeItem = {
   episodeId: "ep-1",
   date: "2026-08-17",
   title: "題",
   durationSec: 60,
   body: {
-    opening: "開始",
+    opening: validOpening,
     topics: [validTopic],
-    closing: "終了",
+    ending: validEnding,
   },
   audioRef: episodeAudioPath("ep-1"),
 };
@@ -102,6 +112,162 @@ describe("ListEpisodesResponseSchema", () => {
 
     // When: parse する
     const got = ListEpisodesResponseSchema.safeParse(body);
+
+    // Then: 失敗する（strict object を維持する）
+    expect(got.success).toBe(false);
+  });
+
+  it("opening が { text, startSec } 形の時受け入れ、startSec を保つ", () => {
+    // Given: opening が { text, startSec } 形の episode 1件
+    const body = { episodes: [validEpisodeItem] };
+
+    // When: parse する
+    const got = ListEpisodesResponseSchema.safeParse(body);
+
+    // Then: 成功し、opening を保つ
+    expect(got.success).toBe(true);
+    if (got.success) {
+      expect(got.data.episodes[0]?.body.opening).toEqual({ text: "開始", startSec: 0 });
+    }
+  });
+
+  it("opening が旧来の文字列の時拒否する", () => {
+    // Given: opening が文字列（拡張前の形）の episode
+    const payload = {
+      episodes: [{ ...validEpisodeItem, body: { ...validEpisodeItem.body, opening: "開始" } }],
+    };
+
+    // When: parse する
+    const got = ListEpisodesResponseSchema.safeParse(payload);
+
+    // Then: 失敗する
+    expect(got.success).toBe(false);
+  });
+
+  it("opening に startSec が無い時拒否する", () => {
+    // Given: opening.startSec 欠落の episode
+    const payload = {
+      episodes: [
+        { ...validEpisodeItem, body: { ...validEpisodeItem.body, opening: { text: "開始" } } },
+      ],
+    };
+
+    // When: parse する
+    const got = ListEpisodesResponseSchema.safeParse(payload);
+
+    // Then: 失敗する
+    expect(got.success).toBe(false);
+  });
+
+  it("opening.startSec が負の時拒否する", () => {
+    // Given: opening.startSec が負
+    const payload = {
+      episodes: [
+        {
+          ...validEpisodeItem,
+          body: { ...validEpisodeItem.body, opening: { text: "開始", startSec: -1 } },
+        },
+      ],
+    };
+
+    // When: parse する
+    const got = ListEpisodesResponseSchema.safeParse(payload);
+
+    // Then: 失敗する
+    expect(got.success).toBe(false);
+  });
+
+  it("opening に契約外の field を足す時拒否する", () => {
+    // Given: 契約外 field を持つ opening
+    const payload = {
+      episodes: [
+        {
+          ...validEpisodeItem,
+          body: { ...validEpisodeItem.body, opening: { text: "開始", startSec: 0, extra: 1 } },
+        },
+      ],
+    };
+
+    // When: parse する
+    const got = ListEpisodesResponseSchema.safeParse(payload);
+
+    // Then: 失敗する（strict object を維持する）
+    expect(got.success).toBe(false);
+  });
+
+  it("ending が startSec を持つ時受け入れる", () => {
+    // Given: ending が { text, startSec } 形の episode 1件
+    const body = { episodes: [validEpisodeItem] };
+
+    // When: parse する
+    const got = ListEpisodesResponseSchema.safeParse(body);
+
+    // Then: 成功し、ending.startSec を保つ
+    expect(got.success).toBe(true);
+    if (got.success) {
+      expect(got.data.episodes[0]?.body.ending).toEqual({ text: "終了", startSec: 30 });
+    }
+  });
+
+  it("ending が旧来の文字列の時拒否する", () => {
+    // Given: ending が文字列（拡張前の形）の episode
+    const payload = {
+      episodes: [{ ...validEpisodeItem, body: { ...validEpisodeItem.body, ending: "終了" } }],
+    };
+
+    // When: parse する
+    const got = ListEpisodesResponseSchema.safeParse(payload);
+
+    // Then: 失敗する
+    expect(got.success).toBe(false);
+  });
+
+  it("ending に startSec が無い時拒否する", () => {
+    // Given: ending.startSec 欠落の episode
+    const payload = {
+      episodes: [
+        { ...validEpisodeItem, body: { ...validEpisodeItem.body, ending: { text: "終了" } } },
+      ],
+    };
+
+    // When: parse する
+    const got = ListEpisodesResponseSchema.safeParse(payload);
+
+    // Then: 失敗する
+    expect(got.success).toBe(false);
+  });
+
+  it("ending.startSec が負の時拒否する", () => {
+    // Given: ending.startSec が負
+    const payload = {
+      episodes: [
+        {
+          ...validEpisodeItem,
+          body: { ...validEpisodeItem.body, ending: { text: "終了", startSec: -1 } },
+        },
+      ],
+    };
+
+    // When: parse する
+    const got = ListEpisodesResponseSchema.safeParse(payload);
+
+    // Then: 失敗する
+    expect(got.success).toBe(false);
+  });
+
+  it("ending に契約外の field を足す時拒否する", () => {
+    // Given: 契約外 field を持つ ending
+    const payload = {
+      episodes: [
+        {
+          ...validEpisodeItem,
+          body: { ...validEpisodeItem.body, ending: { text: "終了", startSec: 30, extra: 1 } },
+        },
+      ],
+    };
+
+    // When: parse する
+    const got = ListEpisodesResponseSchema.safeParse(payload);
 
     // Then: 失敗する（strict object を維持する）
     expect(got.success).toBe(false);
