@@ -17,7 +17,7 @@ prev: なし
 3. pre-push で integration gate（generator narrow、playback narrow + broad 計 13 test）緑
 4. `git push` が sandbox proxy 認証で失敗。sandbox 無効で再実行し成功
 5. lessons へ 4 件追記（生成物の配置・自己記述、上位 docs の decision link 方針、外部編集の受け入れ）
-6. PR 未作成（本ログの次工程）
+6. PR #123（base `develop`）。対応 Issue なし。`workflow/project.toml` が無く Project 追加は precondition 不成立でスキップ
 
 ### Commits
 
@@ -26,3 +26,4 @@ prev: なし
 - `a4604e8`
 - `cd451e3`
 - `a17ca21`
+- `a3c4dc1`
