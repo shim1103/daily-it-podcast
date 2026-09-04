@@ -31,6 +31,15 @@ on:
         description: "緑にする PASS 率の下限（0,1] の小数"
         required: false
         default: "0.8"
+      double:
+        description: "計測する朗読尺の帯（本番 topic 束の Domain 帯）"
+        required: false
+        type: choice
+        options:
+          - max
+          - tgt
+          - min
+        default: "max"
 
 jobs:
   tts-rate:
@@ -51,6 +60,7 @@ jobs:
           TTS_RETRY_BACKOFF_BASE: ${{ inputs.retry_backoff_base }}
           TTS_RETRY_BACKOFF_MAX: ${{ inputs.retry_backoff_max }}
           TTS_PASS_THRESHOLD: ${{ inputs.pass_threshold }}
+          TTS_DOUBLE: ${{ inputs.double }}
         run: |
           set -euo pipefail
           ./scripts/generator/test-tts-rate.sh 2>&1 | tee /tmp/tts-rate.log
@@ -63,4 +73,5 @@ jobs:
           RETRY_BACKOFF_BASE: ${{ inputs.retry_backoff_base }}
           RETRY_BACKOFF_MAX: ${{ inputs.retry_backoff_max }}
           PASS_THRESHOLD: ${{ inputs.pass_threshold }}
+          DOUBLE: ${{ inputs.double }}
         run: ./scripts/generator/tts-rate-summary.sh
