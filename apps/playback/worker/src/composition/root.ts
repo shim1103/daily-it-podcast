@@ -65,8 +65,10 @@ export function createEpisodeRepository(
 
     return {
       kind: "drive",
+      // why: Workers 実行時の global fetch は this 束縛が不要（narrow integration が globalThis.fetch
+      //   直渡しで疎通確認済み）。ラッパ関数を挟むと、その 1 行が unit で到達不能な dead branch になる
       repository: new GoogleDriveEpisodeRepository({
-        fetch: (input, init) => fetch(input, init),
+        fetch,
         oauth: { clientId, clientSecret, refreshToken },
         folderId,
       }),
