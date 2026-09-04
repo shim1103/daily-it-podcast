@@ -1,5 +1,7 @@
 import type { ApiSuccessData } from "../api/api-result.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
+import { formatEpisodeDate } from "../utils/format-episode-date.ts";
+import { formatNumberedEpisodeTitle } from "../utils/format-numbered-episode-title.ts";
 
 type ListEpisodesData = ApiSuccessData<PlaybackApiClient["listEpisodes"]>;
 
@@ -74,6 +76,15 @@ export type EpisodeRowViewModel = {
 };
 
 /**
+ * mini-player の sequence bar の上に出す「今なにを再生しているか」の見出し。
+ * 再生対象があるときだけ値を持ち、idle では null（見出しを出さない）。
+ */
+export type NowPlayingViewModel = {
+  date: string;
+  numberedTitle: string;
+};
+
+/**
  * catalog の取得状態から page 全体の振る舞い（`PageStatus`）を導出する。
  *
  * @ensure catalog error は unavailable/catalog-load-failed、catalog loading は loading、
@@ -127,4 +138,30 @@ export function deriveEpisodeRows(
     isActivePlayback: episode.episodeId === activeEpisodeId,
     isPlaying: episode.episodeId === playingEpisodeId,
   }));
+}
+
+/**
+ * 一覧と再生 union から、mini-player の見出し（再生中 episode の日付・通し番号付き title）を導出する。
+ *
+ * @ensure playback が `kind:"active"` で、その `episodeId` が一覧に在れば
+ *   `{ date: 表示用日付, numberedTitle: 通し番号付き title }` を返す。
+ *   phase は問わない（loading / paused / ended / error でも音源はその episode のまま）。
+ *   `kind:"idle"`、または episodeId が一覧に無ければ null。表示整形は utils へ委譲する
+ */
+export function deriveNowPlaying(
+  episodes: readonly EpisodeData[],
+  playback: PlaybackState,
+): NowPlayingViewModel | null {
+  if (playback.kind !== "active") {
+    return null;
+  }
+  const index = episodes.findIndex((episode) => episode.episodeId === playback.episodeId);
+  if (index === -1) {
+    return null;
+  }
+  const episode = episodes[index];
+  return {
+    date: formatEpisodeDate(episode.date),
+    numberedTitle: formatNumberedEpisodeTitle(episodes.length, index, episode.title),
+  };
 }

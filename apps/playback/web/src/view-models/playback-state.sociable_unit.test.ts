@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deriveEpisodeRows,
+  deriveNowPlaying,
   derivePageStatus,
   type EpisodeData,
   type PlaybackPhase,
@@ -211,5 +212,43 @@ describe("deriveEpisodeRows", () => {
 
     // Then: 全 row が isPlaying=false
     expect(got.every((row) => row.isPlaying === false)).toBe(true);
+  });
+});
+
+describe("deriveNowPlaying", () => {
+  it("kind=idle なら null を返す（mini-player に見出しを出さない）", () => {
+    // Given: 再生対象なし
+    // When: now-playing を投影する
+    const got = deriveNowPlaying(episodes, idlePlayback);
+
+    // Then: null
+    expect(got).toBeNull();
+  });
+
+  it("kind=active なら再生中 episode の日付と通し番号付き title を返す", () => {
+    // Given: ep-2（一覧の 2 件目・古い方）を再生中
+    // When: now-playing を投影する
+    const got = deriveNowPlaying(episodes, activePlayback({ episodeId: "ep-2" }));
+
+    // Then: 表示用の日付（YYYY/MM/DD）と通し番号付き title（最古が 1）
+    expect(got).toEqual({ date: "2026/08/17", numberedTitle: "1.　題2" });
+  });
+
+  it("先頭（新しい方）の episode ほど大きい通し番号になる", () => {
+    // Given: ep-1（一覧の先頭・新しい方）を再生中
+    // When: now-playing を投影する
+    const got = deriveNowPlaying(episodes, activePlayback({ episodeId: "ep-1" }));
+
+    // Then: 件数 2 - index 0 = 2
+    expect(got).toEqual({ date: "2026/08/17", numberedTitle: "2.　題1" });
+  });
+
+  it("再生中 episodeId が一覧に無ければ null を返す", () => {
+    // Given: 一覧に無い episodeId を active が指す
+    // When: now-playing を投影する
+    const got = deriveNowPlaying(episodes, activePlayback({ episodeId: "ep-missing" }));
+
+    // Then: null（引き当て不能）
+    expect(got).toBeNull();
   });
 });
