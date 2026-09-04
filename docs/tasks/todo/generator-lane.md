@@ -13,9 +13,13 @@
 3. 原稿 TextWriter を Cursor CLI から Cloud Agents REST（`manuscript/cursorapi`）へ移行。`commandlaunch` / `processenv` / CLI install を廃止
 4. System e2e 1 回通し（`TestProduceEpisodeSystem`）と rate 計測 2 本（`TestGeminiTTSRate` / `TestCursorAPIDraftRate`）を配置。`generator-draft-rate.yml` は実 API dispatch で 3/3 PASS 確認済み
 
+### 済み（要約・続き）
+
+5. System — `generator-system.yml` suite 本体・`TEST_*` 登録・e2e 1 回通しの実 dispatch 確認（run 33857369881 PASS、Drive 実到達）。残りの rate 計測 follow-up（TTS rate 実 dispatch / draft 尺 A/B）は `docs/tasks/todo/generator-system-e2e-produce-episode.md`。運用方針は `DEPLOY.md` §5
+
 ### 未完了
 
-1. [ ] System — `generator-system.yml`。suite 本体・`TEST_*` 登録。e2e 1 回通しの実 dispatch 確認は引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`、運用方針は `DEPLOY.md` §5
+（なし。rate 計測 follow-up は上記 child todo が index）
 
 ### D（未決・未実測・文案）
 
