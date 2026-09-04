@@ -162,17 +162,19 @@ func TestTimeline_returnsInconsistentEpisodeAssembly_whenTopicCountBelowOne(t *t
 func TestMarshalManuscript_marshalsAllFields_whenInputsValid(t *testing.T) {
 	t.Parallel()
 
-	// Given: episodeID・date・title・durationSec・opening・draft・topicStartSecs・closing
+	// Given: episodeID・date・title・durationSec・opening（挨拶+intro）・draft・topicStartSecs・ending（summary+farewell）
 	d := draftFixture()
+	opening := "おはようございます。2026年8月31日です。\n" + d.Intro
+	ending := d.ClosingSummary + "\n以上、2026年8月31日のITニュースでした。"
 	in := build.ManuscriptInput{
 		EpisodeID:      "ep-fixed-0001",
 		Date:           "2026-08-31",
 		Title:          d.Title,
 		DurationSec:    123,
-		Opening:        "おはようございます。2026年8月31日です。",
+		Opening:        opening,
 		Draft:          d,
 		TopicStartSecs: []float64{10, 40},
-		Closing:        d.ClosingSummary,
+		Ending:         ending,
 	}
 
 	// When: JSON bytes を組む
@@ -195,7 +197,7 @@ func TestMarshalManuscript_marshalsAllFields_whenInputsValid(t *testing.T) {
 				Detail   string  `json:"detail"`
 				StartSec float64 `json:"startSec"`
 			} `json:"topics"`
-			Closing string `json:"closing"`
+			Ending string `json:"ending"`
 		} `json:"body"`
 	}
 	if err := json.Unmarshal(got, &m); err != nil {
@@ -207,8 +209,8 @@ func TestMarshalManuscript_marshalsAllFields_whenInputsValid(t *testing.T) {
 	if m.DurationSec != 123 {
 		t.Fatalf("durationSec = %v, want 123", m.DurationSec)
 	}
-	if m.Body.Opening != in.Opening || m.Body.Closing != d.ClosingSummary {
-		t.Fatalf("body opening/closing = %q / %q", m.Body.Opening, m.Body.Closing)
+	if m.Body.Opening != opening || m.Body.Ending != ending {
+		t.Fatalf("body opening/ending = %q / %q", m.Body.Opening, m.Body.Ending)
 	}
 	if len(m.Body.Topics) != 2 {
 		t.Fatalf("topics len = %d, want 2", len(m.Body.Topics))
@@ -235,7 +237,7 @@ func TestMarshalManuscript_returnsInconsistentEpisodeAssembly_whenTopicStartSecs
 		Opening:        "x",
 		Draft:          d,
 		TopicStartSecs: []float64{10},
-		Closing:        d.ClosingSummary,
+		Ending:         "y",
 	}
 
 	// When: JSON bytes を組む

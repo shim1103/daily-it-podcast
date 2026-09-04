@@ -13,7 +13,7 @@ const episodeOne: EpisodeData = {
   body: {
     opening: "開始",
     topics: [{ title: "小題", preface: "前", detail: "詳", startSec: 0 }],
-    closing: "終了",
+    ending: "終了",
   },
   audioRef: "/episodes/ep-1/audio",
 };

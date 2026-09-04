@@ -16,7 +16,7 @@ const validManuscript = {
         startSec: 0,
       },
     ],
-    closing: "終了",
+    ending: "終了",
   },
 };
 

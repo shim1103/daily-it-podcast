@@ -21,7 +21,7 @@ const validEpisodeItem = {
   body: {
     opening: "開始",
     topics: [validTopic],
-    closing: "終了",
+    ending: "終了",
   },
   audioRef: episodeAudioPath("ep-1"),
 };

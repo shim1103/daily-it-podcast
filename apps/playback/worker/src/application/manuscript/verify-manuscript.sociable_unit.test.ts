@@ -14,7 +14,7 @@ const validManuscript = {
       { title: "第一", preface: "前1", detail: "詳1", startSec: 0 },
       { title: "第二", preface: "前2", detail: "詳2", startSec: 30 },
     ],
-    closing: "終了",
+    ending: "終了",
   },
 };
 

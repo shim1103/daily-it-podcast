@@ -24,7 +24,7 @@ const topicSchema = z.strictObject({
 const bodySchema = z.strictObject({
   opening: z.string(),
   topics: z.array(topicSchema).min(1),
-  closing: z.string(),
+  ending: z.string(),
 });
 
 export const episodeItemSchema = z.strictObject({

@@ -122,7 +122,7 @@ func TestProduceEpisodeRun_skipsWithoutFetch_whenCompletedPairExistsForDisplayDa
 	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
 
 	// When: Run を呼ぶ
-	err := h.uc.Run(context.Background(), now)
+	_, err := h.uc.Run(context.Background(), now)
 
 	// Then: 成功。照会 date は JST 暦日。Fetch / TextWriter / Speech / WriteEpisode は呼ばない
 	if err != nil {
@@ -157,7 +157,7 @@ func TestProduceEpisodeRun_continuesProduce_whenCompletedPairAbsent(t *testing.T
 	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
 
 	// When: Run を呼ぶ
-	err := h.uc.Run(context.Background(), now)
+	_, err := h.uc.Run(context.Background(), now)
 
 	// Then: 通常 Produce 続行。HasPair は Fetch より前に 1 回。WriteEpisode 1 回
 	if err != nil {
@@ -187,7 +187,7 @@ func TestProduceEpisodeRun_returnsErrorWithoutFetch_whenCompletedEpisodeLookupFa
 	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
 
 	// When: Run を呼ぶ
-	err := h.uc.Run(context.Background(), now)
+	_, err := h.uc.Run(context.Background(), now)
 
 	// Then: その error を伝播。Fetch 以降は呼ばない
 	if !errors.Is(err, boom) {
@@ -211,11 +211,14 @@ func TestProduceEpisodeRun_writesEpisodeWithAssembledManuscriptAndAudio_whenAllS
 	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
 
 	// When: Run を呼ぶ
-	err := h.uc.Run(context.Background(), now)
+	gotID, err := h.uc.Run(context.Background(), now)
 
 	// Then: WriteEpisode が 1 回、episodeID は Stub 値、audio 非空
 	if err != nil {
 		t.Fatalf("Run: %v", err)
+	}
+	if gotID != fixedEpisodeID {
+		t.Fatalf("Run episodeID = %q, want %q", gotID, fixedEpisodeID)
 	}
 	if h.episw.calls != 1 {
 		t.Fatalf("WriteEpisode calls = %d, want 1", h.episw.calls)
@@ -236,8 +239,10 @@ func TestProduceEpisodeRun_writesEpisodeWithAssembledManuscriptAndAudio_whenAllS
 		t.Fatalf("manuscript.date = %q, want JST calendar day 2026-08-31", m.Date)
 	}
 	wantGreeting := fmt.Sprintf(constants.OpeningGreetingTemplate, "2026年8月31日")
-	if m.Body.Opening != wantGreeting {
-		t.Fatalf("body.opening = %q, want %q", m.Body.Opening, wantGreeting)
+	wantFarewell := fmt.Sprintf(constants.ClosingFarewell, "2026年8月31日")
+	wantOpening := wantGreeting + "\n" + wireIntroOf(t, h.writer.out)
+	if m.Body.Opening != wantOpening {
+		t.Fatalf("body.opening = %q, want %q", m.Body.Opening, wantOpening)
 	}
 	if len(m.Body.Topics) != validWireTopicCount {
 		t.Fatalf("body.topics count = %d, want %d", len(m.Body.Topics), validWireTopicCount)
@@ -246,17 +251,13 @@ func TestProduceEpisodeRun_writesEpisodeWithAssembledManuscriptAndAudio_whenAllS
 	if wantTitle := wireTitleOf(t, h.writer.out); m.Title != wantTitle {
 		t.Fatalf("title = %q, want wire title %q", m.Title, wantTitle)
 	}
-	// body.closing は draft.ClosingSummary（wire の closingSummary）そのもの。
-	// farewell（fmt.Sprintf(ClosingFarewell, spokenDate)）は音声のみで body.closing に含めない。
-	wantClosing := wireClosingSummaryOf(t, h.writer.out)
-	if m.Body.Closing != wantClosing {
-		t.Fatalf("body.closing = %q, want wire closingSummary %q", m.Body.Closing, wantClosing)
+	// body.ending は closingSummary + farewell（TTS が読む原稿そのものを入れる）
+	wantEnding := wireClosingSummaryOf(t, h.writer.out) + "\n" + wantFarewell
+	if m.Body.Ending != wantEnding {
+		t.Fatalf("body.ending = %q, want %q", m.Body.Ending, wantEnding)
 	}
-	if farewell := fmt.Sprintf(constants.ClosingFarewell, "2026年8月31日"); m.Body.Closing == farewell {
-		t.Fatalf("body.closing must be draft.ClosingSummary, not the farewell line %q", farewell)
-	}
-	if strings.Contains(m.Body.Closing, "%s") {
-		t.Fatalf("body.closing contains raw %%s: %q", m.Body.Closing)
+	if strings.Contains(m.Body.Ending, "%s") {
+		t.Fatalf("body.ending contains raw %%s: %q", m.Body.Ending)
 	}
 }
 
@@ -269,7 +270,7 @@ func TestProduceEpisodeRun_synthesizesTopicPlusTwoBundles_whenDraftHasTopics(t *
 	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
 
 	// When: Run を呼ぶ
-	if err := h.uc.Run(context.Background(), now); err != nil {
+	if _, err := h.uc.Run(context.Background(), now); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
@@ -284,9 +285,9 @@ func TestProduceEpisodeRun_synthesizesTopicPlusTwoBundles_whenDraftHasTopics(t *
 	}
 
 	m := unmarshalManuscript(t, h.episw.manuscript)
-	// 先頭束は greeting（= body.opening）を改行の前に置く。
-	if !strings.HasPrefix(h.synth.texts[0], m.Body.Opening+"\n") {
-		t.Fatalf("texts[0] = %q, want prefix greeting %q + newline", h.synth.texts[0], m.Body.Opening)
+	// TTS 束の先頭・末尾は body.opening / body.ending と同一（読み上げ原稿を契約へ入れた結果）。
+	if h.synth.texts[0] != m.Body.Opening {
+		t.Fatalf("texts[0] = %q, want body.opening %q", h.synth.texts[0], m.Body.Opening)
 	}
 	// 中間束は topic ごとの preface + "\n" + detail。
 	for i := 0; i < topicCount; i++ {
@@ -295,11 +296,8 @@ func TestProduceEpisodeRun_synthesizesTopicPlusTwoBundles_whenDraftHasTopics(t *
 			t.Fatalf("texts[%d] = %q, want topic[%d] bundle %q", 1+i, got, i, want)
 		}
 	}
-	// 末尾束は closingSummary（= body.closing）+ "\n" + farewell（date 注入済み。生 template ではない）。
-	wantFarewell := fmt.Sprintf(constants.ClosingFarewell, "2026年8月31日")
-	wantLast := m.Body.Closing + "\n" + wantFarewell
-	if last := h.synth.texts[len(h.synth.texts)-1]; last != wantLast {
-		t.Fatalf("last segment = %q, want %q", last, wantLast)
+	if last := h.synth.texts[len(h.synth.texts)-1]; last != m.Body.Ending {
+		t.Fatalf("last segment = %q, want body.ending %q", last, m.Body.Ending)
 	}
 }
 
@@ -313,7 +311,7 @@ func TestProduceEpisodeRun_setsTopicStartSecFromCumulativeSegmentDurationsWithSi
 	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
 
 	// When: Run を呼ぶ
-	if err := h.uc.Run(context.Background(), now); err != nil {
+	if _, err := h.uc.Run(context.Background(), now); err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
@@ -347,7 +345,7 @@ func TestProduceEpisodeRun_returnsNoSourceItemsWithoutWriting_whenFetchReturnsEm
 	h.source.items = []models.SourceItem{}
 
 	// When: Run を呼ぶ
-	err := h.uc.Run(context.Background(), time.Now())
+	_, err := h.uc.Run(context.Background(), time.Now())
 
 	// Then: Op = no_source_items の Domain Error。TextWriter/Speech/WriteEpisode いずれも呼ばれない
 	var de *domainerrors.Error
@@ -374,7 +372,7 @@ func TestProduceEpisodeRun_returnsErrorWithoutWriting_whenFetchFails(t *testing.
 	h.source.err = boom
 
 	// When: Run を呼ぶ
-	err := h.uc.Run(context.Background(), time.Now())
+	_, err := h.uc.Run(context.Background(), time.Now())
 
 	// Then: その error を伝播。WriteEpisode は呼ばれない
 	if !errors.Is(err, boom) {
@@ -394,7 +392,7 @@ func TestProduceEpisodeRun_returnsErrorWithoutWriting_whenTextWriterFails(t *tes
 	h.writer.err = boom
 
 	// When: Run を呼ぶ
-	err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
+	_, err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
 
 	// Then: その error を伝播。Speech/WriteEpisode は呼ばれない
 	if !errors.Is(err, boom) {
@@ -416,7 +414,7 @@ func TestProduceEpisodeRun_returnsInvalidManuscriptDraftWithoutWriting_whenWrite
 	h.writer.out = `{"title": "あ", "intro":`
 
 	// When: Run を呼ぶ
-	err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
+	_, err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
 
 	// Then: 上限まで再試行したうえで Op = invalid_manuscript_draft。Speech/WriteEpisode は呼ばれない
 	var de *domainerrors.Error
@@ -448,7 +446,7 @@ func TestProduceEpisodeRun_retriesTextWriter_whenFirstDraftInvalidThenValid(t *t
 	)
 
 	// When: Run を呼ぶ
-	err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
+	_, err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
 
 	// Then: 2 回目で成功し WriteEpisode 1 回。2 回目 brief に前回 reject 理由が入る
 	if err != nil {
@@ -496,7 +494,7 @@ func TestProduceEpisodeRun_returnsErrorWithoutWriting_whenSynthesizeFails(t *tes
 	h.synth.failAtCall = 2
 
 	// When: Run を呼ぶ
-	err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
+	_, err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
 
 	// Then: その error を伝播。SynthesizeAll は 1 回だけ。WriteEpisode は呼ばれない
 	if err == nil {
@@ -519,7 +517,7 @@ func TestProduceEpisodeRun_returnsErrorWithoutWriting_whenEpisodeWriterFails(t *
 	h.episw.err = boom
 
 	// When: Run を呼ぶ
-	err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
+	_, err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
 
 	// Then: その error を伝播。WriteEpisode は 1 回呼ばれている
 	if !errors.Is(err, boom) {

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://daily-it-podcast.local/contracts/manuscript.schema.json",
   "title": "Manuscript",
-  "description": "Google Drive 上の {episodeId}.json。Playback が表示・再生制御に使う情報のみ。",
+  "description": "Google Drive 上の {episodeId}.json。TTS が読み上げる原稿そのものを入れる SSoT。Playback は同じ本文を表示・再生制御に使う。",
   "type": "object",
   "additionalProperties": false,
   "required": ["episodeId", "date", "title", "durationSec", "body"],
@@ -14,7 +14,7 @@
     },
     "date": {
       "type": "string",
-      "description": "表示用日付。Asia/Tokyo で暦日にしたうえで YYYY-MM-DD。",
+      "description": "表示用日付。Asia/Tokyo で暦日化したうえで YYYY-MM-DD。",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
     },
     "title": {
@@ -29,11 +29,11 @@
     "body": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["opening", "topics", "closing"],
+      "required": ["opening", "topics", "ending"],
       "properties": {
         "opening": {
           "type": "string",
-          "description": "最初の挨拶。"
+          "description": "導入の朗読全文。定型挨拶（OpeningGreeting）と intro をこの順で連結した文字列。"
         },
         "topics": {
           "type": "array",
@@ -63,9 +63,9 @@
             }
           }
         },
-        "closing": {
+        "ending": {
           "type": "string",
-          "description": "最後の挨拶。"
+          "description": "締めの朗読全文。closingSummary と定型締め（ClosingFarewell）をこの順で連結した文字列。"
         }
       }
     }

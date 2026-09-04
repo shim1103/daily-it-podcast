@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 /** 安定 fixture（UI は date のみ。episodeId は DOM に出ない） */
-const FIXTURE_DATE_UI = "2026/08/30";
-const FIXTURE_EPISODE_ID = "eb14426e-2f4c-4157-9175-301ae4e7808d";
-const FIXTURE_OPENING_SNIPPET = "2026年8月30日";
+const FIXTURE_DATE_UI = "2026/09/04";
+const FIXTURE_EPISODE_ID = "4d22034f-66a5-42bc-81e1-775e5e82af2f";
+const FIXTURE_OPENING_SNIPPET = "2026年9月4日";
 
 const hasRemoteAuth =
   Boolean(process.env.PLAYWRIGHT_BASE_URL?.trim()) &&

@@ -16,7 +16,7 @@ import (
 //
 // @require process が Interrupt / SIGTERM を届けられる。
 // @ensure composition.NewProduceEpisodeFromEnv() の load error は kind 付き構造化 stderr へ出し process exit 非0。
-// @ensure ProduceEpisode.Run が nil なら process exit 0、non-nil error なら kind 付き構造化 stderr へ出し process exit 非0。
+// @ensure ProduceEpisode.Run の error が nil なら process exit 0、non-nil なら kind 付き構造化 stderr へ出し process exit 非0。
 // @invariant internal/infrastructure と application/port を import しない。秘密・env を読まない。生成手順を持たない。
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -35,8 +35,8 @@ func main() {
 }
 
 // run は ProduceEpisode.Run の結果を process 終了へ写す。
-func run(ctx context.Context, now time.Time, stderr io.Writer, produce func(context.Context, time.Time) error) int {
-	if err := produce(ctx, now); err != nil {
+func run(ctx context.Context, now time.Time, stderr io.Writer, produce func(context.Context, time.Time) (string, error)) int {
+	if _, err := produce(ctx, now); err != nil {
 		writeExternalError(stderr, err)
 		return 1
 	}

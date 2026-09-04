@@ -25,7 +25,7 @@ const validManuscript = `{
 			"detail": "詳細",
 			"startSec": 0
 		}],
-		"closing": "また明日"
+		"ending": "また明日"
 	}
 }`
 

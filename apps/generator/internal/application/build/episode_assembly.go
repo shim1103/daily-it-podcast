@@ -85,16 +85,17 @@ type ManuscriptInput struct {
 	Date           string
 	Title          string
 	DurationSec    float64
-	Opening        string
+	Opening        string // 朗読全文: 定型挨拶 + intro（SpeechTexts[0] と同一）
 	Draft          models.ManuscriptDraft
 	TopicStartSecs []float64
-	Closing        string
+	Ending         string // 朗読全文: closingSummary + 定型締め（SpeechTexts 末尾と同一）
 }
 
 // MarshalManuscript は完成 manuscript.schema.json 形の JSON bytes を組む。
 //
-// @require in.TopicStartSecs と in.Draft.Topics は同数。
+// @require in.TopicStartSecs と in.Draft.Topics は同数。in.Opening / in.Ending は朗読全文（定型込み）。
 // @ensure 戻りは manuscript.schema.json の required（episodeId/date/title/durationSec/body）を満たす JSON bytes。Validate は行わない（Gate = WriteEpisode の責務）。
+// @ensure body.opening / body.ending は入力をそのまま書く（TTS が読む原稿そのものを契約へ入れる。application 都合で定型を落とさない）。
 // @ensure len(in.TopicStartSecs) != len(in.Draft.Topics) のとき Domain Error（Op = inconsistent_episode_assembly）。
 func MarshalManuscript(in ManuscriptInput) ([]byte, error) {
 	if len(in.TopicStartSecs) != len(in.Draft.Topics) {
@@ -122,7 +123,7 @@ func MarshalManuscript(in ManuscriptInput) ([]byte, error) {
 		Body: manuscriptBodyJSON{
 			Opening: in.Opening,
 			Topics:  topics,
-			Closing: in.Closing,
+			Ending:  in.Ending,
 		},
 	}
 	return json.Marshal(doc)
@@ -139,7 +140,7 @@ type manuscriptJSON struct {
 type manuscriptBodyJSON struct {
 	Opening string                `json:"opening"`
 	Topics  []manuscriptTopicJSON `json:"topics"`
-	Closing string                `json:"closing"`
+	Ending  string                `json:"ending"`
 }
 
 type manuscriptTopicJSON struct {

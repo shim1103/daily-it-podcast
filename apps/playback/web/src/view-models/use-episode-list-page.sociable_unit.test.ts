@@ -20,7 +20,7 @@ type EpisodeData = ApiSuccessData<PlaybackApiClient["listEpisodes"]>["episodes"]
 const episodeBody = {
   opening: "開始",
   topics: [{ title: "小題", preface: "前置き", detail: "詳細", startSec: 0 }],
-  closing: "終了",
+  ending: "終了",
 };
 
 const episodeOne: EpisodeData = {

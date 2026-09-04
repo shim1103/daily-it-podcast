@@ -20,7 +20,7 @@ func TestProduceEpisodeBroadIntegration_uploadsEpisodeArtifactsOnce_whenAllProdu
 	wantSynth := integrationSynthesizeCallCount(broadIntegrationTopicCount)
 
 	// When: Run する
-	err := h.uc.Run(context.Background(), integrationTestFixedNow)
+	_, err := h.uc.Run(context.Background(), integrationTestFixedNow)
 
 	// Then: error なし。TextWriter 1、Synthesize = 2+topic（topic+2 束）、Drive upload 2（json+wav の 1 組）
 	if err != nil {
@@ -34,7 +34,7 @@ func TestProduceEpisodeBroadIntegration_returnsNoSourceItemsWithoutDownstreamCal
 	h := newBroadProduceEpisodeHarness(t, broadProduceEpisodeConfig{emptySources: true})
 
 	// When: Run する
-	err := h.uc.Run(context.Background(), integrationTestFixedNow)
+	_, err := h.uc.Run(context.Background(), integrationTestFixedNow)
 
 	// Then: Op = no_source_items。TextWriter / Synthesize / Drive 書込は 0
 	var de *domainerrors.Error
@@ -50,7 +50,7 @@ func TestProduceEpisodeBroadIntegration_writesNothing_whenTextWriterFails(t *tes
 	h := newBroadProduceEpisodeHarness(t, broadProduceEpisodeConfig{cursorFail: true})
 
 	// When: Run する
-	err := h.uc.Run(context.Background(), integrationTestFixedNow)
+	_, err := h.uc.Run(context.Background(), integrationTestFixedNow)
 
 	// Then: error あり。Synthesize / Drive 書込は 0
 	if err == nil {
@@ -65,7 +65,7 @@ func TestProduceEpisodeBroadIntegration_writesNothing_whenSynthesizeFails(t *tes
 	h := newBroadProduceEpisodeHarness(t, broadProduceEpisodeConfig{geminiFailAt: 2})
 
 	// When: Run する
-	err := h.uc.Run(context.Background(), integrationTestFixedNow)
+	_, err := h.uc.Run(context.Background(), integrationTestFixedNow)
 
 	// Then: error あり。Drive 書込は 0
 	if err == nil {

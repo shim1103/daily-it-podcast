@@ -12,7 +12,7 @@ const body: Body = {
     { title: "小題1", preface: "前置き1", detail: "詳細1", startSec: 0 },
     { title: "小題2", preface: "前置き2", detail: "詳細2", startSec: 30 },
   ],
-  closing: "終了文",
+  ending: "終了文",
 };
 
 const DURATION_SEC = 1000;
@@ -42,14 +42,14 @@ describe("EpisodeManuscript", () => {
     expect(container.textContent).toContain("導入");
   });
 
-  it("まとめ（closing）を総尺（durationSec）の seek bar 付きで描画する", () => {
+  it("まとめ（ending）を総尺（durationSec）の seek bar 付きで描画する", () => {
     // Given: body（durationSec 1000 → 16:40）
     const { container } = renderManuscript();
 
-    // Then: 「まとめ」見出し・16:40 の bar・closing 本文
-    const bar = container.querySelector("[data-manuscript-closing-start-sec]");
+    // Then: 「まとめ」見出し・16:40 の bar・ending 本文
+    const bar = container.querySelector("[data-manuscript-ending-start-sec]");
     expect(bar?.textContent).toBe("16:40");
-    expect(container.querySelector("[data-manuscript-closing]")?.textContent).toBe("終了文");
+    expect(container.querySelector("[data-manuscript-ending]")?.textContent).toBe("終了文");
     expect(container.textContent).toContain("まとめ");
   });
 
@@ -60,7 +60,7 @@ describe("EpisodeManuscript", () => {
 
     // When: 導入 bar → まとめ bar の順に押す
     fireEvent.click(container.querySelector("[data-manuscript-opening-start-sec]") as Element);
-    fireEvent.click(container.querySelector("[data-manuscript-closing-start-sec]") as Element);
+    fireEvent.click(container.querySelector("[data-manuscript-ending-start-sec]") as Element);
 
     // Then: 0 と総尺が渡る
     expect(onSeek).toHaveBeenNthCalledWith(1, 0);

@@ -112,34 +112,42 @@ type manuscriptDoc struct {
 			Detail   string  `json:"detail"`
 			StartSec float64 `json:"startSec"`
 		} `json:"topics"`
-		Closing string `json:"closing"`
+		Ending string `json:"ending"`
 	} `json:"body"`
 }
 
 // wireFieldsOf は wire JSON string から検証で参照する top-level 朗読 field を取り出す。
-func wireFieldsOf(t *testing.T, wire string) (title, closingSummary string) {
+func wireFieldsOf(t *testing.T, wire string) (title, intro, closingSummary string) {
 	t.Helper()
 	var v struct {
 		Title          string `json:"title"`
+		Intro          string `json:"intro"`
 		ClosingSummary string `json:"closingSummary"`
 	}
 	if err := json.Unmarshal([]byte(wire), &v); err != nil {
 		t.Fatalf("wire Unmarshal: %v", err)
 	}
-	return v.Title, v.ClosingSummary
+	return v.Title, v.Intro, v.ClosingSummary
 }
 
 // wireTitleOf は wire JSON string から title field を取り出す。
 func wireTitleOf(t *testing.T, wire string) string {
 	t.Helper()
-	title, _ := wireFieldsOf(t, wire)
+	title, _, _ := wireFieldsOf(t, wire)
 	return title
+}
+
+// wireIntroOf は wire JSON string から intro field を取り出す。
+func wireIntroOf(t *testing.T, wire string) string {
+	t.Helper()
+	_, intro, _ := wireFieldsOf(t, wire)
+	return intro
 }
 
 // wireClosingSummaryOf は wire JSON string から closingSummary field を取り出す。
 func wireClosingSummaryOf(t *testing.T, wire string) string {
 	t.Helper()
-	_, closing := wireFieldsOf(t, wire)
+	_, _, closing := wireFieldsOf(t, wire)
 	return closing
 }
 

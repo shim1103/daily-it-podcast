@@ -46,7 +46,7 @@ const validList = {
             startSec: 0,
           },
         ],
-        closing: "終了",
+        ending: "終了",
       },
       audioRef: episodeAudioPath("ep-1"),
     },

@@ -14,12 +14,12 @@ export type EpisodeManuscriptProps = {
 };
 
 /**
- * EpisodeItem の body（opening・topics・closing）を組み合わせて描画する。
+ * EpisodeItem の body（opening・topics・ending）を組み合わせて描画する。
  *
  * @require body は EpisodeItem["body"]、durationSec は総尺、onSeek は audio の currentTime を変える handler
- * @ensure opening を「導入」（`00:00` の seek bar 付き）、closing を「まとめ」（総尺 `durationSec` の
+ * @ensure opening を「導入」（`00:00` の seek bar 付き）、ending を「まとめ」（総尺 `durationSec` の
  *   seek bar 付き）として描き、間に topics[] を EpisodeTopic として順番通りに並べる。
- *   opening / closing 本文の加工・変換はしない
+ *   opening / ending 本文の加工・変換はしない
  * @invariant sec の正は contract に無いため、導入は 0、まとめは総尺（`durationSec`）を使う
  */
 export function EpisodeManuscript({
@@ -54,7 +54,7 @@ export function EpisodeManuscript({
           <button
             type="button"
             className="episode-topic__seek"
-            data-manuscript-closing-start-sec=""
+            data-manuscript-ending-start-sec=""
             onClick={() => {
               onSeek(durationSec);
             }}
@@ -63,7 +63,7 @@ export function EpisodeManuscript({
           </button>
           <h3 className="episode-topic__heading-title">まとめ</h3>
         </div>
-        <LabeledText tag="p" datasetKey="manuscriptClosing" text={body.closing} />
+        <LabeledText tag="p" datasetKey="manuscriptEnding" text={body.ending} />
       </section>
     </div>
   );
