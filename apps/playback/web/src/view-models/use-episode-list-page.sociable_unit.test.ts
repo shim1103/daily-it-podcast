@@ -288,6 +288,24 @@ describe("useEpisodeListPage", () => {
     });
   });
 
+  it("再生前は nowPlaying が null、再生を始めると再生中 episode の日付と通し番号付き title になる", () => {
+    // Given: ep-1（新しい方）・ep-2（古い方）を持つ success catalog stub
+    mockCatalog({ catalogStatus: { status: "success" }, episodes: [episodeOne, episodeTwo] });
+    const apiClient = createStubApiClient();
+    const { result } = renderHook(() => useEpisodeListPage(apiClient, BASE_URL));
+
+    // Then: 再生前は null
+    expect(result.current.nowPlaying).toBeNull();
+
+    // When: 古い方（ep-2）を play する
+    act(() => {
+      result.current.play("ep-2");
+    });
+
+    // Then: ep-2 の表示用日付と、最古＝1 の通し番号付き title
+    expect(result.current.nowPlaying).toEqual({ date: "2026/08/18", numberedTitle: "1.　題2" });
+  });
+
   it("一覧に居る episodeId を play すると playback が active になり audioRef が baseUrl と結合した絶対 URL になる", () => {
     // Given: ep-1 を持つ success catalog stub
     mockCatalog({ catalogStatus: { status: "success" }, episodes: [episodeOne] });

@@ -16,9 +16,8 @@ export type EpisodeManuscriptProps = {
  * EpisodeItem の body（opening・topics・closing）を組み合わせて描画する。
  *
  * @require body は EpisodeItem["body"]、onSeek は audio の currentTime を変える handler
- * @ensure opening を「導入」（`opening.startSec` の seek bar 付き）、closing を「まとめ」（`closing.startSec` の
- *   seek bar 付き）として描き、間に topics[] を EpisodeTopic として順番通りに並べる。
- *   opening / closing 本文の加工・変換はしない
+ * @ensure opening を`opening.startSec` の seek bar 付き、closing を`closing.startSec` の
+ *   seek bar 付きで描き、間に topics[] を EpisodeTopic として順番通りに並べる。
  * @invariant 導入は contract の `opening.startSec`、まとめは contract の `closing.startSec` を使う
  */
 export function EpisodeManuscript({ body, onSeek }: EpisodeManuscriptProps): ReactElement {
@@ -36,7 +35,6 @@ export function EpisodeManuscript({ body, onSeek }: EpisodeManuscriptProps): Rea
           >
             {formatDurationMmSs(body.opening.startSec)}
           </button>
-          <h3 className="episode-topic__heading-title">導入</h3>
         </div>
         <LabeledText tag="p" datasetKey="manuscriptOpening" text={body.opening.text} />
       </section>
@@ -56,7 +54,6 @@ export function EpisodeManuscript({ body, onSeek }: EpisodeManuscriptProps): Rea
           >
             {formatDurationMmSs(body.closing.startSec)}
           </button>
-          <h3 className="episode-topic__heading-title">まとめ</h3>
         </div>
         <LabeledText tag="p" datasetKey="manuscriptClosing" text={body.closing.summary} />
       </section>

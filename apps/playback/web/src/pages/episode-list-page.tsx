@@ -19,14 +19,15 @@ export type EpisodeListPageProps = {
  * @ensure `pageStatus.kind` が loading なら loading marker、unavailable なら全画面 Error UI、
  *   ready なら本体を描画する。本体は `rows` を map し、各 row を `EpisodeItem` 1 つへ渡す
  *   （行本体と選択中の原稿は `EpisodeItem` が束ねる）。`AudioControls` は再生中かどうかに
- *   関わらず常に描画し、`audioElementRef` だけを渡す。音源 URL の指定は `useEpisodePlayback`
- *   が ref 経由で命令的に行うため、page は `src` を組み立てない
+ *   関わらず常に描画し、`audioElementRef` と `nowPlaying`（再生中 episode の見出し。hook が投影）を
+ *   渡す。音源 URL の指定は `useEpisodePlayback` が ref 経由で命令的に行うため、page は `src` を
+ *   組み立てない
  * @invariant ここに表示ロジック・API 呼び出しの詳細・副作用・URL 組み立てを書かない。
  *   state machine と hash ↔ selection の同期、起動、deep-link 復元、audioRef→URL 解決は
  *   `useEpisodeListPage` とその下位 hook が持つ
  */
 export function EpisodeListPage({ apiClient, baseUrl }: EpisodeListPageProps): ReactElement {
-  const { rows, pageStatus, toggleSelection, play, seek, stop, audioElementRef } =
+  const { rows, nowPlaying, pageStatus, toggleSelection, play, seek, stop, audioElementRef } =
     useEpisodeListPage(apiClient, baseUrl);
 
   if (pageStatus.kind === "loading") {
@@ -54,7 +55,7 @@ export function EpisodeListPage({ apiClient, baseUrl }: EpisodeListPageProps): R
           onSeek={(startSec) => seek(row.episodeId, startSec)}
         />
       ))}
-      <AudioControls audioRef={audioElementRef} />
+      <AudioControls audioRef={audioElementRef} nowPlaying={nowPlaying} />
     </div>
   );
 }

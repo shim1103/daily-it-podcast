@@ -5,10 +5,11 @@ import { buildRequestUrl } from "../utils/build-request-url.ts";
 import type {
   EpisodeData,
   EpisodeRowViewModel,
+  NowPlayingViewModel,
   PageStatus,
   PlaybackState,
 } from "./playback-state.ts";
-import { deriveEpisodeRows, derivePageStatus } from "./playback-state.ts";
+import { deriveEpisodeRows, deriveNowPlaying, derivePageStatus } from "./playback-state.ts";
 import { useEpisodeCatalog } from "./use-episode-catalog.ts";
 import { useEpisodePlayback } from "./use-episode-playback.ts";
 import type { EpisodePlaybackViewModel } from "./use-episode-playback.ts";
@@ -19,6 +20,7 @@ export type EpisodeListPageViewModel = {
   selectedEpisode: EpisodeData | null;
   playback: PlaybackState;
   rows: EpisodeRowViewModel[];
+  nowPlaying: NowPlayingViewModel | null;
   pageStatus: PageStatus;
   toggleSelection(episodeId: string): void;
   play(episodeId: string, positionSec?: number): void;
@@ -41,6 +43,8 @@ export type EpisodeListPageViewModel = {
  *   `audioRef` を引き当て `buildRequestUrl(baseUrl, audioRef)` で絶対 URL 化して下位
  *   `playback.play` / `playback.seek` へ渡す。episodeId が一覧に無ければ URL を解決できず
  *   no-op（`useEpisodeSelection.select` の実在検証と対称）。
+ *   `nowPlaying` は mini-player 見出し用に `deriveNowPlaying(episodes, playback)` を投影する
+ *   （再生対象が無い／一覧に無ければ null）。
  *   戻り値は page が使う投影とアクションだけ。生 union（`selection` / `catalogStatus`）と
  *   `select` / `deselect` / `load` / `episodes` は内部合成材料として使い、外へは出さない。
  *   catalog の起動は `useEpisodeCatalog` の auto-load、deep-link 復元は `useHashSelectionSync`
@@ -77,6 +81,7 @@ export function useEpisodeListPage(
     selection: selection.selection,
     playback: playback.playback,
   });
+  const nowPlaying = deriveNowPlaying(catalog.episodes, playback.playback);
   const pageStatus = derivePageStatus(catalog.catalogStatus);
 
   const episodes = catalog.episodes;
@@ -117,6 +122,7 @@ export function useEpisodeListPage(
     selectedEpisode,
     playback: playback.playback,
     rows,
+    nowPlaying,
     pageStatus,
     toggleSelection: selection.toggle,
     play,

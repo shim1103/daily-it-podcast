@@ -7,6 +7,11 @@ import { formatTopicTitles } from "../../utils/format-topic-titles.ts";
 import type { EpisodeData } from "../../view-models/playback-state.ts";
 import { LabeledText } from "../primitive/labeled-text.tsx";
 
+// why: 再生 Icon は emoji 化しない幾何記号 ▶（U+25B6）。停止 Icon は環境で emoji 化する ⏸（U+23F8）や
+//   幅の揺れる ▮▮ を避け、CSS 描画の 2 本バー（`.episode-row__play-bar` ×2）で ▶ と同じ視覚サイズに
+//   揃える。button は固定サイズの丸で、背景色は `data-active` で切り替える（非再生=灰 / 再生=白）
+const PLAY_GLYPH = "▶";
+
 export type EpisodeRowProps = {
   episode: EpisodeData;
   episodeCount: number;
@@ -83,11 +88,21 @@ export function EpisodeRow({
       <button
         type="button"
         className="episode-row__play"
+        data-active={isActivePlayback ? "true" : "false"}
         aria-label={isActivePlayback ? "停止" : "再生"}
         onClick={() => (isActivePlayback ? onStop() : onPlay(episode.episodeId))}
       >
-        {/* 見た目は Icon（▶ 再生 / ⏸ 停止）。文言は aria-label が担う */}
-        <span aria-hidden="true">{isActivePlayback ? "⏸" : "▶"}</span>
+        {/* 見た目は Icon（▶ 再生 / CSS 2 本バー 停止）。文言は aria-label が担う */}
+        {isActivePlayback ? (
+          <span className="episode-row__play-icon" aria-hidden="true">
+            <span className="episode-row__play-bar" />
+            <span className="episode-row__play-bar" />
+          </span>
+        ) : (
+          <span className="episode-row__play-glyph" aria-hidden="true">
+            {PLAY_GLYPH}
+          </span>
+        )}
       </button>
     </div>
   );

@@ -31,15 +31,15 @@ describe("EpisodeManuscript", () => {
     expect(container.firstElementChild?.className).toBe("episode-manuscript");
   });
 
-  it("導入（opening）を 00:00 の seek bar 付きで描画する", () => {
+  it("導入（opening）を 00:00 の seek bar 付きで描画する（見出し文言は持たない）", () => {
     // Given: body（durationSec 1000）
     const { container } = renderManuscript();
 
-    // Then: 「導入」見出し・00:00 の bar・opening 本文
+    // Then: 00:00 の bar・opening 本文だけ（「導入」の文言は出さない）
     const bar = container.querySelector("[data-manuscript-opening-start-sec]");
     expect(bar?.textContent).toBe("00:00");
     expect(container.querySelector("[data-manuscript-opening]")?.textContent).toBe("開始文");
-    expect(container.textContent).toContain("導入");
+    expect(container.textContent).not.toContain("導入");
   });
 
   it("まとめ（closing）を closing.startSec の seek bar 付きで描画する", () => {
@@ -50,7 +50,7 @@ describe("EpisodeManuscript", () => {
     const bar = container.querySelector("[data-manuscript-closing-start-sec]");
     expect(bar?.textContent).toBe("05:00");
     expect(container.querySelector("[data-manuscript-closing]")?.textContent).toBe("終了文");
-    expect(container.textContent).toContain("まとめ");
+    expect(container.textContent).not.toContain("まとめ");
   });
 
   it("導入の bar を押すと onSeek(0)、まとめの bar を押すと onSeek(closing.startSec)", () => {
