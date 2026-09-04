@@ -9,15 +9,15 @@
 事実:
 1. run 33760360649（`generator-produce-episode.yml` の workflow_dispatch）で以下の warning が出た。
    `Warning: Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-go@v5.`
-2. `.github/workflows/` 6 file 全てが `actions/checkout@v4` + `actions/setup-go@v5` を使う。`test-unit.yml` と `test-integration.yml` は加えて `actions/setup-node@v4` を使う。
+2. `.github/workflows/` 全 file が `actions/checkout@v4` を使う。Go 系は `actions/setup-go@v5`、Node 系（`test-unit` / `test-integration` / `playback-e2e`）は `actions/setup-node@v4` を使う。
 3. warning のみで run は成功する。runner が Node24 へ強制昇格させて実行している。
 
 仮定:
-1. `actions/checkout@v5` / `actions/setup-go@v6` / `actions/setup-node@v5` が Node24 target で、機能的な破壊的変更はこの repo の使い方（`go-version-file` / `node-version-file` / `cache`）には及ばない。実装時に各 release note で確認する。
+1. `actions/checkout@v5` / `actions/setup-go@v6` / `actions/setup-node@v5` が Node24 target（各 `action.yml` の `using: node24` で確認済み）。機能的な破壊的変更はこの repo の使い方（`go-version-file` / `node-version-file` / `cache`）には及ばない。
 
 ## 3. Canonical Sources
 
-1. `.github/workflows/*.yml` — 対象 6 file。各 file 冒頭の `@require` / `@invariant` comment が toolchain 前提の SSOT。
+1. `.github/workflows/*.yml` — 対象全 file。各 file 冒頭の `@require` / `@invariant` comment が toolchain 前提の SSOT。
 2. GitHub Changelog "Deprecation of Node 20 on GitHub Actions runners"（2025-09-19）— warning の出典。
 3. `apps/generator/go.mod` / `apps/playback/.nvmrc` — Go / Node version の SSOT。この Issue で変更しない。
 
@@ -25,9 +25,9 @@
 
 ### In Scope
 
-1. 6 workflow の `actions/checkout@v4` → 新 major。
-2. 6 workflow の `actions/setup-go@v5` → 新 major。
-3. `test-unit.yml` / `test-integration.yml` の `actions/setup-node@v4` → 新 major。
+1. 全 workflow の `actions/checkout@v4` → `@v5`（Node24）。
+2. Go 系 workflow の `actions/setup-go@v5` → `@v6`（Node24）。
+3. `test-unit.yml` / `test-integration.yml` / `playback-e2e.yml` の `actions/setup-node@v4` → `@v5`（Node24）。
 4. 各 action の `with:` block が新 major で有効かの確認と、必要なら key 名の追随。
 
 ### Out of Scope
@@ -43,13 +43,13 @@
 
 ## 6. Constraints
 
-1. 6 file すべてで同じ major version に揃える（Principle of Least Astonishment §4-5 / §5-1）。1 file だけ別 version にしない。
+1. 全 file で同じ major version に揃える（Principle of Least Astonishment §4-5 / §5-1）。1 file だけ別 version にしない。
 2. version は major pin（`@v5` 形式）にする。full-length SHA pin へ切り替えるのはこの Issue の scope 外。
 
 ## 7. Acceptance Criteria
 
-- [ ] `.github/workflows/*.yml` 6 file に `actions/checkout@v4` / `actions/setup-go@v5` / `actions/setup-node@v4` が残っていない。
-- [ ] 6 file の `actions/checkout` の major version が一致する。`actions/setup-go` も一致する。
+- [x] `.github/workflows/*.yml` に `actions/checkout@v4` / `actions/setup-go@v5` / `actions/setup-node@v4` が残っていない。
+- [x] 全 file の `actions/checkout` の major version が一致する。`actions/setup-go` / `actions/setup-node` もそれぞれ一致する。
 - [ ] いずれかの workflow を実行した run のログに "Node.js 20 is deprecated" の warning が出ない。
 - [ ] `test-unit` / `test-integration` の gate（static / Unit / race / integration）が緑のまま。
 - [ ] `generator-produce-episode` の workflow_dispatch が成功する（従来どおり）。
@@ -79,4 +79,5 @@ push で `test-unit` / `test-integration` が走るので、その run のログ
 
 - warning の初出は run 33760360649。
 - SHA pin による supply-chain 対策強化は別 follow-up 候補（この Issue の scope 外）。
-- `shim gh create-issue` での起票と Project 追加は別途行う（この task file 作成時点では未実行）。
+- Node24 最小 major: `checkout@v5` / `setup-go@v6` / `setup-node@v5`（各 `action.yml` の `using: node24`）。
+- local grep AC は満たした。run ログ AC は push 後に確認。
