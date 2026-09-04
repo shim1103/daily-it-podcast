@@ -1,16 +1,25 @@
-/* episode-manuscript — opening / topics / closing の読み物ブロック */
+/* episode-manuscript — 導入 / topics / まとめ の読み物ブロック
+ *
+ * 全体をわずかに明るい面で持ち上げ（夜地の上の "紙"）、本文と行の背景を分ける。
+ * 導入・まとめは topic と同じ見出し体裁（mm:ss の seek bar + title 2 行）を borrow する。
+ */
 
 .episode-manuscript {
   display: flex;
   flex-direction: column;
   gap: 0;
   margin: 0;
-  padding: 20px 0 0;
+  padding: 16px 18px 18px;
+  border-radius: 10px;
+  /* 夜地よりほんの少し明るい薄膜。accent もごく僅かに混ぜる */
+  background: color-mix(in srgb, var(--el-label) 5%, transparent);
 }
 
 .episode-manuscript > [data-manuscript-opening],
-.episode-manuscript > [data-manuscript-closing] {
-  margin: 0 0 1.1rem;
+.episode-manuscript > [data-manuscript-closing],
+.episode-manuscript .episode-topic--bookend [data-manuscript-opening],
+.episode-manuscript .episode-topic--bookend [data-manuscript-closing] {
+  margin: 0;
   color: var(--el-secondary);
   font-family:
     -apple-system,
@@ -24,7 +33,11 @@
   letter-spacing: -0.01em;
 }
 
-.episode-manuscript > [data-manuscript-closing] {
-  margin-top: 0.35rem;
+/* 導入・まとめ節は topic と同じ下マージンで揃える */
+.episode-manuscript .episode-topic--bookend {
+  margin: 0 0 1.35rem;
+}
+
+.episode-manuscript .episode-topic--bookend:last-of-type {
   margin-bottom: 0;
 }

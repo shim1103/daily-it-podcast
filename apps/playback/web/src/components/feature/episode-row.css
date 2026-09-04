@@ -1,0 +1,151 @@
+/* episode-row — 1 行の行本体。行全体が select hit、その横（右端中央）に「再生 / 停止」
+ *
+ * layout:
+ *   ┌─ episode-row（横並び・行全体が hover 対象）──────────────┐
+ *   │ ┌ __select（縦積み・flex:1）──────┐        [再生/停止]   │
+ *   │ │ 日付                            │  ← 右端中央にテキストだけ
+ *   │ │ 通し番号付き title              │                       │
+ *   │ │  （title↔topic に gap）          │                       │
+ *   │ │ topic 一覧                      │                       │
+ *   │ └────────────────────────────────┘                       │
+ *   └────────────────────────────────────────────────────────┘
+ * hover の色変化は `.episode-row` 全体で起こす（__select だけにしない）。
+ * 「再生」は右端中央、「再生」の文字ぶんだけを hit にする（pill 面・余白なし）。
+ * 色の軸の正本は `docs/decisions/2026-08-28T19-20-01-docs-playback-list-page-design.md`。
+ * 面はほぼ黒の夜地、accent は Apple system purple。紫は interactive 表示のみ。
+ * 文字サイズは旧 design（`--el-item-*-size`）に揃える。
+ * 選択中の横線・背景色・行間の空白は親（EpisodeItem）が持つ。ここでは持たない。
+ */
+
+.episode-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  color: var(--el-label);
+  transition: background-color 160ms ease;
+}
+
+/* hover / keyboard focus は行全体で色を変える（__select の中に閉じない） */
+.episode-row:hover,
+.episode-row:focus-within {
+  background-color: rgba(235, 235, 245, 0.06);
+}
+
+/* 日付 / title / topic を縦に積む select hit。行の残り幅をすべて取る。背景色は持たない */
+.episode-row > .episode-row__select {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: var(--el-item-pad-y) 0 var(--el-item-pad-y) var(--el-item-pad-x);
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  background-image: none;
+  color: var(--el-label);
+  font: inherit;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: normal;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.episode-row > .episode-row__select:focus-visible {
+  outline: none;
+}
+
+.episode-row__date {
+  min-width: 0;
+}
+
+.episode-row__date [data-episode-date] {
+  color: var(--el-secondary);
+  font-size: var(--el-item-meta-size);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.episode-row__title {
+  min-width: 0;
+}
+
+.episode-row__title [data-episode-title] {
+  display: block;
+  color: var(--el-label);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Helvetica Neue",
+    sans-serif;
+  font-size: var(--el-item-title-size);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+/* title と topic の間に少しだけ余白を足す（--el-row-title-topic-gap） */
+.episode-row__topics {
+  min-width: 0;
+  margin-top: var(--el-row-title-topic-gap);
+}
+
+.episode-row__topics [data-episode-topics] {
+  display: block;
+  color: var(--el-secondary);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Helvetica Neue",
+    sans-serif;
+  font-size: var(--el-list-topic-size);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+.episode-row__duration {
+  display: none;
+}
+
+/* 再生 / 停止 — 右端中央。Icon（▶ / ⏸）ぶんだけの hit（pill 面・padding なし）。
+ * 行 hover の色変化とは独立に、この Icon だけ accent 色で「押せる」ことを示す。 */
+.episode-row > .episode-row__play {
+  flex: 0 0 auto;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 var(--el-item-pad-x) 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--el-accent);
+  font-size: calc(var(--el-item-play-size) * 1.15);
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.episode-row > .episode-row__play:hover,
+.episode-row > .episode-row__play:focus-visible {
+  transform: scale(1.15);
+  outline: none;
+}
+
+.episode-row[data-playing="true"] > .episode-row__play {
+  color: var(--el-label);
+}

@@ -89,15 +89,21 @@ describe("deriveEpisodeRows", () => {
     expect(got).toEqual([]);
   });
 
-  it("選択中でも再生中でもない row は isSelected=false・isPlaying=false になる", () => {
+  it("選択中でも再生対象でもない row は isSelected=false・isActivePlayback=false・isPlaying=false になる", () => {
     // Given: 選択なし・再生なし
     // When: row を投影する
     const got = deriveEpisodeRows(episodes, { selection: noSelection, playback: idlePlayback });
 
     // Then: 全 row が false
     expect(got).toEqual([
-      { episode, episodeId: "ep-1", isSelected: false, isPlaying: false },
-      { episode: episodeTwo, episodeId: "ep-2", isSelected: false, isPlaying: false },
+      { episode, episodeId: "ep-1", isSelected: false, isActivePlayback: false, isPlaying: false },
+      {
+        episode: episodeTwo,
+        episodeId: "ep-2",
+        isSelected: false,
+        isActivePlayback: false,
+        isPlaying: false,
+      },
     ]);
   });
 
@@ -121,12 +127,18 @@ describe("deriveEpisodeRows", () => {
 
     // Then: ep-1 の row のみ isSelected=true
     expect(got).toEqual([
-      { episode, episodeId: "ep-1", isSelected: true, isPlaying: false },
-      { episode: episodeTwo, episodeId: "ep-2", isSelected: false, isPlaying: false },
+      { episode, episodeId: "ep-1", isSelected: true, isActivePlayback: false, isPlaying: false },
+      {
+        episode: episodeTwo,
+        episodeId: "ep-2",
+        isSelected: false,
+        isActivePlayback: false,
+        isPlaying: false,
+      },
     ]);
   });
 
-  it("kind=active かつ phase=playing で再生中の episode の row だけ isPlaying=true になる", () => {
+  it("kind=active かつ phase=playing で再生中の episode の row だけ isActivePlayback=true・isPlaying=true になる", () => {
     // Given: ep-2 を playing
     // When: row を投影する
     const got = deriveEpisodeRows(episodes, {
@@ -134,23 +146,62 @@ describe("deriveEpisodeRows", () => {
       playback: activePlayback({ episodeId: "ep-2", phase: { phase: "playing" } }),
     });
 
-    // Then: ep-2 の row のみ isPlaying=true
+    // Then: ep-2 の row のみ isActivePlayback=true かつ isPlaying=true
     expect(got).toEqual([
-      { episode, episodeId: "ep-1", isSelected: false, isPlaying: false },
-      { episode: episodeTwo, episodeId: "ep-2", isSelected: false, isPlaying: true },
+      { episode, episodeId: "ep-1", isSelected: false, isActivePlayback: false, isPlaying: false },
+      {
+        episode: episodeTwo,
+        episodeId: "ep-2",
+        isSelected: false,
+        isActivePlayback: true,
+        isPlaying: true,
+      },
     ]);
   });
 
-  it("kind=active でも phase が playing 以外なら isPlaying=false になる", () => {
-    // Given: ep-2 を paused（まだ playing ではない）
+  it("kind=active で phase=paused なら isActivePlayback=false（停止中はボタン「再生」に戻る）", () => {
+    // Given: ep-2 を paused（ユーザーが停止。位置は残るが再生進行中ではない）
     // When: row を投影する
     const got = deriveEpisodeRows(episodes, {
       selection: noSelection,
       playback: activePlayback({ episodeId: "ep-2", phase: { phase: "paused" } }),
     });
 
-    // Then: どの row も isPlaying=false
-    expect(got.every((row) => row.isPlaying === false)).toBe(true);
+    // Then: ep-2 も isActivePlayback=false・isPlaying=false（「再生」表示に戻り、押すと続きから）
+    expect(got[1]).toMatchObject({ episodeId: "ep-2", isActivePlayback: false, isPlaying: false });
+    expect(got.every((row) => row.isActivePlayback === false)).toBe(true);
+  });
+
+  it("kind=active で phase=ended / error でも isActivePlayback=false", () => {
+    // Given: ep-2 が ended
+    const endedRows = deriveEpisodeRows(episodes, {
+      selection: noSelection,
+      playback: activePlayback({ episodeId: "ep-2", phase: { phase: "ended" } }),
+    });
+    // Given: ep-2 が error
+    const errorRows = deriveEpisodeRows(episodes, {
+      selection: noSelection,
+      playback: activePlayback({
+        episodeId: "ep-2",
+        phase: { phase: "error", reason: "audio-load-failed" },
+      }),
+    });
+
+    // Then: どちらも再生進行中ではない
+    expect(endedRows[1]).toMatchObject({ episodeId: "ep-2", isActivePlayback: false });
+    expect(errorRows[1]).toMatchObject({ episodeId: "ep-2", isActivePlayback: false });
+  });
+
+  it("kind=active で phase=loading の episode は isActivePlayback=true になる（loading 中も停止できる）", () => {
+    // Given: ep-1 を loading
+    // When: row を投影する
+    const got = deriveEpisodeRows(episodes, {
+      selection: noSelection,
+      playback: activePlayback({ episodeId: "ep-1", phase: { phase: "loading" } }),
+    });
+
+    // Then: ep-1 は再生進行中（停止ボタン表示）
+    expect(got[0]).toMatchObject({ episodeId: "ep-1", isActivePlayback: true, isPlaying: false });
   });
 
   it("kind=idle なら全 row が isPlaying=false になる", () => {
