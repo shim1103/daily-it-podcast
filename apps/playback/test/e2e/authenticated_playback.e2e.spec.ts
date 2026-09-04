@@ -70,10 +70,10 @@ test.describe("authenticated playback remote e2e", () => {
     expect(src).toContain(FIXTURE_EPISODE_ID);
   });
 
-  test("seeking to the first topic moves audio currentTime to that topic's startSec, not 0", async ({
+  test("seeking to the first topic while stopped moves audio currentTime there without starting playback", async ({
     page,
   }) => {
-    // Given: 安定 fixture を選択し原稿を開く（再生は押さない）
+    // Given: 安定 fixture を選択し原稿を開く（再生は押さない＝停止中のまま）
     await page.goto("/");
     const list = page.locator(".episode-list");
     await expect(list.locator("[data-episode-title]").first()).toBeVisible({ timeout: 60_000 });
@@ -82,12 +82,13 @@ test.describe("authenticated playback remote e2e", () => {
       .filter({ has: page.locator("[data-episode-date]", { hasText: FIXTURE_DATE_UI }) });
     await fixtureRow.locator("button").first().click();
 
-    // When: 先頭 topic の seek bar を押す（音源未 load 状態からの seek）
+    // When: 先頭 topic の seek bar を押す（音源未 load 状態からの seek。停止中は再生を始めない仕様）
     const firstTopicSeek = page.locator(".episode-topic [data-topic-start-sec]").first();
     await expect(firstTopicSeek).toBeVisible({ timeout: 60_000 });
     await firstTopicSeek.click();
 
-    // Then: <audio> の currentTime が topic の startSec 付近へ動く（0:00 に落ちない）
+    // Then: <audio> の currentTime が topic の startSec 付近へ動く（0:00 に落ちない）が、
+    //   再生は始まらない（paused のまま）。currentTime は loadedmetadata 後の反映を待つ
     const audio = page.locator(".audio-controls audio");
     await expect(audio).toBeVisible({ timeout: 60_000 });
     await expect
@@ -95,5 +96,6 @@ test.describe("authenticated playback remote e2e", () => {
         timeout: 30_000,
       })
       .toBeGreaterThan(FIXTURE_FIRST_TOPIC_START_SEC - 5);
+    await expect(audio).toHaveJSProperty("paused", true);
   });
 });
