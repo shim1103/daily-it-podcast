@@ -56,12 +56,13 @@ func TestSpeechTexts_returnsTopicPlusTwoBundles_inGreetingIntroTopicsClosingSumm
 	// When: TTS text 列を組む
 	got := build.SpeechTexts("あいさつ文", "おわりの文。", d)
 
-	// Then: 本数は 1 + topic 数 + 1。greeting+intro / topic ごと preface+detail / closingSummary+farewell を改行連結
+	// Then: 本数は 1 + topic 数 + 1。境界は改行 3 個（detail 内の改行 1 個と区別）
+	sep := "\n\n\n"
 	want := []string{
-		"あいさつ文\n本日の導入です。",
-		"前置きいち。\n詳細いち。",
-		"前置きにい。\n詳細にい。",
-		"本日のまとめです。\nおわりの文。",
+		"あいさつ文" + sep + "本日の導入です。",
+		"前置きいち。" + sep + "詳細いち。",
+		"前置きにい。" + sep + "詳細にい。",
+		"本日のまとめです。" + sep + "おわりの文。",
 	}
 	assertStrings(t, got, want)
 }
@@ -164,8 +165,8 @@ func TestMarshalManuscript_marshalsAllFields_whenInputsValid(t *testing.T) {
 
 	// Given: episodeID・date・title・durationSec・opening（挨拶+intro）・draft・topicStartSecs・ending（summary+farewell）
 	d := draftFixture()
-	opening := "おはようございます。2026年8月31日です。\n" + d.Intro
-	ending := d.ClosingSummary + "\n以上、2026年8月31日のITニュースでした。"
+	opening := "おはようございます。2026年8月31日です。\n\n\n" + d.Intro
+	ending := d.ClosingSummary + "\n\n\n以上、2026年8月31日のITニュースでした。"
 	in := build.ManuscriptInput{
 		EpisodeID:      "ep-fixed-0001",
 		Date:           "2026-08-31",

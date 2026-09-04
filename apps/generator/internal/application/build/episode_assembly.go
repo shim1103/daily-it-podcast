@@ -15,19 +15,21 @@ const speechSegmentsBeforeTopics = 1
 // speechSegmentsPerTopic は 1 topic あたりの segment 数（Preface+Detail を 1 本に束ねる）。
 const speechSegmentsPerTopic = 1
 
-// speechTextBundleDelimiter は束ねる 2 文の連結 delimiter。改行 1 個で TTS の自然な間を保つ。
-const speechTextBundleDelimiter = "\n"
+// speechTextBundleDelimiter は greeting/intro・preface/detail・closing/farewell の境界。
+// Cursor が topic.detail 内で使う改行（最大1個）と区別するため改行3個。
+const speechTextBundleDelimiter = "\n\n\n"
 
 // SpeechTexts は TTS へ渡す朗読 text 列を発話順で返す。
 //
 // TTS の request 回数を無料枠 quota 内へ抑えるため、朗読 text を topic+2 束へまとめる（Decision 2026-09-02T13-55-00）。
+// 境界 delimiter は改行3個（Decision 2026-09-04T17-05-00）。
 //
 // @require greeting は非空。farewell も非空（date 注入済みの文）。d は検証済み ManuscriptDraft。
 // @ensure 本数は 1 + len(d.Topics) + 1。順序は次のとおり:
 //
-//	texts[0]  = greeting + "\n" + d.Intro
-//	texts[1..] = 各 topic の Preface + "\n" + Detail（topic 順）
-//	texts[末尾] = d.ClosingSummary + "\n" + farewell
+//	texts[0]  = greeting + "\n\n\n" + d.Intro
+//	texts[1..] = 各 topic の Preface + "\n\n\n" + Detail（topic 順）
+//	texts[末尾] = d.ClosingSummary + "\n\n\n" + farewell
 func SpeechTexts(greeting, farewell string, d models.ManuscriptDraft) []string {
 	texts := make([]string, 0, speechSegmentsBeforeTopics+speechSegmentsPerTopic*len(d.Topics)+1)
 	texts = append(texts, greeting+speechTextBundleDelimiter+d.Intro)

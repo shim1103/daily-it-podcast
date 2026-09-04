@@ -240,7 +240,8 @@ func TestProduceEpisodeRun_writesEpisodeWithAssembledManuscriptAndAudio_whenAllS
 	}
 	wantGreeting := fmt.Sprintf(constants.OpeningGreetingTemplate, "2026年8月31日")
 	wantFarewell := fmt.Sprintf(constants.ClosingFarewell, "2026年8月31日")
-	wantOpening := wantGreeting + "\n" + wireIntroOf(t, h.writer.out)
+	bundleSep := "\n\n\n"
+	wantOpening := wantGreeting + bundleSep + wireIntroOf(t, h.writer.out)
 	if m.Body.Opening != wantOpening {
 		t.Fatalf("body.opening = %q, want %q", m.Body.Opening, wantOpening)
 	}
@@ -252,7 +253,7 @@ func TestProduceEpisodeRun_writesEpisodeWithAssembledManuscriptAndAudio_whenAllS
 		t.Fatalf("title = %q, want wire title %q", m.Title, wantTitle)
 	}
 	// body.ending は closingSummary + farewell（TTS が読む原稿そのものを入れる）
-	wantEnding := wireClosingSummaryOf(t, h.writer.out) + "\n" + wantFarewell
+	wantEnding := wireClosingSummaryOf(t, h.writer.out) + bundleSep + wantFarewell
 	if m.Body.Ending != wantEnding {
 		t.Fatalf("body.ending = %q, want %q", m.Body.Ending, wantEnding)
 	}
@@ -289,9 +290,10 @@ func TestProduceEpisodeRun_synthesizesTopicPlusTwoBundles_whenDraftHasTopics(t *
 	if h.synth.texts[0] != m.Body.Opening {
 		t.Fatalf("texts[0] = %q, want body.opening %q", h.synth.texts[0], m.Body.Opening)
 	}
-	// 中間束は topic ごとの preface + "\n" + detail。
+	// 中間束は topic ごとの preface + 改行3個 + detail。
+	bundleSep := "\n\n\n"
 	for i := 0; i < topicCount; i++ {
-		want := m.Body.Topics[i].Preface + "\n" + m.Body.Topics[i].Detail
+		want := m.Body.Topics[i].Preface + bundleSep + m.Body.Topics[i].Detail
 		if got := h.synth.texts[1+i]; got != want {
 			t.Fatalf("texts[%d] = %q, want topic[%d] bundle %q", 1+i, got, i, want)
 		}
