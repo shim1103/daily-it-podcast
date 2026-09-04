@@ -36,7 +36,7 @@ test.describe("authenticated playback remote e2e", () => {
 
     // When: 安定 fixture 行の select ボタン（Row 先頭 button）を押す
     const fixtureRow = list
-      .locator("article.episode-row")
+      .locator("article.episode-item")
       .filter({ has: page.locator("[data-episode-date]", { hasText: FIXTURE_DATE_UI }) });
     await fixtureRow.locator("button").first().click();
 
@@ -53,7 +53,7 @@ test.describe("authenticated playback remote e2e", () => {
     const list = page.locator(".episode-list");
     await expect(list.locator("[data-episode-title]").first()).toBeVisible({ timeout: 60_000 });
     const fixtureRow = list
-      .locator("article.episode-row")
+      .locator("article.episode-item")
       .filter({ has: page.locator("[data-episode-date]", { hasText: FIXTURE_DATE_UI }) });
     // why: 新 UI では audio は再生（Row の 2 個目の button）で現れる。select では現れない
     await fixtureRow.getByRole("button", { name: "再生" }).click();
