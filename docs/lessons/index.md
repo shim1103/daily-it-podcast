@@ -223,3 +223,8 @@
 - 2026-09-04 [feature/generator-system-e2e-produce-episode] default branch（本番リリース系）へ向けた review 前の branch は、prefix 規約（drafts/ や backup/ 等）に従わないと push 段階で弾かれることがある。chore/ feat/ のような通常 prefix は integration branch 向け。master 直行の先行配置 PR は draft 系 prefix で切る  # → layer:workflow
 - 2026-09-04 [feature/generator-system-e2e-produce-episode] 運用の「何を守るか」を 1 箇所（運用 SSOT 文書の該当節）に集約したら、それまで別 file（PASS 率台帳・進捗メモ等）で二重管理していた運用ルールは削除する。台帳が「実測ログの蓄積」なら残すが、「ルールの記述」部分は SSOT へ寄せて重複を消す  # → layer:workflow
 - 2026-09-04 [feature/generator-system-e2e-produce-episode] merge で相手側が方針文書を lean な index へ大幅トリムしていたら、自分側の詳細追記を conflict 解決で丸ごと復元せず、相手の新しい構造を base に「相手にまだ無い事実」だけを相手の粒度で再挿入する。文書の縮約自体が相手の意図した変更なので、それを打ち消さない  # → layer:workflow
+- 2026-09-04 [feature/playback-e2e-redeploy-master] 読み上げ原稿の永続契約（Drive 等）に載せる本文は、生成パイプライン都合の中間形ではなく、最終的に読み上げられる全文そのものにする。定型挨拶を別工程で足す実装でも、契約側から定型を落として「導入だけ」を残すと、契約が application 都合に従属し、消費者は全文を再構成できない  # → layer:terms
+- 2026-09-04 [feature/playback-e2e-redeploy-master] CI の集計 script は fail/skip 件数が 0 のときも成功として exit 0 にする。`set -o pipefail` 下で「件数未定義」「空比較」を失敗扱いすると、本体 test が全 PASS でも workflow 全体だけが赤になる  # → layer:platform
+- 2026-09-04 [feature/playback-e2e-redeploy-master] LLM が書く本文内の段落改行と、組み立て側が入れる field 境界 delimiter は改行の個数で区別する。前者は最大1・後者は複数、のように差を付け、前者の強制 validation は再発コストが見合うまで入れない（prompt 誘導で足りる間は YAGNI）  # → layer:terms
+- 2026-09-04 [feature/playback-e2e-redeploy-master] 音声合成で「自然な息・間」と「確実な無音」を混同しない。前者は style prompt / audio tag、後者は合成後の PCM 無音挿入。読み上げ入力へ pause メタを混ぜると、メタ自体が読み上げられるリスクがある  # → layer:platform
+- 2026-09-04 [feature/playback-e2e-redeploy-master] 「欠けている定型文」を見たとき、まず契約と朗読入力のどちらが SSoT かを確認する。契約側に意図的に載せていない設計なら「バグ」ではなく境界の説明不足であり、SSoT が契約側なら定型を契約へ戻す  # → layer:workflow
