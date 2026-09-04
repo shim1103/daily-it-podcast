@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { ErrorResponseSchema, listEpisodesPath } from "../../contracts/index.ts";
 import workerEntry from "../../worker/src/worker-entry.ts";

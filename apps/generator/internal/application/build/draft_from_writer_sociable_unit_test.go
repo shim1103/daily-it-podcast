@@ -176,6 +176,21 @@ func TestManuscriptDraftFromWriterOutput_acceptsWire_whenWrappedInCodeFence(t *t
 	}
 }
 
+func TestManuscriptDraftFromWriterOutput_acceptsWire_whenProsePrecedesJSONObject(t *testing.T) {
+	t.Parallel()
+
+	// Given: Cursor 実測どおり先頭に日本語散文があり、その後ろに valid wire
+	raw := "了解しました。以下が原稿です。\n" + validWire()
+
+	// When: parse する
+	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+
+	// Then: 先頭散文を落として wire として受理する
+	if err != nil {
+		t.Fatalf("ManuscriptDraftFromWriterOutput: 先頭散文付き wire の受理失敗: %v", err)
+	}
+}
+
 // --- 異常系 ---
 
 func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenJSONIsMalformed(t *testing.T) {

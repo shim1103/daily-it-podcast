@@ -37,7 +37,7 @@ const validList = {
       title: "題",
       durationSec: 60,
       body: {
-        opening: "開始",
+        opening: { text: "開始", startSec: 0 },
         topics: [
           {
             title: "題",
@@ -46,7 +46,7 @@ const validList = {
             startSec: 0,
           },
         ],
-        closing: "終了",
+        ending: { text: "終了", startSec: 55 },
       },
       audioRef: episodeAudioPath("ep-1"),
     },
@@ -132,6 +132,24 @@ describe("app", () => {
     expect(got.headers.get("Content-Type")).toBe(episodeAudioContentType);
     const bytes = new Uint8Array(await got.arrayBuffer());
     expect(bytes).toEqual(validAudioBytes);
+  });
+
+  it("音声 GET が Range header 付きの時、206 で該当範囲だけ返す", async () => {
+    // Given: Composition が音声 byte を返す
+    vi.mocked(getAudioController).mockResolvedValue(validAudioBytes);
+
+    // When: Range header 付きで音声 path へ GET する
+    const got = await app.request(
+      `${origin}${episodeAudioPath("ep-1")}`,
+      { headers: { Range: `bytes=1-2` } },
+      emptyEnv,
+    );
+
+    // Then: 206・Content-Range・該当 2 byte
+    expect(got.status).toBe(206);
+    expect(got.headers.get("Content-Range")).toBe(`bytes 1-2/${validAudioBytes.length}`);
+    const bytes = new Uint8Array(await got.arrayBuffer());
+    expect(bytes).toEqual(validAudioBytes.subarray(1, 3));
   });
 
   it("音声 GET の path param を unknown の episodeId として Controller に渡す", async () => {

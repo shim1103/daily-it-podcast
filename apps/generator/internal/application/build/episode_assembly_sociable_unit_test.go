@@ -47,7 +47,7 @@ func draftFixture() models.ManuscriptDraft {
 
 // --- SpeechTexts ---
 
-func TestSpeechTexts_returnsGreetingIntroTopicsClosingSummaryFarewellOrder(t *testing.T) {
+func TestSpeechTexts_returnsTopicPlusTwoBundles_inGreetingIntroTopicsClosingSummaryFarewellOrder(t *testing.T) {
 	t.Parallel()
 
 	// Given: greeting・farewell（date 注入済みの非空文）+ 2 topic の draft
@@ -56,37 +56,36 @@ func TestSpeechTexts_returnsGreetingIntroTopicsClosingSummaryFarewellOrder(t *te
 	// When: TTS text 列を組む
 	got := build.SpeechTexts("あいさつ文", "おわりの文。", d)
 
-	// Then: Greeting, Intro, (Preface, Detail)×topic, ClosingSummary, ClosingFarewell の順
+	// Then: 本数は 1 + topic 数 + 1。境界は改行 3 個（detail 内の改行 1 個と区別）
+	sep := "\n\n\n"
 	want := []string{
-		"あいさつ文",
-		"本日の導入です。",
-		"前置きいち。", "詳細いち。",
-		"前置きにい。", "詳細にい。",
-		"本日のまとめです。",
-		"おわりの文。",
+		"あいさつ文" + sep + "本日の導入です。",
+		"前置きいち。" + sep + "詳細いち。",
+		"前置きにい。" + sep + "詳細にい。",
+		"本日のまとめです。" + sep + "おわりの文。",
 	}
 	assertStrings(t, got, want)
 }
 
 // --- Timeline ---
 
-func TestTimeline_accumulatesSegmentDurationsWithSilence_andRecordsPrefaceStartPerTopic(t *testing.T) {
+func TestTimeline_accumulatesSegmentDurationsWithSilence_andRecordsBundleStartPerTopic(t *testing.T) {
 	t.Parallel()
 
-	// Given: Greeting + Intro + topic×2 + ClosingSummary + Farewell の 8 segment、各尺は既知、topic 数 2
-	//        [greeting, intro, preface0, detail0, preface1, detail1, closingSummary, farewell]
-	durs := []float64{2, 3, 4, 5, 6, 7, 8, 9}
+	// Given: greeting+intro 束 + topic 束×2 + closingSummary+farewell 束 の 4 segment、各尺は既知、topic 数 2
+	//        [greetingIntro, topic0, topic1, closingSummaryFarewell]
+	durs := []float64{5, 9, 13, 17}
 	s := constants.SegmentSilenceSec
 
 	// When: timeline を組む
-	starts, total, err := build.Timeline(durs, 2)
+	starts, closingStart, total, err := build.Timeline(durs, 2)
 
-	// Then: topic0.startSec = greeting + S + intro + S
+	// Then: topic0 束の開始 = greetingIntro + S
 	if err != nil {
 		t.Fatalf("Timeline: %v", err)
 	}
-	want0 := 2 + s + 3 + s
-	want1 := want0 + 4 + s + 5 + s
+	want0 := 5 + s
+	want1 := want0 + 9 + s
 	if len(starts) != 2 {
 		t.Fatalf("starts len = %d, want 2", len(starts))
 	}
@@ -97,8 +96,14 @@ func TestTimeline_accumulatesSegmentDurationsWithSilence_andRecordsPrefaceStartP
 		t.Fatalf("starts[1] = %v, want %v", starts[1], want1)
 	}
 
+	// Then: closingSummary+farewell 束（末尾 segment）の開始 = topic1 束開始 + topic1 尺 + S
+	wantClosing := want1 + 13 + s
+	if math.Abs(closingStart-wantClosing) > 1e-9 {
+		t.Fatalf("closingStart = %v, want %v", closingStart, wantClosing)
+	}
+
 	// Then: total = 全 segment 尺合計 + S*(segment数-1)
-	wantTotal := (2.0 + 3 + 4 + 5 + 6 + 7 + 8 + 9) + s*7
+	wantTotal := (5.0 + 9 + 13 + 17) + s*3
 	if math.Abs(total-wantTotal) > 1e-9 {
 		t.Fatalf("total = %v, want %v", total, wantTotal)
 	}
@@ -107,25 +112,30 @@ func TestTimeline_accumulatesSegmentDurationsWithSilence_andRecordsPrefaceStartP
 func TestTimeline_returnsSingleTopicStart_whenTopicCountIsOne(t *testing.T) {
 	t.Parallel()
 
-	// Given: 1 topic、farewell 込み 6 segment [greeting, intro, preface0, detail0, closingSummary, farewell]
-	durs := []float64{1, 2, 3, 4, 5, 6}
+	// Given: 1 topic、3 segment [greetingIntro, topic0, closingSummaryFarewell]
+	durs := []float64{1, 2, 3}
 	s := constants.SegmentSilenceSec
 
 	// When: timeline を組む
-	starts, total, err := build.Timeline(durs, 1)
+	starts, closingStart, total, err := build.Timeline(durs, 1)
 
-	// Then: topic0 の開始は greeting + S + intro + S
+	// Then: topic0 束の開始は greetingIntro + S
 	if err != nil {
 		t.Fatalf("Timeline: %v", err)
 	}
 	if len(starts) != 1 {
 		t.Fatalf("starts len = %d, want 1", len(starts))
 	}
-	want0 := 1 + s + 2 + s
+	want0 := 1 + s
 	if math.Abs(starts[0]-want0) > 1e-9 {
 		t.Fatalf("starts[0] = %v, want %v", starts[0], want0)
 	}
-	wantTotal := 21.0 + s*5
+	// Then: closingSummary+farewell 束の開始 = topic0 束開始 + topic0 尺 + S
+	wantClosing := want0 + 2 + s
+	if math.Abs(closingStart-wantClosing) > 1e-9 {
+		t.Fatalf("closingStart = %v, want %v", closingStart, wantClosing)
+	}
+	wantTotal := 6.0 + s*2
 	if math.Abs(total-wantTotal) > 1e-9 {
 		t.Fatalf("total = %v, want %v", total, wantTotal)
 	}
@@ -134,14 +144,14 @@ func TestTimeline_returnsSingleTopicStart_whenTopicCountIsOne(t *testing.T) {
 func TestTimeline_returnsInconsistentEpisodeAssembly_whenSegmentCountMismatchesTopicCount(t *testing.T) {
 	t.Parallel()
 
-	// Given: topic 数 2 に対し segment 数が固定期待本数（2 + 2*2 + 2 = 8）と一致しない
+	// Given: topic 数 2 に対し segment 数が固定期待本数（1 + 2 + 1 = 4）と一致しない
 	// When: timeline を組む
-	starts, total, err := build.Timeline([]float64{1, 2, 3}, 2)
+	starts, closingStart, total, err := build.Timeline([]float64{1, 2, 3}, 2)
 
 	// Then: Op = inconsistent_episode_assembly の Domain Error。結果は返らない
 	assertInconsistentEpisodeAssembly(t, err)
-	if starts != nil || total != 0 {
-		t.Fatalf("starts/total = %v / %v, want nil / 0", starts, total)
+	if starts != nil || closingStart != 0 || total != 0 {
+		t.Fatalf("starts/closingStart/total = %v / %v / %v, want nil / 0 / 0", starts, closingStart, total)
 	}
 }
 
@@ -150,12 +160,12 @@ func TestTimeline_returnsInconsistentEpisodeAssembly_whenTopicCountBelowOne(t *t
 
 	// Given: topicCount = 0（下限割れ）
 	// When: timeline を組む
-	starts, total, err := build.Timeline([]float64{1, 2}, 0)
+	starts, closingStart, total, err := build.Timeline([]float64{1, 2}, 0)
 
 	// Then: Op = inconsistent_episode_assembly の Domain Error
 	assertInconsistentEpisodeAssembly(t, err)
-	if starts != nil || total != 0 {
-		t.Fatalf("starts/total = %v / %v, want nil / 0", starts, total)
+	if starts != nil || closingStart != 0 || total != 0 {
+		t.Fatalf("starts/closingStart/total = %v / %v / %v, want nil / 0 / 0", starts, closingStart, total)
 	}
 }
 
@@ -164,17 +174,20 @@ func TestTimeline_returnsInconsistentEpisodeAssembly_whenTopicCountBelowOne(t *t
 func TestMarshalManuscript_marshalsAllFields_whenInputsValid(t *testing.T) {
 	t.Parallel()
 
-	// Given: episodeID・date・title・durationSec・opening・draft・topicStartSecs・closing
+	// Given: episodeID・date・title・durationSec・opening（挨拶+intro 朗読全文）・draft・topicStartSecs・ending（summary+farewell 朗読全文）・endingStartSec
 	d := draftFixture()
+	opening := "おはようございます。2026年8月31日です。\n\n\n" + d.Intro
+	ending := d.ClosingSummary + "\n\n\n以上、2026年8月31日のITニュースでした。"
 	in := build.ManuscriptInput{
 		EpisodeID:      "ep-fixed-0001",
 		Date:           "2026-08-31",
 		Title:          d.Title,
 		DurationSec:    123,
-		Opening:        "おはようございます。2026年8月31日です。",
+		Opening:        opening,
 		Draft:          d,
 		TopicStartSecs: []float64{10, 40},
-		Closing:        d.ClosingSummary,
+		Ending:         ending,
+		EndingStartSec: 100,
 	}
 
 	// When: JSON bytes を組む
@@ -190,14 +203,20 @@ func TestMarshalManuscript_marshalsAllFields_whenInputsValid(t *testing.T) {
 		Title       string  `json:"title"`
 		DurationSec float64 `json:"durationSec"`
 		Body        struct {
-			Opening string `json:"opening"`
-			Topics  []struct {
+			Opening struct {
+				Text     string  `json:"text"`
+				StartSec float64 `json:"startSec"`
+			} `json:"opening"`
+			Topics []struct {
 				Title    string  `json:"title"`
 				Preface  string  `json:"preface"`
 				Detail   string  `json:"detail"`
 				StartSec float64 `json:"startSec"`
 			} `json:"topics"`
-			Closing string `json:"closing"`
+			Ending struct {
+				Text     string  `json:"text"`
+				StartSec float64 `json:"startSec"`
+			} `json:"ending"`
 		} `json:"body"`
 	}
 	if err := json.Unmarshal(got, &m); err != nil {
@@ -209,8 +228,14 @@ func TestMarshalManuscript_marshalsAllFields_whenInputsValid(t *testing.T) {
 	if m.DurationSec != 123 {
 		t.Fatalf("durationSec = %v, want 123", m.DurationSec)
 	}
-	if m.Body.Opening != in.Opening || m.Body.Closing != d.ClosingSummary {
-		t.Fatalf("body opening/closing = %q / %q", m.Body.Opening, m.Body.Closing)
+	if m.Body.Opening.Text != opening || m.Body.Ending.Text != ending {
+		t.Fatalf("body opening.text/ending.text = %q / %q", m.Body.Opening.Text, m.Body.Ending.Text)
+	}
+	if m.Body.Opening.StartSec != 0 {
+		t.Fatalf("body opening.startSec = %v, want 0", m.Body.Opening.StartSec)
+	}
+	if m.Body.Ending.StartSec != 100 {
+		t.Fatalf("body ending.startSec = %v, want 100", m.Body.Ending.StartSec)
 	}
 	if len(m.Body.Topics) != 2 {
 		t.Fatalf("topics len = %d, want 2", len(m.Body.Topics))
@@ -237,7 +262,8 @@ func TestMarshalManuscript_returnsInconsistentEpisodeAssembly_whenTopicStartSecs
 		Opening:        "x",
 		Draft:          d,
 		TopicStartSecs: []float64{10},
-		Closing:        d.ClosingSummary,
+		Ending:         "y",
+		EndingStartSec: 100,
 	}
 
 	// When: JSON bytes を組む

@@ -1,14 +1,10 @@
 package gemini
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
@@ -19,173 +15,70 @@ const geminiAPIKeyHeader = "x-goog-api-key"
 
 var _ port.SpeechSynthesizer = (*SpeechSynthesizer)(nil)
 
+// synthesizeBudget と maxAttempts の関係:
+//   - MaxAttempts   : 1 セグメントが連続で消費してよい上限（暴走ガード）。
+//   - SynthesizeBudget: 1 度の SynthesizeAll 全体で許す合計上限（RPD ガード）。
+//     各セグメントは min(MaxAttempts, 残予算) 回まで。
+
 type SpeechSynthesizer struct {
 	client         *http.Client
 	apiKey         string
 	backoffSleepFn func(time.Duration) // why: test の並列実行と共存するため package global に置かない
+	lastCallAt     time.Time
+	nowFn          func() time.Time
+	// why: 429 頻度と総所要のトレードオフを実測で詰めるため、待機系パラメータを field 化して
+	//      rate 計測 test から注入で差し替える（Decision 2026-09-03T14-46-00）。
+	//      既定 constructor は default* const を入れるので挙動は不変。MaxAttempts は注入対象外。
+	callGap          time.Duration
+	retryBackoffBase time.Duration
+	retryBackoffMax  time.Duration
 }
 
-// NewSpeechSynthesizer は Gemini TTS Adapter を返す。
+// SynthesizeAll は texts を順に朗読音声へ変換し、セグメント単位の WAV 列（結合しない）を返す。
+// retry 予算・callGap・RPD quota は Adapter 定数 = vendor 固有制約であり、
+// 「1 episode 分の TTS 呼び出し群」を束ねて管理するのは Adapter の責務。
+// @require texts の各要素は trim 後に非空。朗読本文のみ。
+// @ensure 成功時は len(texts) と同数の非空・最小尺 WAV を返す（結合しない）。
+// @ensure 呼び出し全体で Gemini 呼び出し合計を SynthesizeBudget 回以内へ抑える。
 //
-// @require httpClient != nil
-// @ensure apiKey は x-goog-api-key header にだけ使い、保存元の知識は持たない。
-func NewSpeechSynthesizer(httpClient *http.Client, apiKey string) *SpeechSynthesizer {
-	return newSpeechSynthesizer(httpClient, apiKey, time.Sleep)
-}
-
-// newSpeechSynthesizer は backoff の sleep 関数を差し込める内部 constructor。
-// why: NewSpeechSynthesizer は本番の time.Sleep を固定し、test は待ちを潰す fake を渡す。
-func newSpeechSynthesizer(httpClient *http.Client, apiKey string, backoffSleepFn func(time.Duration)) *SpeechSynthesizer {
-	if backoffSleepFn == nil {
-		backoffSleepFn = time.Sleep
-	}
-	return &SpeechSynthesizer{client: httpClient, apiKey: apiKey, backoffSleepFn: backoffSleepFn}
-}
-
-func (s *SpeechSynthesizer) Synthesize(ctx context.Context, text string) (models.SpeechAudio, error) {
+//	1 セグメントは min(MaxAttempts, 残予算) 回まで。合計が SynthesizeBudget へ達したら以降のセグメントは即 error。
+func (s *SpeechSynthesizer) SynthesizeAll(ctx context.Context, texts []string) ([]models.SpeechAudio, error) {
 	if s == nil || s.client == nil {
-		return models.SpeechAudio{}, infraErr("synthesize", fmt.Errorf("client is nil"))
-	}
-	backoffSleepFn := s.backoffSleepFn
-	if backoffSleepFn == nil {
-		backoffSleepFn = time.Sleep
+		return nil, infraErr("synthesize", fmt.Errorf("client is nil"))
 	}
 
-	trimmed := strings.TrimSpace(text)
-	if trimmed == "" {
-		return models.SpeechAudio{}, infraErr("validate_text", fmt.Errorf("text is empty after trim"))
-	}
-
-	var lastErr error
-	for attempt := 1; attempt <= MaxAttempts; attempt++ {
-		pcm, retryable, err := s.fetchPCM(ctx, trimmed)
-		if err == nil {
-			wav, err := pcmToWAV(pcm)
-			if err != nil {
-				return models.SpeechAudio{}, infraErr("pcm_to_wav", err)
-			}
-			return models.SpeechAudio{Content: wav}, nil
+	audios := make([]models.SpeechAudio, 0, len(texts))
+	callsSpent := 0
+	for i, text := range texts {
+		remaining := SynthesizeBudget - callsSpent
+		if remaining <= 0 {
+			// why: ここへ来る前に必ず 1 セグメント以上を消費している。合計予算が尽きた。
+			return nil, infraErr("synthesize_budget", fmt.Errorf(
+				"gemini call budget exhausted at segment %d/%d: spent %d of %d", i+1, len(texts), callsSpent, SynthesizeBudget))
 		}
-		lastErr = err
-		if !retryable || attempt == MaxAttempts {
-			return models.SpeechAudio{}, lastErr
+		maxAttempts := MaxAttempts
+		if remaining < maxAttempts {
+			maxAttempts = remaining
 		}
-		backoffSleepFn(retryDelay(attempt))
+		audio, used, err := s.synthesizeOne(ctx, text, maxAttempts)
+		callsSpent += used
+		if err != nil {
+			return nil, err
+		}
+		audios = append(audios, audio)
 	}
-	return models.SpeechAudio{}, lastErr
+	return audios, nil
 }
 
-func retryDelay(attempt int) time.Duration {
-	// why: 公式 troubleshooting の exponential backoff（1s, 2s, 4s…）に合わせる。
-	if attempt < 1 {
-		attempt = 1
+// sameGeminiOp は 2 つの error がともに *gemini.Error で Op 文字列が一致するかを返す。
+// 片方でも *gemini.Error でなければ false。
+func sameGeminiOp(prev, cur error) bool {
+	if prev == nil || cur == nil {
+		return false
 	}
-	return time.Second << (attempt - 1)
-}
-
-func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]byte, bool, error) {
-	body, err := json.Marshal(interactionRequest{
-		Model:  ModelID,
-		Input:  buildInput(transcript),
-		Format: responseFormat{Type: "audio"},
-		GenerationConfig: generationConfig{
-			SpeechConfig: []speechConfig{{Voice: VoiceName}},
-		},
-	})
-	if err != nil {
-		return nil, false, infraErr("marshal_request", err)
+	var prevErr, curErr *Error
+	if !errors.As(prev, &prevErr) || !errors.As(cur, &curErr) {
+		return false
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, EndpointURL, bytes.NewReader(body))
-	if err != nil {
-		return nil, false, infraErr("build_request", err)
-	}
-	req.Header.Set(geminiAPIKeyHeader, s.apiKey)
-	res, err := s.client.Do(req)
-	if err != nil {
-		return nil, true, infraErr("do", err)
-	}
-	defer func() { _ = res.Body.Close() }()
-
-	raw, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, true, infraErr("read_body", err)
-	}
-
-	if prohibited := detectProhibitedContent(raw); prohibited {
-		return nil, false, infraErr("prohibited_content", fmt.Errorf("PROHIBITED_CONTENT"))
-	}
-
-	// why: MaxAttempts と公式 troubleshooting（429/503/5xx retry、400/403 は retry しない）に従い retryable を分岐する。
-	switch {
-	case res.StatusCode == http.StatusBadRequest, res.StatusCode == http.StatusForbidden:
-		return nil, false, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
-	case res.StatusCode == http.StatusTooManyRequests, res.StatusCode == http.StatusServiceUnavailable:
-		return nil, true, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
-	case res.StatusCode >= 500:
-		return nil, true, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
-	case res.StatusCode != http.StatusOK:
-		return nil, false, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
-	}
-
-	pcm, err := decodePCM(raw)
-	if err != nil {
-		// why: 公式 Limitation。audio 欠落 500 相当は一過性として retry する。
-		return nil, true, infraErr("decode_pcm", err)
-	}
-	return pcm, false, nil
-}
-
-func buildInput(transcript string) string {
-	return EnvelopePreamble + TranscriptLabel + transcript
-}
-
-func detectProhibitedContent(body []byte) bool {
-	return strings.Contains(string(body), "PROHIBITED_CONTENT")
-}
-
-func decodePCM(body []byte) ([]byte, error) {
-	var parsed interactionResponse
-	if err := json.Unmarshal(body, &parsed); err != nil {
-		return nil, err
-	}
-	data := strings.TrimSpace(parsed.OutputAudio.Data)
-	if data == "" {
-		return nil, fmt.Errorf("output audio is missing")
-	}
-	pcm, err := base64.StdEncoding.DecodeString(data)
-	if err != nil {
-		return nil, err
-	}
-	if len(pcm) == 0 {
-		return nil, fmt.Errorf("output audio is empty")
-	}
-	return pcm, nil
-}
-
-type interactionRequest struct {
-	Model            string           `json:"model"`
-	Input            string           `json:"input"`
-	Format           responseFormat   `json:"response_format"`
-	GenerationConfig generationConfig `json:"generation_config"`
-}
-
-type responseFormat struct {
-	Type string `json:"type"`
-}
-
-type generationConfig struct {
-	SpeechConfig []speechConfig `json:"speech_config"`
-}
-
-type speechConfig struct {
-	Voice string `json:"voice"`
-}
-
-type interactionResponse struct {
-	OutputAudio outputAudio `json:"output_audio"`
-}
-
-type outputAudio struct {
-	Data string `json:"data"`
+	return prevErr.Op == curErr.Op
 }

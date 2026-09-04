@@ -6,9 +6,15 @@ layer: 5
 links:
   - "[[icons]]"
 
+生成物 `apps/diagrams/runtime.png` は runtime 構成図の SSoT。README は置かず、参照元は
+本 module。PNG は手編集しない。変更は `apps/diagrams/**` へ入れて再生成する。
+
+生成手順:
+  cd apps/diagrams && python runtime.py
+
 @require Graphviz の `dot` と `rsvg-convert` が PATH にある。Custom icon は
   `icon_path` と `rasterize` が解決できる。
-@ensure `render` は `docs/architecture/runtime.png` を書き、その Path を返す。
+@ensure `render` は `apps/diagrams/runtime.png` を書き、その Path を返す。
 @invariant Custom node 名は `CUSTOM_NODE_NAMES` が単一の定義源であり、catalog 外の名前を
   図へ直接書かない。
 """
@@ -26,8 +32,7 @@ CUSTOM_NODE_NAMES: tuple[str, ...] = (
     "hono",
 )
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_OUTPUT = _REPO_ROOT / "docs" / "architecture" / "runtime"
+_OUTPUT = Path(__file__).resolve().parent / "runtime"
 
 
 def render() -> Path:

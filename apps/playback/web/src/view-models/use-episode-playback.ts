@@ -31,8 +31,10 @@ function toPlaybackPhase(lifecyclePhase: AudioLifecyclePhase): PlaybackPhase {
  *
  * @ensure 初期は idle。`play(episodeId, audioRef, positionSec?)` は指定秒から再生（同じ episode を
  *   停止後に再度 play すると直近 positionSec から再開）。`seek(episodeId, audioRef, positionSec)` は
- *   topic の sec bar 用で、押した時点の state（idle / 別 episode / 停止中）に関わらず、その episode を
- *   その位置から再生する（別 episode なら音源を張り替える）。`stop()` は頭出しせずその位置で pause し、
+ *   topic の sec bar 用で、位置を動かすだけの操作。押した時点で何か再生中（phase:loading/playing）
+ *   なら、その episode（別 episode なら音源を張り替えて）をその位置から再生継続する。何も再生して
+ *   いなければ（idle、または paused/ended/error で止まっている）、位置だけ動かし再生は始めない。
+ *   `stop()` は頭出しせずその位置で pause し、
  *   `active/paused`（positionSec 保持）を維持する（idle には戻さない）。
  *   `audioRef` は呼び出し側が catalog から引き当て baseUrl と結合した絶対 URL を渡し、hook は
  *   それを `active` 枝へ載せ、`seek` / `play` の直前に `<audio src>` へ命令的に張る
@@ -165,10 +167,17 @@ export function useEpisodePlayback(): EpisodePlaybackViewModel {
 
   const seek = useCallback(
     (episodeId: string, audioRef: string, positionSec: number): void => {
-      // why: topic の sec bar は「そこから聴く」ための操作。押した時点の state（idle / 別 episode /
-      //   同じ episode の再生中・停止中）に関わらず、その episode をその位置から再生する。
-      //   別 episode を指していれば moveTo が音源を張り替える
-      moveTo(episodeId, audioRef, positionSec, { phase: { phase: "loading" }, shouldPlay: true });
+      // why: topic の sec bar は「そこから聴く位置を決める」操作であり、「再生を始めろ」という
+      //   独立の指示ではない。今まさに何か再生中（phase:loading/playing）なら、その続きとして
+      //   新しい位置からの再生を継続する。今何も再生していない（idle、または active でも
+      //   paused/ended/error で止まっている）なら、seek は位置を動かすだけで、停止状態を保つ
+      //   （再生開始は「再生」button の明示操作に委ねる）
+      const prev = playbackRef.current;
+      const isCurrentlyPlaying =
+        prev.kind === "active" &&
+        (prev.phase.phase === "loading" || prev.phase.phase === "playing");
+      const phase: PlaybackPhase = isCurrentlyPlaying ? { phase: "loading" } : { phase: "paused" };
+      moveTo(episodeId, audioRef, positionSec, { phase, shouldPlay: isCurrentlyPlaying });
     },
     [moveTo],
   );

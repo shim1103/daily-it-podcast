@@ -39,7 +39,10 @@ func buildValidWireJSON() string {
 	introRunes := constants.DraftIntroMinLen - 1     // + prefix でちょうど min
 	closingRunes := constants.DraftClosingMinLen - 1 // 同上
 	prefaceRunes := constants.DraftTopicPrefaceMinLen - 5
-	detailRunes := constants.DraftTopicDetailMinLen - 6
+	// why: preface / detail 下限を下げたあと、各 field を min 付近にすると total 下限に届かない。
+	// detail を足して total min を満たす（validateTotalChars を fixture が通るための調整）。
+	detailPad := 40
+	detailRunes := constants.DraftTopicDetailMinLen - 6 + detailPad
 
 	topics := make([]wireTopic, validWireTopicCount)
 	for i := 0; i < validWireTopicCount; i++ {
@@ -102,41 +105,55 @@ type manuscriptDoc struct {
 	Title       string  `json:"title"`
 	DurationSec float64 `json:"durationSec"`
 	Body        struct {
-		Opening string `json:"opening"`
-		Topics  []struct {
+		Opening struct {
+			Text     string  `json:"text"`
+			StartSec float64 `json:"startSec"`
+		} `json:"opening"`
+		Topics []struct {
 			Title    string  `json:"title"`
 			Preface  string  `json:"preface"`
 			Detail   string  `json:"detail"`
 			StartSec float64 `json:"startSec"`
 		} `json:"topics"`
-		Closing string `json:"closing"`
+		Ending struct {
+			Text     string  `json:"text"`
+			StartSec float64 `json:"startSec"`
+		} `json:"ending"`
 	} `json:"body"`
 }
 
 // wireFieldsOf は wire JSON string から検証で参照する top-level 朗読 field を取り出す。
-func wireFieldsOf(t *testing.T, wire string) (title, closingSummary string) {
+func wireFieldsOf(t *testing.T, wire string) (title, intro, closingSummary string) {
 	t.Helper()
 	var v struct {
 		Title          string `json:"title"`
+		Intro          string `json:"intro"`
 		ClosingSummary string `json:"closingSummary"`
 	}
 	if err := json.Unmarshal([]byte(wire), &v); err != nil {
 		t.Fatalf("wire Unmarshal: %v", err)
 	}
-	return v.Title, v.ClosingSummary
+	return v.Title, v.Intro, v.ClosingSummary
 }
 
 // wireTitleOf は wire JSON string から title field を取り出す。
 func wireTitleOf(t *testing.T, wire string) string {
 	t.Helper()
-	title, _ := wireFieldsOf(t, wire)
+	title, _, _ := wireFieldsOf(t, wire)
 	return title
+}
+
+// wireIntroOf は wire JSON string から intro field を取り出す。
+func wireIntroOf(t *testing.T, wire string) string {
+	t.Helper()
+	_, intro, _ := wireFieldsOf(t, wire)
+	return intro
 }
 
 // wireClosingSummaryOf は wire JSON string から closingSummary field を取り出す。
 func wireClosingSummaryOf(t *testing.T, wire string) string {
 	t.Helper()
-	_, closing := wireFieldsOf(t, wire)
+	_, _, closing := wireFieldsOf(t, wire)
 	return closing
 }
 

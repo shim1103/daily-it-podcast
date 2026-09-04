@@ -18,12 +18,15 @@ function createFakeAudioElement(): HTMLAudioElement & {
   loadCalls: number;
   playCalls: number;
   duration: number;
+  readyState: number;
 } {
   const listeners = new Map<string, Set<EventListener>>();
   const fake = {
     src: "",
     currentTime: 0,
     duration: Number.NaN,
+    // why: 既定は HAVE_CURRENT_DATA 以上相当。metadata 未取得を再現するテストだけ 0 に落とす
+    readyState: 2,
     pauseCalls: 0,
     loadCalls: 0,
     playCalls: 0,
@@ -62,6 +65,7 @@ function createFakeAudioElement(): HTMLAudioElement & {
     loadCalls: number;
     playCalls: number;
     duration: number;
+    readyState: number;
   };
 }
 
@@ -277,15 +281,23 @@ describe("seekAudioElement", () => {
     expect(audio.currentTime).toBe(120);
   });
 
-  it("play:true のとき seek 後に再生を開始し、戻り Promise が解決する", async () => {
-    // Given: audio
+  it("play:true のとき currentTime 代入後 seeked を待ってから再生を開始し、戻り Promise が解決する", async () => {
+    // Given: audio（seek 完了に seeked event が要る想定）
     const audio = createFakeAudioElement();
 
     // When: play:true で seek する
     const result = seekAudioElement(audio, 45, { play: true });
 
-    // Then: currentTime=45・play が呼ばれる・戻り Promise は解決する
+    // Then: currentTime は即座に 45 になるが、seeked が来るまで play は呼ばない
+    //   （seek 未完了のデータで再生を始めると、seek 先ではなく先頭から再生される）
     expect(audio.currentTime).toBe(45);
+    expect(audio.playCalls).toBe(0);
+
+    // When: ブラウザが seek を完了する
+    audio.emit("seeked");
+    await Promise.resolve();
+
+    // Then: そこで初めて play が呼ばれ、戻り Promise が解決する
     expect(audio.playCalls).toBe(1);
     await expect(result).resolves.toBeUndefined();
   });
@@ -308,8 +320,9 @@ describe("seekAudioElement", () => {
     const audio = createFakeAudioElement();
     vi.spyOn(audio, "play").mockReturnValue(undefined as unknown as Promise<void>);
 
-    // When: play:true で seek する
+    // When: play:true で seek し、seeked を待つ
     const result = seekAudioElement(audio, 10, { play: true });
+    audio.emit("seeked");
 
     // Then: Promise として解決する
     await expect(result).resolves.toBeUndefined();
@@ -320,8 +333,9 @@ describe("seekAudioElement", () => {
     const audio = createFakeAudioElement();
     vi.spyOn(audio, "play").mockRejectedValue(new Error("再生失敗"));
 
-    // When: play:true で seek する
+    // When: play:true で seek し、seeked を待つ
     const result = seekAudioElement(audio, 10, { play: true });
+    audio.emit("seeked");
 
     // Then: 同じ rejection が戻り Promise で伝わる
     await expect(result).rejects.toThrow("再生失敗");
@@ -336,5 +350,68 @@ describe("seekAudioElement", () => {
 
     // Then: load は起きない
     expect(audio.loadCalls).toBe(0);
+  });
+
+  it("metadata 未取得（readyState 0）のときは loadedmetadata まで currentTime 代入を遅らせる", () => {
+    // Given: 音源を張った直後で metadata がまだ来ていない audio
+    const audio = createFakeAudioElement();
+    audio.readyState = 0;
+
+    // When: 120 秒へ seek する
+    void seekAudioElement(audio, 120, { play: false });
+
+    // Then: この時点では currentTime を触らない（触っても browser に無視され 0 に戻るため）
+    expect(audio.currentTime).toBe(0);
+
+    // When: metadata が届く
+    audio.readyState = 1;
+    audio.emit("loadedmetadata");
+
+    // Then: そこで初めて currentTime が 120 になる
+    expect(audio.currentTime).toBe(120);
+  });
+
+  it("metadata 未取得（readyState 0）＋play:true は loadedmetadata 後に seek してから再生する", async () => {
+    // Given: metadata 未取得の audio
+    const audio = createFakeAudioElement();
+    audio.readyState = 0;
+
+    // When: play:true で 45 秒へ seek する
+    const result = seekAudioElement(audio, 45, { play: true });
+
+    // Then: metadata 前は currentTime も play も動かない
+    expect(audio.currentTime).toBe(0);
+    expect(audio.playCalls).toBe(0);
+
+    // When: metadata が届く
+    audio.readyState = 1;
+    audio.emit("loadedmetadata");
+
+    // Then: currentTime は 45 になるが、seeked が来るまで play は呼ばない
+    expect(audio.currentTime).toBe(45);
+    expect(audio.playCalls).toBe(0);
+
+    // When: ブラウザが seek を完了する
+    audio.emit("seeked");
+    await Promise.resolve();
+
+    // Then: そこで play が呼ばれ、戻り Promise は解決する
+    expect(audio.playCalls).toBe(1);
+    await expect(result).resolves.toBeUndefined();
+  });
+
+  it("loadedmetadata を待つ listener は一度きりで、発火後に解除される", () => {
+    // Given: metadata 未取得の audio
+    const audio = createFakeAudioElement();
+    audio.readyState = 0;
+
+    // When: seek して metadata が届く
+    void seekAudioElement(audio, 30, { play: false });
+    expect(audio.listenerCount("loadedmetadata")).toBe(1);
+    audio.readyState = 1;
+    audio.emit("loadedmetadata");
+
+    // Then: listener は残らない
+    expect(audio.listenerCount("loadedmetadata")).toBe(0);
   });
 });

@@ -64,12 +64,12 @@ func TestGeminiSpeechSynthesizer_deliversPostWithAPIKeyHeader_whenUpstreamSuccee
 		writeIntegrationGeminiAudioResponse(t, w, minimalIntegrationGeminiPCM())
 	})
 
-	// When: Synthesize する
-	got, err := synth.Synthesize(context.Background(), "本日の IT ニュースです。")
+	// When: SynthesizeAll する（1 本）
+	got, err := synth.SynthesizeAll(context.Background(), []string{"本日の IT ニュースです。"})
 
 	// Then: upstream は POST を受け、x-goog-api-key に実値が届き、非空 WAV が返る
 	if err != nil {
-		t.Fatalf("Synthesize() error = %v, want nil", err)
+		t.Fatalf("SynthesizeAll() error = %v, want nil", err)
 	}
 	if probe.method != http.MethodPost {
 		t.Fatalf("method = %q, want %q", probe.method, http.MethodPost)
@@ -77,11 +77,14 @@ func TestGeminiSpeechSynthesizer_deliversPostWithAPIKeyHeader_whenUpstreamSuccee
 	if probe.apiKey != apiKey {
 		t.Fatalf("x-goog-api-key = %q, want %q", probe.apiKey, apiKey)
 	}
-	if len(got.Content) == 0 {
+	if len(got) != 1 {
+		t.Fatalf("audios = %d, want 1", len(got))
+	}
+	if len(got[0].Content) == 0 {
 		t.Fatal("Content is empty")
 	}
-	if !isWAVFixture(got.Content) {
-		t.Fatalf("Content is not wav, head = % x", got.Content[:min(12, len(got.Content))])
+	if !isWAVFixture(got[0].Content) {
+		t.Fatalf("Content is not wav, head = % x", got[0].Content[:min(12, len(got[0].Content))])
 	}
 }
 
@@ -94,12 +97,12 @@ func TestGeminiSpeechSynthesizer_excludesDummySecretFromErrorMessage_whenUpstrea
 		_, _ = w.Write([]byte(`{"error":"INVALID_ARGUMENT"}`))
 	})
 
-	// When: Synthesize する
-	_, err := synth.Synthesize(context.Background(), "narrow error message テスト")
+	// When: SynthesizeAll する
+	_, err := synth.SynthesizeAll(context.Background(), []string{"narrow error message テスト"})
 
 	// Then: error は返るが、dummy secret 実値は error message に出ない
 	if err == nil {
-		t.Fatal("Synthesize() error = nil, want non-nil")
+		t.Fatal("SynthesizeAll() error = nil, want non-nil")
 	}
 	if probe.method != http.MethodPost {
 		t.Fatalf("method = %q, want %q", probe.method, http.MethodPost)
