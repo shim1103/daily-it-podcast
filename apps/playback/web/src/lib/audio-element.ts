@@ -114,12 +114,21 @@ export function pauseAudioElement(el: HTMLAudioElement): void {
   el.pause();
 }
 
+/** `HTMLMediaElement.HAVE_METADATA`。これ以上なら `duration` が確定し `currentTime` 代入が効く。 */
+const HAVE_METADATA = 1;
+
 /**
  * `<audio>` の再生位置を移動する。`opts.play` のときだけ続けて `play()` する（B Decision §1-3）。
  *
- * @ensure `currentTime` を `positionSec` にする。`opts.play` が true なら `el.play()` を呼び、
- *   その結果を `Promise.resolve()` で包んで返す（古い実装が undefined を返しても Promise 化する）。
- *   `opts.play` が false なら `play()` を呼ばず解決済み Promise を返す。
+ * why: `setAudioSource`（`load()`）直後は `readyState` が `HAVE_NOTHING` で、その状態の
+ *   `currentTime` 代入は browser に無視され 0 のまま残る（topic の sec bar / 位置付き play が
+ *   0:00 に飛ぶ原因）。metadata 未取得なら `loadedmetadata` を一度だけ待ってから代入・再生する。
+ *
+ * @ensure `readyState >= HAVE_METADATA` なら即座に `currentTime` を `positionSec` にし、
+ *   `opts.play` が true のとき `el.play()` の結果を `Promise.resolve()` で包んで返す
+ *   （古い実装が undefined を返しても Promise 化）。false なら `play()` を呼ばず解決済み Promise。
+ *   `readyState < HAVE_METADATA` なら `loadedmetadata` の一度きり listener を張り、発火時に
+ *   同じ手順（代入 → 必要なら再生）を行う。戻り Promise はその再生結果（false なら即解決）で解決する。
  *   rejection は呼び出し側が握る。`load()` は呼ばない
  *   （source 読み直しは別 episode 切替専用の `setAudioSource` の責務）
  */
@@ -128,6 +137,20 @@ export function seekAudioElement(
   positionSec: number,
   opts: { play: boolean },
 ): Promise<void> {
-  el.currentTime = positionSec;
-  return opts.play ? Promise.resolve(el.play()) : Promise.resolve();
+  const applySeek = (): Promise<void> => {
+    el.currentTime = positionSec;
+    return opts.play ? Promise.resolve(el.play()) : Promise.resolve();
+  };
+
+  if (el.readyState >= HAVE_METADATA) {
+    return applySeek();
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    const onLoadedMetadata: EventListener = () => {
+      el.removeEventListener("loadedmetadata", onLoadedMetadata);
+      applySeek().then(resolve, reject);
+    };
+    el.addEventListener("loadedmetadata", onLoadedMetadata);
+  });
 }
