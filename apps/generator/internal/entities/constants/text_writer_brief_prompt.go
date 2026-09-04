@@ -53,6 +53,7 @@ const TextWriterBriefPrompt = `
 
 # topic detail
 - ソースに基づく説明本文
+- 段落分けが必要なときだけ改行は1個まで。それ以外は段落分けせず、改行や文間の無意味な空白は入れない
 - 各 topic.detail の文字数: {{DETAIL_MIN}}〜{{DETAIL_MAX}} 文字（目安 {{DETAIL_TARGET}}）
 
 # closingSummary

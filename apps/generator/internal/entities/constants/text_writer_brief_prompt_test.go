@@ -42,3 +42,21 @@ func TestTextWriterBriefPrompt_hasDynamicPlaceholders(t *testing.T) {
 		}
 	}
 }
+
+// TestTextWriterBriefPrompt_guidesDetailNewlines_whenParagraphBreakNeeded は
+// topic.detail の段落改行が最大1個・無意味空白禁止の指導文があることを固定する（validation はしない）。
+func TestTextWriterBriefPrompt_guidesDetailNewlines_whenParagraphBreakNeeded(t *testing.T) {
+	t.Parallel()
+
+	p := constants.TextWriterBriefPrompt
+	required := []string{
+		"# topic detail",
+		"改行は1個まで",
+		"無意味な空白",
+	}
+	for _, s := range required {
+		if !strings.Contains(p, s) {
+			t.Errorf("TextWriterBriefPrompt に %q が無い", s)
+		}
+	}
+}
