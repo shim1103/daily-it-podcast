@@ -4,12 +4,13 @@
 
 ## 未完了
 
-1. [ ] `TEST_CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` を repo Secret へ登録（人手）。未登録だと `generator-system.yml` の実 API 部分が Skip / 失敗する。
+1. [ ] `TEST_CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` / `TEST_GOOGLE_OAUTH_*` / `TEST_DRIVE_FOLDER_ID` を repo Secret / Variable へ登録（人手）。未登録だと `generator-system.yml` の e2e 1 回通しは Skip する。
 2. [ ] feature → develop PR。
-3. [ ] **`generator-system` の e2e 前通しが未 dispatch**。`ProduceEpisode.Run`（topic 束を 1 回 `SynthesizeAll` → `Timeline` → `ConcatWAV` → Drive 書込）を実 credential で通した実績が port 変更後まだない。`generator-tts-rate` は TTS 単体でしか確認できていない。
-4. [ ] **通し経路での Drive 実到達確認が未**。`speech_synthesis_system_test.go` は Drive を触らない。旧 full test は削除済みなので、通し経路の Drive 到達は §3 の e2e 前通しか本番 Run に委ねている。
-5. [ ] **cursorapi 版の system 網羅が未着手**。Cursor CLI → Cloud Agents HTTP API 移行（Decision `2026-09-03T17-03-33`）で旧 `cursorcli_draft_system_test.go` / `draft_rate_system_test.go` / `generator-draft-rate.yml` を削除した。HTTP API 版の system 回帰 test（1 回通し）と draft rate 計測（dispatch 専用 workflow）は別途起票する。台帳は `generator-lane.md` 未完了 4。
-6. [ ] 全体尺の下限マージンが薄い（実績 3473 / 下限 3360 = 113 文字）。再発が続くなら prompt `const`（`constants.TextWriterBriefPrompt`）の detail 目安を上げる。
+3. [ ] **e2e 1 回通し（`TestProduceEpisodeSystem`）が実 credential でまだ走っていない**。`composition.NewProduceEpisodeFromEnv` → `Run` を 1 度通す system test を新設済み（`//go:build system`、compile + env 無し Skip は手元確認済み）。`generator-system.yml` が `-tags=system` で拾う。実 3 情報源 → Cursor API 原稿 → Gemini TTS → OAuth+Drive 書込 の疎通と、通し経路での Drive 実到達がこの 1 本で確認できる。Fetch 窓に SourceItem 0 件だった日は `no_source_items` Domain Error で PASS 扱い。
+4. [ ] **rate 計測 2 本が実 API でまだ走っていない**（dispatch 専用・`system && ratemeasure`、compile + key 無し Skip は手元確認済み）:
+   - `TestGeminiTTSRate`（`generator-tts-rate.yml`）— 本番 topic 束を `runs` 回 `SynthesizeAll`。
+   - `TestCursorAPIDraftRate`（`generator-draft-rate.yml`）— 固定擬似ソース → `Write` → draft parse を `runs` 回。環境要因の分母除外は `*cursorapi.Error` `Op=="do"`。prompt variant A/B は `testdata/brief_prompt_variant_a.txt`。
+5. [ ] 全体尺の下限マージンが薄い（実績 3473 / 下限 3360 = 113 文字）。再発が続くなら `TestCursorAPIDraftRate` の variant で detail 目安を上げた prompt を検証してから `constants.TextWriterBriefPrompt` へ反映する。
 
 ## 未決（必要になったら別 Decision）
 

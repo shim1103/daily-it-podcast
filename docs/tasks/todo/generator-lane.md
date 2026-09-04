@@ -18,7 +18,6 @@
 1. [ ] error 3層表現統一 — `docs/tasks/todo/generator-error-taxonomy-unify.md`
 2. [ ] GHA 本番 produce — workflow 済（`generator-produce-episode.yml`）。Run / Broad 実装済。Secret/Variable 登録は人手
 3. [ ] System e2e — 引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`。運用方針は `DEPLOY.md` §5
-4. [ ] cursorapi の draft rate 計測 — Cursor CLI → Cloud Agents HTTP API 移行（Decision `2026-09-03T17-03-33`）で `draft_rate_system_test.go` / `generator-draft-rate.yml` / `test-draft-rate.sh` を削除。HTTP API 版の rate 計測 test と dispatch 専用 workflow は未着手。TextWriter は `manuscript/cursorapi`、想定 workflow 名は `generator-draft-rate.yml`（`system && ratemeasure`、`TEST_CURSOR_API_KEY` 直読み）
 
 ### D（未決・未実測・文案）
 
