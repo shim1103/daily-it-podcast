@@ -1,79 +1,76 @@
 # daily-it-podcast
 
-個人利用の日次 IT ニュース podcast を自動生成し、自分だけが聴けるようにする仕組みです。商用・公開サービスではありません。
+A personal daily IT-news podcast: generated automatically and listened to only by me. Not a commercial or public service.
 
-## 全体の形
+## Shape
 
-生成と再生は別系統です。つながるのは個人 Google Drive 上のファイルだけです。UI 経由では生成しません。
+Generation and playback are separate systems. The only thing that connects them is a set of files on a personal Google Drive. Episodes are never generated through the UI.
 
 ```text
 Generator (Go + GitHub Actions cron)
-  取得 → 原稿 (Cursor Cloud Agents REST) → 音声 (Gemini TTS) → 保存
-        ↓
-  個人 Google Drive（音声 + 原稿）
-        ↑
+  fetch -> manuscript (Cursor Cloud Agents REST) -> speech (Gemini TTS) -> save
+        |
+  Personal Google Drive (audio + manuscript)
+        |
 Playback (Vite + TypeScript + React + Cloudflare)
-  Access → UI → Workers（Hono、Drive 読取の代理）
+  Access -> UI -> Workers (Hono, proxy for Drive reads)
 ```
 
-## 技術選定
+Runtime diagram: `apps/diagrams/runtime.png` (SSoT). It is code-first; regenerate it via `apps/diagrams/runtime.py`, never hand-edit the PNG.
 
-| 役割 | 選定 |
-|------|------|
-| 再生 UI | Vite + TypeScript + React + Pico.css（classless） |
-| UI の裏側 | Cloudflare Workers（Hono、Drive 代理） |
-| UI 入場 | Cloudflare Access（`DEPLOY.md`） |
-| 生成 | Go CLI + GitHub Actions cron |
-| 取得 | 公式 API / RSS の複数源（HackerNews・Lobsters・ITmedia NEWS）。選定理由は `docs/decisions/` |
-| 保存 | 個人 Google Drive |
-| 原稿 | Cursor Cloud Agents REST（Port `TextWriter`）。移行判断は `docs/decisions/` |
-| 音声 | Google Gemini TTS |
+## Technology choices
 
-## リポジトリ
+| Role | Choice |
+|------|--------|
+| Playback UI | Vite + TypeScript + React + Pico.css (classless) |
+| Behind the UI | Cloudflare Workers (Hono, Drive proxy) |
+| Entry to the UI | Cloudflare Access (`DEPLOY.md`) |
+| Generation | Go CLI + GitHub Actions cron |
+| Fetch | Official APIs / RSS from several sources (HackerNews, Lobsters, ITmedia NEWS) |
+| Storage | Personal Google Drive |
+| Manuscript | Cursor Cloud Agents REST (Port `TextWriter`) |
+| Speech | Google Gemini TTS |
+
+## Repository
 
 ```text
-apps/playback/contracts/ # web↔worker HTTP
+apps/playback/contracts/ # web <-> worker HTTP
 apps/playback/web/       # Vite UI
 apps/playback/worker/    # BFF
 apps/generator/          # Go CLI
-contracts/               # Drive 上の表現（SSOT）
+apps/diagrams/           # runtime diagram (code-first)
+contracts/               # representation on Drive (SSOT)
 .github/workflows/
 ```
 
-| 知りたいこと | 正本 |
+| What you want | Source of truth |
 |------|------|
-| 層・依存・test 配置 | `DESIGN.md` |
-| deploy・Access・GHA 運用・secret 登録 | `DEPLOY.md` |
-| Drive のファイル契約 | `contracts/` |
-| Playback HTTP 契約 | `apps/playback/contracts/` |
-| 未完了 index | `docs/tasks/todo/*-lane.md` |
-| 再発する判断 | `docs/decisions/` |
+| Layers, dependencies, test layout | `DESIGN.md` |
+| Deploy, Access, GHA operation, secret registration | `DEPLOY.md` |
+| Drive file contracts | `contracts/` |
+| Playback HTTP contracts | `apps/playback/contracts/` |
+| Open-work index | `docs/tasks/todo/*-lane.md` |
+| Recurring decisions | `docs/decisions/` |
 
-## Branch
+## Branches
 
-| branch | 役割 |
+| Branch | Role |
 |--------|------|
 | `develop` | SSOT |
 | `master` | release |
 
-`feature/*` → PR（base: `develop`）→ `master` は shim が release。
+`feature/*` -> PR (base: `develop`) -> `master` is released by shim.
 
-## 使い方
+## Usage
 
-1. **再生:** Access 入場 → 一覧 → 再生・原稿表示。手順は `DEPLOY.md`
-2. **生成:** GHA 定時 / 手動。UI からは起動しない。成果物は `contracts/` に従う。運用は `DEPLOY.md`
-3. **Playback local:** `cd apps/playback && npm ci && npm run dev`（Node は `.nvmrc`）
-4. **generator:** Go は `apps/generator/go.mod`。`golangci-lint` を PATH へ
-5. **hook:** `./scripts/install-hooks.sh`
-6. **検証入口:** `./scripts/check-static.sh` / `./scripts/test-unit.sh` / `./scripts/test-integration.sh`（詳細・閾値は `DESIGN.md`、credential 付き・E2E 定時は `DEPLOY.md`）
+1. **Playback:** enter through Access -> list -> play / show manuscript. Steps in `DEPLOY.md`.
+2. **Generation:** GHA schedule / manual. Never started from the UI. Artifacts follow `contracts/`. Operation in `DEPLOY.md`.
+3. **Playback local:** `cd apps/playback && npm ci && npm run dev` (Node version from `.nvmrc`).
+4. **Generator:** Go module at `apps/generator/go.mod`. Put `golangci-lint` on PATH.
+5. **Hooks:** `./scripts/install-hooks.sh`.
+6. **Verification entry points:** `./scripts/check-static.sh` / `./scripts/test-unit.sh` / `./scripts/test-integration.sh` (details and thresholds in `DESIGN.md`; credentialed and scheduled E2E in `DEPLOY.md`).
 
-## 受け入れ
+## Constraints
 
-- [ ] Access 入場は `DEPLOY.md` の Verification を満たす
-- [ ] Generator 成功後、Playback で一覧・再生・原稿表示できる
-- [ ] Drive 上の形は `contracts/` に従う
-
-## 制約
-
-- 非公開・独自 DB なし・マルチユーザーなし
-- `master` への無断 push 禁止。本番 deploy 方針は `DEPLOY.md`
+- Private; no custom database; no multi-user.
+- No unauthorized push to `master`. Production deploy policy is in `DEPLOY.md`.
