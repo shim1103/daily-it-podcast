@@ -6,19 +6,19 @@ import { EpisodeManuscript } from "./episode-manuscript.tsx";
 
 type Body = EpisodeData["body"];
 
+const CLOSING_START_SEC = 300;
+
 const body: Body = {
-  opening: "開始文",
+  opening: { text: "開始文", startSec: 0 },
   topics: [
     { title: "小題1", preface: "前置き1", detail: "詳細1", startSec: 0 },
     { title: "小題2", preface: "前置き2", detail: "詳細2", startSec: 30 },
   ],
-  closing: "終了文",
+  closing: { summary: "終了文", startSec: CLOSING_START_SEC },
 };
 
-const DURATION_SEC = 1000;
-
 function renderManuscript(onSeek = vi.fn()) {
-  return render(createElement(EpisodeManuscript, { body, durationSec: DURATION_SEC, onSeek }));
+  return render(createElement(EpisodeManuscript, { body, onSeek }));
 }
 
 describe("EpisodeManuscript", () => {
@@ -42,18 +42,18 @@ describe("EpisodeManuscript", () => {
     expect(container.textContent).toContain("導入");
   });
 
-  it("まとめ（closing）を総尺（durationSec）の seek bar 付きで描画する", () => {
-    // Given: body（durationSec 1000 → 16:40）
+  it("まとめ（closing）を closing.startSec の seek bar 付きで描画する", () => {
+    // Given: body（closing.startSec 300 → 05:00）
     const { container } = renderManuscript();
 
-    // Then: 「まとめ」見出し・16:40 の bar・closing 本文
+    // Then: 「まとめ」見出し・05:00 の bar・closing 本文
     const bar = container.querySelector("[data-manuscript-closing-start-sec]");
-    expect(bar?.textContent).toBe("16:40");
+    expect(bar?.textContent).toBe("05:00");
     expect(container.querySelector("[data-manuscript-closing]")?.textContent).toBe("終了文");
     expect(container.textContent).toContain("まとめ");
   });
 
-  it("導入の bar を押すと onSeek(0)、まとめの bar を押すと onSeek(durationSec)", () => {
+  it("導入の bar を押すと onSeek(0)、まとめの bar を押すと onSeek(closing.startSec)", () => {
     // Given: onSeek spy
     const onSeek = vi.fn();
     const { container } = renderManuscript(onSeek);
@@ -62,9 +62,9 @@ describe("EpisodeManuscript", () => {
     fireEvent.click(container.querySelector("[data-manuscript-opening-start-sec]") as Element);
     fireEvent.click(container.querySelector("[data-manuscript-closing-start-sec]") as Element);
 
-    // Then: 0 と総尺が渡る
+    // Then: 0 と closing.startSec が渡る
     expect(onSeek).toHaveBeenNthCalledWith(1, 0);
-    expect(onSeek).toHaveBeenNthCalledWith(2, DURATION_SEC);
+    expect(onSeek).toHaveBeenNthCalledWith(2, CLOSING_START_SEC);
   });
 
   it("topics[] の数だけ episode-topic を並べる（導入・まとめの間）", () => {
