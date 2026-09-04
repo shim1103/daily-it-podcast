@@ -10,12 +10,12 @@ const episode: EpisodeData = {
   title: "題1",
   durationSec: 60,
   body: {
-    opening: "開始",
+    opening: { text: "開始", startSec: 0 },
     topics: [
       { title: "小題A", preface: "前A", detail: "詳A", startSec: 0 },
       { title: "小題B", preface: "前B", detail: "詳B", startSec: 30 },
     ],
-    ending: "終了",
+    ending: { text: "終了", startSec: 55 },
   },
   audioRef: "/episodes/ep-1/audio",
 };
@@ -99,6 +99,30 @@ describe("EpisodeRow", () => {
 
     // Then: onStop が呼ばれる
     expect(onStop).toHaveBeenCalled();
+  });
+
+  it("再生 Icon は text 表現の ▶（U+25B6）、停止 Icon は CSS 描画の 2 本バーで、emoji 表現に依存しない", () => {
+    // Given: 再生前（▶ glyph）と再生中（bar 要素）
+    const { container: playing } = renderRow({ isActivePlayback: false });
+    const { container: stopping } = renderRow({ isActivePlayback: true });
+
+    // Then: 再生は emoji 化しない幾何記号、停止は文字を持たず bar span 2 本を CSS で描く
+    expect(playing.querySelector(".episode-row__play .episode-row__play-glyph")?.textContent).toBe(
+      "▶",
+    );
+    expect(playing.querySelectorAll(".episode-row__play .episode-row__play-bar")).toHaveLength(0);
+    expect(stopping.querySelector(".episode-row__play .episode-row__play-glyph")).toBeNull();
+    expect(stopping.querySelectorAll(".episode-row__play .episode-row__play-bar")).toHaveLength(2);
+  });
+
+  it("play button に isActivePlayback を data-active として反映する（背景色トグル用）", () => {
+    // Given: 非再生 / 再生中
+    const { container: idle } = renderRow({ isActivePlayback: false });
+    const { container: active } = renderRow({ isActivePlayback: true });
+
+    // Then: play button の data-active が isActivePlayback を映す
+    expect(idle.querySelector(".episode-row__play")?.getAttribute("data-active")).toBe("false");
+    expect(active.querySelector(".episode-row__play")?.getAttribute("data-active")).toBe("true");
   });
 
   it("isPlaying を data-playing として反映する（再生中の視覚強調用。停止トグルは isActivePlayback）", () => {

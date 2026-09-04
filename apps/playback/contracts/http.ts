@@ -21,10 +21,20 @@ const topicSchema = z.strictObject({
   startSec: z.number().min(0),
 });
 
+const openingSchema = z.strictObject({
+  text: z.string(),
+  startSec: z.number().min(0),
+});
+
+const endingSchema = z.strictObject({
+  text: z.string(),
+  startSec: z.number().min(0),
+});
+
 const bodySchema = z.strictObject({
-  opening: z.string(),
+  opening: openingSchema,
   topics: z.array(topicSchema).min(1),
-  ending: z.string(),
+  ending: endingSchema,
 });
 
 export const episodeItemSchema = z.strictObject({

@@ -10,12 +10,12 @@ const episode: EpisodeData = {
   title: "題1",
   durationSec: 60,
   body: {
-    opening: "開始文",
+    opening: { text: "開始文", startSec: 0 },
     topics: [
       { title: "小題A", preface: "前A", detail: "詳A", startSec: 0 },
       { title: "小題B", preface: "前B", detail: "詳B", startSec: 30 },
     ],
-    ending: "終了文",
+    ending: { text: "終了文", startSec: 55 },
   },
   audioRef: "/episodes/ep-1/audio",
 };

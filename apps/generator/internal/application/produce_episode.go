@@ -55,7 +55,7 @@ func NewProduceEpisode(
 // @ensure 表示 Location で now を暦日化した date につき CompletedEpisodeLookup.HasPair が true なら、Fetch より前に成功 return（episodeID は空。TextWriter / Speech / WriteEpisode を呼ばない）。
 // @ensure HasPair が false なら通常どおり続行する。
 // @ensure Fetch 後 0 件なら Domain Error（Op = no_source_items）。episodeID は空。WriteEpisode.Run を呼ばない。
-// @ensure build.ComposeBrief(items)（constants Prompt へ SOURCES/数値 placeholder/JSON_EXAMPLE 埋め込み）→ TextWriter.Write + ManuscriptDraftFromWriterOutput を最大 TextWriterMaxAttempts 回（draft 検証成功で打ち切り。Write 自体の error は即 return）→ OpeningGreetingTemplate から Greeting 文案（date 注入）→ ClosingFarewell template から Farewell 文案（date 注入）→ build.SpeechTexts が返す topic+2 束（texts[0] = greeting+intro、各 topic = preface+detail、末尾 = closingSummary+farewell）を 1 回 SynthesizeAll（WAV列を受け取る。retry 予算は Adapter が束ねる）→ build.WavDurationSec / 無音込み累積 startSec・durationSec → build.ConcatWAV → opaque UUID episodeId → 完成 manuscript bytes（body.opening = texts[0]、body.ending = texts[末尾]。topic ごとの preface/detail は分けて書く）→ WriteEpisode.Run。
+// @ensure build.ComposeBrief(items)（constants Prompt へ SOURCES/数値 placeholder/JSON_EXAMPLE 埋め込み）→ TextWriter.Write + ManuscriptDraftFromWriterOutput を最大 TextWriterMaxAttempts 回（draft 検証成功で打ち切り。Write 自体の error は即 return）→ OpeningGreetingTemplate から Greeting 文案（date 注入）→ ClosingFarewell template から Farewell 文案（date 注入）→ build.SpeechTexts が返す topic+2 束（texts[0] = greeting+intro、各 topic = preface+detail、末尾 = closingSummary+farewell）を 1 回 SynthesizeAll（WAV列を受け取る。retry 予算は Adapter が束ねる）→ build.WavDurationSec / 無音込み累積 topic startSec・ending startSec・durationSec → build.ConcatWAV → opaque UUID episodeId → 完成 manuscript bytes（body.opening.text = texts[0]、body.opening.startSec = 0、body.ending.text = texts[末尾]、body.ending.startSec = ending startSec。topic ごとの preface/detail は分けて書く。束ねるのは TTS へ渡す text だけ）→ WriteEpisode.Run。
 // @ensure WriteEpisode まで到達したら episodeID を返す（Write 失敗時も発行済み ID を返す）。途中 error（Write 前）なら episodeID は空・WriteEpisode.Run を呼ばない。
 // @invariant 所有しない: manuscript.schema.json の Validate（Gate）、vendor / env。Infrastructure 型を知らない。表示タイムゾーンの解決（tzdata I/O）は Composition の責務。監視対象一覧・情報源種類を知らない。string→Draft を Port / Adapter に委譲しない。WriteEpisode 内の同日再チェックは持たない。
 func (uc *ProduceEpisode) Run(ctx context.Context, now time.Time) (episodeID string, err error) {
@@ -103,7 +103,7 @@ func (uc *ProduceEpisode) Run(ctx context.Context, now time.Time) (episodeID str
 		segmentDurations[i] = dur
 	}
 
-	topicStartSecs, durationSec, err := build.Timeline(segmentDurations, len(draft.Topics))
+	topicStartSecs, endingStartSec, durationSec, err := build.Timeline(segmentDurations, len(draft.Topics))
 	if err != nil {
 		return "", err
 	}
@@ -124,6 +124,7 @@ func (uc *ProduceEpisode) Run(ctx context.Context, now time.Time) (episodeID str
 		Draft:          draft,
 		TopicStartSecs: topicStartSecs,
 		Ending:         segmentTexts[len(segmentTexts)-1],
+		EndingStartSec: endingStartSec,
 	})
 	if err != nil {
 		return "", err

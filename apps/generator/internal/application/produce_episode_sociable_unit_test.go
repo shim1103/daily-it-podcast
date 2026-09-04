@@ -241,9 +241,14 @@ func TestProduceEpisodeRun_writesEpisodeWithAssembledManuscriptAndAudio_whenAllS
 	wantGreeting := fmt.Sprintf(constants.OpeningGreetingTemplate, "2026年8月31日")
 	wantFarewell := fmt.Sprintf(constants.ClosingFarewell, "2026年8月31日")
 	bundleSep := "\n\n\n"
+	// body.opening.text は greeting + 束境界 + intro（TTS が読む原稿そのものを契約へ入れる）。
 	wantOpening := wantGreeting + bundleSep + wireIntroOf(t, h.writer.out)
-	if m.Body.Opening != wantOpening {
-		t.Fatalf("body.opening = %q, want %q", m.Body.Opening, wantOpening)
+	if m.Body.Opening.Text != wantOpening {
+		t.Fatalf("body.opening.text = %q, want %q", m.Body.Opening.Text, wantOpening)
+	}
+	// body.opening.startSec は先頭 segment なので 0。
+	if m.Body.Opening.StartSec != 0 {
+		t.Fatalf("body.opening.startSec = %v, want 0", m.Body.Opening.StartSec)
 	}
 	if len(m.Body.Topics) != validWireTopicCount {
 		t.Fatalf("body.topics count = %d, want %d", len(m.Body.Topics), validWireTopicCount)
@@ -252,13 +257,17 @@ func TestProduceEpisodeRun_writesEpisodeWithAssembledManuscriptAndAudio_whenAllS
 	if wantTitle := wireTitleOf(t, h.writer.out); m.Title != wantTitle {
 		t.Fatalf("title = %q, want wire title %q", m.Title, wantTitle)
 	}
-	// body.ending は closingSummary + farewell（TTS が読む原稿そのものを入れる）
+	// body.ending.text は closingSummary + 束境界 + farewell（date 注入済み。TTS が読む原稿そのものを契約へ入れる）。
 	wantEnding := wireClosingSummaryOf(t, h.writer.out) + bundleSep + wantFarewell
-	if m.Body.Ending != wantEnding {
-		t.Fatalf("body.ending = %q, want %q", m.Body.Ending, wantEnding)
+	if m.Body.Ending.Text != wantEnding {
+		t.Fatalf("body.ending.text = %q, want %q", m.Body.Ending.Text, wantEnding)
 	}
-	if strings.Contains(m.Body.Ending, "%s") {
-		t.Fatalf("body.ending contains raw %%s: %q", m.Body.Ending)
+	if strings.Contains(m.Body.Ending.Text, "%s") {
+		t.Fatalf("body.ending.text contains raw %%s: %q", m.Body.Ending.Text)
+	}
+	// body.ending.startSec は末尾束（closingSummary+farewell）の開始累積秒。topic の後なので > 0。
+	if m.Body.Ending.StartSec <= 0 {
+		t.Fatalf("body.ending.startSec = %v, want > 0", m.Body.Ending.StartSec)
 	}
 }
 
@@ -286,9 +295,9 @@ func TestProduceEpisodeRun_synthesizesTopicPlusTwoBundles_whenDraftHasTopics(t *
 	}
 
 	m := unmarshalManuscript(t, h.episw.manuscript)
-	// TTS 束の先頭・末尾は body.opening / body.ending と同一（読み上げ原稿を契約へ入れた結果）。
-	if h.synth.texts[0] != m.Body.Opening {
-		t.Fatalf("texts[0] = %q, want body.opening %q", h.synth.texts[0], m.Body.Opening)
+	// TTS 束の先頭・末尾は body.opening.text / body.ending.text と同一（読み上げ原稿を契約へ入れた結果）。
+	if h.synth.texts[0] != m.Body.Opening.Text {
+		t.Fatalf("texts[0] = %q, want body.opening.text %q", h.synth.texts[0], m.Body.Opening.Text)
 	}
 	// 中間束は topic ごとの preface + 改行3個 + detail。
 	bundleSep := "\n\n\n"
@@ -298,8 +307,8 @@ func TestProduceEpisodeRun_synthesizesTopicPlusTwoBundles_whenDraftHasTopics(t *
 			t.Fatalf("texts[%d] = %q, want topic[%d] bundle %q", 1+i, got, i, want)
 		}
 	}
-	if last := h.synth.texts[len(h.synth.texts)-1]; last != m.Body.Ending {
-		t.Fatalf("last segment = %q, want body.ending %q", last, m.Body.Ending)
+	if last := h.synth.texts[len(h.synth.texts)-1]; last != m.Body.Ending.Text {
+		t.Fatalf("last segment = %q, want body.ending.text %q", last, m.Body.Ending.Text)
 	}
 }
 

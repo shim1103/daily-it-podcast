@@ -7,7 +7,10 @@ const validManuscript = {
   title: "題",
   durationSec: 60,
   body: {
-    opening: "開始",
+    opening: {
+      text: "開始",
+      startSec: 0,
+    },
     topics: [
       {
         title: "題",
@@ -16,7 +19,10 @@ const validManuscript = {
         startSec: 0,
       },
     ],
-    ending: "終了",
+    ending: {
+      text: "終了",
+      startSec: 30,
+    },
   },
 };
 
@@ -52,6 +58,54 @@ describe("ManuscriptSchema", () => {
     });
 
     // Then: additionalProperties で落ち、HTTP schema の omit ではないことを示す
+    expect(got.success).toBe(false);
+  });
+
+  it("opening が旧来の文字列の時、success: false を返す", () => {
+    // Given: opening が { text, startSec } でなく文字列（拡張前の形）
+    // When: 検証する
+    const got = ManuscriptSchema.safeParse({
+      ...validManuscript,
+      body: { ...validManuscript.body, opening: "開始" },
+    });
+
+    // Then: 不適合
+    expect(got.success).toBe(false);
+  });
+
+  it("opening.startSec が欠けている時、success: false を返す", () => {
+    // Given: opening.text だけの原稿
+    // When: 検証する
+    const got = ManuscriptSchema.safeParse({
+      ...validManuscript,
+      body: { ...validManuscript.body, opening: { text: "開始" } },
+    });
+
+    // Then: 不適合
+    expect(got.success).toBe(false);
+  });
+
+  it("ending が旧来の文字列の時、success: false を返す", () => {
+    // Given: ending が { text, startSec } でなく文字列（拡張前の形）
+    // When: 検証する
+    const got = ManuscriptSchema.safeParse({
+      ...validManuscript,
+      body: { ...validManuscript.body, ending: "終了" },
+    });
+
+    // Then: 不適合
+    expect(got.success).toBe(false);
+  });
+
+  it("ending.startSec が欠けている時、success: false を返す", () => {
+    // Given: ending.text だけの原稿
+    // When: 検証する
+    const got = ManuscriptSchema.safeParse({
+      ...validManuscript,
+      body: { ...validManuscript.body, ending: { text: "終了" } },
+    });
+
+    // Then: 不適合
     expect(got.success).toBe(false);
   });
 

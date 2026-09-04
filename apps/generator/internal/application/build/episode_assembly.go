@@ -47,24 +47,26 @@ func SpeechTexts(greeting, farewell string, d models.ManuscriptDraft) []string {
 //
 // @require len(segmentDurations) は SpeechTexts と同じ固定本数（1 + topicCount + 1 = greeting+intro 束 / 各 topic の preface+detail 束 / closingSummary+farewell 束）。
 // @ensure topicStartSecs[i] は i 番目 topic 束（Preface+Detail 連結）の開始累積秒。
+// @ensure endingStartSec は末尾 segment（closingSummary+farewell 束）の開始累積秒。
 // @ensure totalDurationSec == Σ segmentDurations + SegmentSilenceSec*(len(segmentDurations)-1)。
 // @ensure segment 本数が固定本数と不一致、または topicCount < 1 のとき Domain Error（Op = inconsistent_episode_assembly）。
-func Timeline(segmentDurations []float64, topicCount int) (topicStartSecs []float64, totalDurationSec float64, err error) {
+func Timeline(segmentDurations []float64, topicCount int) (topicStartSecs []float64, endingStartSec float64, totalDurationSec float64, err error) {
 	if topicCount < 1 {
-		return nil, 0, domainerrors.DomainErr(
+		return nil, 0, 0, domainerrors.DomainErr(
 			domainerrors.OpInconsistentEpisodeAssembly,
 			fmt.Errorf("topicCount must be >= 1, got %d", topicCount),
 		)
 	}
 	wantCount := speechSegmentsBeforeTopics + speechSegmentsPerTopic*topicCount + 1
 	if n := len(segmentDurations); n != wantCount {
-		return nil, 0, domainerrors.DomainErr(
+		return nil, 0, 0, domainerrors.DomainErr(
 			domainerrors.OpInconsistentEpisodeAssembly,
 			fmt.Errorf("segment count %d is inconsistent with topicCount %d (want %d)", n, topicCount, wantCount),
 		)
 	}
 
 	starts := make([]float64, topicCount)
+	endingIdx := len(segmentDurations) - 1
 	var cursor float64
 	for i, dur := range segmentDurations {
 		if i > 0 {
@@ -76,9 +78,12 @@ func Timeline(segmentDurations []float64, topicCount int) (topicStartSecs []floa
 				starts[topic] = cursor
 			}
 		}
+		if i == endingIdx {
+			endingStartSec = cursor
+		}
 		cursor += dur
 	}
-	return starts, cursor, nil
+	return starts, endingStartSec, cursor, nil
 }
 
 // ManuscriptInput は MarshalManuscript の入力を 1 つにまとめた Parameter Object。
@@ -87,17 +92,19 @@ type ManuscriptInput struct {
 	Date           string
 	Title          string
 	DurationSec    float64
-	Opening        string // 朗読全文: 定型挨拶 + intro（SpeechTexts[0] と同一）
+	Opening        string // 朗読全文: 定型挨拶 + intro（SpeechTexts[0] と同一）。body.opening.text へそのまま入る。
 	Draft          models.ManuscriptDraft
 	TopicStartSecs []float64
-	Ending         string // 朗読全文: closingSummary + 定型締め（SpeechTexts 末尾と同一）
+	Ending         string  // 朗読全文: closingSummary + 定型締め（SpeechTexts 末尾と同一）。body.ending.text へそのまま入る。
+	EndingStartSec float64 // 末尾 segment（closingSummary+farewell 束）の音声上の開始秒。body.ending.startSec へ入る。
 }
 
 // MarshalManuscript は完成 manuscript.schema.json 形の JSON bytes を組む。
 //
 // @require in.TopicStartSecs と in.Draft.Topics は同数。in.Opening / in.Ending は朗読全文（定型込み）。
 // @ensure 戻りは manuscript.schema.json の required（episodeId/date/title/durationSec/body）を満たす JSON bytes。Validate は行わない（Gate = WriteEpisode の責務）。
-// @ensure body.opening / body.ending は入力をそのまま書く（TTS が読む原稿そのものを契約へ入れる。application 都合で定型を落とさない）。
+// @ensure body.opening.text / body.ending.text は入力をそのまま書く（TTS が読む原稿そのものを契約へ入れる。application 都合で定型を落とさない）。
+// @ensure body.opening.startSec は先頭 segment なので 0 直書き。body.ending.startSec は in.EndingStartSec。
 // @ensure len(in.TopicStartSecs) != len(in.Draft.Topics) のとき Domain Error（Op = inconsistent_episode_assembly）。
 func MarshalManuscript(in ManuscriptInput) ([]byte, error) {
 	if len(in.TopicStartSecs) != len(in.Draft.Topics) {
@@ -123,9 +130,16 @@ func MarshalManuscript(in ManuscriptInput) ([]byte, error) {
 		Title:       in.Title,
 		DurationSec: in.DurationSec,
 		Body: manuscriptBodyJSON{
-			Opening: in.Opening,
-			Topics:  topics,
-			Ending:  in.Ending,
+			Opening: manuscriptBookendJSON{
+				Text: in.Opening,
+				// opening は先頭 segment（greeting+intro 束）なので開始位置は定義上つねに 0。
+				StartSec: 0,
+			},
+			Topics: topics,
+			Ending: manuscriptBookendJSON{
+				Text:     in.Ending,
+				StartSec: in.EndingStartSec,
+			},
 		},
 	}
 	return json.Marshal(doc)
@@ -140,9 +154,15 @@ type manuscriptJSON struct {
 }
 
 type manuscriptBodyJSON struct {
-	Opening string                `json:"opening"`
+	Opening manuscriptBookendJSON `json:"opening"`
 	Topics  []manuscriptTopicJSON `json:"topics"`
-	Ending  string                `json:"ending"`
+	Ending  manuscriptBookendJSON `json:"ending"`
+}
+
+// manuscriptBookendJSON は body.opening / body.ending 共通の「朗読全文 + 音声上の開始秒」形。
+type manuscriptBookendJSON struct {
+	Text     string  `json:"text"`
+	StartSec float64 `json:"startSec"`
 }
 
 type manuscriptTopicJSON struct {

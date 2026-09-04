@@ -105,14 +105,20 @@ type manuscriptDoc struct {
 	Title       string  `json:"title"`
 	DurationSec float64 `json:"durationSec"`
 	Body        struct {
-		Opening string `json:"opening"`
-		Topics  []struct {
+		Opening struct {
+			Text     string  `json:"text"`
+			StartSec float64 `json:"startSec"`
+		} `json:"opening"`
+		Topics []struct {
 			Title    string  `json:"title"`
 			Preface  string  `json:"preface"`
 			Detail   string  `json:"detail"`
 			StartSec float64 `json:"startSec"`
 		} `json:"topics"`
-		Ending string `json:"ending"`
+		Ending struct {
+			Text     string  `json:"text"`
+			StartSec float64 `json:"startSec"`
+		} `json:"ending"`
 	} `json:"body"`
 }
 

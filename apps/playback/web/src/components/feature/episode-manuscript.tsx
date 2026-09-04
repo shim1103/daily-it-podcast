@@ -9,24 +9,19 @@ type Body = EpisodeData["body"];
 
 export type EpisodeManuscriptProps = {
   body: Body;
-  durationSec: number;
   onSeek: (startSec: number) => void;
 };
 
 /**
  * EpisodeItem の body（opening・topics・ending）を組み合わせて描画する。
  *
- * @require body は EpisodeItem["body"]、durationSec は総尺、onSeek は audio の currentTime を変える handler
- * @ensure opening を「導入」（`00:00` の seek bar 付き）、ending を「まとめ」（総尺 `durationSec` の
- *   seek bar 付き）として描き、間に topics[] を EpisodeTopic として順番通りに並べる。
- *   opening / ending 本文の加工・変換はしない
- * @invariant sec の正は contract に無いため、導入は 0、まとめは総尺（`durationSec`）を使う
+ * @require body は EpisodeItem["body"]、onSeek は audio の currentTime を変える handler
+ * @ensure opening を `opening.startSec` の seek bar 付き、ending を `ending.startSec` の seek bar 付きで描き、
+ *   間に topics[] を EpisodeTopic として順番通りに並べる。見出しの文言（「導入」「まとめ」）は
+ *   持たず seek bar だけを見出しに置く。opening / ending 本文の加工・変換はしない
+ * @invariant 導入は contract の `opening.startSec`、まとめは contract の `ending.startSec` を使う
  */
-export function EpisodeManuscript({
-  body,
-  durationSec,
-  onSeek,
-}: EpisodeManuscriptProps): ReactElement {
+export function EpisodeManuscript({ body, onSeek }: EpisodeManuscriptProps): ReactElement {
   return (
     <div className="episode-manuscript">
       <section className="episode-topic episode-topic--bookend">
@@ -36,14 +31,13 @@ export function EpisodeManuscript({
             className="episode-topic__seek"
             data-manuscript-opening-start-sec=""
             onClick={() => {
-              onSeek(0);
+              onSeek(body.opening.startSec);
             }}
           >
-            {formatDurationMmSs(0)}
+            {formatDurationMmSs(body.opening.startSec)}
           </button>
-          <h3 className="episode-topic__heading-title">導入</h3>
         </div>
-        <LabeledText tag="p" datasetKey="manuscriptOpening" text={body.opening} />
+        <LabeledText tag="p" datasetKey="manuscriptOpening" text={body.opening.text} />
       </section>
       {body.topics.map((topic, index) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: topic は domain 上の一意 key を持たず並び順が固定のため index を key に使う
@@ -56,14 +50,13 @@ export function EpisodeManuscript({
             className="episode-topic__seek"
             data-manuscript-ending-start-sec=""
             onClick={() => {
-              onSeek(durationSec);
+              onSeek(body.ending.startSec);
             }}
           >
-            {formatDurationMmSs(durationSec)}
+            {formatDurationMmSs(body.ending.startSec)}
           </button>
-          <h3 className="episode-topic__heading-title">まとめ</h3>
         </div>
-        <LabeledText tag="p" datasetKey="manuscriptEnding" text={body.ending} />
+        <LabeledText tag="p" datasetKey="manuscriptEnding" text={body.ending.text} />
       </section>
     </div>
   );

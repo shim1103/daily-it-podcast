@@ -31,9 +31,9 @@ const manuscriptJson = {
   title: "題",
   durationSec: 60,
   body: {
-    opening: "開始",
+    opening: { text: "開始", startSec: 0 },
     topics: [{ title: "題", preface: "前置き", detail: "詳細", startSec: 0 }],
-    ending: "終了",
+    ending: { text: "終了", startSec: 55 },
   },
 };
 

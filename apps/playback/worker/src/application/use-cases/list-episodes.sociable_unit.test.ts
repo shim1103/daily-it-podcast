@@ -14,12 +14,12 @@ const validManuscriptJson = {
   title: "題",
   durationSec: 60,
   body: {
-    opening: "開始",
+    opening: { text: "開始", startSec: 0 },
     topics: [
       { title: "第一", preface: "前1", detail: "詳1", startSec: 0 },
       { title: "第二", preface: "前2", detail: "詳2", startSec: 30 },
     ],
-    ending: "終了",
+    ending: { text: "終了", startSec: 55 },
   },
 };
 

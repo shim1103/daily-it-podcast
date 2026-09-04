@@ -9,9 +9,9 @@ import { useEpisodeCatalog } from "./use-episode-catalog.ts";
 type ListEpisodesData = ApiSuccessData<PlaybackApiClient["listEpisodes"]>;
 
 const episodeBody = {
-  opening: "開始",
+  opening: { text: "開始", startSec: 0 },
   topics: [{ title: "小題", preface: "前置き", detail: "詳細", startSec: 0 }],
-  ending: "終了",
+  ending: { text: "終了", startSec: 55 },
 };
 
 const validListEpisodesResponse: ListEpisodesData = {
