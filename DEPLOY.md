@@ -85,6 +85,7 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 |------|------|------|------|
 | `generator-produce-episode.yml` | `scripts/generator/produce-episode.sh` | 毎日 07:00 JST（cron UTC `0 22 * * *`）+ `workflow_dispatch` | 本番 Secret / Variable |
 | `generator-system.yml` | `scripts/generator/test-system.sh` | 月曜 07:00 JST（cron UTC `0 22 * * 0`）+ `workflow_dispatch` | `TEST_*` |
+| `generator-tts-rate.yml` | `scripts/generator/test-tts-rate.sh` | `workflow_dispatch` のみ（cron なし） | `TEST_GEMINI_API_KEY` |
 | `playback-e2e.yml` | `scripts/playback/test-e2e.sh` | 月曜 07:00 JST（cron UTC `0 22 * * 0`）+ `workflow_dispatch` | 下表 `PLAYWRIGHT_*` |
 
 必須 Unit / Integration gate には載せない。判断: `docs/decisions/2026-08-30T12-49-01` / `2026-08-30T16-20-00` / `2026-08-30T16-20-03`。
@@ -92,6 +93,26 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 暦日は JST 運用に合わせる。
 
 workflow file を Actions で `workflow_dispatch` するには、**default branch（`develop`）にその yml があること**が必要。
+
+### Generator System（`generator-system.yml`）
+
+`-tags=system` の system test を **1 回ずつ通すだけ**。「壊れていないか」だけを測り、PASS 率は定常で測らない。1 回でも FAIL なら run が赤。判断: `docs/decisions/2026-09-03T14-45-00` / `16-30-00`。
+
+- cron の 1 回通しが **2 週連続で同じ test を落としたら** bug 扱いで Issue 化する。1 週だけの赤は provider 起因として再 `workflow_dispatch` する。
+- 赤になったら `generator-tts-rate.yml` を手動 dispatch して原因（provider の一時劣化か・retry / callGap の詰めか）を切り分ける。
+- 定時緑化を運用目標にするのは課金枠移行後。無料枠のうちは「dispatch で回せたとき緑」で可。
+
+一次 evidence は GHA run URL（`go test -v` の `t.Logf` と `$GITHUB_STEP_SUMMARY`）。
+
+### Gemini TTS rate 計測（`generator-tts-rate.yml` / `TestGeminiTTSRate`）
+
+`system && ratemeasure` の dispatch 専用。**System の 1 回通しが落ちた／不安定なときの事後調査**に使う。cron は持たない（RPM 圧迫回避）。
+
+- 本番 topic 束（`TTS_DOUBLE` = `max` / `tgt` / `min` で尺帯を選ぶ。既定 `max`）を `runs` 回 `SynthesizeAll` し、Adapter が `err == nil` で返る率が `pass_threshold`（既定 0.8）以上なら緑。
+- 待機系パラメータの既定は `callGap` 20s / `retryBackoffBase` 60s / `retryBackoffMax` 3m。`generator-tts-rate.yml` の `inputs.default` が SSOT。429 が続くときは dispatch input でこれらを上げて所要の変化を観測する。
+- dispatch 例: `gh workflow run generator-tts-rate.yml -f runs=10 -f double=max [-f call_gap= -f retry_backoff_base= -f retry_backoff_max= -f pass_threshold=]`。
+
+env は `TEST_GEMINI_API_KEY` 直読み（本番 `GEMINI_API_KEY` を計測へ流さない）。判断: `docs/decisions/2026-09-03T14-45-00` / `14-46-00`。
 
 ### Playback E2E（`PLAYWRIGHT_*`）
 

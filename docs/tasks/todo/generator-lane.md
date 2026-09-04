@@ -17,7 +17,8 @@
 
 1. [ ] error 3層表現統一 — `docs/tasks/todo/generator-error-taxonomy-unify.md`
 2. [ ] GHA 本番 produce — workflow 済（`generator-produce-episode.yml`）。Run / Broad 実装済。Secret/Variable 登録は人手
-3. [ ] System — `generator-system.yml`。再編中（Decision `2026-09-03T14-45-00` / `14-46-00` / `14-47-00` / `16-30-00`）: 全 credential を `TEST_*` 化、cron 週次 + dispatch は **system test を 1 回ずつ通すだけ**、rate 計測は dispatch 専用 test（`system && ratemeasure`）+ 専用 workflow に分離、Cursor install と集計 shell を script 化。台帳 `docs/tasks/todo/generator-system-pass-rate.md`、引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`
+3. [ ] System e2e — 引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`。運用方針は `DEPLOY.md` §5
+4. [ ] cursorapi の draft rate 計測 — Cursor CLI → Cloud Agents HTTP API 移行（Decision `2026-09-03T17-03-33`）で `draft_rate_system_test.go` / `generator-draft-rate.yml` / `test-draft-rate.sh` を削除。HTTP API 版の rate 計測 test と dispatch 専用 workflow は未着手。TextWriter は `manuscript/cursorapi`、想定 workflow 名は `generator-draft-rate.yml`（`system && ratemeasure`、`TEST_CURSOR_API_KEY` 直読み）
 
 ### D（未決・未実測・文案）
 
@@ -32,7 +33,7 @@
 | no-repo 原稿品質・token・job timeout | Cloud Agents no-repo が ask 相当の断片になるか、Pro 日次消費、SSE 待ちが GHA job に収まるかは未実測 |
 | 撤去済み X 関連 Decision | `2026-08-15T16-39-20` 他の X vendor 記述は指示対象を失った。supersede 注記の要否は log-session / migrate-lessons 側の判断 |
 | GHA production workflow | YAML・inventory 名は済。Run 実装済。repo へ本番 Secret/Variable を登録する人手作業が残る。定時緑化は Secret 登録後 |
-| `generator-system-e2e-produce-episode` | 既定 System gate 緑化済み（parse バグ修正が主因、Decision `2026-09-02T18-01-00`）。再編中: TEST key 固定・パターン撤去・rate 計測 workflow 分離（Decision `2026-09-03T14-45-00` 系）。詳細は同名 todo |
+| System e2e の前通し | `ProduceEpisode.Run`（topic 束を 1 回 `SynthesizeAll` → `Timeline` → `ConcatWAV` → Drive 書込）を port 変更後まだ実 dispatch していない。詳細は `generator-system-e2e-produce-episode.md` |
 | Drive ペア書込の補償・staging | 公開型で残骸許容（Decision `2026-08-30T23-32-00`）。補償 delete / staging→rename の再検討は後回し |
 
 ### Integration test 方針
