@@ -5,6 +5,7 @@
 # @require リポジトリ内から呼ぶ。bash 3.2+。
 # @ensure pass 2 / fail 1 / skip 1 の行を持つ fake jsonl を食わせると、出力に "pass 2" "fail 1" "skip 1" が出る。
 # @ensure jsonl が無い場合は "jsonl 無し" 系の行が出る。
+# @ensure fail=0 / skip=0 の pass-only jsonl でも exit 0 かつ "pass N" / "fail 0" / "skip 0" を書く。
 # @invariant 実ネットワークへ出ない。GITHUB_STEP_SUMMARY を一時 file に差し替える。
 set -euo pipefail
 
@@ -81,6 +82,41 @@ echo "$out3"
 echo "--------------------"
 if ! grep -q "pass 2" <<<"$out3"; then
   echo "FAIL: case3（STEP_SUMMARY 未設定）出力に 'pass 2' が無い" >&2
+  exit 1
+fi
+
+# --- case 4: fail=0 / skip=0（実 e2e 1 本 PASS だけ）でも exit 0 ---
+# why: set -o pipefail 下で grep 0 件が exit 1 になり、workflow summary step が赤になる事故を防ぐ。
+jsonl4="${workdir}/pass_only.jsonl"
+cat > "$jsonl4" <<'JSONL'
+{"Action":"pass","Test":"TestProduceEpisodeSystem_runsEndToEndOnce_whenAllCredentialsPresent"}
+{"Action":"pass","Package":"github.com/shim1103/daily-it-podcast/apps/generator/test/system"}
+JSONL
+
+summary4="${workdir}/step_summary_4"
+: > "$summary4"
+set +e
+SYSTEM_JSONL="$jsonl4" GITHUB_STEP_SUMMARY="$summary4" bash "$script"
+status4=$?
+set -e
+out4="$(cat "$summary4")"
+echo "--- case4 output (exit ${status4}) ---"
+echo "$out4"
+echo "--------------------"
+if [ "$status4" -ne 0 ]; then
+  echo "FAIL: case4（fail=0）で script が exit ${status4}（want 0）" >&2
+  exit 1
+fi
+if ! grep -q "pass 1" <<<"$out4"; then
+  echo "FAIL: case4 出力に 'pass 1' が無い" >&2
+  exit 1
+fi
+if ! grep -q "fail 0" <<<"$out4"; then
+  echo "FAIL: case4 出力に 'fail 0' が無い" >&2
+  exit 1
+fi
+if ! grep -q "skip 0" <<<"$out4"; then
+  echo "FAIL: case4 出力に 'skip 0' が無い" >&2
   exit 1
 fi
 
