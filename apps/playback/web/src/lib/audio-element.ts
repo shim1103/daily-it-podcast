@@ -88,25 +88,30 @@ export function subscribeAudioState(
 }
 
 /**
- * 別 episode へ切り替える時に `<audio>` を初期状態へ戻す（B Decision §1-3、seek にも適用）。
+ * `<audio>` の音源 URL を差し替える。`<audio src>` を Component 側の React props で
+ * controlled にすると、命令的な `play()` / `seekAudioElement()` が新 `src` の反映前に走って
+ * 空要素を再生してしまう。音源指定もこの層へ寄せ、ViewModel が `play` / `seek` の直前に
+ * 呼ぶことで順序を保証する。
  *
- * @ensure `pause()` を呼び、`currentTime` を 0 にし、`load()` で source を読み直す
+ * @require src は絶対 URL（呼び出し側が baseUrl と結合済み）
+ * @ensure `el.src` を `src` にし、`load()` で読み込ませる。`load()` は再生位置を 0 へ戻すので
+ *   別 episode 切替時の頭出しも兼ねる。同一 URL への再セットで無駄な `load()` を避ける差分判定は
+ *   呼び出し側（`useEpisodePlayback.moveTo`）の責務で、この関数は毎回 `load()` する
  */
-export function resetAudioElement(el: HTMLAudioElement): void {
-  el.pause();
-  el.currentTime = 0;
+export function setAudioSource(el: HTMLAudioElement, src: string): void {
+  el.src = src;
   el.load();
 }
 
 /**
- * `stop()` 時に `<audio>` を止めて頭出しする。source は読み直さない。
+ * `stop()`（UI 表示は「停止」）時に `<audio>` をその位置で止める。頭出しも source 読み直しもしない。
  *
- * @ensure `pause()` を呼び、`currentTime` を 0 にする。`load()` は呼ばない
- *   （source 読み直しは別 episode 切替専用の `resetAudioElement` の責務）
+ * @ensure `pause()` だけを呼ぶ。`currentTime` は変えない（B Decision §1-1/§1-2「停止中でも位置は残る」）。
+ *   `load()` も呼ばない（source 読み直しは別 episode 切替専用の `setAudioSource` の責務）。
+ *   同じ episode を再び再生するときは、残った `currentTime` からの再開になる
  */
 export function pauseAudioElement(el: HTMLAudioElement): void {
   el.pause();
-  el.currentTime = 0;
 }
 
 /**
@@ -116,7 +121,7 @@ export function pauseAudioElement(el: HTMLAudioElement): void {
  *   その結果を `Promise.resolve()` で包んで返す（古い実装が undefined を返しても Promise 化する）。
  *   `opts.play` が false なら `play()` を呼ばず解決済み Promise を返す。
  *   rejection は呼び出し側が握る。`load()` は呼ばない
- *   （source 読み直しは別 episode 切替専用の `resetAudioElement` の責務）
+ *   （source 読み直しは別 episode 切替専用の `setAudioSource` の責務）
  */
 export function seekAudioElement(
   el: HTMLAudioElement,

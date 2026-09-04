@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   type AudioLifecyclePhase,
   pauseAudioElement,
-  resetAudioElement,
   seekAudioElement,
+  setAudioSource,
   subscribeAudioState,
 } from "./audio-element.ts";
 
@@ -21,6 +21,7 @@ function createFakeAudioElement(): HTMLAudioElement & {
 } {
   const listeners = new Map<string, Set<EventListener>>();
   const fake = {
+    src: "",
     currentTime: 0,
     duration: Number.NaN,
     pauseCalls: 0,
@@ -56,6 +57,7 @@ function createFakeAudioElement(): HTMLAudioElement & {
   return fake as unknown as HTMLAudioElement & {
     emit(type: string): void;
     listenerCount(type: string): number;
+    src: string;
     pauseCalls: number;
     loadCalls: number;
     playCalls: number;
@@ -209,24 +211,36 @@ describe("subscribeAudioState", () => {
   });
 });
 
-describe("resetAudioElement", () => {
-  it("別 episode 切替時の初期化として pause を呼び currentTime を 0 にし load を呼ぶ", () => {
-    // Given: 再生位置が進んだ audio
+describe("setAudioSource", () => {
+  it("src を渡した URL にし、load で読み込ませる（頭出しを兼ねる）", () => {
+    // Given: 別 URL を指した audio
     const audio = createFakeAudioElement();
+    audio.src = "https://example.test/episodes/old/audio";
     audio.currentTime = 42;
 
-    // When: reset する
-    resetAudioElement(audio);
+    // When: 新しい URL をセットする
+    setAudioSource(audio, "https://example.test/episodes/new/audio");
 
-    // Then: pause + currentTime=0 + load（source 読み直し）
-    expect(audio.pauseCalls).toBe(1);
-    expect(audio.currentTime).toBe(0);
+    // Then: src が入れ替わり load される（load が position を 0 へ戻す）
+    expect(audio.src).toBe("https://example.test/episodes/new/audio");
+    expect(audio.loadCalls).toBe(1);
+  });
+
+  it("同じ URL でも load を呼ぶ（呼び出し側が差分判定する前提）", () => {
+    // Given: 既に同じ URL を指す audio
+    const audio = createFakeAudioElement();
+    audio.src = "https://example.test/episodes/ep-1/audio";
+
+    // When: 同じ URL をセットする
+    setAudioSource(audio, "https://example.test/episodes/ep-1/audio");
+
+    // Then: load は起きる（重複回避は moveTo 側の責務）
     expect(audio.loadCalls).toBe(1);
   });
 });
 
 describe("pauseAudioElement", () => {
-  it("stop 用に pause を呼び currentTime を 0 にする", () => {
+  it("stop 用に pause だけを呼び、currentTime はその位置のまま残す", () => {
     // Given: 再生位置が進んだ audio
     const audio = createFakeAudioElement();
     audio.currentTime = 30;
@@ -234,9 +248,9 @@ describe("pauseAudioElement", () => {
     // When: pause する
     pauseAudioElement(audio);
 
-    // Then: pause + currentTime=0
+    // Then: pause は呼ぶが currentTime は 30 のまま（頭出ししない）
     expect(audio.pauseCalls).toBe(1);
-    expect(audio.currentTime).toBe(0);
+    expect(audio.currentTime).toBe(30);
   });
 
   it("load は呼ばない（source 読み直しは別 episode 切替専用）", () => {

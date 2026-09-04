@@ -14,7 +14,9 @@ section.episode-topic:last-of-type {
   margin-bottom: 0.5rem;
 }
 
-section.episode-topic [data-topic-title] {
+/* topic の title と、導入・まとめ（bookend）の見出しは同じ字面にする */
+section.episode-topic [data-topic-title],
+section.episode-topic .episode-topic__heading-title {
   margin: 0;
   color: var(--el-label);
   font-family:
@@ -29,10 +31,12 @@ section.episode-topic [data-topic-title] {
   letter-spacing: -0.015em;
 }
 
+/* mm:ss（seek bar）を上、title を下の 2 行に分ける（横並びにしない） */
 .episode-topic__heading {
   display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
   margin: 0 0 0.55rem;
   padding: 0;
   border: 0;
@@ -44,17 +48,17 @@ section.episode-topic [data-topic-title] {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #0a84ff;
+  color: var(--el-accent);
   font-family:
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
     "Helvetica Neue",
     sans-serif;
-  font-size: var(--el-detail-topic-size, var(--el-list-topic-size));
+  font-size: var(--el-item-meta-size, 12px);
   font-weight: 600;
-  line-height: 1.35;
-  letter-spacing: -0.02em;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   text-decoration: none;
