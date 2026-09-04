@@ -6,7 +6,7 @@
 # @invariant 必須 Unit / Integration gate に載せない。全 credential は TEST_*（本番 Secrets / Variables を使わない。Decision 2026-09-03T14-45-00）。playback を触らない。
 # @invariant toolchain の go test を YAML に直書きしない。secret 値を log に出さない。
 # 判断: docs/decisions/2026-08-30T11-56-01 / 2026-08-30T12-49-00 / 2026-08-30T12-49-01 / 2026-08-30T16-23-00 / 2026-09-03T14-45-00
-# 判断: cron・dispatch とも -tags=system の全 System test を実行する（実行対象パターン切替なし）。rate 計測は generator-tts-rate.yml へ分離。
+# 判断: cron・dispatch とも -tags=system の全 System test を実行する（実行対象パターン切替なし）。rate 計測は generator-tts-rate.yml / generator-draft-rate.yml へ分離（ratemeasure tag）。
 name: generator-system
 
 on:
