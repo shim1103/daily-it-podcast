@@ -236,8 +236,8 @@ func TestProduceEpisodeRun_writesEpisodeWithAssembledManuscriptAndAudio_whenAllS
 		t.Fatalf("manuscript.date = %q, want JST calendar day 2026-08-31", m.Date)
 	}
 	wantGreeting := fmt.Sprintf(constants.OpeningGreetingTemplate, "2026年8月31日")
-	if m.Body.Opening != wantGreeting {
-		t.Fatalf("body.opening = %q, want %q", m.Body.Opening, wantGreeting)
+	if m.Body.Opening.Text != wantGreeting {
+		t.Fatalf("body.opening.text = %q, want %q", m.Body.Opening.Text, wantGreeting)
 	}
 	if len(m.Body.Topics) != validWireTopicCount {
 		t.Fatalf("body.topics count = %d, want %d", len(m.Body.Topics), validWireTopicCount)
@@ -246,17 +246,21 @@ func TestProduceEpisodeRun_writesEpisodeWithAssembledManuscriptAndAudio_whenAllS
 	if wantTitle := wireTitleOf(t, h.writer.out); m.Title != wantTitle {
 		t.Fatalf("title = %q, want wire title %q", m.Title, wantTitle)
 	}
-	// body.closing は draft.ClosingSummary（wire の closingSummary）そのもの。
-	// farewell（fmt.Sprintf(ClosingFarewell, spokenDate)）は音声のみで body.closing に含めない。
+	// body.closing.summary は draft.ClosingSummary（wire の closingSummary）そのもの。
+	// farewell（fmt.Sprintf(ClosingFarewell, spokenDate)）は音声のみで body.closing.summary に含めない。
 	wantClosing := wireClosingSummaryOf(t, h.writer.out)
-	if m.Body.Closing != wantClosing {
-		t.Fatalf("body.closing = %q, want wire closingSummary %q", m.Body.Closing, wantClosing)
+	if m.Body.Closing.Summary != wantClosing {
+		t.Fatalf("body.closing.summary = %q, want wire closingSummary %q", m.Body.Closing.Summary, wantClosing)
 	}
-	if farewell := fmt.Sprintf(constants.ClosingFarewell, "2026年8月31日"); m.Body.Closing == farewell {
-		t.Fatalf("body.closing must be draft.ClosingSummary, not the farewell line %q", farewell)
+	if farewell := fmt.Sprintf(constants.ClosingFarewell, "2026年8月31日"); m.Body.Closing.Summary == farewell {
+		t.Fatalf("body.closing.summary must be draft.ClosingSummary, not the farewell line %q", farewell)
 	}
-	if strings.Contains(m.Body.Closing, "%s") {
-		t.Fatalf("body.closing contains raw %%s: %q", m.Body.Closing)
+	if strings.Contains(m.Body.Closing.Summary, "%s") {
+		t.Fatalf("body.closing.summary contains raw %%s: %q", m.Body.Closing.Summary)
+	}
+	// body.closing.startSec は末尾束（closingSummary+farewell）の開始累積秒。topic の後なので > 0。
+	if m.Body.Closing.StartSec <= 0 {
+		t.Fatalf("body.closing.startSec = %v, want > 0", m.Body.Closing.StartSec)
 	}
 }
 
@@ -284,9 +288,9 @@ func TestProduceEpisodeRun_synthesizesTopicPlusTwoBundles_whenDraftHasTopics(t *
 	}
 
 	m := unmarshalManuscript(t, h.episw.manuscript)
-	// 先頭束は greeting（= body.opening）を改行の前に置く。
-	if !strings.HasPrefix(h.synth.texts[0], m.Body.Opening+"\n") {
-		t.Fatalf("texts[0] = %q, want prefix greeting %q + newline", h.synth.texts[0], m.Body.Opening)
+	// 先頭束は greeting（= body.opening.text）を改行の前に置く。
+	if !strings.HasPrefix(h.synth.texts[0], m.Body.Opening.Text+"\n") {
+		t.Fatalf("texts[0] = %q, want prefix greeting %q + newline", h.synth.texts[0], m.Body.Opening.Text)
 	}
 	// 中間束は topic ごとの preface + "\n" + detail。
 	for i := 0; i < topicCount; i++ {
@@ -295,9 +299,9 @@ func TestProduceEpisodeRun_synthesizesTopicPlusTwoBundles_whenDraftHasTopics(t *
 			t.Fatalf("texts[%d] = %q, want topic[%d] bundle %q", 1+i, got, i, want)
 		}
 	}
-	// 末尾束は closingSummary（= body.closing）+ "\n" + farewell（date 注入済み。生 template ではない）。
+	// 末尾束は closingSummary（= body.closing.summary）+ "\n" + farewell（date 注入済み。生 template ではない）。
 	wantFarewell := fmt.Sprintf(constants.ClosingFarewell, "2026年8月31日")
-	wantLast := m.Body.Closing + "\n" + wantFarewell
+	wantLast := m.Body.Closing.Summary + "\n" + wantFarewell
 	if last := h.synth.texts[len(h.synth.texts)-1]; last != wantLast {
 		t.Fatalf("last segment = %q, want %q", last, wantLast)
 	}

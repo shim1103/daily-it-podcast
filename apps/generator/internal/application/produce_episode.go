@@ -55,7 +55,7 @@ func NewProduceEpisode(
 // @ensure 表示 Location で now を暦日化した date につき CompletedEpisodeLookup.HasPair が true なら、Fetch より前に成功 return（TextWriter / Speech / WriteEpisode を呼ばない）。
 // @ensure HasPair が false なら通常どおり続行する。
 // @ensure Fetch 後 0 件なら Domain Error（Op = no_source_items）。WriteEpisode.Run を呼ばない。
-// @ensure build.ComposeBrief(items)（constants Prompt へ SOURCES/数値 placeholder/JSON_EXAMPLE 埋め込み）→ TextWriter.Write + ManuscriptDraftFromWriterOutput を最大 TextWriterMaxAttempts 回（draft 検証成功で打ち切り。Write 自体の error は即 return）→ OpeningGreetingTemplate から Greeting 文案（date 注入）→ ClosingFarewell template から Farewell 文案（date 注入）→ build.SpeechTexts が返す topic+2 束（texts[0] = greeting+intro、各 topic = preface+detail、末尾 = closingSummary+farewell）を 1 回 SynthesizeAll（WAV列を受け取る。retry 予算は Adapter が束ねる）→ build.WavDurationSec / 無音込み累積 startSec・durationSec → build.ConcatWAV → opaque UUID episodeId → 完成 manuscript bytes（MarshalManuscript は topic ごとの preface/detail を分けて書く。束ねるのは TTS へ渡す text だけ）→ WriteEpisode.Run。
+// @ensure build.ComposeBrief(items)（constants Prompt へ SOURCES/数値 placeholder/JSON_EXAMPLE 埋め込み）→ TextWriter.Write + ManuscriptDraftFromWriterOutput を最大 TextWriterMaxAttempts 回（draft 検証成功で打ち切り。Write 自体の error は即 return）→ OpeningGreetingTemplate から Greeting 文案（date 注入）→ ClosingFarewell template から Farewell 文案（date 注入）→ build.SpeechTexts が返す topic+2 束（texts[0] = greeting+intro、各 topic = preface+detail、末尾 = closingSummary+farewell）を 1 回 SynthesizeAll（WAV列を受け取る。retry 予算は Adapter が束ねる）→ build.WavDurationSec / 無音込み累積 topic startSec・closing startSec・durationSec → build.ConcatWAV → opaque UUID episodeId → 完成 manuscript bytes（MarshalManuscript は topic ごとの preface/detail を分けて書く。束ねるのは TTS へ渡す text だけ）→ WriteEpisode.Run。
 // @ensure 途中 error なら WriteEpisode.Run を呼ばない（書込なし）。
 // @invariant 所有しない: manuscript.schema.json の Validate（Gate）、vendor / env。Infrastructure 型を知らない。表示タイムゾーンの解決（tzdata I/O）は Composition の責務。監視対象一覧・情報源種類を知らない。string→Draft を Port / Adapter に委譲しない。WriteEpisode 内の同日再チェックは持たない。
 func (uc *ProduceEpisode) Run(ctx context.Context, now time.Time) error {
@@ -103,7 +103,7 @@ func (uc *ProduceEpisode) Run(ctx context.Context, now time.Time) error {
 		segmentDurations[i] = dur
 	}
 
-	topicStartSecs, durationSec, err := build.Timeline(segmentDurations, len(draft.Topics))
+	topicStartSecs, closingStartSec, durationSec, err := build.Timeline(segmentDurations, len(draft.Topics))
 	if err != nil {
 		return err
 	}
@@ -115,14 +115,15 @@ func (uc *ProduceEpisode) Run(ctx context.Context, now time.Time) error {
 
 	episodeID := uc.newEpisodeID()
 	manuscript, err := build.MarshalManuscript(build.ManuscriptInput{
-		EpisodeID:      episodeID,
-		Date:           dateStr,
-		Title:          draft.Title,
-		DurationSec:    durationSec,
-		Opening:        greeting,
-		Draft:          draft,
-		TopicStartSecs: topicStartSecs,
-		Closing:        draft.ClosingSummary,
+		EpisodeID:       episodeID,
+		Date:            dateStr,
+		Title:           draft.Title,
+		DurationSec:     durationSec,
+		Opening:         greeting,
+		Draft:           draft,
+		TopicStartSecs:  topicStartSecs,
+		ClosingSummary:  draft.ClosingSummary,
+		ClosingStartSec: closingStartSec,
 	})
 	if err != nil {
 		return err

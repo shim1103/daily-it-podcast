@@ -45,24 +45,26 @@ func SpeechTexts(greeting, farewell string, d models.ManuscriptDraft) []string {
 //
 // @require len(segmentDurations) は SpeechTexts と同じ固定本数（1 + topicCount + 1 = greeting+intro 束 / 各 topic の preface+detail 束 / closingSummary+farewell 束）。
 // @ensure topicStartSecs[i] は i 番目 topic 束（Preface+Detail 連結）の開始累積秒。
+// @ensure closingStartSec は末尾 segment（closingSummary+farewell 束）の開始累積秒。
 // @ensure totalDurationSec == Σ segmentDurations + SegmentSilenceSec*(len(segmentDurations)-1)。
 // @ensure segment 本数が固定本数と不一致、または topicCount < 1 のとき Domain Error（Op = inconsistent_episode_assembly）。
-func Timeline(segmentDurations []float64, topicCount int) (topicStartSecs []float64, totalDurationSec float64, err error) {
+func Timeline(segmentDurations []float64, topicCount int) (topicStartSecs []float64, closingStartSec float64, totalDurationSec float64, err error) {
 	if topicCount < 1 {
-		return nil, 0, domainerrors.DomainErr(
+		return nil, 0, 0, domainerrors.DomainErr(
 			domainerrors.OpInconsistentEpisodeAssembly,
 			fmt.Errorf("topicCount must be >= 1, got %d", topicCount),
 		)
 	}
 	wantCount := speechSegmentsBeforeTopics + speechSegmentsPerTopic*topicCount + 1
 	if n := len(segmentDurations); n != wantCount {
-		return nil, 0, domainerrors.DomainErr(
+		return nil, 0, 0, domainerrors.DomainErr(
 			domainerrors.OpInconsistentEpisodeAssembly,
 			fmt.Errorf("segment count %d is inconsistent with topicCount %d (want %d)", n, topicCount, wantCount),
 		)
 	}
 
 	starts := make([]float64, topicCount)
+	closingIdx := len(segmentDurations) - 1
 	var cursor float64
 	for i, dur := range segmentDurations {
 		if i > 0 {
@@ -74,21 +76,25 @@ func Timeline(segmentDurations []float64, topicCount int) (topicStartSecs []floa
 				starts[topic] = cursor
 			}
 		}
+		if i == closingIdx {
+			closingStartSec = cursor
+		}
 		cursor += dur
 	}
-	return starts, cursor, nil
+	return starts, closingStartSec, cursor, nil
 }
 
 // ManuscriptInput は MarshalManuscript の入力を 1 つにまとめた Parameter Object。
 type ManuscriptInput struct {
-	EpisodeID      string
-	Date           string
-	Title          string
-	DurationSec    float64
-	Opening        string
-	Draft          models.ManuscriptDraft
-	TopicStartSecs []float64
-	Closing        string
+	EpisodeID       string
+	Date            string
+	Title           string
+	DurationSec     float64
+	Opening         string
+	Draft           models.ManuscriptDraft
+	TopicStartSecs  []float64
+	ClosingSummary  string
+	ClosingStartSec float64
 }
 
 // MarshalManuscript は完成 manuscript.schema.json 形の JSON bytes を組む。
@@ -120,9 +126,16 @@ func MarshalManuscript(in ManuscriptInput) ([]byte, error) {
 		Title:       in.Title,
 		DurationSec: in.DurationSec,
 		Body: manuscriptBodyJSON{
-			Opening: in.Opening,
-			Topics:  topics,
-			Closing: in.Closing,
+			Opening: manuscriptOpeningJSON{
+				Text: in.Opening,
+				// opening は先頭 segment（greeting+intro 束）なので開始位置は定義上つねに 0。
+				StartSec: 0,
+			},
+			Topics: topics,
+			Closing: manuscriptClosingJSON{
+				Summary:  in.ClosingSummary,
+				StartSec: in.ClosingStartSec,
+			},
 		},
 	}
 	return json.Marshal(doc)
@@ -137,9 +150,19 @@ type manuscriptJSON struct {
 }
 
 type manuscriptBodyJSON struct {
-	Opening string                `json:"opening"`
+	Opening manuscriptOpeningJSON `json:"opening"`
 	Topics  []manuscriptTopicJSON `json:"topics"`
-	Closing string                `json:"closing"`
+	Closing manuscriptClosingJSON `json:"closing"`
+}
+
+type manuscriptOpeningJSON struct {
+	Text     string  `json:"text"`
+	StartSec float64 `json:"startSec"`
+}
+
+type manuscriptClosingJSON struct {
+	Summary  string  `json:"summary"`
+	StartSec float64 `json:"startSec"`
 }
 
 type manuscriptTopicJSON struct {
