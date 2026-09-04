@@ -21,9 +21,11 @@ playback web の一覧 UI を shim の複数回の design 指示で追い込ん�
 7. Decision 1 本（`2026-09-04T16-57-15-refactor-playback-web-list-interactive-color`）を作成。`2026-08-28T19-20-01` の §1-2「紫は interactive に限る」のうち hover を紫が担う含意を supersede し、「選択=紫 / hover=黄」の 2 色制へ色軸を整合。§Rejected-2「hover で行全体を紫 fill」は維持（黄・薄い持ち上げはこれに当たらない）。CSS コメントの「色の軸の正本」参照を、interactive 色に触れる `episode-item.css` / `episode-row.css` では新 Decision へ向けた。
 8. `/commit --repo --split` で 3 commit（`dab9cf9` mini-player 見出し / `72cb78c` bookend 文言除去 / `01a2d9d` interactive 色 + 丸ボタン + Decision 同梱）へ分割し `origin/refactor/playback-web-design-fix` へ push。sandbox 内 push が filtering proxy の SSH 認証で失敗、sandbox 無効で再実行して成功。branch は新規で upstream 未設定だったため `-u` を付けた。
 9. 対象範囲は今 session で触れた `apps/playback/web/src/**` の 16 file + 新規 Decision 1 file。session 外の他 app 差分・untracked は無し。`origin/develop` == 起点（0/0）で PR base は `develop`。
+10. `/pr-completion`: daily + lessons 7 件を `df98a95` で commit・push。PR #128 を base `develop` で作成（`gh pr create --body-file`、`shim gh` 不使用）。対応 GitHub Issue なし（Issue 番号 0）。`develop` 差分 19 file で review tool 上限内、`master` 差分 118 file は上限超過のため base は `develop`。`mergeable: MERGEABLE`。GitHub Actions（`static-and-unit` / `integration`）全 pass（pre-commit/pre-push と同内容）。Copilot review は quota 上限で findings なし（AgentReview 実質なし）。
 
 ### Commits
 
 - `dab9cf9`
 - `72cb78c`
 - `01a2d9d`
+- `df98a95`
