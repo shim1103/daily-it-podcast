@@ -61,9 +61,17 @@ CI 常時 gate に載らず「重複」の前提が崩れている旨を shim �
    `rm /Users/shim0729/projects/daily-it-podcast/docs/decisions/2026-09-04T18-30-01-docs-frontend-coverage-broad-integration.md`
    （`develop` に add しない限り commit には入らないため実害はない）。
 10. lessons 11 件を追加（workflow 5 / terms 5 / platform 1）。
+11. `/pr-completion`: Decision 2 本 + daily + lessons 11 件を `14197e9` で commit・push。PR #129 を
+    base `develop` で作成（`gh pr create` 直接、`shim gh` 不使用）。`develop` は 4 commit / 9 files で
+    review tool 上限内、`master` は 189 commit / 286 files で上限超過のため `develop` を選択。対応
+    GitHub Issue なし（Issue 番号 0）。merge-base が `origin/develop` HEAD（`a50d480`）と一致で
+    divergence なし、`mergeable: MERGEABLE` / `mergeStateStatus: CLEAN`。GitHub Actions
+    （`static-and-unit` / `integration`、各 2 job）すべて pass。AgentReview は無し（`reviewDecision`
+    空、Copilot 等の check なし）。
 
 ### Commits
 
 - `34e68b8`
 - `fcc1e19`
 - `82defe1`
+- `14197e9`
