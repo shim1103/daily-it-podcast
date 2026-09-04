@@ -17,6 +17,8 @@ const TextWriterBriefPrompt = `
 - 出力言語: 日本語（本文 field はすべて日本語）
 - 一人喋りの podcast 原稿として書く
 - 各文は「。」で終える。無意味な空白行・装飾は禁止
+- 改行を入れてよいのは topic.detail の中だけ。title / intro / topic.title / topic.preface / closingSummary には改行を一切入れない（すべて 1 段落・1 行で書く）
+- topic.detail も段落は 1 個だけ。改行は段落分けが要るときの 1 個のみで、それ以外は改行を入れない
 
 # Output
 - 応答は JSON オブジェクト 1 つのみ（markdown の json code fence 可）
@@ -53,7 +55,7 @@ const TextWriterBriefPrompt = `
 
 # topic detail
 - ソースに基づく説明本文
-- 段落分けが必要なときだけ改行は1個まで。それ以外は段落分けせず、改行や文間の無意味な空白は入れない
+- 原稿全体で改行を入れてよいのはこの topic.detail の中だけ。段落は 1 個だけにし、改行は段落分けがどうしても要るときの 1 個のみ。それ以外は改行も文間の無意味な空白も入れない
 - 各 topic.detail の文字数: {{DETAIL_MIN}}〜{{DETAIL_MAX}} 文字（目安 {{DETAIL_TARGET}}）
 
 # closingSummary
@@ -74,6 +76,8 @@ const TextWriterBriefPrompt = `
 - closingSummary は {{CLOSING_MIN}}〜{{CLOSING_MAX}} 文字か、「。」で終わるか
 - intro + 全 topic の preface + detail + closingSummary の合計が {{TOTAL_MIN}}〜{{TOTAL_MAX}} 文字に収まるか
 - すべて日本語か（英数字の羅列や他言語が本文に混ざっていないか）
+- title / intro / topic.title / topic.preface / closingSummary に改行が 1 個も入っていないか
+- topic.detail の改行は 0 個か 1 個か（段落は 1 個だけか）
 - 応答は JSON オブジェクト 1 つだけか（前後に説明文を付けていないか）
 
 # Example shape
