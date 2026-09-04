@@ -42,12 +42,29 @@ func firstNonZeroDuration(v, fallback time.Duration) time.Duration {
 	return v
 }
 
+// withCallTimeout は httpClient の shallow copy に Gemini TTS 1 呼び出しぶんの
+// 全体 timeout（httpCallTimeout）を付けて返す。
+// why: Composition が渡す *http.Client は全体 timeout を持たない。1 呼び出しの上限は
+//
+//	vendor 固有制約なので Adapter が付け直す。呼び出し元の Client は変更しない。
+//
+// @ensure httpClient == nil のときは nil を返す（nil client の防御は SynthesizeAll が持つ）。
+// @ensure 非 nil のときは httpCallTimeout を持つ別 *http.Client。引数の Client は変更しない。
+func withCallTimeout(httpClient *http.Client) *http.Client {
+	if httpClient == nil {
+		return nil
+	}
+	c := *httpClient
+	c.Timeout = httpCallTimeout
+	return &c
+}
+
 func newSpeechSynthesizerForTest(httpClient *http.Client, apiKey string, backoffSleepFn func(time.Duration)) *SpeechSynthesizer {
 	if backoffSleepFn == nil {
 		backoffSleepFn = time.Sleep
 	}
 	return &SpeechSynthesizer{
-		client:           httpClient,
+		client:           withCallTimeout(httpClient),
 		apiKey:           apiKey,
 		backoffSleepFn:   backoffSleepFn,
 		nowFn:            time.Now,

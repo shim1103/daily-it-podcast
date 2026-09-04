@@ -10,12 +10,13 @@ cron の 1 回通し（`generator-system.yml`）は「壊れていないか」�
 
 ### generator-system（cron 週次 + dispatch・`-tags=system`・1 回通し）
 
-`speech_synthesis` / `cursorcli_draft`(1 回版) をまとめて 1 回ずつ実行。1 回でも FAIL なら run が赤。
+`speech_synthesis`(1 回版) を 1 回実行。FAIL なら run が赤。
 赤になったら下の rate 計測 test を手動 dispatch して原因を切り分ける。
+（Cursor は CLI → Cloud Agents HTTP API へ移行。`cursorcli_draft` は削除。cursorapi 版の 1 回通しは別 Issue。）
 
 | date | run | 結果 | 内訳 | 備考 |
 |---|---|---|---|---|
-| 2026-09-02 | 33627209650 | （移行前・参考） | — | TEST key 化前。CursorCLI 単体のみ dispatch、3/3 |
+| 2026-09-02 | 33627209650 | （移行前・参考） | — | TEST key 化前・Cursor CLI 時代。CursorCLI 単体のみ dispatch、3/3 |
 
 累計: —（TEST key 化・full 系削除後の初 run から計上）
 
@@ -38,21 +39,11 @@ cron の 1 回通し（`generator-system.yml`）は「壊れていないか」�
 
 ---
 
-### TestCursorCLIDraftRate（`generator-draft-rate.yml`・dispatch のみ・`system && ratemeasure`）
+### Cursor draft rate 計測（削除済み）
 
-**いつ**: cron の 1 回通しで `cursorcli_draft` が落ちた／尺下限割れが再発したとき。prompt variant の A/B。
-固定擬似ソース → `ComposeBriefWithTemplate(items, variant)` → `Write` → `ManuscriptDraftFromWriterOutput`。
-Op=`run` の error はその回を分母から除外（環境経由）。正常応答のうち valid が PASS。env は `TEST_CURSOR_API_KEY` 直読み。
-
-| date | run | pass/(pass+fail) | 環境skip | 各回文字数 | prompt_variant | pass_threshold | 備考 |
-|---|---|---|---|---|---|---|---|
-| | | | | | default | 0.8 | 現行 constants.TextWriterBriefPrompt |
-
-累計: —
-
-観測メモ:
-- FAIL 回の原因内訳（全体尺下限割れ / topic 件数 / 各 field range / JSON 崩れ）。
-- variant を変えたときの valid 率・文字数分布の変化。下限マージン（total − `DraftTotalCharsMin`）も記録する。
+Cursor CLI（`agent` binary）→ Cloud Agents HTTP API（`manuscript/cursorapi`）への移行で
+`generator-draft-rate.yml` / `draft_rate_system_test.go` / `test-draft-rate.sh` は削除した
+（Decision `2026-09-03T17-03-33`）。cursorapi 版の draft rate 計測は別 Issue で起票する。
 
 ---
 

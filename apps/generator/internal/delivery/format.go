@@ -7,12 +7,13 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/config"
 	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch/processenv"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/google/oauth"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorcli"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/hackernews"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/itmedia"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/lobsters"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorapi"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/x/getxapi"
 )
 
 const (
@@ -46,7 +47,7 @@ func Format(err error) string {
 }
 
 func classify(err error) (kind, op string) {
-	// why: errors.As を種類ごとに走らせると、内側の processenv が外側の cursorcli より先に当たる。
+	// why: Unwrap 連鎖を1段ずつ外側から見て、最初に当たった型付き Error の kind / op を採る。
 	for current := err; current != nil; current = unwrapOne(current) {
 		switch e := current.(type) {
 		case *domainerrors.Error:
@@ -61,11 +62,7 @@ func classify(err error) (kind, op string) {
 			if e != nil {
 				return kindConfig, ""
 			}
-		case *cursorcli.Error:
-			if e != nil {
-				return kindInfrastructure, e.Op
-			}
-		case *processenv.Error:
+		case *cursorapi.Error:
 			if e != nil {
 				return kindInfrastructure, e.Op
 			}
@@ -73,7 +70,15 @@ func classify(err error) (kind, op string) {
 			if e != nil {
 				return kindInfrastructure, e.Op
 			}
-		case *getxapi.Error:
+		case *hackernews.Error:
+			if e != nil {
+				return kindInfrastructure, e.Op
+			}
+		case *lobsters.Error:
+			if e != nil {
+				return kindInfrastructure, e.Op
+			}
+		case *itmedia.Error:
 			if e != nil {
 				return kindInfrastructure, e.Op
 			}

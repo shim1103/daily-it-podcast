@@ -2,7 +2,6 @@
 package config
 
 const (
-	GetXAPIKeyEnv              = "GETX_API_KEY"
 	CursorAPIKeyEnv            = "CURSOR_API_KEY"
 	GeminiAPIKeyEnv            = "GEMINI_API_KEY"
 	GoogleOAuthClientIDEnv     = "GOOGLE_OAUTH_CLIENT_ID"

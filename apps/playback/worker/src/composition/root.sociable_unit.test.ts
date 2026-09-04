@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  createFakeGetEpisodeAudioUseCase,
-  createFakeGetEpisodeUseCase,
+  createFakeGetAudioUseCase,
   createFakeListEpisodesUseCase,
-  validGetEpisodeResponse,
   validListEpisodesResponse,
 } from "../controllers/fake-use-cases.ts";
 import { GoogleDriveEpisodeRepository } from "../infrastructure/drive/google-drive-episode-repository.ts";
@@ -151,14 +149,12 @@ describe("createPlaybackControllers", () => {
     // Given: override 無し・in-memory mode（repository は空で組み立てられる）
     const got = createPlaybackControllers({}, { mode: localMode });
 
-    // When: 一覧・1件・音声の3経路を叩く
+    // When: 一覧・音声の2経路を叩く
     const list = await got.listEpisodesController({});
-    const detail = got.getEpisodeController({ episodeId: "missing" });
-    const audio = got.getEpisodeAudioController({ episodeId: "missing" });
+    const audio = got.getAudioController({ episodeId: "missing" });
 
-    // Then: 空 repository を検証純関数が通し、一覧は空・1件/音声は Domain 経由の External NotFound
+    // Then: 空 repository を検証純関数が通し、一覧は空・音声は Domain 経由の External NotFound
     expect(list.episodes).toEqual([]);
-    await expect(detail).rejects.toMatchObject({ name: "NotFoundError" });
     await expect(audio).rejects.toMatchObject({ name: "NotFoundError" });
   });
 
@@ -167,8 +163,7 @@ describe("createPlaybackControllers", () => {
     const env = {};
     const useCases = {
       listEpisodes: createFakeListEpisodesUseCase(),
-      getEpisode: createFakeGetEpisodeUseCase(),
-      getEpisodeAudio: createFakeGetEpisodeAudioUseCase(),
+      getAudio: createFakeGetAudioUseCase(),
     };
 
     // When: override 付きで Controller 一式を組み立てる
@@ -176,8 +171,5 @@ describe("createPlaybackControllers", () => {
 
     // Then: repository 解決を経由せず、stub use case の応答をそのまま返す
     await expect(got.listEpisodesController({})).resolves.toEqual(validListEpisodesResponse);
-    await expect(got.getEpisodeController({ episodeId: "ep-1" })).resolves.toEqual(
-      validGetEpisodeResponse,
-    );
   });
 });

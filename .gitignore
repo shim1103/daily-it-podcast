@@ -11,3 +11,14 @@ coverage/
 
 # Playback Vite build output (bundled by wrangler at deploy)
 apps/playback/web/dist/
+
+# Wrangler local cache（account id / name など。repo に入れない）
+.wrangler/
+
+# Playwright
+apps/playback/test-results/
+apps/playback/playwright-report/
+
+# Python bytecode (apps/diagrams)
+__pycache__/
+*.pyc

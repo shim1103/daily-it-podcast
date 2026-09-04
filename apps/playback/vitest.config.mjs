@@ -34,6 +34,8 @@ export default defineConfig({
             "web/vite-config.sociable_unit.test.ts",
             "web/src/**/*sociable_unit*.test.ts",
             "worker/src/**/*sociable_unit*.test.ts",
+            // why: secret なし NI を Unit coverage 分母へ算入する（Decision 2026-08-30T16-20-01）
+            "test/integration/**/*narrow_integration*.test.ts",
           ],
           passWithNoTests: true,
         },
@@ -42,10 +44,8 @@ export default defineConfig({
         test: {
           name: "integration",
           include: [
-            "test/**/*narrow_integration*.test.ts",
-            "test/**/*broad_integration*.test.ts",
-            "test/**/*contract*.test.ts",
-            "test/**/*system_e2e*.test.ts",
+            "test/integration/**/*narrow_integration*.test.ts",
+            "test/integration/**/*broad_integration*.test.ts",
           ],
           passWithNoTests: true,
         },

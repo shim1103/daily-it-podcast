@@ -9,12 +9,13 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/config"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
 	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch/processenv"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/google/oauth"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorcli"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/hackernews"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/itmedia"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/lobsters"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorapi"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/x/getxapi"
 )
 
 func requireLine(t *testing.T, got, want string) {
@@ -74,11 +75,11 @@ func TestFormat_printsConfigKindWithoutOp_whenErrorIsConfigErrorsBundle(t *testi
 	}
 }
 
-func TestFormat_printsInfrastructureKindAndOp_whenErrorIsCursorcli(t *testing.T) {
+func TestFormat_printsInfrastructureKindAndOp_whenErrorIsCursorapi(t *testing.T) {
 	t.Parallel()
 
-	// Given: cursorcli Infrastructure Error
-	err := &cursorcli.Error{Op: "run", Err: errors.New("exit status 1")}
+	// Given: cursorapi Infrastructure Error
+	err := &cursorapi.Error{Op: "run", Err: errors.New("status 500")}
 
 	// When: External 表現へ写す
 	got := delivery.Format(err)
@@ -88,18 +89,46 @@ func TestFormat_printsInfrastructureKindAndOp_whenErrorIsCursorcli(t *testing.T)
 	requireLine(t, got, "generator: op=run")
 }
 
-func TestFormat_printsInfrastructureKind_whenErrorIsProcessenv(t *testing.T) {
+func TestFormat_printsInfrastructureKind_whenErrorIsHackerNews(t *testing.T) {
 	t.Parallel()
 
-	// Given: processenv Infrastructure Error
-	err := &processenv.Error{Op: "launch", Err: errors.New("program is empty")}
+	// Given: hackernews Infrastructure Error
+	err := &hackernews.Error{Op: "list", Err: errors.New("status 503")}
 
 	// When: External 表現へ写す
 	got := delivery.Format(err)
 
 	// Then: kind=infrastructure
 	requireLine(t, got, "generator: kind=infrastructure")
-	requireLine(t, got, "generator: op=launch")
+	requireLine(t, got, "generator: op=list")
+}
+
+func TestFormat_printsInfrastructureKind_whenErrorIsLobsters(t *testing.T) {
+	t.Parallel()
+
+	// Given: lobsters Infrastructure Error
+	err := &lobsters.Error{Op: "list", Err: errors.New("status 502")}
+
+	// When: External 表現へ写す
+	got := delivery.Format(err)
+
+	// Then: kind=infrastructure
+	requireLine(t, got, "generator: kind=infrastructure")
+	requireLine(t, got, "generator: op=list")
+}
+
+func TestFormat_printsInfrastructureKind_whenErrorIsITmedia(t *testing.T) {
+	t.Parallel()
+
+	// Given: itmedia Infrastructure Error
+	err := &itmedia.Error{Op: "fetch", Err: errors.New("status 504")}
+
+	// When: External 表現へ写す
+	got := delivery.Format(err)
+
+	// Then: kind=infrastructure
+	requireLine(t, got, "generator: kind=infrastructure")
+	requireLine(t, got, "generator: op=fetch")
 }
 
 func TestFormat_printsInfrastructureKind_whenErrorIsGemini(t *testing.T) {
@@ -114,20 +143,6 @@ func TestFormat_printsInfrastructureKind_whenErrorIsGemini(t *testing.T) {
 	// Then: kind=infrastructure
 	requireLine(t, got, "generator: kind=infrastructure")
 	requireLine(t, got, "generator: op=synthesize")
-}
-
-func TestFormat_printsInfrastructureKind_whenErrorIsGetxapi(t *testing.T) {
-	t.Parallel()
-
-	// Given: getxapi Infrastructure Error
-	err := &getxapi.Error{Op: "fetch", Err: errors.New("status 503")}
-
-	// When: External 表現へ写す
-	got := delivery.Format(err)
-
-	// Then: kind=infrastructure
-	requireLine(t, got, "generator: kind=infrastructure")
-	requireLine(t, got, "generator: op=fetch")
 }
 
 func TestFormat_printsInfrastructureKind_whenErrorIsGdrive(t *testing.T) {
@@ -174,17 +189,17 @@ func TestFormat_printsUnknownKindWithoutOp_whenErrorIsPlain(t *testing.T) {
 	}
 }
 
-func TestFormat_printsCursorcliKindNotInnerProcessenv_whenCursorcliWrapsProcessenv(t *testing.T) {
+func TestFormat_printsOuterCursorapiOp_whenCursorapiWrapsInnerError(t *testing.T) {
 	t.Parallel()
 
-	// Given: cursorcli が processenv を wrap した chain
-	inner := &processenv.Error{Op: "run", Err: errors.New("exit status 1")}
-	err := &cursorcli.Error{Op: "write", Err: inner}
+	// Given: cursorapi が内側 error を wrap した chain
+	inner := &cursorapi.Error{Op: "run", Err: errors.New("status 500")}
+	err := &cursorapi.Error{Op: "write", Err: inner}
 
 	// When: External 表現へ写す
 	got := delivery.Format(err)
 
-	// Then: 外側の cursorcli Op を採用する
+	// Then: 外側の cursorapi Op を採用する
 	requireLine(t, got, "generator: kind=infrastructure")
 	requireLine(t, got, "generator: op=write")
 }

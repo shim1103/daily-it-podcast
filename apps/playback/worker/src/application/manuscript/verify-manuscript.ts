@@ -29,22 +29,19 @@ export function verifyManuscript(json: unknown, stem: string): EpisodeManuscript
 }
 
 /**
- * `listEpisodes` の1 entry 分を、一覧行（題名だけへ射影）へ変換する。不適合な entry は
- * throw せず `undefined` を返す（除外は listEpisodes 自身の仕様。`EpisodeRepository.listEpisodes`
- * の `@ensure` を参照）。
+ * `listEpisodes` の1 entry 分を、原稿全文付きの `EpisodeListItem` へ変換する。不適合な entry は
+ * throw せず `undefined` を返す（除外は listEpisodes 自身の仕様）。
  *
- * @ensure schema 不適合・stem 不一致・不正 JSON の時は `undefined`。適合時は body を持たない
- *   `EpisodeListItem`
+ * @ensure schema 不適合・stem 不一致・不正 JSON の時は `undefined`。適合時は body 全文と audioRef
+ *   を持つ `EpisodeListItem`
  */
 export function selectValidListItem(json: unknown, stem: string): EpisodeListItem | undefined {
   const parsed = ManuscriptSchema.safeParse(json);
   if (!parsed.success || parsed.data.episodeId !== stem) {
     return undefined;
   }
-  const { body, ...rest } = parsed.data;
   return {
-    ...rest,
-    topics: body.topics.map((topic) => ({ title: topic.title })),
+    ...parsed.data,
     audioRef: episodeAudioPath(parsed.data.episodeId),
   };
 }

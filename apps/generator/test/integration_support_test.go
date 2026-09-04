@@ -9,13 +9,12 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -25,13 +24,12 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/commandlaunch/processenv"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/google/oauth"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorcli"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/hackernews"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/itmedia"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/lobsters"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/x"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/x/getxapi"
 )
 
 const (
@@ -41,7 +39,6 @@ const (
 	// SpeechTexts が topic+2 束を返すため（Decision 2026-09-02T13-55-00）。
 	integrationTTSFixedSegmentCount = 2
 
-	broadDummyGetXAPIKey        = "broad-getxapi-dummy-key-value"
 	broadDummyCursorKey         = "broad-cursor-dummy-key-value"
 	broadDummyGeminiKey         = "broad-gemini-dummy-key-value"
 	broadDummyOAuthClientID     = "broad-oauth-client-id-dummy-value"
@@ -53,7 +50,6 @@ const (
 )
 
 var broadDummySecrets = []string{
-	broadDummyGetXAPIKey,
 	broadDummyCursorKey,
 	broadDummyGeminiKey,
 	broadDummyOAuthClientID,
@@ -172,80 +168,6 @@ func assertIntegrationSecretsNotLeaked(t *testing.T, err error) {
 	}
 }
 
-func integrationCallCount(t *testing.T, path string) int {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return 0
-		}
-		t.Fatalf("os.ReadFile(%q) error = %v, want nil or not exist", path, err)
-	}
-	if len(data) == 0 {
-		return 0
-	}
-	return strings.Count(string(data), "\n")
-}
-
-type fakeAgentCLIConfig struct {
-	recordStart  bool
-	captureStdin bool
-	countWrites  bool
-}
-
-type fakeAgentCLIResult struct {
-	markerPath     string
-	stdinSinkPath  string
-	writeCountPath string
-}
-
-// installFakeAgentCLI は cursorcli.BinaryName 名の fake script を PATH 先頭へ置く。
-// recordStart / captureStdin は Narrow 用、countWrites は Broad 用の Write 到達回数計測。
-func installFakeAgentCLI(t *testing.T, scriptBody string, cfg fakeAgentCLIConfig) fakeAgentCLIResult {
-	t.Helper()
-	dir := t.TempDir()
-	var result fakeAgentCLIResult
-	preamble := []string{"#!/bin/sh"}
-	if cfg.recordStart {
-		result.markerPath = filepath.Join(dir, "started")
-		preamble = append(preamble, "touch '"+result.markerPath+"'")
-	}
-	if cfg.captureStdin {
-		result.stdinSinkPath = filepath.Join(dir, "stdin")
-		preamble = append(preamble, "cat > '"+result.stdinSinkPath+"'")
-	} else if cfg.countWrites {
-		result.writeCountPath = filepath.Join(dir, "write_count")
-		preamble = append(preamble, "echo 1 >> '"+result.writeCountPath+"'")
-		preamble = append(preamble, "cat > /dev/null")
-	}
-	script := strings.Join(preamble, "\n") + "\n" + scriptBody + "\n"
-	program := filepath.Join(dir, cursorcli.BinaryName)
-	if err := os.WriteFile(program, []byte(script), 0o755); err != nil {
-		t.Fatalf("os.WriteFile() error = %v, want nil", err)
-	}
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	return result
-}
-
-func cursorSuccessScriptBody(t *testing.T, dir, wireJSON string) string {
-	t.Helper()
-	envelope := map[string]any{
-		"type":     "result",
-		"subtype":  "success",
-		"is_error": false,
-		"result":   wireJSON,
-	}
-	raw, err := json.Marshal(envelope)
-	if err != nil {
-		t.Fatalf("json.Marshal() error = %v, want nil", err)
-	}
-	path := filepath.Join(dir, "envelope.json")
-	if err := os.WriteFile(path, raw, 0o644); err != nil {
-		t.Fatalf("os.WriteFile() error = %v, want nil", err)
-	}
-	return fmt.Sprintf("cat %q", path)
-}
-
 func minimalIntegrationGeminiPCM() []byte {
 	// why: Adapter の最小尺閾値（0.5s）を超える長さ。これ未満だと極小 PCM として retry される。
 	const sampleCount = 24000 // 1.0s 相当
@@ -273,19 +195,23 @@ func writeIntegrationGeminiAudioResponse(t *testing.T, w http.ResponseWriter, pc
 }
 
 type integrationTLSRoutes struct {
-	getxapi http.HandlerFunc
-	gemini  http.HandlerFunc
-	oauth   http.HandlerFunc
-	gdrive  http.HandlerFunc
+	gemini     http.HandlerFunc
+	oauth      http.HandlerFunc
+	gdrive     http.HandlerFunc
+	hackernews http.HandlerFunc
+	lobsters   http.HandlerFunc
+	itmedia    http.HandlerFunc
 }
 
 func newIntegrationTLSClient(t *testing.T, routes integrationTLSRoutes) *http.Client {
 	t.Helper()
 	servers := map[string]*httptest.Server{
-		"api.getxapi.com":                   httptest.NewTLSServer(routes.getxapi),
 		"generativelanguage.googleapis.com": httptest.NewTLSServer(routes.gemini),
 		"oauth2.googleapis.com":             httptest.NewTLSServer(routes.oauth),
 		"www.googleapis.com":                httptest.NewTLSServer(routes.gdrive),
+		"hacker-news.firebaseio.com":        httptest.NewTLSServer(routes.hackernews),
+		"lobste.rs":                         httptest.NewTLSServer(routes.lobsters),
+		"rss.itmedia.co.jp":                 httptest.NewTLSServer(routes.itmedia),
 	}
 	for _, srv := range servers {
 		t.Cleanup(srv.Close)
@@ -315,10 +241,6 @@ func integrationOAuthSuccessHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"access_token":"` + broadDummyOAuthAccessToken + `"}`))
-}
-
-func integrationGetXAPITweetResponse() string {
-	return `{"tweets":[{"id":"broad-tweet-1","url":"https://x.example/broad-1","text":"Broad integration 本文","createdAt":"Wed Aug 30 10:00:00 +0000 2026","author":{"id":"author-broad","name":"Broad Author"},"entities":{"urls":[{"expanded_url":"https://example.com/broad"}]},"media":[{"url":"https://img.example/broad.jpg"}]}],"has_more":false}`
 }
 
 type integrationGDriveProbe struct {
@@ -361,22 +283,130 @@ func writeIntegrationJSONStatus(t *testing.T, w http.ResponseWriter, status int,
 }
 
 type broadProduceEpisodeConfig struct {
-	emptyGetXAPI bool
 	cursorFail   bool
-	geminiFailAt int // 1-origin。0 なら失敗しない
+	geminiFailAt int  // 1-origin。0 なら失敗しない
+	emptySources bool // true なら 3 情報源すべてが 0 件を返す
+}
+
+// 3 情報源の success / empty handler。時刻は integrationTestFixedNow を使う。
+// FetchSourceItems は since = now - FetchWindow(24h) を渡すため、now 自体は必ず since 以上になる。
+// Broad は「SourceItem が 1 件以上ある」ことだけを要求する。
+func integrationHackerNewsSuccessHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	storyUnix := integrationTestFixedNow.Unix()
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/topstories.json"):
+			_, _ = io.WriteString(w, "[9001]")
+		case strings.HasSuffix(r.URL.Path, "/item/9001.json"):
+			_, _ = io.WriteString(w, fmt.Sprintf(
+				`{"id":9001,"type":"story","time":%d,"title":"Broad HackerNews 記事"}`,
+				storyUnix,
+			))
+		default:
+			http.Error(w, "unexpected hackernews path", http.StatusNotFound)
+		}
+	}
+}
+
+func integrationHackerNewsEmptyHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/topstories.json") {
+			_, _ = io.WriteString(w, "[]")
+			return
+		}
+		http.Error(w, "unexpected hackernews path", http.StatusNotFound)
+	}
+}
+
+func integrationLobstersSuccessHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	createdAt := integrationTestFixedNow.Format(time.RFC3339)
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/hottest.json"):
+			_, _ = io.WriteString(w, fmt.Sprintf(`[{"short_id":"broad1","created_at":%q}]`, createdAt))
+		case strings.HasSuffix(r.URL.Path, "/s/broad1.json"):
+			_, _ = io.WriteString(w, fmt.Sprintf(
+				`{"short_id":"broad1","title":"Broad Lobsters 記事","created_at":%q}`,
+				createdAt,
+			))
+		default:
+			http.Error(w, "unexpected lobsters path", http.StatusNotFound)
+		}
+	}
+}
+
+func integrationLobstersEmptyHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/hottest.json") {
+			_, _ = io.WriteString(w, "[]")
+			return
+		}
+		http.Error(w, "unexpected lobsters path", http.StatusNotFound)
+	}
+}
+
+func integrationITmediaSuccessHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	pubDate := integrationTestFixedNow.Format(time.RFC1123Z)
+	body := `<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
+		`<rss version="2.0">` + "\n<channel>\n" +
+		fmt.Sprintf(
+			"<item><title>%s</title><link>%s</link><description>%s</description><pubDate>%s</pubDate></item>\n",
+			"Broad ITmedia 記事", "https://www.itmedia.co.jp/news/articles/broad.html", "本文", pubDate,
+		) +
+		"</channel>\n</rss>\n"
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/rss/2.0/news_bursts.xml") {
+			_, _ = io.WriteString(w, body)
+			return
+		}
+		http.Error(w, "unexpected itmedia path", http.StatusNotFound)
+	}
+}
+
+func integrationITmediaEmptyHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	body := `<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
+		`<rss version="2.0">` + "\n<channel>\n</channel>\n</rss>\n"
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/rss/2.0/news_bursts.xml") {
+			_, _ = io.WriteString(w, body)
+			return
+		}
+		http.Error(w, "unexpected itmedia path", http.StatusNotFound)
+	}
 }
 
 type broadProduceEpisodeHarness struct {
-	uc               *application.ProduceEpisode
-	cursorWriteCount string
-	geminiPosts      atomic.Int32
-	gdriveUploads    *integrationGDriveProbe
+	uc            *application.ProduceEpisode
+	textWriter    *broadTextWriter
+	geminiPosts   atomic.Int32
+	gdriveUploads *integrationGDriveProbe
+}
+
+// broadTextWriter は Broad が Application の停止条件を観測するための port.TextWriter double。
+type broadTextWriter struct {
+	fragment string
+	fail     bool
+	calls    atomic.Int32
+}
+
+func (w *broadTextWriter) Write(_ context.Context, _ string) (string, error) {
+	w.calls.Add(1)
+	if w.fail {
+		return "", errors.New("broad text writer failure")
+	}
+	return w.fragment, nil
 }
 
 func assertBroadDownstreamCalls(t *testing.T, h *broadProduceEpisodeHarness, wantCursor, wantGemini, wantUpload int) {
 	t.Helper()
 	if wantCursor >= 0 {
-		if got := integrationCallCount(t, h.cursorWriteCount); got != wantCursor {
+		if got := int(h.textWriter.calls.Load()); got != wantCursor {
 			t.Fatalf("TextWriter calls = %d, want %d", got, wantCursor)
 		}
 	}
@@ -391,34 +421,13 @@ func assertBroadDownstreamCalls(t *testing.T, h *broadProduceEpisodeHarness, wan
 func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) *broadProduceEpisodeHarness {
 	t.Helper()
 
-	previousWatch := x.WatchUserIDs
-	x.WatchUserIDs = []string{"broad-user-1"}
-	t.Cleanup(func() { x.WatchUserIDs = previousWatch })
-
 	wireJSON := buildIntegrationWireJSON(broadIntegrationTopicCount)
-	agentDir := t.TempDir()
-
-	var cursorBody string
-	switch {
-	case cfg.cursorFail:
-		cursorBody = `printf '%s' 'broad cursor failure' 1>&2
-exit 1`
-	default:
-		cursorBody = cursorSuccessScriptBody(t, agentDir, wireJSON)
-	}
-	fakeAgent := installFakeAgentCLI(t, cursorBody, fakeAgentCLIConfig{countWrites: true})
-
 	gdriveProbe := &integrationGDriveProbe{}
 
-	getxHandler := func(w http.ResponseWriter, _ *http.Request) {
-		if cfg.emptyGetXAPI {
-			_, _ = io.WriteString(w, `{"tweets":[],"has_more":false}`)
-			return
-		}
-		_, _ = io.WriteString(w, integrationGetXAPITweetResponse())
+	h := &broadProduceEpisodeHarness{
+		gdriveUploads: gdriveProbe,
+		textWriter:    &broadTextWriter{fragment: wireJSON, fail: cfg.cursorFail},
 	}
-
-	h := &broadProduceEpisodeHarness{gdriveUploads: gdriveProbe}
 	geminiHandler := func(w http.ResponseWriter, r *http.Request) {
 		n := h.geminiPosts.Add(1)
 		if cfg.geminiFailAt != 0 && int(n) == cfg.geminiFailAt {
@@ -430,17 +439,31 @@ exit 1`
 		writeIntegrationGeminiAudioResponse(t, w, minimalIntegrationGeminiPCM())
 	}
 
+	hackernewsHandler := integrationHackerNewsSuccessHandler(t)
+	lobstersHandler := integrationLobstersSuccessHandler(t)
+	itmediaHandler := integrationITmediaSuccessHandler(t)
+	if cfg.emptySources {
+		hackernewsHandler = integrationHackerNewsEmptyHandler(t)
+		lobstersHandler = integrationLobstersEmptyHandler(t)
+		itmediaHandler = integrationITmediaEmptyHandler(t)
+	}
+
 	httpClient := newIntegrationTLSClient(t, integrationTLSRoutes{
-		getxapi: http.HandlerFunc(getxHandler),
-		gemini:  http.HandlerFunc(geminiHandler),
-		oauth:   http.HandlerFunc(integrationOAuthSuccessHandler),
-		gdrive:  integrationGDriveSuccessHandler(t, gdriveProbe),
+		gemini:     http.HandlerFunc(geminiHandler),
+		oauth:      http.HandlerFunc(integrationOAuthSuccessHandler),
+		gdrive:     integrationGDriveSuccessHandler(t, gdriveProbe),
+		hackernews: hackernewsHandler,
+		lobsters:   lobstersHandler,
+		itmedia:    itmediaHandler,
 	})
 
-	getxSource := getxapi.NewPostSource(httpClient, broadDummyGetXAPIKey)
-	fetch := application.NewFetchSourceItems(compositeItemSource{getxSource})
-	cursorFactory := processenv.NewSecretEnvLauncherFactory(broadDummyCursorKey, os.LookupEnv)
-	textWriter := cursorcli.NewTextWriter(cursorFactory)
+	// 3 情報源（HackerNews → Lobsters → ITmedia）の upstream double を composite ItemSource へ結線する。
+	// 登録順は composition.newProduceEpisode と同順。真外部は TLS redirect で double 済み。
+	fetch := application.NewFetchSourceItems(compositeItemSource{
+		hackernews.NewListItemSource(httpClient),
+		lobsters.NewListItemSource(httpClient),
+		itmedia.NewListItemSource(httpClient),
+	})
 	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey)
 	tokens := oauth.NewTokenSource(httpClient, broadDummyOAuthClientID, broadDummyOAuthClientSecret, broadDummyOAuthRefreshToken)
 	lookup := gdrive.NewCompletedEpisodeLookup(httpClient, tokens, broadDummyDriveFolderID)
@@ -450,12 +473,11 @@ exit 1`
 	h.uc = application.NewProduceEpisode(
 		fetch,
 		lookup,
-		textWriter,
+		h.textWriter,
 		speech,
 		writeEpisode,
 		broadFixedEpisodeIDFunc,
 		integrationTestDisplayLocation,
 	)
-	h.cursorWriteCount = fakeAgent.writeCountPath
 	return h
 }

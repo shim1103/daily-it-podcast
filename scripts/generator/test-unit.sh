@@ -17,7 +17,6 @@ echo "unit: generator (go + coverage)"
   cd "$root/apps/generator"
   # why: -coverpkg で instrument 対象を production package（./cmd/... ./internal/...）へ固定し、
   #      実行対象に ./test/...（secret なし Narrow。build tag なしなので local 実物 suite は既定 build 外）を足す。
-  #      実プロセス境界を持つ処理（processenv.Launch / buildChildEnv 等）は SU では埋まらず Narrow が全経路を通すため。
   go test ./cmd/... ./internal/... ./test/... -shuffle=on -count=1 -covermode=atomic -coverpkg=./cmd/...,./internal/... "-coverprofile=$profile"
 )
 

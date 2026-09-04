@@ -37,7 +37,6 @@ type SpeechSynthesizer struct {
 // SynthesizeAll は texts を順に朗読音声へ変換し、セグメント単位の WAV 列（結合しない）を返す。
 // retry 予算・callGap・RPD quota は Adapter 定数 = vendor 固有制約であり、
 // 「1 episode 分の TTS 呼び出し群」を束ねて管理するのは Adapter の責務。
-//
 // @require texts の各要素は trim 後に非空。朗読本文のみ。
 // @ensure 成功時は len(texts) と同数の非空・最小尺 WAV を返す（結合しない）。
 // @ensure 呼び出し全体で Gemini 呼び出し合計を SynthesizeBudget 回以内へ抑える。

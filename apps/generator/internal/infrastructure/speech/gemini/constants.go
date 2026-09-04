@@ -39,6 +39,11 @@ const (
 // why: 無料枠 3 RPM = 20s 間隔に合わせ、連続 segment の 429 を防ぐ（Decision 2026-09-02T13-56-00）。
 const defaultCallGap = 20 * time.Second
 
+// httpCallTimeout は Gemini TTS 1 呼び出しの Client 全体 timeout である。
+// why: 120s でも長文朗読で awaiting headers が切れた（run 33310692613）。
+// Composition から渡る *http.Client は全体 timeout を持たないので、この値は Adapter が付け直す。
+const httpCallTimeout = 5 * time.Minute
+
 // Gemini TTS が返す raw PCM の形式（公式 L16: 24 kHz / 16-bit / mono）。
 // WAV wrap と decode の前提。HTTP 定数（ModelID 等）とは別責務。
 const (

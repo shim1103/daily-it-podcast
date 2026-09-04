@@ -8,29 +8,28 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 )
 
-// httpTimeout は GetX / Drive / OAuth など共有 HTTP Client の全体 timeout である。
+// httpTimeout は Drive / OAuth / 情報源 Adapter が共有する Client の全体 timeout である。
 const httpTimeout = 30 * time.Second
 
-// geminiHTTPTimeout は Gemini TTS 1 呼び出しの Client 全体 timeout である。
-// why: 120s でも長文朗読で awaiting headers が切れた（run 33310692613）。
-const geminiHTTPTimeout = 5 * time.Minute
-
-// sharedHTTPClient は GetX / Drive / OAuth が共有する *http.Client を返す。
+// sharedHTTPClient は短い request/response の HTTP Adapter が共有する *http.Client を返す。
 //
-// @ensure 戻りは適切な timeout を持つ標準 *http.Client。
+// @ensure 戻りは httpTimeout を持つ標準 *http.Client。
 func sharedHTTPClient() *http.Client {
 	return &http.Client{Timeout: httpTimeout}
 }
 
-// geminiHTTPClient は Gemini TTS 専用の *http.Client を返す。
+// sharedHTTPClientWithoutTimeout は Client.Timeout を置かない *http.Client を返す。
+// request 全体の上限を Client ではなく ctx / process cancel、あるいは Adapter が自分で
+// 付け直す timeout に委ねるときに使う（Cursor Cloud Agents の長い待ち、Gemini TTS の長文朗読など）。
+// 短い request/response には sharedHTTPClient を使う。
 //
-// @ensure 戻りは geminiHTTPTimeout を持つ標準 *http.Client。
-func geminiHTTPClient() *http.Client {
-	return &http.Client{Timeout: geminiHTTPTimeout}
+// @ensure 戻りは全体 timeout を持たない標準 *http.Client。
+func sharedHTTPClientWithoutTimeout() *http.Client {
+	return &http.Client{}
 }
 
-// sharedLookupEnv は全 command launcher / config.Load が共有する親環境アクセス手段を返す。
-// production では os.LookupEnv。sharedHTTPClient と同じ production runtime 既定値。
+// sharedLookupEnv は config.Load が使う親環境アクセス手段を返す。
+// production では os.LookupEnv。
 //
 // @ensure 戻りは os.LookupEnv。
 func sharedLookupEnv() func(key string) (string, bool) {

@@ -1,6 +1,5 @@
 import type {
   EpisodeRepository,
-  RawManuscriptDetail,
   RawManuscriptEntry,
 } from "../../application/ports/episode-repository.ts";
 
@@ -30,15 +29,7 @@ export class InMemoryEpisodeRepository implements EpisodeRepository {
     return entries;
   }
 
-  async getManuscript(episodeId: string): Promise<RawManuscriptDetail | undefined> {
-    const entry = this.episodes.get(episodeId);
-    if (entry === undefined) {
-      return undefined;
-    }
-    return { json: entry.json, hasAudio: entry.audio !== undefined };
-  }
-
-  async getEpisodeAudio(episodeId: string): Promise<Uint8Array | undefined> {
+  async getAudio(episodeId: string): Promise<Uint8Array | undefined> {
     return this.episodes.get(episodeId)?.audio;
   }
 }

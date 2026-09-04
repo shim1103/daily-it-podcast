@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import type { EpisodeData } from "../../view-models/episode-list-view-model.ts";
+import type { EpisodeData } from "../../view-models/playback-state.ts";
 import { LabeledText } from "../primitive/labeled-text.tsx";
 import { EpisodeTopic } from "./episode-topic.tsx";
 import "./episode-manuscript.css";
@@ -12,9 +12,9 @@ export type EpisodeManuscriptProps = {
 };
 
 /**
- * GetEpisodeResponse の body（opening・topics・closing）を組み合わせて描画する。
+ * EpisodeItem の body（opening・topics・closing）を組み合わせて描画する。
  *
- * @require body は GetEpisodeResponse["body"]、onSeek は audio の currentTime を変える handler
+ * @require body は EpisodeItem["body"]、onSeek は audio の currentTime を変える handler
  * @ensure opening・closing をそのまま描画し、topics[] を EpisodeTopic として順番通りに並べる
  * @invariant opening・closing の加工・変換をしない
  */

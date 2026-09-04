@@ -1,20 +1,20 @@
 export {
   ErrorResponseSchema,
-  GetEpisodeRequestSchema,
-  GetEpisodeResponseSchema,
+  EpisodeIdRequestSchema,
   ListEpisodesResponseSchema,
   episodeAudioContentType,
   episodeAudioPath,
   episodeAudioRoutePath,
+  episodeItemSchema,
   episodePath,
   episodeRoutePath,
   listEpisodesPath,
   playbackHttpErrorCodes,
 } from "./http.ts";
 export type {
+  EpisodeItem,
   ErrorResponse,
-  GetEpisodeRequest,
-  GetEpisodeResponse,
+  EpisodeIdRequest,
   ListEpisodesResponse,
   PlaybackHttpErrorCode,
 } from "./http.ts";

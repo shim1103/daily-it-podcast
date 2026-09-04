@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { EpisodeData } from "../../view-models/episode-list-view-model.ts";
+import type { EpisodeData } from "../../view-models/playback-state.ts";
 import { EpisodeManuscript } from "./episode-manuscript.tsx";
 
 type Body = EpisodeData["body"];
@@ -19,7 +19,7 @@ const onSeek = vi.fn();
 
 describe("EpisodeManuscript", () => {
   it("root に episode-manuscript class を付ける", () => {
-    // Given: GetEpisodeResponse の body
+    // Given: EpisodeItem の body
     // When: JSX として render する
     const { container } = render(createElement(EpisodeManuscript, { body, onSeek }));
 
@@ -28,7 +28,7 @@ describe("EpisodeManuscript", () => {
   });
 
   it("opening・closing をそのまま描画する", () => {
-    // Given: GetEpisodeResponse の body
+    // Given: EpisodeItem の body
     // When: JSX として render する
     const { container } = render(createElement(EpisodeManuscript, { body, onSeek }));
 

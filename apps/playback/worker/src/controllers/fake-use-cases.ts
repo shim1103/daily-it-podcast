@@ -1,11 +1,10 @@
 import {
   episodeAudioPath,
-  type GetEpisodeResponse,
+  type EpisodeItem,
   type ListEpisodesResponse,
 } from "../../../contracts/index.ts";
 import { createFakeEpisodeAudioBytes } from "../test/fixtures/audio-bytes.ts";
 import { EpisodeContentError } from "../entities/errors/episode-content-error.ts";
-import { validAudioBytes } from "../test/fixtures/audio-bytes.ts";
 import fakeEpisodesJson from "./fake-episodes.json" with { type: "json" };
 
 type FakeEpisodeRecord = {
@@ -13,7 +12,7 @@ type FakeEpisodeRecord = {
   date: string;
   title: string;
   durationSec: number;
-  body: GetEpisodeResponse["body"];
+  body: EpisodeItem["body"];
 };
 
 const fakeEpisodes = fakeEpisodesJson as FakeEpisodeRecord[];
@@ -30,7 +29,7 @@ function loadFakeEpisodeAudio(episodeId: string): Uint8Array {
   return bytes;
 }
 
-function toGetEpisodeResponse(record: FakeEpisodeRecord): GetEpisodeResponse {
+function toEpisodeItem(record: FakeEpisodeRecord): EpisodeItem {
   return {
     episodeId: record.episodeId,
     date: record.date,
@@ -50,19 +49,10 @@ function findFakeEpisode(episodeId: string): FakeEpisodeRecord {
 }
 
 export const validListEpisodesResponse: ListEpisodesResponse = {
-  episodes: fakeEpisodes.map(({ episodeId, date, title, durationSec, body }) => ({
-    episodeId,
-    date,
-    title,
-    durationSec,
-    topics: body.topics.map((topic) => ({ title: topic.title })),
-    audioRef: episodeAudioPath(episodeId),
-  })),
+  episodes: fakeEpisodes.map(toEpisodeItem),
 };
 
-export const validGetEpisodeResponse: GetEpisodeResponse = toGetEpisodeResponse(
-  findFakeEpisode("ep-1"),
-);
+export const validEpisodeItem: EpisodeItem = toEpisodeItem(findFakeEpisode("ep-1"));
 
 export function createFakeListEpisodesUseCase(
   impl?: () => Promise<ListEpisodesResponse>,
@@ -70,18 +60,7 @@ export function createFakeListEpisodesUseCase(
   return impl ?? (async () => validListEpisodesResponse);
 }
 
-export function createFakeGetEpisodeUseCase(
-  impl?: (episodeId: string) => Promise<GetEpisodeResponse>,
-): (episodeId: string) => Promise<GetEpisodeResponse> {
-  return (
-    impl ??
-    (async (episodeId) => {
-      return toGetEpisodeResponse(findFakeEpisode(episodeId));
-    })
-  );
-}
-
-export function createFakeGetEpisodeAudioUseCase(
+export function createFakeGetAudioUseCase(
   impl?: (episodeId: string) => Promise<Uint8Array>,
 ): (episodeId: string) => Promise<Uint8Array> {
   return (

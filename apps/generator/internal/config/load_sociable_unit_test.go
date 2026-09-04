@@ -8,7 +8,6 @@ import (
 
 // dummy* はformat制約（前後にwhitespaceなし・非空）だけ満たすtest用の値である。
 const (
-	dummyGetXAPIKey              = "getx-key"
 	dummyCursorAPIKey            = "cursor-key"
 	dummyGeminiAPIKey            = "gemini-key"
 	dummyGoogleOAuthClientID     = "google-client-id"
@@ -17,10 +16,9 @@ const (
 	dummyDriveFolderID           = "drive-folder-id"
 )
 
-// fullValidEnv は7 key全てへ有効値を持つenv mapである。
+// fullValidEnv は全 key へ有効値を持つenv mapである。
 func fullValidEnv() map[string]string {
 	return map[string]string{
-		GetXAPIKeyEnv:              dummyGetXAPIKey,
 		CursorAPIKeyEnv:            dummyCursorAPIKey,
 		GeminiAPIKeyEnv:            dummyGeminiAPIKey,
 		GoogleOAuthClientIDEnv:     dummyGoogleOAuthClientID,
@@ -41,7 +39,7 @@ func lookupFrom(env map[string]string) LookupEnv {
 func TestLoad_returnsConfigMatchingContract_whenAllInputsValid(t *testing.T) {
 	t.Parallel()
 
-	// Given: 7 key全てへ有効値を持つenv
+	// Given: 全 key へ有効値を持つenv
 	env := fullValidEnv()
 
 	// When: Loadする
@@ -50,9 +48,6 @@ func TestLoad_returnsConfigMatchingContract_whenAllInputsValid(t *testing.T) {
 	// Then: errorはなく、各fieldが投入値と一致する
 	if err != nil {
 		t.Fatal("Load() が有効入力でerrorを返した")
-	}
-	if cfg.Source.GetXAPIKey.Reveal() != dummyGetXAPIKey {
-		t.Fatal("Source.GetXAPIKey が投入値と一致しない")
 	}
 	if cfg.Cursor.APIKey.Reveal() != dummyCursorAPIKey {
 		t.Fatal("Cursor.APIKey が投入値と一致しない")
@@ -164,19 +159,18 @@ func TestLoad_classifiesViolation_whenSingleKeyIsInvalid(t *testing.T) {
 func TestLoad_aggregatesViolationsInConfigFieldOrder_whenAllKeysMissing(t *testing.T) {
 	t.Parallel()
 
-	// Given: 全7 keyがmissingのenv
+	// Given: 全 keyがmissingのenv
 	lookup := lookupFrom(map[string]string{})
 
 	// When: Loadする
 	_, err := Load(lookup)
 
-	// Then: Configのfield順で全7 keyが並ぶ
+	// Then: Configのfield順で全 keyが並ぶ
 	if err == nil {
 		t.Fatal("Load() がviolationでerrorを返さなかった")
 	}
 	lines := strings.Split(err.Error(), "\n")
 	wantKeys := []string{
-		GetXAPIKeyEnv,
 		CursorAPIKeyEnv,
 		GeminiAPIKeyEnv,
 		GoogleOAuthClientIDEnv,
@@ -185,7 +179,7 @@ func TestLoad_aggregatesViolationsInConfigFieldOrder_whenAllKeysMissing(t *testi
 		DriveFolderIDEnv,
 	}
 	if len(lines) != len(wantKeys) {
-		t.Fatal("集約された違反行数が7件ではない")
+		t.Fatal("集約された違反行数がkey数と一致しない")
 	}
 	for i, key := range wantKeys {
 		// 各行は "<prefix>: <key>: <kind>" の3段パターン（Domain/Infra と対称）
@@ -203,7 +197,7 @@ func TestLoad_aggregatesMixedViolationKinds_whenKeysFailDifferently(t *testing.T
 
 	// Given: 先頭keyがmissing、中央keyがempty、末尾keyがinvalid_formatのenv
 	env := fullValidEnv()
-	delete(env, GetXAPIKeyEnv)
+	delete(env, CursorAPIKeyEnv)
 	env[GeminiAPIKeyEnv] = ""
 	env[DriveFolderIDEnv] = "drive-folder-id "
 
@@ -219,7 +213,7 @@ func TestLoad_aggregatesMixedViolationKinds_whenKeysFailDifferently(t *testing.T
 		key  string
 		kind string
 	}{
-		{GetXAPIKeyEnv, "missing"},
+		{CursorAPIKeyEnv, "missing"},
 		{GeminiAPIKeyEnv, "empty"},
 		{DriveFolderIDEnv, "invalid_format"},
 	}
@@ -239,7 +233,7 @@ func TestLoad_reachesEachViolationViaErrorsAs_whenKeysFailDifferently(t *testing
 
 	// Given: 先頭keyがmissing、末尾keyがinvalid_formatのenv
 	env := fullValidEnv()
-	delete(env, GetXAPIKeyEnv)
+	delete(env, CursorAPIKeyEnv)
 	env[DriveFolderIDEnv] = "drive-folder-id "
 
 	// When: Loadする
@@ -254,14 +248,14 @@ func TestLoad_reachesEachViolationViaErrorsAs_whenKeysFailDifferently(t *testing
 	if !errors.As(err, &single) {
 		t.Fatal("束ねたerrorから *config.Error へ errors.As で到達できなかった")
 	}
-	if single.Key != GetXAPIKeyEnv {
+	if single.Key != CursorAPIKeyEnv {
 		t.Fatalf("errors.As が最初の違反 *config.Error を返さなかった: Key = %q", single.Key)
 	}
 	if single.Kind != KindMissing {
 		t.Fatalf("Kind = %q, want %q", single.Kind, KindMissing)
 	}
 	// 単体 *Error も "<prefix>: <key>: <kind>" の3段パターン（Domain/Infra と対称）
-	if got := single.Error(); got != "generator config: "+GetXAPIKeyEnv+": missing" {
+	if got := single.Error(); got != "generator config: "+CursorAPIKeyEnv+": missing" {
 		t.Fatalf("single.Error() = %q", got)
 	}
 }
@@ -295,7 +289,7 @@ func TestLoad_errorMessageDoesNotContainRawValue_whenValidationFails(t *testing.
 	// Given: 秘匿価値のないdummyだが、raw値露出検査用に一意な文字列を含む値
 	const rawMarker = "RAWMARKERdo-not-leak"
 	env := fullValidEnv()
-	env[GetXAPIKeyEnv] = rawMarker + " " // trailing whitespace で invalid_format
+	env[CursorAPIKeyEnv] = rawMarker + " " // trailing whitespace で invalid_format
 
 	// When: Loadする
 	_, err := Load(lookupFrom(env))
@@ -324,7 +318,7 @@ func TestLoad_returnsNoConfigValues_whenAnySingleViolationExists(t *testing.T) {
 	if err == nil {
 		t.Fatal("violationがあるのにerrorを返さなかった")
 	}
-	if cfg.Source.GetXAPIKey != nil || cfg.Cursor.APIKey != nil || cfg.Gemini.APIKey != nil {
+	if cfg.Cursor.APIKey != nil || cfg.Gemini.APIKey != nil {
 		t.Fatal("violation時にSecret fieldが組み立てられた")
 	}
 	if cfg.Drive.GoogleOAuthClientID != "" || cfg.Drive.FolderID != "" {

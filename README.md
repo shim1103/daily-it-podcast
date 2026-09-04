@@ -8,15 +8,13 @@
 
 ```text
 Generator (Go + GitHub Actions cron)
-  取得 → 原稿 (Cursor CLI) → 音声 (Gemini TTS) → 保存
+  取得 → 原稿 (Cursor Cloud Agents REST) → 音声 (Gemini TTS) → 保存
         ↓
   個人 Google Drive（音声 + 原稿）
         ↑
 Playback (Vite + TypeScript + React + Cloudflare)
   Access → UI → Workers（Hono、Drive 読取の代理）
 ```
-
-旧実装は `archive/2026-08-15-pre-rewrite` に凍結。本流は Playback + Generator へ作り直し。
 
 ## 技術選定
 
@@ -26,8 +24,9 @@ Playback (Vite + TypeScript + React + Cloudflare)
 | UI の裏側 | Cloudflare Workers（Hono、Drive 代理） |
 | UI 入場 | Cloudflare Access（`DEPLOY.md`） |
 | 生成 | Go CLI + GitHub Actions cron |
+| 取得 | 公式 API / RSS の複数源（HackerNews・Lobsters・ITmedia NEWS）。選定理由は `docs/decisions/` |
 | 保存 | 個人 Google Drive |
-| 原稿 | Cursor CLI（非対話） |
+| 原稿 | Cursor Cloud Agents REST（Port `TextWriter`）。移行判断は `docs/decisions/` |
 | 音声 | Google Gemini TTS |
 
 ## リポジトリ
@@ -54,7 +53,7 @@ contracts/               # Drive 上の表現（SSOT）
 
 | branch | 役割 |
 |--------|------|
-| `develop` | base |
+| `develop` | SSOT |
 | `master` | release |
 
 `feature/*` → PR（base: `develop`）→ `master` は shim が release。
@@ -66,7 +65,7 @@ contracts/               # Drive 上の表現（SSOT）
 3. **Playback local:** `cd apps/playback && npm ci && npm run dev`（Node は `.nvmrc`）
 4. **generator:** Go は `apps/generator/go.mod`。`golangci-lint` を PATH へ
 5. **hook:** `./scripts/install-hooks.sh`
-6. **検証入口:** `./scripts/check-static.sh` / `./scripts/test-unit.sh` / `./scripts/test-integration.sh`（詳細・閾値は `DESIGN.md`、credential 付き運用は `DEPLOY.md`）
+6. **検証入口:** `./scripts/check-static.sh` / `./scripts/test-unit.sh` / `./scripts/test-integration.sh`（詳細・閾値は `DESIGN.md`、credential 付き・E2E 定時は `DEPLOY.md`）
 
 ## 受け入れ
 

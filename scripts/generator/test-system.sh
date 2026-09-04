@@ -2,7 +2,6 @@
 # name: generator-test-system
 # description: generator の System Test を実行する。
 # @require リポジトリ内から呼ぶ。Go が PATH にある。apps/generator が存在する。
-# @require Cursor CLI の `agent` が PATH で解決できる（GHA では workflow が公式 install する）。
 # @ensure system build tag 付き suite を実行する。対象が空なら成功。
 # @ensure PASS 率集計用に -json 出力を /tmp/generator-system.jsonl へ tee する（-v と両立）。
 # @invariant Integration gate（test-integration.sh）を呼ばない。Unit を再実行しない。playback を触らない。
