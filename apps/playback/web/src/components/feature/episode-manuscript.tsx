@@ -9,24 +9,19 @@ type Body = EpisodeData["body"];
 
 export type EpisodeManuscriptProps = {
   body: Body;
-  durationSec: number;
   onSeek: (startSec: number) => void;
 };
 
 /**
  * EpisodeItem の body（opening・topics・closing）を組み合わせて描画する。
  *
- * @require body は EpisodeItem["body"]、durationSec は総尺、onSeek は audio の currentTime を変える handler
- * @ensure opening を `00:00` の seek bar 付き、closing を総尺（`durationSec`）の seek bar 付きで描き、
+ * @require body は EpisodeItem["body"]、onSeek は audio の currentTime を変える handler
+ * @ensure opening を `opening.startSec` の seek bar 付き、closing を `closing.startSec` の seek bar 付きで描き、
  *   間に topics[] を EpisodeTopic として順番通りに並べる。見出しの文言（「導入」「まとめ」）は
  *   持たず seek bar だけを見出しに置く。opening / closing 本文の加工・変換はしない
- * @invariant sec の正は contract に無いため、opening は 0、closing は総尺（`durationSec`）を使う
+ * @invariant 導入は contract の `opening.startSec`、まとめは contract の `closing.startSec` を使う
  */
-export function EpisodeManuscript({
-  body,
-  durationSec,
-  onSeek,
-}: EpisodeManuscriptProps): ReactElement {
+export function EpisodeManuscript({ body, onSeek }: EpisodeManuscriptProps): ReactElement {
   return (
     <div className="episode-manuscript">
       <section className="episode-topic episode-topic--bookend">
@@ -36,13 +31,13 @@ export function EpisodeManuscript({
             className="episode-topic__seek"
             data-manuscript-opening-start-sec=""
             onClick={() => {
-              onSeek(0);
+              onSeek(body.opening.startSec);
             }}
           >
-            {formatDurationMmSs(0)}
+            {formatDurationMmSs(body.opening.startSec)}
           </button>
         </div>
-        <LabeledText tag="p" datasetKey="manuscriptOpening" text={body.opening} />
+        <LabeledText tag="p" datasetKey="manuscriptOpening" text={body.opening.text} />
       </section>
       {body.topics.map((topic, index) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: topic は domain 上の一意 key を持たず並び順が固定のため index を key に使う
@@ -55,13 +50,13 @@ export function EpisodeManuscript({
             className="episode-topic__seek"
             data-manuscript-closing-start-sec=""
             onClick={() => {
-              onSeek(durationSec);
+              onSeek(body.closing.startSec);
             }}
           >
-            {formatDurationMmSs(durationSec)}
+            {formatDurationMmSs(body.closing.startSec)}
           </button>
         </div>
-        <LabeledText tag="p" datasetKey="manuscriptClosing" text={body.closing} />
+        <LabeledText tag="p" datasetKey="manuscriptClosing" text={body.closing.summary} />
       </section>
     </div>
   );

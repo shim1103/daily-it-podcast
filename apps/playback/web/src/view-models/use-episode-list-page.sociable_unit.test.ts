@@ -18,9 +18,9 @@ vi.mock("./use-episode-catalog.ts", () => ({
 type EpisodeData = ApiSuccessData<PlaybackApiClient["listEpisodes"]>["episodes"][number];
 
 const episodeBody = {
-  opening: "開始",
+  opening: { text: "開始", startSec: 0 },
   topics: [{ title: "小題", preface: "前置き", detail: "詳細", startSec: 0 }],
-  closing: "終了",
+  closing: { summary: "終了", startSec: 55 },
 };
 
 const episodeOne: EpisodeData = {

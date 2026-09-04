@@ -32,8 +32,20 @@
       "required": ["opening", "topics", "closing"],
       "properties": {
         "opening": {
-          "type": "string",
-          "description": "最初の挨拶。"
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text", "startSec"],
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "最初の挨拶。"
+            },
+            "startSec": {
+              "type": "number",
+              "description": "オープニング（導入）の音声上の開始位置（秒）。構造上つねに 0。シーク用。",
+              "minimum": 0
+            }
+          }
         },
         "topics": {
           "type": "array",
@@ -64,8 +76,20 @@
           }
         },
         "closing": {
-          "type": "string",
-          "description": "最後の挨拶。"
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["summary", "startSec"],
+          "properties": {
+            "summary": {
+              "type": "string",
+              "description": "エンディング（まとめ）の原稿本文。締めの挨拶は含めない。"
+            },
+            "startSec": {
+              "type": "number",
+              "description": "エンディング（まとめ）の音声上の開始位置（秒）。シーク用。",
+              "minimum": 0
+            }
+          }
         }
       }
     }

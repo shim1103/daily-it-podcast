@@ -6,9 +6,9 @@ import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 import { EpisodeListPage } from "./episode-list-page.tsx";
 
 const episodeBody = {
-  opening: "開始",
+  opening: { text: "開始", startSec: 0 },
   topics: [{ title: "小題", preface: "前置き", detail: "詳細", startSec: 0 }],
-  closing: "終了",
+  closing: { summary: "終了", startSec: 55 },
 };
 
 const validListEpisodesResponse: ListEpisodesResponse = {
