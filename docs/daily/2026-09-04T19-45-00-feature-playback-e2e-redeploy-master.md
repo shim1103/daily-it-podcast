@@ -18,6 +18,7 @@ prev: 2026-09-04T17-40-00-feature-playback-e2e-redeploy-master.md
 4. `playback-e2e.yml` dispatch on feature branch → run [33861087493](https://github.com/shim1103/daily-it-podcast/actions/runs/33861087493) success（Playwright 4 passed。新規 seek 回帰 test「先頭 topic の seek bar で `<audio>.currentTime` が `startSec` 付近へ動く」を含む）。
 5. E2E fixture: `fixtures/stable-episode/` を episode `8ff4177b` の json/wav（`manuscript.schema.json` 新契約を通過）で復元。README を新契約・新 episodeId へ更新。e2e spec の `FIXTURE_*` 定数を更新。Decision `2026-08-31T00-12-01` / `00-22-00` の意図（本番 Drive 人手配置 + repo 内 artifact を正本）を維持。
 6. Decision `2026-09-04T19-30-00`（opening/ending は `{ text, startSec }` object、text は定型込み朗読全文、delimiter 改行 3 個）を起票。先行 `2026-09-04T16-00-00`（朗読全文 string）と `2026-09-04T16-44-46`（seek 用 startSec object）へ §4 supersede 参照を追加。`playback-lane.md` の進捗 index を現況へ更新。
+7. `gh pr create` で PR [#130](https://github.com/shim1103/daily-it-podcast/pull/130)（base `develop`）を作成。mergeable、conflict なし。この repo は AgentReview なし。`~/projects/daily-it-podcast` の `develop` へ本 branch を ff-merge（local のみ。`origin/develop` へは PR 経由で入る）。
 
 ### Commits
 
@@ -35,3 +36,4 @@ prev: 2026-09-04T17-40-00-feature-playback-e2e-redeploy-master.md
 - `93be5a1`
 - `d445846`
 - `404c84b`
+- `bc07dbc`
