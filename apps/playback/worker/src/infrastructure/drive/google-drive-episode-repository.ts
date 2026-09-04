@@ -207,7 +207,10 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
   private async request(input: string, init?: RequestInit): Promise<Response> {
     let response: Response;
     try {
-      response = await this.fetch(input, init);
+      // why: Workers の global fetch は `this.fetch(...)`（method 呼び出し）だと
+      //   TypeError: Illegal invocation になる。deps の関数を一度変数へ出して free function として呼ぶ。
+      const fetchFn = this.fetch;
+      response = await fetchFn(input, init);
     } catch (cause) {
       throw new DriveError("Drive HTTP 呼び出しに失敗", { cause });
     }

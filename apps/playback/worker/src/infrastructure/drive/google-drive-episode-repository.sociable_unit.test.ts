@@ -151,6 +151,33 @@ describe("GoogleDriveEpisodeRepository", () => {
     });
   });
 
+  describe("fetch の呼び出し形（Workers Illegal invocation）", () => {
+    it("method 呼び出しで this が束縛されても、listManuscripts は成功する", async () => {
+      // Given: Workers の global fetch 同様、receiver 付き呼び出しだと TypeError になる関数
+      const inner = stubFetch({
+        files: [{ id: "j1", name: "ep-1.json" }],
+        downloads: { j1: JSON.stringify(manuscriptJson) },
+      });
+      function workersLikeFetch(
+        this: unknown,
+        input: string,
+        init?: RequestInit,
+      ): Promise<Response> {
+        if (this !== undefined && this !== null) {
+          throw new TypeError("Illegal invocation");
+        }
+        return inner(input, init);
+      }
+      const repository = createRepository(workersLikeFetch);
+
+      // When: 一覧を取得する
+      const got = await repository.listManuscripts();
+
+      // Then: Drive 応答を返す（this.fetch(...) の method 呼び出しで落ちない）
+      expect(got).toEqual([{ stem: "ep-1", json: manuscriptJson }]);
+    });
+  });
+
   describe("files.list の絞り込み q", () => {
     it("getAudio は files.list へ対象 episodeId の wav 名を絞り込む q を渡す", async () => {
       const fetchStub = stubFetch({
