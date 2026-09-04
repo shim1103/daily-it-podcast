@@ -24,3 +24,7 @@ branch: feature/playback-e2e-redeploy-master
 1. `body.closing` に closingSummary だけを残し farewell は TTS 専用とする案 — 契約が朗読 SSoT でなくなる。
 2. `body.opening` に挨拶だけを残し intro は topics 前に暗黙とする案 — 同上。
 3. 定型を schema の別 field（`greeting` / `farewell`）へ分ける案 — Playback と TTS が 2 field を再結合する必要が生まれ、Drive 1 file の朗読単位が増える。
+
+## 4. 後続 supersede
+
+`origin/develop`（PR #127 `2026-09-04T16-44-46`）との merge で、`body.opening` / `body.ending` は `{ text, startSec }` object・delimiter は改行 3 個へ更新した。§1 の field 名（`opening` / `topics` / `ending`）と「朗読全文を契約へ載せる」方針は維持。詳細は `2026-09-04T19-30-00-feature-playback-e2e-redeploy-master.md`。

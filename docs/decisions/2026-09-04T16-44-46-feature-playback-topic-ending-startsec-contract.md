@@ -31,3 +31,7 @@ branch: feature/playback-topic-ending-startsec-contract
 2. `opening.startSec` も `closing.startSec` も Timeline の返り値から取る（対称性のため Timeline に `openingStartSec` を足す） — opening の開始秒は定義上 0 で自由度がない。返り値に定数を足すと呼び出し側が使わない値を運ぶ。対称性は「contract の object 形が 3 bookend で揃う」ことで既に得られており、算定経路まで対称にする必要はない。
 3. `closing` に `startSec` を持たせず、まとめの seek 先を「最後の topic の `startSec` + その topic の尺」と frontend で計算する — topic の尺は contract に無い（`startSec` の差分からは無音込みの尺しか出ず、topic 本文の実尺と一致しない）。まとめが音声のどこから始まるかは generator の WAV 尺情報がないと出ない。
 4. `opening` / `closing` 本文のキー名をこの Decision で `greeting` / `summary` に確定する — キー名の軸は seek 用開始秒の所在とは独立で、別 issue で推敲する。ここで束ねると片方だけの supersede が効かなくなる（`decisions.md` §2）。
+
+## 4. 後続 supersede
+
+`feature/playback-e2e-redeploy-master` との merge で、key `closing` → `ending`、本文キー `summary` → `text` へ改名し、§1-4 で保留した本文キー名を確定した。`ending.text` は closingSummary + 定型締めの朗読全文（本 Decision の「summary に締めの挨拶を含めない」は破棄）。seek 用開始秒を bookend の contract 側に持つ方針・generator 算定経路（§1-2 / §1-3）は維持。詳細は `2026-09-04T19-30-00-feature-playback-e2e-redeploy-master.md`。
