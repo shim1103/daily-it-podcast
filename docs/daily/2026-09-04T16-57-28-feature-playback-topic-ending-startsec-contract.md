@@ -23,9 +23,17 @@ opening / closing の本文キー名（`text` / `summary`）の統一自体は�
 7. `/commit --repo --split` で 4 commit（contracts / generator / playback / docs）に分割し `origin/feature/playback-topic-ending-startsec-contract` へ push。sandbox 内 push が filtering proxy の SSH 認証で失敗し、sandbox 無効で再実行して成功。
 8. `AskUserQuestion` は本 repo の protocol で許可条件なしに deny される。設計判断は git 履歴で復元可能な範囲は自律で進め、判断根拠を stdout に出してから実装した。
 
+## 3. Changes（/pr-completion 追記）
+
+1. `/pr-completion` を実行。`/commit --repo --split` の結果を含め daily・lessons を `a652b8a` で commit・push。
+2. `gh pr create`（`shim gh` 不使用）で PR #127 を base `develop` で作成。対応 GitHub Issue なし（Issue 番号 0）。`develop` は差分 36 files で merge-base が branch 起点 `4df3673` と一致し divergence なし。`master` は 277 files で review tool 上限超過。`mergeable: MERGEABLE`。
+3. AgentReview は Copilot が quota 上限で findings なし（`COMMENTED` のみ、処理すべき指摘なし）。
+4. CI: `static-and-unit` / `integration` は 2 回 push 分で各 2 run。1 回目 push 分は `static-and-unit` 3m23s / `integration` 2m27s で pass、2 回目 push 分の `integration` は 2m37s で pass。2 回目 push 分の `static-and-unit`（run 33851497354）は `playback 依存を install`（`npm ci`）で 30 分以上 in_progress のまま hang。同一 gate は 1 回目 push 分（コード commit 全部を含む tree）で既に緑、log-session commit `a652b8a` は doc 2 file 追加のみでコード変更なし、pre-commit / pre-push hook も全 commit で緑。runner の infra 問題と判断。
+
 ### Commits
 
 - `cfce7ac`
 - `e9bd47f`
 - `84ff13b`
 - `13e888f`
+- `a652b8a`
