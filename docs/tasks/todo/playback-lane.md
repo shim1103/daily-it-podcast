@@ -18,6 +18,7 @@ deploy・Access・GHA 運用の正: `DEPLOY.md`
 5. playback web 直交 Decision（B）と A 契約（型・stub・SU test）
 6. playback web UI rewrite / ViewModel stack 差し替え（達成契約 file 削除済み）
 7. 運用後続 docs（rollback / observability / 完了境界）
+8. 原稿 body の opening / closing に seek 用 `startSec` を追加（3 bookend を「本文 + startSec」へ揃える）。判断は `docs/decisions/2026-09-04T16-44-46-feature-playback-topic-ending-startsec-contract.md`
 
 ### 未完了
 
