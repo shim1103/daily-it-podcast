@@ -16,7 +16,7 @@
 //
 // @require process env に TEST_GEMINI_API_KEY がある（無ければ Skip）。本番 env 名（config.GeminiAPIKeyEnv）は読まない。
 // @require TTS_DOUBLE は空 / min / tgt / max のいずれか。未知値は t.Fatalf（誤字は即失敗させる）。
-// @ensure 計測対象の束は選んだ尺帯（preface+detail 目標長の 7 割以上かつ 目標長+連結改行 以下）。外れれば t.Fatalf。
+// @ensure 計測対象の束は選んだ尺帯（preface+detail 目標長の 8 割以上かつ 目標長+連結改行 以下）。外れれば t.Fatalf。
 // @ensure pass/runs >= pass_threshold で緑、下回れば t.Fatalf。各回の所要秒と PASS 率・double / tuning 値を Logf。
 // @invariant 既定 -tags=system では compile されない（ratemeasure tag）。local に secret を置かない。本番 key が計測へ流れない（TEST_ 直読み）。
 package system
@@ -161,8 +161,9 @@ func TestGeminiTTSRate_measuresPassRate_overNRuns(t *testing.T) {
 	headRunes := utf8.RuneCountInString(head)
 
 	// Then（precondition）: 計測対象は選んだ尺帯に収まる。誤って短文・過長へ退行したら落とす。
+	// 実 bundle は jpFiller の文単位切りで ceil の 96〜98% に入る（全帯で検算済み）。8 割を下限にする。
 	ceilRunes := prefaceLen + detailLen + 1 // +1 は preface と detail の連結改行
-	floorRunes := ceilRunes * 7 / 10
+	floorRunes := ceilRunes * 8 / 10
 	if headRunes < floorRunes || headRunes > ceilRunes {
 		t.Fatalf("計測対象の束 = %d rune, want %d..%d（TTS_DOUBLE=%s の帯）", headRunes, floorRunes, ceilRunes, double)
 	}
