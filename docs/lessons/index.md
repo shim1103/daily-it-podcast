@@ -166,3 +166,7 @@
 - 2026-09-04 [feature/playback-deploy-ops-followup] 入場制御付きの個人利用 URL に対する動的脆弱性スキャンは、認証越え・許可 identity・対象面が未決なら Issue 化できない。未決のまま完了 checkbox に残さない  # → layer:terms
 - 2026-09-04 [feature/playback-deploy-ops-followup] 「今はやらない」依存更新 bot は Decision を増やさず、採用しない一覧と進捗から外すだけで足りる。未決を Decision に確定したかのように書かない  # → layer:workflow
 - 2026-09-04 [feature/playback-deploy-ops-followup] 束ね workflow（pr-completion）が log-session の append 無しを明示したら、下位 create-pr 完了条件の append 要求より orchestrator の指示を優先する。option の意味は skill_options を正とし推測しない  # → layer:workflow
+- 2026-09-04 [docs/latest-update] コード生成物（図の PNG 等）の出力先は生成元スクリプトと同じ dir に置く。生成物を別 dir（docs 配下等）へ出すと「その dir を消す」判断と「出力先パス」が二重管理になり、dir 削除時に生成元の書き換え漏れが起きる。生成物と生成元を隣接させると「生成物の場所」の SSoT が一意化する  # → layer:terms
+- 2026-09-04 [docs/latest-update] 「この生成物は手編集しない」という運用方針の置き場は、生成物の隣の README ではなく生成元スクリプト自身の module docstring（クラス/ファイル先頭コメント）。README を別途置くと生成元とドキュメントの 2 ファイルを同期する必要が生まれる。スクリプトが自己記述すれば読む人は生成元 1 つを見れば足りる  # → layer:terms
+- 2026-09-04 [docs/latest-update] 上位ドキュメント（README・設計書・運用書）から個別の Decision Record ファイルへ日付 ID 直リンクを張るのは、その判断の内容が他のどこにも記録されておらず復元不能な場合（採用しない選択肢の Reason 等）に限る。それ以外は「再発する判断は decisions/ を見よ」の総称参照 1 つで足りる。個別リンクを増やすと上位ドキュメントが Decision の index を二重に持ち、Decision 追加のたびに追随が要る  # → layer:workflow
+- 2026-09-04 [docs/latest-update] harness から「このファイルはディスク上で変わった、現在の状態として扱え」と通知されたら、自分が直前に書いた版との差分を「欠落・破損」と即断して差し戻し提案しない。まず現ディスク状態を正として受け入れる。明らかな構文破損に見えても、revert せず「ここが壊れて見える」と指摘に留め、判断は編集主体へ返す  # → layer:workflow
