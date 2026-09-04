@@ -39,7 +39,10 @@ func buildValidWireJSON() string {
 	introRunes := constants.DraftIntroMinLen - 1     // + prefix でちょうど min
 	closingRunes := constants.DraftClosingMinLen - 1 // 同上
 	prefaceRunes := constants.DraftTopicPrefaceMinLen - 5
-	detailRunes := constants.DraftTopicDetailMinLen - 6
+	// why: preface / detail 下限を下げたあと、各 field を min 付近にすると total 下限に届かない。
+	// detail を足して total min を満たす（validateTotalChars を fixture が通るための調整）。
+	detailPad := 40
+	detailRunes := constants.DraftTopicDetailMinLen - 6 + detailPad
 
 	topics := make([]wireTopic, validWireTopicCount)
 	for i := 0; i < validWireTopicCount; i++ {

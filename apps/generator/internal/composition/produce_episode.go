@@ -19,10 +19,11 @@ func newProduceEpisode(cfg config.Config) *application.ProduceEpisode {
 		newLobstersItemSource(httpClient),
 		newITmediaItemSource(httpClient),
 	))
+	lookup := newGoogleDriveCompletedEpisodeLookup(httpClient, cfg.Drive)
 	textWriter := newCursorTextWriter(sharedHTTPClientWithoutTimeout(), cfg.Cursor)
-	speech := newGeminiSpeechSynthesizer(httpClient, cfg.Gemini)
+	speech := newGeminiSpeechSynthesizer(sharedHTTPClientWithoutTimeout(), cfg.Gemini)
 	writeEpisode := newGoogleDriveWriteEpisode(httpClient, cfg.Drive)
-	return application.NewProduceEpisode(fetch, textWriter, speech, writeEpisode, newEpisodeID, sharedDisplayLocation())
+	return application.NewProduceEpisode(fetch, lookup, textWriter, speech, writeEpisode, newEpisodeID, sharedDisplayLocation())
 }
 
 // NewProduceEpisodeFromEnv は process environment から Config を読み、production UseCase を組み立てる。

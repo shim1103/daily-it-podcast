@@ -8,10 +8,14 @@
 
 ### 済み（要約）
 
-1. `ProduceEpisode.Run` 
+1. `ProduceEpisode.Run` / Broad Integration / error 3 層 / 本番 produce workflow
+2. 情報源3 Adapter（HackerNews / Lobsters / ITmedia）を composite `ItemSource` へ結線。Broad Integration が3源 double で緑
+3. 原稿 TextWriter を Cursor CLI から Cloud Agents REST（`manuscript/cursorapi`）へ移行。`commandlaunch` / `processenv` / CLI install を廃止
+4. System e2e 1 回通し（`TestProduceEpisodeSystem`）と rate 計測 2 本（`TestGeminiTTSRate` / `TestCursorAPIDraftRate`）を配置。`generator-draft-rate.yml` は実 API dispatch で 3/3 PASS 確認済み
+
 ### 未完了
 
-1. [ ] System — `generator-system.yml`。suite 本体・`TEST_*` 登録
+1. [ ] System — `generator-system.yml`。suite 本体・`TEST_*` 登録。e2e 1 回通しの実 dispatch 確認は引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`、運用方針は `DEPLOY.md` §5
 
 ### D（未決・未実測・文案）
 
@@ -26,6 +30,7 @@
 | 議論 comment のスレッド深掘り | HN / Lobsters は 1 階層のみ取得（上限は Adapter stub 定数）。ネストした議論を辿るかは未決 |
 | TextWriter の web_fetch 実測 | `links:` の URL を Cloud Agents 経路が実際に fetch できるか未実測。できない場合の補完は TextWriter 経路の内側（Application には置かない） |
 | no-repo 原稿品質・token・job timeout | Cloud Agents no-repo が ask 相当の断片になるか、Pro 日次消費、SSE 待ちが GHA job に収まるかは未実測 |
+| draft 尺の下限マージン | `generator-draft-rate` 実測（run 33840526373）で default variant の 1 回が下限 +2 文字。variant `a` の A/B か `constants.TextWriterBriefPrompt` の detail 目安引き上げを検討 |
 
 ### 方針 index
 

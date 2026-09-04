@@ -25,12 +25,15 @@ const (
 	DraftClosingMaxSec = 40
 
 	// 各 topic の preface（その topic への短い前置き）。
-	DraftTopicPrefaceMinSec = 20
+	// why: Prompt は「短い前置き」だが旧 Min=20s は短くない。System 実測で 99〜133 rune
+	// （約 14〜19s）が繰り返し出たため、下限を 10s に合わせる。
+	DraftTopicPrefaceMinSec = 10
 	DraftTopicPrefaceTgtSec = 28
 	DraftTopicPrefaceMaxSec = 36
 
 	// 各 topic の detail（ソースに基づく説明本文）。
-	DraftTopicDetailMinSec = 50
+	// why: System 実測で detail 348 rune（下限 350）の惜しい不足が観測された（run 33308073574）。
+	DraftTopicDetailMinSec = 48
 	DraftTopicDetailTgtSec = 80
 	DraftTopicDetailMaxSec = 110
 

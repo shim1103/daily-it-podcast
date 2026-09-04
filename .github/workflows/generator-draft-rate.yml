@@ -1,0 +1,55 @@
+# scope: Generator Cursor API draft prompt 精度 PASS 率計測（dispatch 専用・gate 外）
+# 実物: scripts/generator/test-draft-rate.sh → go test -tags="system ratemeasure" TestCursorAPIDraftRate
+# double: なし（test 専用 credential TEST_CURSOR_API_KEY）
+# @require Go（version は apps/generator/go.mod）。TEST_CURSOR_API_KEY Secret が登録済み。
+#          Cursor CLI の `agent` install は不要（Cloud Agents HTTP API 移行済み。Decision 2026-09-03T17-03-33）。
+# @ensure draft-rate 入口が exit 0（valid 率が閾値以上）。$GITHUB_STEP_SUMMARY に pass/total と各回文字数。
+# @invariant 必須 Unit / Integration gate に載せない。cron を持たない（Cursor draft は 1 回数分）。本番 Secrets を使わない。
+# @invariant toolchain の go test を YAML に直書きしない。secret 値を log に出さない。Op=do（環境経由）は分母から除外。Cursor install step を持たない。
+# 判断: docs/decisions/2026-09-03T14-45-00 / 2026-09-03T14-47-00 / 2026-09-03T17-03-33
+name: generator-draft-rate
+
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: "Write → draft parse を繰り返す回数"
+        required: false
+        default: "5"
+      pass_threshold:
+        description: "緑にする valid 率の下限（0,1] の小数）"
+        required: false
+        default: "0.8"
+      prompt_variant:
+        description: "brief prompt variant（default = 現行 constants.TextWriterBriefPrompt、a = testdata/brief_prompt_variant_a.txt）"
+        required: false
+        default: "default"
+
+jobs:
+  draft-rate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/generator/go.mod
+
+      - name: draft rate 計測を実行
+        env:
+          TEST_CURSOR_API_KEY: ${{ secrets.TEST_CURSOR_API_KEY }}
+          DRAFT_RATE_RUNS: ${{ inputs.runs }}
+          DRAFT_PASS_THRESHOLD: ${{ inputs.pass_threshold }}
+          DRAFT_PROMPT_VARIANT: ${{ inputs.prompt_variant }}
+        run: |
+          set -euo pipefail
+          ./scripts/generator/test-draft-rate.sh 2>&1 | tee /tmp/draft-rate.log
+
+      - name: PASS 率を summary へ
+        if: always()
+        env:
+          RUNS: ${{ inputs.runs }}
+          PASS_THRESHOLD: ${{ inputs.pass_threshold }}
+          PROMPT_VARIANT: ${{ inputs.prompt_variant }}
+        run: ./scripts/generator/draft-rate-summary.sh

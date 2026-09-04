@@ -20,9 +20,9 @@ import (
 // @ensure 全体文字数の合計対象は intro / closingSummary / 各 topic の preface・detail。
 // @ensure title / topic.title は朗読されない見出しで合計対象外、末尾句点も課さない（非空 + 日本語含有 + rune 数 range のみ）。
 // @ensure 朗読 field の rune 数 range は秒数正本 entities/constants/manuscript_draft_seconds.go × CharsPerSecond の畳み込み。
-// @invariant Infrastructure・vendor envelope を知らない。code fence strip は wire 前処理の最小のみ。
+// @invariant Infrastructure・vendor envelope を知らない。wire 前処理は code fence strip と先頭 prose 除去のみ。
 func ManuscriptDraftFromWriterOutput(raw string) (models.ManuscriptDraft, error) {
-	body := stripJSONCodeFence(strings.TrimSpace(raw))
+	body := extractJSONObject(stripJSONCodeFence(strings.TrimSpace(raw)))
 	if body == "" {
 		return models.ManuscriptDraft{}, draftErr("wire is empty")
 	}
@@ -54,6 +54,47 @@ func stripJSONCodeFence(s string) string {
 	}
 	s = strings.TrimSuffix(strings.TrimRight(s, " \t\r\n"), "```")
 	return strings.TrimSpace(s)
+}
+
+// extractJSONObject は先頭の非 JSON 散文を落とし、最初の `{` から対応する `}` までを返す。
+// `{` が無ければ入力をそのまま返す（後段 Unmarshal が失敗する）。
+func extractJSONObject(s string) string {
+	start := strings.IndexByte(s, '{')
+	if start < 0 {
+		return s
+	}
+	depth := 0
+	inString := false
+	escape := false
+	for i := start; i < len(s); i++ {
+		c := s[i]
+		if inString {
+			if escape {
+				escape = false
+				continue
+			}
+			if c == '\\' {
+				escape = true
+				continue
+			}
+			if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inString = true
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return strings.TrimSpace(s[start : i+1])
+			}
+		}
+	}
+	return strings.TrimSpace(s[start:])
 }
 
 // isASCIILabelLine は s が code fence の言語ラベル行として strip 対象か判定する。

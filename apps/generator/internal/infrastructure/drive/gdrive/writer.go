@@ -139,6 +139,10 @@ func (w *EpisodeWriter) uploadMedia(ctx context.Context, token, fileID, mime str
 }
 
 func (w *EpisodeWriter) doDrive(ctx context.Context, method, target, token, contentType string, body []byte) (*http.Response, error) {
+	return doDriveHTTP(ctx, w.client, method, target, token, contentType, body)
+}
+
+func doDriveHTTP(ctx context.Context, client *http.Client, method, target, token, contentType string, body []byte) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, target, bytes.NewReader(body))
 	if err != nil {
 		return nil, infraErr("build_request", err)
@@ -147,7 +151,7 @@ func (w *EpisodeWriter) doDrive(ctx context.Context, method, target, token, cont
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
-	return w.client.Do(req)
+	return client.Do(req)
 }
 
 func readJSONBody(res *http.Response, op string, dest any, okStatuses ...int) error {
