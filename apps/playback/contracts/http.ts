@@ -26,15 +26,15 @@ const openingSchema = z.strictObject({
   startSec: z.number().min(0),
 });
 
-const closingSchema = z.strictObject({
-  summary: z.string(),
+const endingSchema = z.strictObject({
+  text: z.string(),
   startSec: z.number().min(0),
 });
 
 const bodySchema = z.strictObject({
   opening: openingSchema,
   topics: z.array(topicSchema).min(1),
-  closing: closingSchema,
+  ending: endingSchema,
 });
 
 export const episodeItemSchema = z.strictObject({

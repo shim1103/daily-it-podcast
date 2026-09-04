@@ -13,9 +13,13 @@
 3. 原稿 TextWriter を Cursor CLI から Cloud Agents REST（`manuscript/cursorapi`）へ移行。`commandlaunch` / `processenv` / CLI install を廃止
 4. System e2e 1 回通し（`TestProduceEpisodeSystem`）と rate 計測 2 本（`TestGeminiTTSRate` / `TestCursorAPIDraftRate`）を配置。`generator-draft-rate.yml` は実 API dispatch で 3/3 PASS 確認済み
 
+### 済み（要約・続き）
+
+5. System — `generator-system.yml` suite 本体・`TEST_*` 登録・e2e 1 回通しの実 dispatch 確認（run 33857369881 PASS、Drive 実到達、episodeId `8ff4177b-26fe-4036-ab7b-d2a4e9e7639d`）。運用方針は `DEPLOY.md` §5
+
 ### 未完了
 
-1. [ ] System — `generator-system.yml`。suite 本体・`TEST_*` 登録。e2e 1 回通しの実 dispatch 確認は引き継ぎ `docs/tasks/todo/generator-system-e2e-produce-episode.md`、運用方針は `DEPLOY.md` §5
+（なし。残りの rate 計測 follow-up は下記 D 表が index）
 
 ### D（未決・未実測・文案）
 
@@ -31,6 +35,9 @@
 | TextWriter の web_fetch 実測 | `links:` の URL を Cloud Agents 経路が実際に fetch できるか未実測。できない場合の補完は TextWriter 経路の内側（Application には置かない） |
 | no-repo 原稿品質・token・job timeout | Cloud Agents no-repo が ask 相当の断片になるか、Pro 日次消費、SSE 待ちが GHA job に収まるかは未実測 |
 | draft 尺の下限マージン | `generator-draft-rate` 実測（run 33840526373）で default variant の 1 回が下限 +2 文字。variant `a` の A/B か `constants.TextWriterBriefPrompt` の detail 目安引き上げを検討 |
+| TTS rate 実 dispatch | `TestGeminiTTSRate` が実 API でまだ走っていない。`generator-draft-rate.yml` は実 API dispatch 済み（run 33840526373、3/3 PASS）。TTS 側も同様に 1 度 dispatch して尺帯ごとの PASS 率・所要を台帳化する |
+| `interactionResponse.Status` | 現状未使用。`status != "completed"` の扱いは未決 |
+
 
 ### 方針 index
 

@@ -20,7 +20,7 @@ const validListEpisodesResponse = {
       body: {
         opening: { text: "開始", startSec: 0 },
         topics: [{ title: "題", preface: "前", detail: "詳", startSec: 0 }],
-        closing: { summary: "終了", startSec: 55 },
+        ending: { text: "終了", startSec: 55 },
       },
       audioRef: "/episodes/ep-1/audio",
     },

@@ -15,7 +15,7 @@ const episode: EpisodeData = {
       { title: "小題A", preface: "前A", detail: "詳A", startSec: 0 },
       { title: "小題B", preface: "前B", detail: "詳B", startSec: 30 },
     ],
-    closing: { summary: "終了", startSec: 55 },
+    ending: { text: "終了", startSec: 55 },
   },
   audioRef: "/episodes/ep-1/audio",
 };

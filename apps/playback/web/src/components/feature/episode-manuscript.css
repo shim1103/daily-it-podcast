@@ -16,9 +16,9 @@
 }
 
 .episode-manuscript > [data-manuscript-opening],
-.episode-manuscript > [data-manuscript-closing],
+.episode-manuscript > [data-manuscript-ending],
 .episode-manuscript .episode-topic--bookend [data-manuscript-opening],
-.episode-manuscript .episode-topic--bookend [data-manuscript-closing] {
+.episode-manuscript .episode-topic--bookend [data-manuscript-ending] {
   margin: 0;
   color: var(--el-secondary);
   font-family:
@@ -33,7 +33,7 @@
   letter-spacing: -0.01em;
 }
 
-/* bookend（opening / closing）は見出し文言を持たず seek bar だけなので、
+/* bookend（opening / ending）は見出し文言を持たず seek bar だけなので、
  * topic 見出しより heading↔本文・節↔節の空白を詰める */
 .episode-manuscript .episode-topic--bookend {
   margin: 0 0 0.9rem;

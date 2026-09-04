@@ -16,7 +16,7 @@
 //
 //	Cursor CLI の `agent` binary は要らない（Cloud Agents HTTP API 移行済み。Decision 2026-09-03T17-03-33）。
 //
-// @ensure ProduceEpisode.Run が 1 回で完走する。Fetch 窓内に SourceItem が 0 件だった日は
+// @ensure ProduceEpisode.Run が 1 回で完走する。成功時は episodeId を t.Log に出す。Fetch 窓内に SourceItem が 0 件だった日は
 //
 //	Domain Error（Op = no_source_items）で成功扱い（fetch は通っており system は壊れていない）。
 //	それ以外の error は system 側の故障として t.Fatalf。
@@ -78,12 +78,12 @@ func TestProduceEpisodeSystem_runsEndToEndOnce_whenAllCredentialsPresent(t *test
 
 	// When: production と同じ orchestration を 1 度だけ通す
 	start := time.Now()
-	runErr := uc.Run(ctx, time.Now())
+	episodeID, runErr := uc.Run(ctx, time.Now())
 	elapsed := time.Since(start)
 
 	// Then: 完走、または「Fetch 窓に SourceItem 0 件」の Domain Error のみ許す。
 	if runErr == nil {
-		t.Logf("e2e 1 回通し PASS（所要 %.1fs）", elapsed.Seconds())
+		t.Logf("e2e 1 回通し PASS（episodeId=%s 所要 %.1fs）", episodeID, elapsed.Seconds())
 		return
 	}
 	var de *domainerrors.Error
@@ -91,5 +91,5 @@ func TestProduceEpisodeSystem_runsEndToEndOnce_whenAllCredentialsPresent(t *test
 		t.Logf("e2e 1 回通し PASS（Fetch 窓内に SourceItem 0 件。fetch は疎通。所要 %.1fs）", elapsed.Seconds())
 		return
 	}
-	t.Fatalf("ProduceEpisode.Run が失敗: %v（所要 %.1fs）", runErr, elapsed.Seconds())
+	t.Fatalf("ProduceEpisode.Run が失敗: %v（episodeId=%s 所要 %.1fs）", runErr, episodeID, elapsed.Seconds())
 }

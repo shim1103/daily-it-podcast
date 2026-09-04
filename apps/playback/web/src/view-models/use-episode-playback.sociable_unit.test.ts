@@ -290,8 +290,8 @@ describe("useEpisodePlayback", () => {
     });
   });
 
-  describe("seek（topic の sec bar：そこから再生）", () => {
-    it("seek('ep-1', 120) を idle から呼ぶと active/phase:loading/positionSec:120 にし、seekAudioElement(audio, 120, {play:true}) を呼ぶ", () => {
+  describe("seek（topic の sec bar：位置を決める。再生中の続きなら再生継続、停止中なら停止のまま）", () => {
+    it("seek('ep-1', 120) を idle から呼ぶと active/phase:paused/positionSec:120 にし、seekAudioElement(audio, 120, {play:false}) を呼ぶ", () => {
       // Given: audio を張った idle の hook
       const { result } = renderHook(() => useEpisodePlayback());
       const audio = createAudioRefTarget();
@@ -304,16 +304,16 @@ describe("useEpisodePlayback", () => {
         result.current.seek("ep-1", "/episodes/ep-1/audio", 120);
       });
 
-      // Then: idle からでもその位置から再生開始（play:true）
+      // Then: idle（何も再生していない）からの seek は位置だけ動かし、再生は始めない
       expect(result.current.playback).toEqual({
         kind: "active",
         episodeId: "ep-1",
         audioRef: "/episodes/ep-1/audio",
-        phase: { phase: "loading" },
+        phase: { phase: "paused" },
         positionSec: 120,
         durationSec: null,
       });
-      expect(seekAudioElementMock).toHaveBeenCalledExactlyOnceWith(audio, 120, { play: true });
+      expect(seekAudioElementMock).toHaveBeenCalledExactlyOnceWith(audio, 120, { play: false });
     });
 
     it("seek('ep-1', 120) を同じ episode の再生中（phase:playing）から呼ぶと その位置から再生継続する", () => {
@@ -347,7 +347,7 @@ describe("useEpisodePlayback", () => {
       expect(seekAudioElementMock).toHaveBeenCalledExactlyOnceWith(audio, 120, { play: true });
     });
 
-    it("seek('ep-1', 120) を同じ episode の停止中（phase:paused）から呼んでも その位置から再生を始める", () => {
+    it("seek('ep-1', 120) を同じ episode の停止中（phase:paused）から呼ぶと、停止のままその位置へ移動する", () => {
       // Given: ep-1 を再生後 paused になっている hook
       const { result } = renderHook(() => useEpisodePlayback());
       const subscribe = createSubscribeFake();
@@ -363,20 +363,20 @@ describe("useEpisodePlayback", () => {
       });
       seekAudioElementMock.mockClear();
 
-      // When: 120 秒へ seek する（停止中でも topic bar は「そこから聴く」）
+      // When: 120 秒へ seek する（停止中は「その位置で聴く準備をする」だけで再生は始めない）
       act(() => {
         result.current.seek("ep-1", "/episodes/ep-1/audio", 120);
       });
 
-      // Then: 停止中でも play:true で再生開始
+      // Then: phase は paused のまま、position だけ動く。play:false で委譲
       expect(result.current.playback).toMatchObject({
         kind: "active",
         episodeId: "ep-1",
         audioRef: "/episodes/ep-1/audio",
-        phase: { phase: "loading" },
+        phase: { phase: "paused" },
         positionSec: 120,
       });
-      expect(seekAudioElementMock).toHaveBeenCalledExactlyOnceWith(audio, 120, { play: true });
+      expect(seekAudioElementMock).toHaveBeenCalledExactlyOnceWith(audio, 120, { play: false });
     });
 
     it("seek('ep-2', 30) を ep-1 再生中から呼ぶと新 audioRef を setAudioSource で張り、ep-2 をその位置から再生する", () => {
@@ -445,12 +445,12 @@ describe("useEpisodePlayback", () => {
         result.current.seek("ep-1", "/episodes/ep-1/audio", 42);
       });
 
-      // Then: 例外なし・state だけ倒る（loading）・audio 操作は呼ばれない
+      // Then: 例外なし・state だけ倒る（idle からなので paused）・audio 操作は呼ばれない
       expect(result.current.playback).toEqual({
         kind: "active",
         episodeId: "ep-1",
         audioRef: "/episodes/ep-1/audio",
-        phase: { phase: "loading" },
+        phase: { phase: "paused" },
         positionSec: 42,
         durationSec: null,
       });

@@ -39,7 +39,7 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
       const { getAudioController } = createPlaybackControllers(c.env, undefined, useCaseOverrides);
       const input: unknown = { episodeId: c.req.param("episodeId") };
       const bytes = await getAudioController(input);
-      return createAudioResponse(bytes);
+      return createAudioResponse(bytes, c.req.header("Range") ?? null);
     })
     .notFound(() => {
       // why: 未一致 path を episode_not_found にすると、無い episode と無い route が同じ code になる

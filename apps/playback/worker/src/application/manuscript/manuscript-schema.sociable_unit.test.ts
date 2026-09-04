@@ -19,8 +19,8 @@ const validManuscript = {
         startSec: 0,
       },
     ],
-    closing: {
-      summary: "終了",
+    ending: {
+      text: "終了",
       startSec: 30,
     },
   },
@@ -85,24 +85,24 @@ describe("ManuscriptSchema", () => {
     expect(got.success).toBe(false);
   });
 
-  it("closing が旧来の文字列の時、success: false を返す", () => {
-    // Given: closing が { summary, startSec } でなく文字列（拡張前の形）
+  it("ending が旧来の文字列の時、success: false を返す", () => {
+    // Given: ending が { text, startSec } でなく文字列（拡張前の形）
     // When: 検証する
     const got = ManuscriptSchema.safeParse({
       ...validManuscript,
-      body: { ...validManuscript.body, closing: "終了" },
+      body: { ...validManuscript.body, ending: "終了" },
     });
 
     // Then: 不適合
     expect(got.success).toBe(false);
   });
 
-  it("closing.startSec が欠けている時、success: false を返す", () => {
-    // Given: closing.summary だけの原稿
+  it("ending.startSec が欠けている時、success: false を返す", () => {
+    // Given: ending.text だけの原稿
     // When: 検証する
     const got = ManuscriptSchema.safeParse({
       ...validManuscript,
-      body: { ...validManuscript.body, closing: { summary: "終了" } },
+      body: { ...validManuscript.body, ending: { text: "終了" } },
     });
 
     // Then: 不適合

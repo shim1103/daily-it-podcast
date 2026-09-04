@@ -24,7 +24,7 @@ const manuscriptJson = {
   body: {
     opening: { text: "開始", startSec: 0 },
     topics: [{ title: "題", preface: "前置き", detail: "詳細", startSec: 0 }],
-    closing: { summary: "終了", startSec: 55 },
+    ending: { text: "終了", startSec: 55 },
   },
 };
 
@@ -148,6 +148,33 @@ describe("GoogleDriveEpisodeRepository", () => {
 
       // When / Then
       expect(await repository.getAudio("ep-1")).toBeUndefined();
+    });
+  });
+
+  describe("fetch の呼び出し形（Workers Illegal invocation）", () => {
+    it("method 呼び出しで this が束縛されても、listManuscripts は成功する", async () => {
+      // Given: Workers の global fetch 同様、receiver 付き呼び出しだと TypeError になる関数
+      const inner = stubFetch({
+        files: [{ id: "j1", name: "ep-1.json" }],
+        downloads: { j1: JSON.stringify(manuscriptJson) },
+      });
+      function workersLikeFetch(
+        this: unknown,
+        input: string,
+        init?: RequestInit,
+      ): Promise<Response> {
+        if (this !== undefined && this !== null) {
+          throw new TypeError("Illegal invocation");
+        }
+        return inner(input, init);
+      }
+      const repository = createRepository(workersLikeFetch);
+
+      // When: 一覧を取得する
+      const got = await repository.listManuscripts();
+
+      // Then: Drive 応答を返す（this.fetch(...) の method 呼び出しで落ちない）
+      expect(got).toEqual([{ stem: "ep-1", json: manuscriptJson }]);
     });
   });
 

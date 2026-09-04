@@ -18,7 +18,8 @@ deploy・Access・GHA 運用の正: `DEPLOY.md`
 5. playback web 直交 Decision（B）と A 契約（型・stub・SU test）
 6. playback web UI rewrite / ViewModel stack 差し替え（達成契約 file 削除済み）
 7. 運用後続 docs（rollback / observability / 完了境界）
-8. 原稿 body の opening / closing に seek 用 `startSec` を追加（3 bookend を「本文 + startSec」へ揃える）。判断は `docs/decisions/2026-09-04T16-44-46-feature-playback-topic-ending-startsec-contract.md`
+8. 原稿 body の opening / ending を `{ text, startSec }` object へ（3 bookend を「本文 + startSec」へ揃える。text は定型込み朗読全文）。判断は `docs/decisions/2026-09-04T19-30-00-feature-playback-e2e-redeploy-master.md`（先行 `16-44-46` / `16-00-00` を reconcile）
+9. 音源 load 直後の seek が 0:00 に落ちる bug を修正（`readyState` 未達なら `loadedmetadata` を待って `currentTime` 代入）。e2e に seek 回帰 test 追加。安定 fixture を新契約 episode へ差し替え
 
 ### 未完了
 

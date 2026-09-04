@@ -28,8 +28,8 @@ const validManuscript = `{
 			"detail": "詳細",
 			"startSec": 0
 		}],
-		"closing": {
-			"summary": "また明日",
+		"ending": {
+			"text": "また明日",
 			"startSec": 10
 		}
 	}

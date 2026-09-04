@@ -13,13 +13,13 @@ export type EpisodeManuscriptProps = {
 };
 
 /**
- * EpisodeItem の body（opening・topics・closing）を組み合わせて描画する。
+ * EpisodeItem の body（opening・topics・ending）を組み合わせて描画する。
  *
  * @require body は EpisodeItem["body"]、onSeek は audio の currentTime を変える handler
- * @ensure opening を `opening.startSec` の seek bar 付き、closing を `closing.startSec` の seek bar 付きで描き、
+ * @ensure opening を `opening.startSec` の seek bar 付き、ending を `ending.startSec` の seek bar 付きで描き、
  *   間に topics[] を EpisodeTopic として順番通りに並べる。見出しの文言（「導入」「まとめ」）は
- *   持たず seek bar だけを見出しに置く。opening / closing 本文の加工・変換はしない
- * @invariant 導入は contract の `opening.startSec`、まとめは contract の `closing.startSec` を使う
+ *   持たず seek bar だけを見出しに置く。opening / ending 本文の加工・変換はしない
+ * @invariant 導入は contract の `opening.startSec`、まとめは contract の `ending.startSec` を使う
  */
 export function EpisodeManuscript({ body, onSeek }: EpisodeManuscriptProps): ReactElement {
   return (
@@ -48,15 +48,15 @@ export function EpisodeManuscript({ body, onSeek }: EpisodeManuscriptProps): Rea
           <button
             type="button"
             className="episode-topic__seek"
-            data-manuscript-closing-start-sec=""
+            data-manuscript-ending-start-sec=""
             onClick={() => {
-              onSeek(body.closing.startSec);
+              onSeek(body.ending.startSec);
             }}
           >
-            {formatDurationMmSs(body.closing.startSec)}
+            {formatDurationMmSs(body.ending.startSec)}
           </button>
         </div>
-        <LabeledText tag="p" datasetKey="manuscriptClosing" text={body.closing.summary} />
+        <LabeledText tag="p" datasetKey="manuscriptEnding" text={body.ending.text} />
       </section>
     </div>
   );

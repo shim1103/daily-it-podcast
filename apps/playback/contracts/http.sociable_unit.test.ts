@@ -18,8 +18,8 @@ const validOpening = {
   startSec: 0,
 };
 
-const validClosing = {
-  summary: "終了",
+const validEnding = {
+  text: "終了",
   startSec: 30,
 };
 
@@ -31,7 +31,7 @@ const validEpisodeItem = {
   body: {
     opening: validOpening,
     topics: [validTopic],
-    closing: validClosing,
+    ending: validEnding,
   },
   audioRef: episodeAudioPath("ep-1"),
 };
@@ -195,24 +195,24 @@ describe("ListEpisodesResponseSchema", () => {
     expect(got.success).toBe(false);
   });
 
-  it("closing が startSec を持つ時受け入れる", () => {
-    // Given: closing が { summary, startSec } 形の episode 1件
+  it("ending が startSec を持つ時受け入れる", () => {
+    // Given: ending が { text, startSec } 形の episode 1件
     const body = { episodes: [validEpisodeItem] };
 
     // When: parse する
     const got = ListEpisodesResponseSchema.safeParse(body);
 
-    // Then: 成功し、closing.startSec を保つ
+    // Then: 成功し、ending.startSec を保つ
     expect(got.success).toBe(true);
     if (got.success) {
-      expect(got.data.episodes[0]?.body.closing).toEqual({ summary: "終了", startSec: 30 });
+      expect(got.data.episodes[0]?.body.ending).toEqual({ text: "終了", startSec: 30 });
     }
   });
 
-  it("closing が旧来の文字列の時拒否する", () => {
-    // Given: closing が文字列（拡張前の形）の episode
+  it("ending が旧来の文字列の時拒否する", () => {
+    // Given: ending が文字列（拡張前の形）の episode
     const payload = {
-      episodes: [{ ...validEpisodeItem, body: { ...validEpisodeItem.body, closing: "終了" } }],
+      episodes: [{ ...validEpisodeItem, body: { ...validEpisodeItem.body, ending: "終了" } }],
     };
 
     // When: parse する
@@ -222,11 +222,11 @@ describe("ListEpisodesResponseSchema", () => {
     expect(got.success).toBe(false);
   });
 
-  it("closing に startSec が無い時拒否する", () => {
-    // Given: closing.startSec 欠落の episode
+  it("ending に startSec が無い時拒否する", () => {
+    // Given: ending.startSec 欠落の episode
     const payload = {
       episodes: [
-        { ...validEpisodeItem, body: { ...validEpisodeItem.body, closing: { summary: "終了" } } },
+        { ...validEpisodeItem, body: { ...validEpisodeItem.body, ending: { text: "終了" } } },
       ],
     };
 
@@ -237,13 +237,13 @@ describe("ListEpisodesResponseSchema", () => {
     expect(got.success).toBe(false);
   });
 
-  it("closing.startSec が負の時拒否する", () => {
-    // Given: closing.startSec が負
+  it("ending.startSec が負の時拒否する", () => {
+    // Given: ending.startSec が負
     const payload = {
       episodes: [
         {
           ...validEpisodeItem,
-          body: { ...validEpisodeItem.body, closing: { summary: "終了", startSec: -1 } },
+          body: { ...validEpisodeItem.body, ending: { text: "終了", startSec: -1 } },
         },
       ],
     };
@@ -255,13 +255,13 @@ describe("ListEpisodesResponseSchema", () => {
     expect(got.success).toBe(false);
   });
 
-  it("closing に契約外の field を足す時拒否する", () => {
-    // Given: 契約外 field を持つ closing
+  it("ending に契約外の field を足す時拒否する", () => {
+    // Given: 契約外 field を持つ ending
     const payload = {
       episodes: [
         {
           ...validEpisodeItem,
-          body: { ...validEpisodeItem.body, closing: { summary: "終了", startSec: 30, extra: 1 } },
+          body: { ...validEpisodeItem.body, ending: { text: "終了", startSec: 30, extra: 1 } },
         },
       ],
     };
