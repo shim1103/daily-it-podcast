@@ -8,7 +8,7 @@ branch: feature/generator-text-writer-fallback
 
 1. 原稿取得の切り替えは **Application の UseCase**（`internal/application/manuscript` の `TextWriter`）が担う。この UseCase は `port.TextWriter` を 2 つ（primary / secondary）と切り替え通知関数 `onFallback func()` を受け取り、自身も `port.TextWriter` を実装する。`ProduceEpisode` は従来どおり `port.TextWriter` を 1 つ受け取り、その中身がこの UseCase になる（`ProduceEpisode` の signature・本文は変えない）。契約値（dir・constructor・番兵 error・定数）の正本は `apps/generator/internal/application/{manuscript,port}` と `apps/generator/internal/infrastructure/manuscript/geminiapi` の source（A）とする。
 2. 2 実装の結線は **Composition Root の `newProduceEpisode`** が行う。primary は `newCursorTextWriter`、secondary は `newGeminiTextWriter`、通知は Composition の `logManuscriptSourceSwitched`。`composition/cursorapi.go` は変えない。
-3. secondary の model は **Gemini `gemini-2.5-flash-lite`**。TTS で使う `GEMINI_API_KEY`（`config.GeminiConfig`）を流用し、新しい env / Secret は足さない。
+3. secondary の model は **Gemini の現行 Flash-Lite**。具体値は Adapter 定数 `geminiapi.ModelID` を SSOT とし、この Decision には写さない。TTS で使う `GEMINI_API_KEY`（`config.GeminiConfig`）を流用し、新しい env / Secret は足さない。「同社で最も安い Flash-Lite を使う」という選定理由は版が変わっても不変で、版更新は Adapter 定数だけで閉じる（後述 §Reason の価格・無料枠の議論は当初検討した 2.5 時点の記録として残す。当初値 `gemini-2.5-flash-lite` の base alias が `v1beta` generateContent で 404 になった経緯は §Rejected 末尾に記録）。
 4. 切り替えの発動条件は **cursorapi の create が HTTP 401 もしくは 403**。cursorapi は 401/403 のとき、自分の infra error を **vendor 非依存の番兵 `port.ErrSourceExhausted`** で wrap して返す。UseCase は `errors.Is(err, port.ErrSourceExhausted)` だけを見て切り替え、cursorapi の error 型・Op・HTTP status を知らない。429 / 5xx / SSE 途中断 / 到達不可（`Op=="do"`）は番兵で wrap せず、現行の Cursor 内 retry のままにする。
 5. 切り替えは **高々 1 回**。secondary の戻り（成功・失敗）をそのまま `ProduceEpisode` へ返す。secondary の error を別型でラップしない。secondary が再び `port.ErrSourceExhausted` を返しても 3 つ目の取得元は無い。
 6. `geminiapi.TextWriter` の transport は `speech/gemini`（TTS）を再利用せず独立させる。endpoint は `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`、API key は `x-goog-api-key` header。model は Adapter 定数固定で、runtime の model 存在確認はしない。
@@ -18,7 +18,7 @@ branch: feature/generator-text-writer-fallback
 
 先行 Decision `2026-09-03T17-03-33-feature-generator-cursor-cli-to-http-api.md` の §Decision 2「実装が SSE で行き詰まった時の fallback は将来の別判断とし、初回の正は SSE とする」を、本 Decision が具体化する。先行 Decision は supersede しない（transport を Cloud Agents REST + SSE に置く判断は維持し、本 Decision は「その primary が利用枠喪失で使えないときの退避先」だけを足す）。先行 Decision の file 本文は書き換えない。
 
-non-scope: `gemini-2.5-flash-lite` が返す原稿の品質・token 消費・尺下限割れの実測。3 実装目の追加。Gemini 応答 status の詳細な分類。切り替え発火の能動通知。構造化 log 基盤の導入。
+non-scope: Flash-Lite が返す原稿の品質・token 消費・尺下限割れの実測。3 実装目の追加。Gemini 応答 status の詳細な分類。切り替え発火の能動通知。構造化 log 基盤の導入。
 
 ## 2. Reason
 
@@ -32,7 +32,7 @@ non-scope: `gemini-2.5-flash-lite` が返す原稿の品質・token 消費・尺
 
 UseCase が primary の vendor（cursorapi）の error 型を `errors.As` で覗くと、UseCase が primary の実装を知ることになり、切り替え先を増やす・primary を差し替えるたびに UseCase を触る羽目になる。「この取得元は枯れた、別があれば行ってよい」を vendor 非依存の番兵として `application/port` に置き、発生源（cursorapi）が 401/403 のときにそれで wrap すれば、UseCase は `errors.Is` 一行で済み、cursorapi / geminiapi のどちらも import しない。判定の知識は「枯渇を知っている cursorapi 自身」に閉じ、Composition にも UseCase にも漏れない。
 
-### なぜ Gemini `gemini-2.5-flash-lite` か
+### なぜ Gemini Flash-Lite か（当初検討時の model は `gemini-2.5-flash-lite`。以下の価格・無料枠は 2.5 時点の記録）
 
 要件は「Cursor subscription が切れても、できれば完全無料枠で原稿を出し続ける」。候補は Gemini Flash-Lite / Groq Llama / Anthropic Haiku。
 
@@ -73,3 +73,4 @@ generator は現状 error 経路以外に stdout/stderr へ出す仕組みを持
 8. **切り替えを `ProduceEpisode.writeManuscriptDraft` のループへ直接埋める案** — draft 検証 retry（品質不足で書き直し）と取得元切り替え（Cursor が使えない）は軸が別。1 つのループに混ぜると「品質不足で 5 回目に provider が変わる」ような読みにくい挙動になる。独立した UseCase として `ProduceEpisode` の外に切り出し、`ProduceEpisode` はそれを 1 つの `port.TextWriter` として呼ぶ。
 9. **`geminiapi` に `speech/gemini` と同じ重装 retry を持たせる案** — TTS 無料枠 RPM=3 という TTS 固有前提への対処であり、`generateContent` には過剰。情報源 Adapter の最小方針に倣う。
 10. **切り替え発火時に構造化 log 基盤を導入する案** — generator に log 基盤が無く、導入は本 Decision の scope を大きく超える。暫定の stderr 1 行に留め、恒久化は §1 non-scope として別判断へ送る。
+11. **model を `gemini-2.5-flash-lite`（当初値）で固定し続ける案** — その base alias は 2026-09 時点で `v1beta` の generateContent に対し 404（NOT_FOUND）を返した（`geminiapi-smoke` run 34129174375 で実証）。「なぜ model list 確認をしないか」の判断どおり、404 で落として `geminiapi.ModelID` を現行 GA の Flash-Lite へ 1 行差し替えた。具体値は constant を正とし、docs には写さない。

@@ -3,10 +3,12 @@ package geminiapi
 import "time"
 
 const (
-	// ModelID は原稿生成に使う Gemini model。Cursor の利用枠喪失時の fallback 先。
-	// why: 同社 TTS で使う GEMINI_API_KEY を流用でき、Gemini の中で最も安い model。
-	//      変更は Adapter 定数だけで閉じる（runtime の model 存在確認はしない）。
-	ModelID = "gemini-2.5-flash-lite"
+	// ModelID は原稿生成に使う Gemini model の SSOT。Cursor の利用枠喪失時の fallback 先。
+	// why: 同社 TTS で使う GEMINI_API_KEY を流用でき、Gemini の中で最も安い現行 Flash-Lite。
+	//      版更新はこの 1 行だけで閉じる（runtime の model 存在確認はしない。docs は値を写さず
+	//      geminiapi.ModelID を参照する）。旧 gemini-2.5-flash-lite の base alias は v1beta の
+	//      generateContent で 404 になったため（smoke run 34129174375）現行 GA 版へ更新した。
+	ModelID = "gemini-3.1-flash-lite"
 	// EndpointURLTemplate は generateContent の URL template。%s は ModelID。
 	EndpointURLTemplate = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent"
 	// APIKeyHeader は API key を渡す HTTP header 名。

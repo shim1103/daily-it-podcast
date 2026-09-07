@@ -38,7 +38,7 @@
 | draft 尺の下限マージン | `generator-draft-rate` 実測（run 33840526373）で default variant の 1 回が下限 +2 文字。variant `a` の A/B か `constants.TextWriterBriefPrompt` の detail 目安引き上げを検討 |
 | TTS rate 実 dispatch | `TestGeminiTTSRate` が実 API でまだ走っていない。`generator-draft-rate.yml` は実 API dispatch 済み（run 33840526373、3/3 PASS）。TTS 側も同様に 1 度 dispatch して尺帯ごとの PASS 率・所要を台帳化する |
 | `interactionResponse.Status` | 現状未使用。`status != "completed"` の扱いは未決 |
-| Gemini fallback 原稿の品質・token・尺 | `gemini-2.5-flash-lite` が `ManuscriptDraft` 検証（topic 3〜7・各 field 文字数・全体 8〜12 分）を何割で通すか未実測。Cursor の `generator-draft-rate.yml` 同型の dispatch 専用計測を足すか未決（Decision `2026-09-07T19-06-00` の non-scope） |
+| Gemini fallback 原稿の品質・token・尺 | `geminiapi.ModelID`（値は constant を正とする）が `ManuscriptDraft` 検証（topic 3〜7・各 field 文字数・全体 8〜12 分）を何割で通すか未実測。Cursor の `generator-draft-rate.yml` 同型の dispatch 専用計測を足すか未決（Decision `2026-09-07T19-06-00` の non-scope） |
 | Gemini fallback 発火の観測 | 現状 `logManuscriptSourceSwitched` の stderr 1 行のみ。切り替え成功時は原稿が出るので痕跡が薄い。GHA run summary への出力 / Drive metadata への provenance / 構造化 log 基盤の導入は未決 |
 | Gemini free-tier RPD の実運用値 | 公称 RPD≈1,000 だが実測で下振れ報告あり。1 日 1 回 produce + draft retry 最大 5 でも問題ないはずだが未確認 |
 | Cursor 復帰の運用気づき | 毎回 primary（Cursor）を先に試すので subscription 復活後は自動で戻るが、「ずっと 401 で毎日 Gemini」の状態を運用が能動的に気づく手段は未整備 |
