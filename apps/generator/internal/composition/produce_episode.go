@@ -2,6 +2,7 @@ package composition
 
 import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/manuscript"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/config"
 )
 
@@ -20,7 +21,14 @@ func newProduceEpisode(cfg config.Config) *application.ProduceEpisode {
 		newITmediaItemSource(httpClient),
 	))
 	lookup := newGoogleDriveCompletedEpisodeLookup(httpClient, cfg.Drive)
-	textWriter := newCursorTextWriter(sharedHTTPClientWithoutTimeout(), cfg.Cursor)
+	// 原稿は Cursor を primary、Gemini を secondary とし、Cursor の利用枠喪失（create 401/403）
+	// のときだけ 1 回だけ Gemini へ切り替える。切り替え判断は cursorapi が返す番兵
+	// port.ErrSourceExhausted に閉じ、UseCase は vendor を知らない。
+	textWriter := manuscript.NewTextWriter(
+		newCursorTextWriter(sharedHTTPClientWithoutTimeout(), cfg.Cursor),
+		newGeminiTextWriter(sharedHTTPClientWithoutTimeout(), cfg.Gemini),
+		logManuscriptSourceSwitched,
+	)
 	speech := newGeminiSpeechSynthesizer(sharedHTTPClientWithoutTimeout(), cfg.Gemini)
 	writeEpisode := newGoogleDriveWriteEpisode(httpClient, cfg.Drive)
 	return application.NewProduceEpisode(fetch, lookup, textWriter, speech, writeEpisode, newEpisodeID, sharedDisplayLocation())
