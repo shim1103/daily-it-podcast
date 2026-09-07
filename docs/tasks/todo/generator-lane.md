@@ -11,15 +11,17 @@
 1. `ProduceEpisode.Run` / Broad Integration / error 3 層 / 本番 produce workflow
 2. 情報源3 Adapter（HackerNews / Lobsters / ITmedia）を composite `ItemSource` へ結線。Broad Integration が3源 double で緑
 3. 原稿 TextWriter を Cursor CLI から Cloud Agents REST（`manuscript/cursorapi`）へ移行。`commandlaunch` / `processenv` / CLI install を廃止
-4. System e2e 1 回通し（`TestProduceEpisodeSystem`）と rate 計測 2 本（`TestGeminiTTSRate` / `TestCursorAPIDraftRate`）を配置。`generator-draft-rate.yml` は実 API dispatch で 3/3 PASS 確認済み
+4. System e2e 1 回通し（`TestProduceEpisodeSystem`）と dispatch 専用 test（`TestGeminiTTSRate` / `TestCursorAPIDraftRate` / `TestGeminiAPISmoke`）を配置。`generator-draft-rate.yml` は実 API dispatch で 3/3 PASS 確認済み
 
 ### 済み（要約・続き）
 
 5. System — `generator-system.yml` suite 本体・`TEST_*` 登録・e2e 1 回通しの実 dispatch 確認（run 33857369881 PASS、Drive 実到達、episodeId `8ff4177b-26fe-4036-ab7b-d2a4e9e7639d`）。運用方針は `DEPLOY.md` §5
+6. 原稿 TextWriter fallback 本実装 — `manuscript.TextWriter`（`errors.Is(port.ErrSourceExhausted)` で高々 1 回切替）/ `geminiapi.TextWriter`（generateContent 1 回 + retry）を SU / Narrow 込みで実装。切替 trigger は `cursorapi` create の 401/403 と 400 + `usage_limit_exceeded`。`generator-system.yml` run 34133797530 で fallback 経路の e2e を実証（Cursor 400 → Gemini 原稿 → Drive 到達）。判断は Decision `2026-09-07T19-06-00` / `2026-09-07T23-30-00`
+7. `geminiapi` 実 API 疎通 smoke — `generator-geminiapi-smoke.yml`（dispatch 専用、`TEST_GEMINI_API_KEY`）。yml は master（PR #135）、test は `system && ratemeasure` tag で gate 外。`--ref <fallback 実装 branch>` で回す
 
 ### 未完了
 
-（なし。残りの rate 計測 follow-up は下記 D 表が index）
+（現在なし。rate 計測 follow-up は下記 D 表が index）
 
 ### D（未決・未実測・文案）
 
@@ -37,6 +39,11 @@
 | draft 尺の下限マージン | `generator-draft-rate` 実測（run 33840526373）で default variant の 1 回が下限 +2 文字。variant `a` の A/B か `constants.TextWriterBriefPrompt` の detail 目安引き上げを検討 |
 | TTS rate 実 dispatch | `TestGeminiTTSRate` が実 API でまだ走っていない。`generator-draft-rate.yml` は実 API dispatch 済み（run 33840526373、3/3 PASS）。TTS 側も同様に 1 度 dispatch して尺帯ごとの PASS 率・所要を台帳化する |
 | `interactionResponse.Status` | 現状未使用。`status != "completed"` の扱いは未決 |
+| Gemini fallback 原稿の品質・token・尺 | `geminiapi.ModelID`（値は constant が正）が `ManuscriptDraft` 検証（topic 3〜7・各 field 文字数・全体 8〜12 分）を何割で通すか未実測。`generator-draft-rate.yml` 同型の dispatch 専用計測を足すか未決（Decision `2026-09-07T19-06-00` の non-scope） |
+| Cursor 枯渇 error code の網羅 | 番兵 wrap は 401/403 と 400 + `usage_limit_exceeded` のみ（Decision `2026-09-07T23-30-00`）。`billing_*` 等の別 code が出たら都度 Decision を継ぐ |
+| Gemini fallback 発火の観測 | 現状 `logManuscriptSourceSwitched` の stderr 1 行のみ。切り替え成功時は原稿が出るので痕跡が薄い。GHA run summary への出力 / Drive metadata への provenance / 構造化 log 基盤の導入は未決 |
+| Gemini free-tier RPD の実運用値 | 公称 RPD≈1,000 だが実測で下振れ報告あり。1 日 1 回 produce + draft retry 最大 5 でも問題ないはずだが未確認 |
+| Cursor 復帰の運用気づき | 毎回 primary（Cursor）を先に試すので枠復活後は自動で戻るが、「毎日 Gemini に落ちている」状態を運用が能動的に気づく手段は未整備 |
 
 
 ### 方針 index

@@ -11,8 +11,10 @@ const (
 	OpInvalidManuscript      = "invalid_manuscript"
 	OpInvalidManuscriptDraft = "invalid_manuscript_draft"
 	OpNoSourceItems          = "no_source_items"
-	OpEpisodeIDMismatch      = "episode_id_mismatch"
-	OpCorruptSpeechAudio     = "corrupt_speech_audio"
+	// OpEmptyBrief は原稿取得 UseCase（manuscript.TextWriter）へ渡す brief が trim 後に空の前提違反。
+	OpEmptyBrief         = "empty_brief"
+	OpEpisodeIDMismatch  = "episode_id_mismatch"
+	OpCorruptSpeechAudio = "corrupt_speech_audio"
 	// OpInconsistentEpisodeAssembly は episode 組み立て時の segment 数・topic 数などの内部不整合。
 	// build helper が検出する。
 	OpInconsistentEpisodeAssembly = "inconsistent_episode_assembly"

@@ -15,8 +15,7 @@ Generator (Go + GitHub Actions cron)
 Playback (Vite + TypeScript + React + Cloudflare)
   Access -> UI -> Workers (Hono, proxy for Drive reads)
 ```
-
-Runtime diagram: `apps/diagrams/runtime.png` (SSoT). It is code-first; regenerate it via `apps/diagrams/runtime.py`, never hand-edit the PNG.
+[Runtime diagram](apps/diagrams/runtime.png)　
 
 ## Technology choices
 
