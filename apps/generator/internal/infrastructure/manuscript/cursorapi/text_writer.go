@@ -127,10 +127,16 @@ func (w *TextWriter) createAgent(ctx context.Context, brief string) (string, str
 		// why: System 失敗の切り分けに理由本文が要る。secret は Authorization header にしか
 		//      載せないので body 全体を bounded で出しても credential は漏れない。
 		createErr := infraErr("create_status", fmt.Errorf("create status %d; response body: %s", res.StatusCode, bodySnippet(raw)))
-		// why: 401/403 は API key / subscription の失効。別の取得元へ切り替えてよい合図として
+		// why: 401/403 は API key / subscription の失効。400 + usage_limit_exceeded は
+		//      Background Agent の利用枠喪失（run 34132953055 で実証。Decision 2026-09-07T23-30-00）。
+		//      どちらも「Cursor から原稿を取れない」状態なので、別の取得元へ切り替えてよい合図として
 		//      vendor 非依存の番兵で wrap する。呼び出し側は errors.Is(err, port.ErrSourceExhausted)
-		//      だけを見て、cursorapi.Error の中身は知らない。
-		if res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden {
+		//      だけを見て、cursorapi.Error の中身は知らない。それ以外の 400（malformed request 等）は
+		//      wrap せず赤で止める。error JSON は struct で parse せず code 文字列の存在だけを見る。
+		exhausted := res.StatusCode == http.StatusUnauthorized ||
+			res.StatusCode == http.StatusForbidden ||
+			(res.StatusCode == http.StatusBadRequest && bytes.Contains(raw, []byte("usage_limit_exceeded")))
+		if exhausted {
 			return "", "", fmt.Errorf("%w: %w", port.ErrSourceExhausted, createErr)
 		}
 		return "", "", createErr

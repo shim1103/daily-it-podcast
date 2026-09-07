@@ -536,12 +536,28 @@ func TestWrite_wrapsSourceExhausted_whenCreateStatusIs401Or403(t *testing.T) {
 	}
 }
 
+func TestWrite_wrapsSourceExhausted_whenCreateStatusIs400WithUsageLimitExceeded(t *testing.T) {
+
+	// Given: create が 400 かつ body に usage_limit_exceeded（Background Agent 利用枠喪失。run 34132953055 で実証）
+	const body = `{"error":{"code":"usage_limit_exceeded","message":"Usage-based pricing required. Background Agent requires at least $2 remaining until your hard limit."}}`
+	w, _ := newFakeTextWriter(fakeClientResponse{status: http.StatusBadRequest, body: body})
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて")
+
+	// Then: 401/403 と同じく番兵で wrap され、中身は cursorapi.Error のまま辿れる
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) が false: %v", err)
+	}
+	assertCursorInfraErrorOp(t, err, "create_status")
+}
+
 func TestWrite_doesNotWrapSourceExhausted_whenCreateStatusIsNot401Or403(t *testing.T) {
 	for _, status := range []int{http.StatusBadRequest, http.StatusInternalServerError, http.StatusTooManyRequests} {
 		status := status
 		t.Run(strconv.Itoa(status), func(t *testing.T) {
 
-			// Given: create が 400 / 5xx / 429 を返す（枯渇ではない）
+			// Given: create が 400 / 5xx / 429 を返す（枯渇ではない。400 の body に usage_limit_exceeded は無い）
 			w, _ := newFakeTextWriter(fakeClientResponse{status: status, body: `{"error":"x"}`})
 
 			// When: Write する
