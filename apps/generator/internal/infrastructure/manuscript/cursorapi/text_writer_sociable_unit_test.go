@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 )
 
 // fakeClientCall は fakeRoundTripper が観測した request 1 件分。
@@ -389,6 +391,37 @@ func TestWrite_doesNotRetryCreate_whenStatus5xx(t *testing.T) {
 	}
 }
 
+func TestWrite_includesResponseBodySnippet_whenCreateStatusNotOK(t *testing.T) {
+
+	// Given: create が 400 を返し、body に切り分け用の理由が入っている
+	const reason = "your plan does not include background agents"
+	w, _ := newFakeTextWriter(fakeClientResponse{
+		status: http.StatusBadRequest,
+		body:   `{"error":{"message":"` + reason + `"}}`,
+	})
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて")
+
+	// Then: create_status Infra Error に応答 body の snippet が載る（System 失敗の切り分け用）
+	assertCursorInfraErrorOp(t, err, "create_status")
+	if !strings.Contains(err.Error(), reason) {
+		t.Fatalf("error message %q does not carry response body reason %q", err.Error(), reason)
+	}
+}
+
+func TestBodySnippet_truncatesLongBodyAndStripsNewlines(t *testing.T) {
+
+	// Given: bodySnippetMax を超える改行入りの本文
+	long := strings.Repeat("a", bodySnippetMax*2)
+	if got := bodySnippet([]byte(long)); !strings.HasSuffix(got, bodySnippetEllipsis) {
+		t.Fatalf("bodySnippet = %q, want ellipsis suffix", got)
+	}
+	if got := bodySnippet([]byte("line1\r\nline2\nline3")); strings.ContainsAny(got, "\r\n") {
+		t.Fatalf("bodySnippet kept newlines: %q", got)
+	}
+}
+
 func TestWrite_returnsInfraError_whenResultTextEmpty(t *testing.T) {
 
 	// Given: create 成功後、終端 result の text が空
@@ -478,6 +511,61 @@ func TestWrite_doesNotRetryCreate_whenClientErrorStatus(t *testing.T) {
 			}
 			if len(rt.calls) != 1 {
 				t.Fatalf("call count = %d, want 1", len(rt.calls))
+			}
+		})
+	}
+}
+
+func TestWrite_wrapsSourceExhausted_whenCreateStatusIs401Or403(t *testing.T) {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden} {
+		status := status
+		t.Run(strconv.Itoa(status), func(t *testing.T) {
+
+			// Given: create が 401 / 403（API key / subscription 失効）を返す
+			w, _ := newFakeTextWriter(fakeClientResponse{status: status, body: `{"error":"denied"}`})
+
+			// When: Write する
+			_, err := w.Write(context.Background(), "原稿を書いて")
+
+			// Then: vendor 非依存の番兵で wrap され、中身は cursorapi.Error のまま辿れる
+			if !errors.Is(err, port.ErrSourceExhausted) {
+				t.Fatalf("errors.Is(err, port.ErrSourceExhausted) が false: %v", err)
+			}
+			assertCursorInfraErrorOp(t, err, "create_status")
+		})
+	}
+}
+
+func TestWrite_wrapsSourceExhausted_whenCreateStatusIs400WithUsageLimitExceeded(t *testing.T) {
+
+	// Given: create が 400 かつ body に usage_limit_exceeded（Background Agent 利用枠喪失。run 34132953055 で実証）
+	const body = `{"error":{"code":"usage_limit_exceeded","message":"Usage-based pricing required. Background Agent requires at least $2 remaining until your hard limit."}}`
+	w, _ := newFakeTextWriter(fakeClientResponse{status: http.StatusBadRequest, body: body})
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて")
+
+	// Then: 401/403 と同じく番兵で wrap され、中身は cursorapi.Error のまま辿れる
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) が false: %v", err)
+	}
+	assertCursorInfraErrorOp(t, err, "create_status")
+}
+
+func TestWrite_doesNotWrapSourceExhausted_whenCreateStatusIsNot401Or403(t *testing.T) {
+	for _, status := range []int{http.StatusBadRequest, http.StatusInternalServerError, http.StatusTooManyRequests} {
+		status := status
+		t.Run(strconv.Itoa(status), func(t *testing.T) {
+
+			// Given: create が 400 / 5xx / 429 を返す（枯渇ではない。400 の body に usage_limit_exceeded は無い）
+			w, _ := newFakeTextWriter(fakeClientResponse{status: status, body: `{"error":"x"}`})
+
+			// When: Write する
+			_, err := w.Write(context.Background(), "原稿を書いて")
+
+			// Then: 番兵で wrap しない
+			if errors.Is(err, port.ErrSourceExhausted) {
+				t.Fatalf("status %d を枯渇として扱った: %v", status, err)
 			}
 		})
 	}

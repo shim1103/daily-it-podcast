@@ -14,6 +14,13 @@ const wavExtension = ".wav";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
+/**
+ * Drive への外部呼び出しの種別。非 2xx / network 失敗の DriveError message に載せ、
+ * 「token 取得で落ちたのか」「files.list で落ちたのか」を log から切り分け可能にする。
+ * why: どれも file id・フォルダ id を含まない固定語のため @invariant を破らない。
+ */
+type DriveOperation = "OAuth token" | "files.list" | "file download";
+
 type DriveOAuthConfig = {
   clientId: string;
   clientSecret: string;
@@ -116,7 +123,7 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
       grant_type: "refresh_token",
     });
 
-    const response = await this.request(tokenEndpoint, {
+    const response = await this.request("OAuth token", tokenEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: body.toString(),
@@ -170,7 +177,7 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
       fields: "files(id,name)",
     });
 
-    const response = await this.request(`${driveFilesEndpoint}?${query.toString()}`, {
+    const response = await this.request("files.list", `${driveFilesEndpoint}?${query.toString()}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
@@ -191,6 +198,7 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
 
   private async downloadBytes(accessToken: string, fileId: string): Promise<Uint8Array> {
     const response = await this.request(
+      "file download",
       `${driveFilesEndpoint}/${encodeURIComponent(fileId)}?alt=media`,
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
@@ -201,10 +209,15 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
   /**
    * Drive HTTP 呼び出しの共通経路。network error・非 2xx をここで DriveError へ畳む。
    *
-   * @require input・init は fetch と同じ引数
-   * @ensure 戻り値は必ず 2xx。Drive file id やフォルダ id を message に含めない
+   * @require operation は失敗を切り分けるための呼び出し種別。input・init は fetch と同じ引数
+   * @ensure 戻り値は必ず 2xx。DriveError message は operation と status だけを載せ、
+   *   Drive file id やフォルダ id は含めない
    */
-  private async request(input: string, init?: RequestInit): Promise<Response> {
+  private async request(
+    operation: DriveOperation,
+    input: string,
+    init?: RequestInit,
+  ): Promise<Response> {
     let response: Response;
     try {
       // why: Workers の global fetch は `this.fetch(...)`（method 呼び出し）だと
@@ -212,10 +225,10 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
       const fetchFn = this.fetch;
       response = await fetchFn(input, init);
     } catch (cause) {
-      throw new DriveError("Drive HTTP 呼び出しに失敗", { cause });
+      throw new DriveError(`Drive ${operation} 呼び出しに失敗`, { cause });
     }
     if (!response.ok) {
-      throw new DriveError(`Drive HTTP 呼び出しが非 2xx: ${response.status}`);
+      throw new DriveError(`Drive ${operation} 呼び出しが非 2xx: ${response.status}`);
     }
     return response;
   }
