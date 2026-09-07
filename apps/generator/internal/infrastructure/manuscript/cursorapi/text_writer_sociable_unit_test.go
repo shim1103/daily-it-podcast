@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 )
 
 // fakeClientCall は fakeRoundTripper が観測した request 1 件分。
@@ -478,6 +480,45 @@ func TestWrite_doesNotRetryCreate_whenClientErrorStatus(t *testing.T) {
 			}
 			if len(rt.calls) != 1 {
 				t.Fatalf("call count = %d, want 1", len(rt.calls))
+			}
+		})
+	}
+}
+
+func TestWrite_wrapsSourceExhausted_whenCreateStatusIs401Or403(t *testing.T) {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden} {
+		status := status
+		t.Run(strconv.Itoa(status), func(t *testing.T) {
+
+			// Given: create が 401 / 403（API key / subscription 失効）を返す
+			w, _ := newFakeTextWriter(fakeClientResponse{status: status, body: `{"error":"denied"}`})
+
+			// When: Write する
+			_, err := w.Write(context.Background(), "原稿を書いて")
+
+			// Then: vendor 非依存の番兵で wrap され、中身は cursorapi.Error のまま辿れる
+			if !errors.Is(err, port.ErrSourceExhausted) {
+				t.Fatalf("errors.Is(err, port.ErrSourceExhausted) が false: %v", err)
+			}
+			assertCursorInfraErrorOp(t, err, "create_status")
+		})
+	}
+}
+
+func TestWrite_doesNotWrapSourceExhausted_whenCreateStatusIsNot401Or403(t *testing.T) {
+	for _, status := range []int{http.StatusBadRequest, http.StatusInternalServerError, http.StatusTooManyRequests} {
+		status := status
+		t.Run(strconv.Itoa(status), func(t *testing.T) {
+
+			// Given: create が 400 / 5xx / 429 を返す（枯渇ではない）
+			w, _ := newFakeTextWriter(fakeClientResponse{status: status, body: `{"error":"x"}`})
+
+			// When: Write する
+			_, err := w.Write(context.Background(), "原稿を書いて")
+
+			// Then: 番兵で wrap しない
+			if errors.Is(err, port.ErrSourceExhausted) {
+				t.Fatalf("status %d を枯渇として扱った: %v", status, err)
 			}
 		})
 	}

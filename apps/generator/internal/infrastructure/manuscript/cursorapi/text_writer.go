@@ -124,7 +124,14 @@ func (w *TextWriter) createAgent(ctx context.Context, brief string) (string, str
 		return "", "", infraErr("read_body", err)
 	}
 	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
-		return "", "", infraErr("create_status", fmt.Errorf("create status %d", res.StatusCode))
+		createErr := infraErr("create_status", fmt.Errorf("create status %d", res.StatusCode))
+		// why: 401/403 は API key / subscription の失効。別の取得元へ切り替えてよい合図として
+		//      vendor 非依存の番兵で wrap する。呼び出し側は errors.Is(err, port.ErrSourceExhausted)
+		//      だけを見て、cursorapi.Error の中身は知らない。
+		if res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden {
+			return "", "", fmt.Errorf("%w: %w", port.ErrSourceExhausted, createErr)
+		}
+		return "", "", createErr
 	}
 
 	var parsed createAgentResponse
