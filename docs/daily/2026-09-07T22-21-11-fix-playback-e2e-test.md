@@ -19,7 +19,9 @@ prev: なし
 5. `commit 8d37082`: `request()` へ `DriveOperation` 必須引数を追加。message を `Drive {operation} 呼び出しが非 2xx: {status}` へ変更。3 call site（`fetchAccessToken` / `queryFolderEntries` / `downloadBytes`）へ label 付与。sociable_unit test に「非 2xx の DriveError message は失敗した Drive 呼び出しを名指しする」describe を追加（RED → GREEN）。unit 365 pass / coverage 100% 維持、typecheck / biome lint・format / depcruise 全緑、pre-push で integration 29 pass。
 6. `wrangler deploy` 実行。`Version ID ca7864ba-3470-4b31-ab8b-cb07220a1399`。deploy diff に `DRIVE_FOLDER_ID` / `GOOGLE_OAUTH_CLIENT_ID` が local config に無い旨の警告が出たが、`keep_vars: true` により削除されず（deploy 後 e2e 緑が保持を裏付け）。
 7. R2 への完全移行（Drive + OAuth 依存の廃止）は shim との会話で中期案として挙がったが未着手。`docs/tasks/todo/playback-lane.md` の未決 index へ記載。
+8. PR: [#134](https://github.com/shim1103/daily-it-podcast/pull/134)（base `develop`）。branch に乗っていた stale な `98c6002 Revert "docs: by shim"`（既に空にされた `docs/lessons/index.md` を復元していた）を `git rebase --onto origin/develop` で落とし、現行 SSoT（空）+ 本 session lessons 3 件のみへ整えた。CI（static-and-unit / integration）緑。
 
 ### Commits
 
 - `8d37082`
+- `c5b5522`
