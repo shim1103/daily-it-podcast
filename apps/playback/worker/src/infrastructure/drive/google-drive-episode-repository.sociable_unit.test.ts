@@ -178,6 +178,77 @@ describe("GoogleDriveEpisodeRepository", () => {
     });
   });
 
+  describe("非 2xx の DriveError message は失敗した Drive 呼び出しを名指しする", () => {
+    it("OAuth token endpoint が非 2xx の時、message に OAuth token と status を含む", async () => {
+      // Given: token endpoint だけが 400 を返す（files.list へ到達しない）
+      const fetchStub: FetchLike = vi.fn(async (input: string) => {
+        if (input === "https://oauth2.googleapis.com/token") {
+          return new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 });
+        }
+        throw new Error(`到達しないはず: ${input}`);
+      });
+      const repository = createRepository(fetchStub);
+
+      // When / Then: どの呼び出しが 400 だったか message から分かる
+      await expect(repository.listManuscripts()).rejects.toMatchObject({
+        name: "DriveError",
+        message: "Drive OAuth token 呼び出しが非 2xx: 400",
+      });
+    });
+
+    it("files.list が非 2xx の時、message に files.list と status を含む", async () => {
+      // Given: token は成功、files.list が 400（q 文法エラー相当）
+      const fetchStub: FetchLike = vi.fn(async (input: string) => {
+        if (input === "https://oauth2.googleapis.com/token") {
+          return new Response(JSON.stringify({ access_token: "dummy-access-token" }), {
+            status: 200,
+          });
+        }
+        if (input.startsWith("https://www.googleapis.com/drive/v3/files?")) {
+          return new Response(JSON.stringify({ error: { code: 400 } }), { status: 400 });
+        }
+        throw new Error(`到達しないはず: ${input}`);
+      });
+      const repository = createRepository(fetchStub);
+
+      // When / Then
+      await expect(repository.listManuscripts()).rejects.toMatchObject({
+        name: "DriveError",
+        message: "Drive files.list 呼び出しが非 2xx: 400",
+      });
+    });
+
+    it("bytes download が非 2xx の時、message に file download と status を含む（file id は含めない）", async () => {
+      // Given: token・files.list は成功、download だけ 500
+      const fetchStub: FetchLike = vi.fn(async (input: string) => {
+        if (input === "https://oauth2.googleapis.com/token") {
+          return new Response(JSON.stringify({ access_token: "dummy-access-token" }), {
+            status: 200,
+          });
+        }
+        if (input.startsWith("https://www.googleapis.com/drive/v3/files?")) {
+          return new Response(
+            JSON.stringify({ files: [{ id: "secret-file-id", name: "ep-1.json" }] }),
+            {
+              status: 200,
+            },
+          );
+        }
+        return new Response(null, { status: 500 });
+      });
+      const repository = createRepository(fetchStub);
+
+      // When / Then: 呼び出し種別と status は出すが、file id は漏らさない
+      const error = await repository.listManuscripts().then(
+        () => undefined,
+        (caught: unknown) => caught as Error,
+      );
+      expect(error?.name).toBe("DriveError");
+      expect(error?.message).toBe("Drive file download 呼び出しが非 2xx: 500");
+      expect(error?.message).not.toContain("secret-file-id");
+    });
+  });
+
   describe("files.list の絞り込み q", () => {
     it("getAudio は files.list へ対象 episodeId の wav 名を絞り込む q を渡す", async () => {
       const fetchStub = stubFetch({
