@@ -16,12 +16,11 @@
 ### 済み（要約・続き）
 
 5. System — `generator-system.yml` suite 本体・`TEST_*` 登録・e2e 1 回通しの実 dispatch 確認（run 33857369881 PASS、Drive 実到達、episodeId `8ff4177b-26fe-4036-ab7b-d2a4e9e7639d`）。運用方針は `DEPLOY.md` §5
+6. 原稿 TextWriter fallback 本実装 — `manuscript.TextWriter` / `geminiapi.TextWriter` 本実装と SU / Narrow 完了（`docs/tasks/todo/generator-text-writer-fallback.md` §7 AC-1〜AC-13。`manuscript` は `errors.Is(port.ErrSourceExhausted)` で高々 1 回切替、`geminiapi` は generateContent 1 回 + Do error/5xx を 1 回・429 を `MaxAttempts` backoff。Unit coverage gate（90%）緑）
 
 ### 未完了
 
-1. 原稿 TextWriter fallback 本実装 — `docs/tasks/todo/generator-text-writer-fallback.md`。A（切り替え UseCase `application/manuscript` stub・番兵 `port.ErrSourceExhausted`・`geminiapi` stub と定数・Composition 結線・`cursorapi` の 401/403 wrap）と B（Decision `2026-09-07T19-06-00`）は固定済み。残りは `manuscript.TextWriter.Write` / `geminiapi.TextWriter.Write` の本実装と SU / Narrow。
-
-（rate 計測 follow-up は下記 D 表が index）
+（現在なし。rate 計測 follow-up は下記 D 表が index）
 
 ### D（未決・未実測・文案）
 
