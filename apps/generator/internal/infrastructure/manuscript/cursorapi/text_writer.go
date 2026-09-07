@@ -124,7 +124,9 @@ func (w *TextWriter) createAgent(ctx context.Context, brief string) (string, str
 		return "", "", infraErr("read_body", err)
 	}
 	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
-		createErr := infraErr("create_status", fmt.Errorf("create status %d", res.StatusCode))
+		// why: System 失敗の切り分けに理由本文が要る。secret は Authorization header にしか
+		//      載せないので body 全体を bounded で出しても credential は漏れない。
+		createErr := infraErr("create_status", fmt.Errorf("create status %d; response body: %s", res.StatusCode, bodySnippet(raw)))
 		// why: 401/403 は API key / subscription の失効。別の取得元へ切り替えてよい合図として
 		//      vendor 非依存の番兵で wrap する。呼び出し側は errors.Is(err, port.ErrSourceExhausted)
 		//      だけを見て、cursorapi.Error の中身は知らない。

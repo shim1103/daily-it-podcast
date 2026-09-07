@@ -391,6 +391,37 @@ func TestWrite_doesNotRetryCreate_whenStatus5xx(t *testing.T) {
 	}
 }
 
+func TestWrite_includesResponseBodySnippet_whenCreateStatusNotOK(t *testing.T) {
+
+	// Given: create が 400 を返し、body に切り分け用の理由が入っている
+	const reason = "your plan does not include background agents"
+	w, _ := newFakeTextWriter(fakeClientResponse{
+		status: http.StatusBadRequest,
+		body:   `{"error":{"message":"` + reason + `"}}`,
+	})
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて")
+
+	// Then: create_status Infra Error に応答 body の snippet が載る（System 失敗の切り分け用）
+	assertCursorInfraErrorOp(t, err, "create_status")
+	if !strings.Contains(err.Error(), reason) {
+		t.Fatalf("error message %q does not carry response body reason %q", err.Error(), reason)
+	}
+}
+
+func TestBodySnippet_truncatesLongBodyAndStripsNewlines(t *testing.T) {
+
+	// Given: bodySnippetMax を超える改行入りの本文
+	long := strings.Repeat("a", bodySnippetMax*2)
+	if got := bodySnippet([]byte(long)); !strings.HasSuffix(got, bodySnippetEllipsis) {
+		t.Fatalf("bodySnippet = %q, want ellipsis suffix", got)
+	}
+	if got := bodySnippet([]byte("line1\r\nline2\nline3")); strings.ContainsAny(got, "\r\n") {
+		t.Fatalf("bodySnippet kept newlines: %q", got)
+	}
+}
+
 func TestWrite_returnsInfraError_whenResultTextEmpty(t *testing.T) {
 
 	// Given: create 成功後、終端 result の text が空
