@@ -18,6 +18,7 @@
 5. System — `generator-system.yml` suite 本体・`TEST_*` 登録・e2e 1 回通しの実 dispatch 確認（run 33857369881 PASS、Drive 実到達、episodeId `8ff4177b-26fe-4036-ab7b-d2a4e9e7639d`）。運用方針は `DEPLOY.md` §5
 6. 原稿 TextWriter fallback 本実装 — `manuscript.TextWriter`（`errors.Is(port.ErrSourceExhausted)` で高々 1 回切替）/ `geminiapi.TextWriter`（generateContent 1 回 + retry）を SU / Narrow 込みで実装。切替 trigger は `cursorapi` create の 401/403 と 400 + `usage_limit_exceeded`。`generator-system.yml` run 34133797530 で fallback 経路の e2e を実証（Cursor 400 → Gemini 原稿 → Drive 到達）。判断は Decision `2026-09-07T19-06-00` / `2026-09-07T23-30-00`
 7. `geminiapi` 実 API 疎通 smoke — `generator-geminiapi-smoke.yml`（dispatch 専用、`TEST_GEMINI_API_KEY`）。yml は master（PR #135）、test は `system && ratemeasure` tag で gate 外。`--ref <fallback 実装 branch>` で回す
+8. `generator-draft-rate` を `api`（cursor | gemini）入力化し 1 API に対して PASS 率を測れるようにした（yml は master PR #138）。gemini の default prompt PASS 率を実測し、`constants.TextWriterBriefPrompt` の指導文だけ（数値 range 不変）で 6 回の dispatch 反復を経て 4/5（閾値 0.8）到達（run 34204186623）。矯正した gemini の癖: 短い field（title / preface / intro / closingSummary）を字義通り詰めすぎる・detail を目標より短く書く。判断と実測表は Decision `2026-09-08T07-40-00`
 
 ### 未完了
 
@@ -39,7 +40,7 @@
 | draft 尺の下限マージン | `generator-draft-rate` 実測（run 33840526373）で default variant の 1 回が下限 +2 文字。variant `a` の A/B か `constants.TextWriterBriefPrompt` の detail 目安引き上げを検討 |
 | TTS rate 実 dispatch | `TestGeminiTTSRate` が実 API でまだ走っていない。`generator-draft-rate.yml` は実 API dispatch 済み（run 33840526373、3/3 PASS）。TTS 側も同様に 1 度 dispatch して尺帯ごとの PASS 率・所要を台帳化する |
 | `interactionResponse.Status` | 現状未使用。`status != "completed"` の扱いは未決 |
-| Gemini fallback 原稿の品質・token・尺 | `geminiapi.ModelID`（値は constant が正）が `ManuscriptDraft` 検証（topic 3〜7・各 field 文字数・全体 8〜12 分）を何割で通すか未実測。`generator-draft-rate.yml` 同型の dispatch 専用計測を足すか未決（Decision `2026-09-07T19-06-00` の non-scope） |
+| Gemini fallback 原稿の品質・token・尺 | 実測済み（済み 8）。`generator-draft-rate -f api=gemini` で default prompt が 4/5 PASS（run 34204186623）。残: 閾値ギリギリ（closingSummary が上限際で 1 文字超過しがち）なので runs を増やした安定測定と、prompt 修正が cursor 側の率を落としていないかの `api=cursor` 再 dispatch |
 | Cursor 枯渇 error code の網羅 | 番兵 wrap は 401/403 と 400 + `usage_limit_exceeded` のみ（Decision `2026-09-07T23-30-00`）。`billing_*` 等の別 code が出たら都度 Decision を継ぐ |
 | Gemini fallback 発火の観測 | 現状 `logManuscriptSourceSwitched` の stderr 1 行のみ。切り替え成功時は原稿が出るので痕跡が薄い。GHA run summary への出力 / Drive metadata への provenance / 構造化 log 基盤の導入は未決 |
 | Gemini free-tier RPD の実運用値 | 公称 RPD≈1,000 だが実測で下振れ報告あり。1 日 1 回 produce + draft retry 最大 5 でも問題ないはずだが未確認 |
