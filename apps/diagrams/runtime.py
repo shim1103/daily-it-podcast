@@ -30,6 +30,11 @@ CUSTOM_NODE_NAMES: tuple[str, ...] = (
     "google-drive",
     "gemini",
     "hono",
+    "github-actions",
+    "hackernews",
+    "lobsters",
+    "itmedia-rss",
+    "vite",
 )
 
 _OUTPUT = Path(__file__).resolve().parent / "runtime"
@@ -44,9 +49,8 @@ def render() -> Path:
     """
     from diagrams import Cluster, Diagram, Edge
     from diagrams.custom import Custom
-    from diagrams.onprem.ci import GithubActions
     from diagrams.onprem.client import Users
-    from diagrams.programming.language import Go
+    from diagrams.programming.language import Go, TypeScript
     from diagrams.programming.framework import React
     from diagrams.saas.cdn import Cloudflare
 
@@ -73,6 +77,11 @@ def render() -> Path:
     drive_icon = str(rasterize(icon_path("google-drive")))
     gemini_icon = str(rasterize(icon_path("gemini")))
     hono_icon = str(rasterize(icon_path("hono")))
+    gha_icon = str(rasterize(icon_path("github-actions")))
+    hn_icon = str(rasterize(icon_path("hackernews")))
+    lobsters_icon = str(rasterize(icon_path("lobsters")))
+    itmedia_icon = str(rasterize(icon_path("itmedia-rss")))
+    vite_icon = str(rasterize(icon_path("vite")))
 
     with Diagram(
         "daily-it-podcast runtime",
@@ -87,33 +96,57 @@ def render() -> Path:
         user = Users("リスナー")
 
         with Cluster("情報源"):
-            sources = GithubActions("HackerNews / Lobsters\nITmedia NEWS")
+            hn = Custom("Hacker News\n(Firebase API)", hn_icon)
+            lobsters = Custom("Lobsters\n(hottest.json)", lobsters_icon)
+            itmedia = Custom("ITmedia NEWS\n(RSS 2.0)", itmedia_icon)
+            # why: 3 サイトは対等な並列取得元。invisible edge で同一 rank に固定し横並びにする。
+            hn - Edge(style="invis") - lobsters - Edge(style="invis") - itmedia
 
         with Cluster("Generator (Go + GHA cron)"):
-            actions = GithubActions("GitHub Actions")
+            actions = Custom("GitHub Actions\n(cron / 手動)", gha_icon)
             go_cli = Go("Go CLI")
-            cursor_api = Custom("Cursor Cloud Agents\n(原稿)", cursor_icon)
-            gemini = Custom("Gemini TTS\n(音声)", gemini_icon)
+            # why: 原稿は Cursor Cloud Agents が第一経路。枯渇時は Gemini へ fallback する
+            #   （text_writer fallback）。どちらも「原稿」を作るので両方を原稿経路として描く。
+            cursor_api = Custom("Cursor Cloud Agents\n(原稿・第一)", cursor_icon)
+            gemini_text = Custom("Gemini\n(原稿・fallback)", gemini_icon)
+            gemini_tts = Custom("Gemini TTS\n(音声)", gemini_icon)
 
         drive = Custom("Google Drive\n(音声 + 原稿)", drive_icon)
 
-        with Cluster("Playback (Cloudflare)"):
-            access = Custom("Cloudflare Access\n(入場制御)", access_icon)
+        with Cluster("Playback (Cloudflare) — TypeScript"):
+            access = Custom("Cloudflare Access\n(OAuth 2.0 入場制御)", access_icon)
             cdn = Cloudflare("DNS / CDN")
-            workers = Custom("Workers + Hono\n(Drive 代理 BFF)", workers_icon)
-            react = React("Vite + React\n(再生 UI)")
+            # why: web / worker / contracts すべて TS。contracts の zod schema と hc<AppType> の
+            #   型共有が構成の要なので、generator 側の Go node と対称に言語 node を 1 個置く。
+            ts = TypeScript("TypeScript\n(contracts 型共有)")
+            with Cluster("再生 UI"):
+                vite = Custom("Vite\n(bundle 生成 / 配信)", vite_icon)
+                react = React("React\n(描画・再生制御)")
+                vite >> Edge(label="bundle", style="dashed") >> react
+            with Cluster("Workers (Drive 代理 BFF)"):
+                workers = Custom("Cloudflare Workers\n(実行基盤)", workers_icon)
+                # why: Hono の route は 2 本。/episodes は RPC client（hc<AppType>）が叩く JSON、
+                #   /episodes/:id/audio は素の HTTP GET（audio/wav・Range 部分応答）で RPC を経由しない。
+                hono = Custom("Hono\n(route: RPC + 音声 GET)", hono_icon)
 
         # 生成フロー
-        sources >> Edge(label="取得") >> go_cli
+        hn >> Edge(label="取得") >> go_cli
+        lobsters >> Edge(label="取得") >> go_cli
+        itmedia >> Edge(label="取得") >> go_cli
         actions >> Edge(label="cron / 手動") >> go_cli
         go_cli >> Edge(label="原稿生成") >> cursor_api
-        go_cli >> Edge(label="TTS") >> gemini
-        go_cli >> Edge(label="保存") >> drive
+        go_cli >> Edge(label="枯渇時 fallback", style="dashed") >> gemini_text
+        go_cli >> Edge(label="TTS") >> gemini_tts
+        go_cli >> Edge(label="保存（OAuth 2.0）") >> drive
 
         # 再生フロー
-        user >> Edge(label="アクセス") >> access >> cdn >> react
-        react >> Edge(label="HTTP") >> workers
-        workers >> Edge(label="Drive 読取") >> drive
+        user >> Edge(label="アクセス") >> access >> cdn >> vite
+        ts >> Edge(label="型", style="dotted") >> react
+        ts >> Edge(label="型", style="dotted") >> hono
+        react >> Edge(label="一覧 JSON（Hono RPC）") >> hono
+        react >> Edge(label="音声 WAV / Range（HTTP GET）") >> hono
+        workers >> Edge(label="実行", style="dashed") >> hono
+        hono >> Edge(label="Drive 読取（OAuth 2.0）") >> drive
 
     return Path(str(_OUTPUT) + ".png")
 
