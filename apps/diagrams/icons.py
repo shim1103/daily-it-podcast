@@ -67,6 +67,34 @@ ICON_CATALOG: dict[str, IconSource] = {
         "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/hono.svg",
         "#E36002",
     ),
+    # why: diagrams 組み込みの GitHub Actions icon は onprem.ci に 1 個しかなく、
+    #   情報源 cluster と Generator cluster で同じ絵になり区別できない。cron 実行基盤側だけ
+    #   公式 GitHub Actions ブランド icon を使い、情報源は各サイトの icon に分ける。
+    "github-actions": IconSource(
+        "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/githubactions.svg",
+        "#2088FF",
+    ),
+    # why: 情報源 3 サイト。HackerNews は Y Combinator、Lobsters は専用 icon。
+    #   ITmedia NEWS は Simple Icons にブランドが無く、取得経路が RSS 2.0 feed なので
+    #   RSS icon を充てる（item_source.go の feedURL と整合）。
+    "hackernews": IconSource(
+        "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/ycombinator.svg",
+        "#F0652F",
+    ),
+    "lobsters": IconSource(
+        "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/lobsters.svg",
+        "#AC130D",
+    ),
+    "itmedia-rss": IconSource(
+        "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/rss.svg",
+        "#FFA500",
+    ),
+    # why: 再生 UI は Vite（build / dev server）+ React（描画）。diagrams 組み込みに Vite が
+    #   無いため build tool 側を Simple Icons で補い、React 組み込み node と 2 つ並べる。
+    "vite": IconSource(
+        "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/vite.svg",
+        "#9135FF",
+    ),
 }
 
 _DEFAULT_CACHE_DIR = Path(__file__).resolve().parent / "icons"
