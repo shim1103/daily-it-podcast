@@ -42,10 +42,11 @@ const TextWriterBriefPrompt = `
 - 文字数: {{INTRO_MIN}}〜{{INTRO_MAX}} 文字（目安 {{INTRO_TARGET}}）
 
 # Length strategy（下限割れを最優先で防ぐ）
-- 全体（intro / 全 topic の preface・detail / closingSummary。title と topic.title は数えない）の合計が {{TOTAL_MIN}} 文字を下回ったら不合格。合計は下限ちょうどではなく目安 {{TOTAL_TARGET}} 文字を狙う
-- topic は {{TOPIC_COUNT_TARGET}} 件出し、各 detail は目安 {{DETAIL_TARGET}} 文字を狙う（{{DETAIL_MIN}} は最低ライン、{{DETAIL_TARGET}} を下回らない）。この配分で合計は {{TOTAL_MIN}} を十分に超える
-- ソース素材が薄い場合は推測で文脈を補足せず，topicに採用しない。採用した topic は、ソースにある事実（数値・時期・関係者の説明・影響範囲）を並べて detail を {{DETAIL_TARGET}} 文字付近まで書く
-- 合計が {{TOTAL_MIN}} に満たなければ各 detail のソース事実の記述を増やして伸ばす（intro / closingSummary は上限が近いので伸ばすのは detail 側だけ）
+- 合計が下限を割る失敗が最も多い。合計は目安 {{TOTAL_TARGET}} 文字を狙う（{{TOTAL_MIN}} ちょうどを狙うと自分の文字数見積もりの誤差で割れる）
+- topic はちょうど {{TOPIC_COUNT_TARGET}} 件出す（減らさない。件数が減ると合計が不足する）
+- 各 topic.detail は {{DETAIL_TARGET}} 文字以上書く。{{DETAIL_MIN}} は最低ラインで、そこで止めると合計が不足する。{{DETAIL_TARGET}} を下回ったら書き足す
+- ソース素材が薄い場合は推測で文脈を補足せず，topicに採用しない。採用した topic は、ソースにある事実（数値・時期・関係者の説明・影響範囲）を並べて detail を {{DETAIL_TARGET}} 文字以上にする
+- 合計が {{TOTAL_TARGET}} に満たなければ各 detail のソース事実の記述を増やして伸ばす（intro / closingSummary は上限が近いので伸ばすのは detail 側だけ）
 
 # topics
 - 件数: {{TOPIC_COUNT_MIN}}〜{{TOPIC_COUNT_MAX}}（目安 {{TOPIC_COUNT_TARGET}}）
@@ -62,7 +63,7 @@ const TextWriterBriefPrompt = `
 # topic detail
 - ソースに基づく説明本文
 - 原稿全体で改行を入れてよいのはこの topic.detail の中だけ。段落は 1 個だけにし、改行は段落分けがどうしても要るときの 1 個のみ。それ以外は改行も文間の無意味な空白も入れない
-- 各 topic.detail の文字数: {{DETAIL_MIN}}〜{{DETAIL_MAX}} 文字（目安 {{DETAIL_TARGET}}）
+- 各 topic.detail の文字数: {{DETAIL_MIN}}〜{{DETAIL_MAX}} 文字。{{DETAIL_TARGET}} 文字以上を狙う（{{DETAIL_MIN}} 付近で止めない。合計不足の主因）
 
 # closingSummary
 - まとめ（別途付ける挨拶で締めない。「。」で終える）
@@ -77,19 +78,19 @@ const TextWriterBriefPrompt = `
 手順:
 1. title / intro / closingSummary / 各 topic.title / 各 topic.preface / 各 topic.detail の文字数を 1 つずつ数える
 2. 範囲外の field を直す:
-   - intro が {{INTRO_MAX}} 超過 → 文を削る。{{INTRO_MIN}} 未満 → ソースにある事実を 1 文足す
-   - closingSummary が {{CLOSING_MAX}} 超過 → 文を削る。{{CLOSING_MIN}} 未満 → 1 文足す
+   - intro が {{INTRO_TARGET}} 超過 → 目安 {{INTRO_TARGET}} 文字まで文を削る（{{INTRO_MAX}} ではなく {{INTRO_TARGET}} を上限として扱う）。{{INTRO_MIN}} 未満 → ソースにある事実を 1 文足す
+   - closingSummary が {{CLOSING_TARGET}} 超過 → 目安 {{CLOSING_TARGET}} 文字まで文を削る（{{CLOSING_MAX}} ではなく {{CLOSING_TARGET}} を上限として扱う）。{{CLOSING_MIN}} 未満 → 1 文足す
    - title が {{TITLE_MAX}} 超過 → 語を削る。{{TITLE_MIN}} 未満 → 補足句を足す
    - 各 topic.title が範囲外 → {{TOPIC_TITLE_MIN}}〜{{TOPIC_TITLE_MAX}} 文字へ調整
    - 各 topic.preface が {{PREFACE_MAX}} 超過 → 文を削る。{{PREFACE_MIN}} 未満 → ソースにある経緯を 1 文足す
    - 各 topic.detail が {{DETAIL_MAX}} 超過 → 文を削る。{{DETAIL_MIN}} 未満 → ソースにある事実を足す
-3. 合計（intro + 全 topic.preface + 全 topic.detail + closingSummary）を数える。{{TOTAL_MIN}} 未満 → 各 detail にソース事実を足す。{{TOTAL_MAX}} 超過 → 各 detail を削る
-4. topics の件数を数える
+3. 合計（intro + 全 topic.preface + 全 topic.detail + closingSummary）を数える。{{TOTAL_TARGET}} 未満 → 各 detail にソース事実を足す。{{TOTAL_MAX}} 超過 → 各 detail を削る
+4. topics の件数を数える（{{TOPIC_COUNT_TARGET}} 件ちょうどか）
 
 完了条件（すべて真なら出力、1 つでも偽なら手順 1 へ）:
 - title / intro / closingSummary / 各 topic.title / 各 topic.preface / 各 topic.detail がすべて指定範囲内
-- 合計が {{TOTAL_MIN}}〜{{TOTAL_MAX}} 文字
-- topics が {{TOPIC_COUNT_MIN}}〜{{TOPIC_COUNT_MAX}} 件
+- 合計が {{TOTAL_TARGET}}〜{{TOTAL_MAX}} 文字（{{TOTAL_MIN}} ではなく {{TOTAL_TARGET}} を下限として扱う）
+- topics が {{TOPIC_COUNT_TARGET}} 件
 - 全 field が日本語で、各文が「。」で終わる（title / topic.title は句点なし）
 - title / intro / topic.title / topic.preface / closingSummary に改行が 0 個、topic.detail の改行は 0 個か 1 個
 - 応答が JSON オブジェクト 1 つのみ（前後に説明文なし）
