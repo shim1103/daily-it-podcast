@@ -43,6 +43,28 @@ func TestTextWriterBriefPrompt_hasDynamicPlaceholders(t *testing.T) {
 	}
 }
 
+// TestTextWriterBriefPrompt_capsShortFieldsHard は、上限を超えやすい短い field
+// （title / intro / closingSummary）に対し「上限を絶対に超えない」旨と、収まる文の本数の
+// 目安を与える指導文があることを固定する（Gemini が intro / closingSummary を上限超過、
+// title を下限割れさせた実測 run 34202239672 への対応。validation はしない）。
+func TestTextWriterBriefPrompt_capsShortFieldsHard(t *testing.T) {
+	t.Parallel()
+
+	p := constants.TextWriterBriefPrompt
+	required := []string{
+		"# Short-field length（最優先で厳守）",
+		"上限文字数を 1 文字でも超えたら不合格",
+		"intro と closingSummary は 3〜5 文",
+		"title は 1 行の見出しで、下限文字数を必ず満たす",
+		"書き終えたら文字数を数え、超過していれば文を削って上限内へ必ず収める",
+	}
+	for _, s := range required {
+		if !strings.Contains(p, s) {
+			t.Errorf("TextWriterBriefPrompt に %q が無い", s)
+		}
+	}
+}
+
 // TestTextWriterBriefPrompt_guidesDetailNewlines_whenParagraphBreakNeeded は
 // 改行を入れてよいのは topic.detail の中だけ・detail の段落は1個だけ・他 field は改行禁止の
 // 指導文があることを固定する（validation はしない）。

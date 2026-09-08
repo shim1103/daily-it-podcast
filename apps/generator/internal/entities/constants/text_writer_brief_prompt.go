@@ -20,6 +20,12 @@ const TextWriterBriefPrompt = `
 - 改行を入れてよいのは topic.detail の中だけ。title / intro / topic.title / topic.preface / closingSummary には改行を一切入れない（すべて 1 段落・1 行で書く）
 - topic.detail も段落は 1 個だけ。改行は段落分けが要るときの 1 個のみで、それ以外は改行を入れない
 
+# Short-field length（最優先で厳守）
+- title / intro / closingSummary は短い field で、指定より長く書きすぎる失敗が最も多い。ここを最優先で守ること
+- intro は {{INTRO_MIN}}〜{{INTRO_MAX}} 文字、closingSummary は {{CLOSING_MIN}}〜{{CLOSING_MAX}} 文字。どちらも上限文字数を 1 文字でも超えたら不合格。目安として intro と closingSummary は 3〜5 文にとどめる（1 文が長いと 3 文でも上限を超えるので、各文も簡潔にする）
+- title は 1 行の見出しで、下限文字数を必ず満たす（{{TITLE_MIN}}〜{{TITLE_MAX}} 文字、目安 {{TITLE_TARGET}}）。短くなりすぎる失敗が多いので、下限より短ければ言葉を足して {{TITLE_MIN}} 文字以上にする
+- intro / closingSummary / title を書き終えたら文字数を数え、超過していれば文を削って上限内へ必ず収める。下限割れなら言葉を足す
+
 # Output
 - 応答は JSON オブジェクト 1 つのみ（markdown の json code fence 可）
 - field 名は次に厳密に従う: title, intro, topics[], closingSummary
