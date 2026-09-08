@@ -46,7 +46,7 @@ const TextWriterBriefPrompt = `
 # Length strategy（下限割れを最優先で防ぐ）
 - 全体（intro / 全 topic の preface・detail / closingSummary。title と topic.title は数えない）の合計が {{TOTAL_MIN}} 文字を下回ったら不合格。長すぎるより短すぎる失敗が多いので、下限側を厳守する
 - 各 detail は {{DETAIL_TARGET}} 文字を目標に書く（{{DETAIL_MIN}} は最低ライン、通常はそれより長く書く）。topic 5 件で各 detail が {{DETAIL_TARGET}} 文字前後あれば、preface と intro・closingSummary を足して {{TOTAL_MIN}} 文字を十分に超える。topic を {{TOPIC_COUNT_MIN}} 件に減らすなら各 detail を {{DETAIL_MAX}} 文字近くまで伸ばす
-- ソース素材が薄いと感じても、背景・経緯・影響・今後の見通しを補って detail を目標文字数まで書く
+- ソース素材が薄い場合は推測で文脈を補足せず，topicに採用しない。
 - 全 field を書いたら合計を数えて {{TOTAL_MIN}} に満たなければ、各 detail に説明を足して {{TOTAL_MIN}} 文字以上へ必ず伸ばす（intro / closingSummary は上限が近いので、伸ばすのは detail 側で行う）
 - intro と closingSummary はそれぞれ {{INTRO_MIN}} / {{CLOSING_MIN}} 文字以上を必ず確保する
 
