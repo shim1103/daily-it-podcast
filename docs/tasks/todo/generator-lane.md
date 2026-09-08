@@ -11,7 +11,7 @@
 1. `ProduceEpisode.Run` / Broad Integration / error 3 層 / 本番 produce workflow
 2. 情報源3 Adapter（HackerNews / Lobsters / ITmedia）を composite `ItemSource` へ結線。Broad Integration が3源 double で緑
 3. 原稿 TextWriter を Cursor CLI から Cloud Agents REST（`manuscript/cursorapi`）へ移行。`commandlaunch` / `processenv` / CLI install を廃止
-4. System e2e 1 回通し（`TestProduceEpisodeSystem`）と dispatch 専用 test（`TestGeminiTTSRate` / `TestCursorAPIDraftRate` / `TestGeminiAPISmoke`）を配置。`generator-draft-rate.yml` は実 API dispatch で 3/3 PASS 確認済み
+4. System e2e 1 回通し（`TestProduceEpisodeSystem`）と dispatch 専用 test（`TestGeminiTTSRate` / `TestDraftRate` / `TestGeminiAPISmoke`）を配置。`generator-draft-rate.yml` は `api`（cursor | gemini）入力で 1 API に対して PASS 率を測る。実 API dispatch で cursor 3/3 PASS 確認済み
 
 ### 済み（要約・続き）
 
