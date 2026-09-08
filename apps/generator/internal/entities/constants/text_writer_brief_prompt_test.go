@@ -56,6 +56,8 @@ func TestTextWriterBriefPrompt_capsShortFieldsHard(t *testing.T) {
 		"上限文字数を 1 文字でも超えたら不合格",
 		"intro と closingSummary は 3 文以内・各文 45 文字以内",
 		"title は 1 行の見出しで、下限文字数を必ず満たす",
+		// 実測で preface が 66 文字（下限 70 割れ）に落ちたため、下限を明示する。
+		"各 topic.preface は {{PREFACE_MIN}} 文字未満なら不合格。2〜3 文で書き、短ければ背景を 1 文足す",
 		"書き終えたら文字数を数え、超過していれば文を削って上限内へ必ず収める",
 		// 実測で title が 26〜29 文字に張り付いたため、具体的な語数アンカーを置く。
 		"{{TITLE_MIN}} 文字は日本語で 20 字前後の見出しに説明句を 1 つ足した長さ",

@@ -24,6 +24,7 @@ const TextWriterBriefPrompt = `
 - title / intro / closingSummary は短い field で、指定より長く書きすぎる失敗が最も多い。ここを最優先で守ること
 - intro は {{INTRO_MIN}}〜{{INTRO_MAX}} 文字、closingSummary は {{CLOSING_MIN}}〜{{CLOSING_MAX}} 文字。どちらも上限文字数を 1 文字でも超えたら不合格。intro と closingSummary は 3 文以内・各文 45 文字以内にとどめる（4 文書くと上限を超えやすい。上限に近づいたら最後の文を削る）
 - title は 1 行の見出しで、下限文字数を必ず満たす（{{TITLE_MIN}}〜{{TITLE_MAX}} 文字、目安 {{TITLE_TARGET}}）。短くなりすぎる失敗が多いので、下限より短ければ言葉を足して {{TITLE_MIN}} 文字以上にする。{{TITLE_MIN}} 文字は日本語で 20 字前後の見出しに説明句を 1 つ足した長さ（例:「〜が〇〇を発表、△△にも波及」のように主題＋補足を 1 文にする）
+- 各 topic.preface は {{PREFACE_MIN}} 文字未満なら不合格。2〜3 文で書き、短ければ背景を 1 文足す（「短い前置き」でも {{PREFACE_MIN}} 文字は必ず超える）
 - intro / closingSummary / title を書き終えたら文字数を数え、超過していれば文を削って上限内へ必ず収める。下限割れなら言葉を足す
 
 # Output
@@ -58,7 +59,7 @@ const TextWriterBriefPrompt = `
 - 各 topic.title の文字数: {{TOPIC_TITLE_MIN}}〜{{TOPIC_TITLE_MAX}} 文字（目安 {{TOPIC_TITLE_TARGET}}）
 
 # topic preface
-- その topic への短い前置き
+- その topic への前置き（「短い」と書いてあるが {{PREFACE_MIN}} 文字は必ず超える。2〜3 文で背景と要点の予告を書く）
 - 各 topic.preface の文字数: {{PREFACE_MIN}}〜{{PREFACE_MAX}} 文字（目安 {{PREFACE_TARGET}}）
 
 # topic detail
