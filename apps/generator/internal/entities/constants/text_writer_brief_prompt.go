@@ -23,7 +23,7 @@ const TextWriterBriefPrompt = `
 # Short-field length（最優先で厳守）
 - title / intro / closingSummary は短い field で、上限に張り付いて超過する失敗が最も多い。狙いは上限ではなく目安（intro は {{INTRO_TARGET}}、closingSummary は {{CLOSING_TARGET}} 文字）
 - intro と closingSummary はそれぞれ 3 文で書く（4 文書くと上限を超える）。3 文書いたら文字数を数え、上限を超えていたら 1 文を短い言い換えに置き換える。文を増やして上限へ近づけない
-- title は下限割れの失敗が多い。目安 {{TITLE_TARGET}} 文字を狙い、下限 {{TITLE_MIN}} 文字を必ず満たす（主題に補足句を 1 つ足して 1 文の見出しにする。例:「〜が〇〇を発表、△△にも波及」）
+- title は下限 {{TITLE_MIN}} 文字をわずかに割る失敗が多い。目安 {{TITLE_TARGET}} 文字を狙い、下限 {{TITLE_MIN}} 文字は必ず超える。主題だけでは短いので「〜にも波及」「〜の背景も解説」等の補足句を 1〜2 つ足して {{TITLE_TARGET}} 文字付近の 1 文にする
 - 各 topic.preface も「短い前置き」の語に引きずられて下限割れしやすい。全 topic の preface を {{PREFACE_TARGET}} 文字以上書く（{{PREFACE_MIN}} 付近で止めない。ソースにある経緯や関係者の説明を 2〜3 文で書く）
 
 # Output
@@ -81,7 +81,7 @@ const TextWriterBriefPrompt = `
 2. 範囲外の field を直す:
    - intro が {{INTRO_TARGET}} 超過 → 目安 {{INTRO_TARGET}} 文字まで文を削る（{{INTRO_MAX}} ではなく {{INTRO_TARGET}} を上限として扱う）。{{INTRO_MIN}} 未満 → ソースにある事実を 1 文足す
    - closingSummary が {{CLOSING_TARGET}} 超過 → 目安 {{CLOSING_TARGET}} 文字まで文を削る（{{CLOSING_MAX}} ではなく {{CLOSING_TARGET}} を上限として扱う）。{{CLOSING_MIN}} 未満 → 1 文足す
-   - title が {{TITLE_MAX}} 超過 → 語を削る。{{TITLE_MIN}} 未満 → 補足句を足す
+   - title が {{TITLE_MAX}} 超過 → 語を削る。{{TITLE_TARGET}} 未満 → 主題に「〇〇にも波及」等の補足句を足して {{TITLE_TARGET}} 文字付近まで伸ばす（{{TITLE_MIN}} ちょうどを狙わない）
    - 各 topic.title が範囲外 → {{TOPIC_TITLE_MIN}}〜{{TOPIC_TITLE_MAX}} 文字へ調整
    - 各 topic.preface が {{PREFACE_MAX}} 超過 → 文を削る。{{PREFACE_TARGET}} 未満 → ソースにある経緯を 1 文足す
    - 各 topic.detail が {{DETAIL_MAX}} 超過 → 文を削る。{{DETAIL_TARGET}} 未満 → ソースにある事実を足す
@@ -90,6 +90,7 @@ const TextWriterBriefPrompt = `
 
 完了条件（すべて真なら出力、1 つでも偽なら手順 1 へ）:
 - title / intro / closingSummary / 各 topic.title / 各 topic.preface / 各 topic.detail がすべて指定範囲内
+- title が {{TITLE_TARGET}} 文字以上（下限 {{TITLE_MIN}} ちょうどだと数え違いで割れる）
 - 全 topic.preface が {{PREFACE_TARGET}} 文字以上、全 topic.detail が {{DETAIL_TARGET}} 文字以上（これを満たせば合計は {{TOTAL_MIN}} を必ず超える）
 - 合計が {{TOTAL_TARGET}}〜{{TOTAL_MAX}} 文字（{{TOTAL_MIN}} ではなく {{TOTAL_TARGET}} を下限として扱う）
 - topics が {{TOPIC_COUNT_TARGET}} 件

@@ -74,7 +74,7 @@ func formatSourceItems(items []models.SourceItem) string {
 // manuscript_draft_limits の rune 数 range 内に収めてある。
 func marshalWriterOutputExample() (string, error) {
 	example := models.WriterOutput{
-		Title: "本日の主要トピックを一望できる形式例のタイトル文字列で長さの目安を示すものです",
+		Title: "運用基盤の大型更新と開発ツール新版、ブラウザ標準仕様の提案までを一望する本日の技術ニュースまとめの形式例タイトル",
 		Intro: "本日は運用基盤の大型更新から広く使われる開発ツールの新版、ブラウザ標準仕様の提案まで、幅のある技術ニュースを順番にまとめて取り上げます。いずれも利用者の負担を下げて仕組みに任せる範囲を広げるという共通の流れがあり、これから学ぶ方にも関わる変更が含まれます。専門用語は話の中で都度かみ砕いて説明するので、前提から順に追ってください。",
 		Topics: []models.WriterOutputTopic{
 			{
