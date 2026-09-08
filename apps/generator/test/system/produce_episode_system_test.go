@@ -9,7 +9,7 @@
 // Double: なし（test 専用 credential。実行場所は GHA）。DRIVE_FOLDER_ID は test 専用 folder。
 // 目的: 「system 全体が壊れていないか」を 1 回で見る（PASS 率は測らない。rate 計測は
 //
-//	tts_rate / cursorapi_draft_rate へ分離。Decision 2026-09-03T14-45-00）。
+//	tts_rate / draft_rate へ分離。Decision 2026-09-03T14-45-00）。
 //	下位 Scope（HTTP / 配線 / schema 全 field）は再 assert しない。ここは orchestration の疎通だけ。
 //
 // @require process env に config 契約の全 key がある（1 つでも欠けたら Skip）。DRIVE_FOLDER_ID は test 専用 folder。
