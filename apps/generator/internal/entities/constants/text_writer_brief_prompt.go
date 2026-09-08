@@ -21,7 +21,8 @@ const TextWriterBriefPrompt = `
 - topic.detail も段落は 1 個だけ。改行は段落分けが要るときの 1 個のみで、それ以外は改行を入れない
 
 # Short-field length（最優先で厳守）
-- title / intro / closingSummary は短い field で、上限に張り付いて超過する失敗が最も多い。狙いは上限ではなく目安（intro は {{INTRO_TARGET}}、closingSummary は {{CLOSING_TARGET}} 文字）。目安付近で書き、上限を 1 文字でも超えたら文を削って収める
+- title / intro / closingSummary は短い field で、上限に張り付いて超過する失敗が最も多い。狙いは上限ではなく目安（intro は {{INTRO_TARGET}}、closingSummary は {{CLOSING_TARGET}} 文字）
+- intro と closingSummary はそれぞれ 3 文で書く（4 文書くと上限を超える）。3 文書いたら文字数を数え、上限を超えていたら 1 文を短い言い換えに置き換える。文を増やして上限へ近づけない
 - title は下限割れの失敗が多い。目安 {{TITLE_TARGET}} 文字を狙い、下限 {{TITLE_MIN}} 文字を必ず満たす（主題に補足句を 1 つ足して 1 文の見出しにする。例:「〜が〇〇を発表、△△にも波及」）
 - 各 topic.preface も「短い前置き」の語に引きずられて下限割れしやすい。目安 {{PREFACE_TARGET}} 文字を狙い、下限 {{PREFACE_MIN}} 文字を必ず満たす（ソースにある経緯や関係者の説明を 2〜3 文で書く）
 
