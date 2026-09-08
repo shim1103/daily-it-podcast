@@ -57,6 +57,27 @@ func TestTextWriterBriefPrompt_capsShortFieldsHard(t *testing.T) {
 		"intro と closingSummary は 3〜4 文",
 		"title は 1 行の見出しで、下限文字数を必ず満たす",
 		"書き終えたら文字数を数え、超過していれば文を削って上限内へ必ず収める",
+		// 実測で title が 26〜29 文字に張り付いたため、具体的な語数アンカーを置く。
+		"{{TITLE_MIN}} 文字は日本語で 20 字前後の見出しに説明句を 1 つ足した長さ",
+	}
+	for _, s := range required {
+		if !strings.Contains(p, s) {
+			t.Errorf("TextWriterBriefPrompt に %q が無い", s)
+		}
+	}
+}
+
+// TestTextWriterBriefPrompt_hasMandatoryFixStep は、提出前に各 field の文字数を数えて
+// range 外なら機械的に足す／削る「必須修正手順」を持つことを固定する（Gemini が range 際で
+// 張り付く実測 run 34203032590 への対応）。
+func TestTextWriterBriefPrompt_hasMandatoryFixStep(t *testing.T) {
+	t.Parallel()
+
+	p := constants.TextWriterBriefPrompt
+	required := []string{
+		"# 提出前の必須修正手順",
+		"下限より少なければ語句を足し、上限より多ければ語句を削る",
+		"この修正を全 field が range 内に収まるまで繰り返してから出力する",
 	}
 	for _, s := range required {
 		if !strings.Contains(p, s) {

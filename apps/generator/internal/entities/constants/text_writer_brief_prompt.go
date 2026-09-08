@@ -23,7 +23,7 @@ const TextWriterBriefPrompt = `
 # Short-field length（最優先で厳守）
 - title / intro / closingSummary は短い field で、指定より長く書きすぎる失敗が最も多い。ここを最優先で守ること
 - intro は {{INTRO_MIN}}〜{{INTRO_MAX}} 文字、closingSummary は {{CLOSING_MIN}}〜{{CLOSING_MAX}} 文字。どちらも上限文字数を 1 文字でも超えたら不合格。目安として intro と closingSummary は 3〜4 文にとどめる（1 文が長いと 3 文でも上限を超えるので、各文も簡潔にする）
-- title は 1 行の見出しで、下限文字数を必ず満たす（{{TITLE_MIN}}〜{{TITLE_MAX}} 文字、目安 {{TITLE_TARGET}}）。短くなりすぎる失敗が多いので、下限より短ければ言葉を足して {{TITLE_MIN}} 文字以上にする
+- title は 1 行の見出しで、下限文字数を必ず満たす（{{TITLE_MIN}}〜{{TITLE_MAX}} 文字、目安 {{TITLE_TARGET}}）。短くなりすぎる失敗が多いので、下限より短ければ言葉を足して {{TITLE_MIN}} 文字以上にする。{{TITLE_MIN}} 文字は日本語で 20 字前後の見出しに説明句を 1 つ足した長さ（例:「〜が〇〇を発表、△△にも波及」のように主題＋補足を 1 文にする）
 - intro / closingSummary / title を書き終えたら文字数を数え、超過していれば文を削って上限内へ必ず収める。下限割れなら言葉を足す
 
 # Output
@@ -72,6 +72,13 @@ const TextWriterBriefPrompt = `
 
 # total length
 - 全体（intro / 全 topic の preface・detail / closingSummary の合計。title と topic.title は見出しなので数えない）: {{TOTAL_MIN}}〜{{TOTAL_MAX}} 文字（目安 {{TOTAL_TARGET}} 文字、朗読でおよそ {{TOTAL_MINUTES_MIN}}〜{{TOTAL_MINUTES_MAX}} 分）
+
+# 提出前の必須修正手順
+提出前に、次を JSON の各 field について 1 つずつ機械的に実行する。
+- title / intro / closingSummary / 各 topic.title / 各 topic.preface / 各 topic.detail の文字数をそれぞれ数える
+- range 外の field があれば、下限より少なければ語句を足し、上限より多ければ語句を削る（intro / closingSummary が上限超過なら文を 1 つ削る。title が下限割れなら補足句を 1 つ足す）
+- 合計（intro + 全 preface + 全 detail + closingSummary）を数え、{{TOTAL_MIN}} 未満なら各 detail に説明を足して {{TOTAL_MIN}} 文字以上へ伸ばす
+- この修正を全 field が range 内に収まるまで繰り返してから出力する
 
 # Self-check（提出前に必ず実行）
 この JSON は機械で parse・検証される。1 つでも文字数 range や件数を外すと不合格となり、書き直しを求められる。提出する JSON について、次を 1 つずつ数えて確認してから出力する。
