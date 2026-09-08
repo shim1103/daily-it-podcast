@@ -31,15 +31,20 @@ branch: feature/generator-gemini-textwriter-prompt-fix
 
 ## 4. 実測（gemini）
 
-`generator-draft-rate` の `api=gemini` dispatch を prompt 修正のたびに回した（runs=5、threshold=0.8、variant=default）。
+`generator-draft-rate` の `api=gemini` dispatch を prompt 修正のたびに回した（variant=default）。数値 range（`manuscript_draft_limits.go`）は一切変えず、`constants.TextWriterBriefPrompt` の指導文と `build.marshalWriterOutputExample` の形式例だけを直した。
 
-| run | PASS/5 | 落ちた field | 対応した prompt 修正 |
+| run | PASS | 落ちた field | 対応した修正 |
 |---|---|---|---|
-| 34202239672 | 0 | intro 310〜317 超過 ×3 / closingSummary 328 超過 / title 28 下限割れ | `# Short-field length` を追加（短い field の上限厳守・文数目安） |
-| 34202649569 | 0 | total 2644〜3254 下限割れ ×4 / closingSummary 284 超過 | `# Length strategy` を配分レシピ化（detail 目標・合計を数えて伸ばす） |
-| 34203032590 | 1 | total 3076/3023 下限割れ / closingSummary 298 超過 / title 26〜29 下限割れ ×2 | `# 提出前の必須修正手順` を追加（range 外を機械的に足す／削る）+ title に語数アンカー |
-| 34203448631 | 2 | total 3076/3023 下限割れ / closingSummary 299 超過 | detail を「目安」→「目標、下限は最低ライン」/ closingSummary を「3 文以内・各文 45 字以内」へ |
-| 34203824767 | 2 | topic.preface 66 下限割れ（70 未満）×3 | `preface は {{PREFACE_MIN}} 文字未満なら不合格・2〜3 文` を Short-field と topic preface 節へ |
-| 34204186623 | **4** | closingSummary 281（上限 +1）×1 | — 閾値 0.8 到達（success） |
+| 34202239672 | 0/5 | intro / closingSummary 上限超過、title 下限割れ | `# Short-field length` 追加（短い field の上限厳守） |
+| 34202649569 | 0/5 | total 下限割れ ×4 | `# Length strategy` を配分レシピ化 |
+| 34203032590 | 1/5 | total / closingSummary / title 際 | `# 提出前の必須修正手順` 追加 |
+| 34203448631 | 2/5 | total / closingSummary 際 | detail を「目標」化、closingSummary を締める |
+| 34203824767 | 2/5 | topic.preface 下限割れ ×3 | preface 下限を明示 |
+| 34204186623 | 4/5 | closingSummary +1 ×1 | — 閾値 0.8 到達 |
+| 34206096568 | 3/10 | total 下限割れ ×7 | （裸の数字を消した refactor の副作用）|
+| 34206403853 | 7/10 | intro / closingSummary 上限超過 ×3 | 下限を `{{X_TARGET}}` placeholder で押し上げ |
+| 34206906199 | 7/10 | preface 下限割れ、total 際 ×2 | intro/closingSummary を 3 文固定、形式例も 3 文へ |
+| 34207211284 | 7/10 | title 下限割れ ×2、total 際 | preface/detail の実質下限を `{{X_TARGET}}` へ、完了条件に per-field 下限 |
+| 34207700009 | **9/10** | total 3224 下限割れ ×1 | title の実質下限を `{{X_TARGET}}` へ、形式例 title を目安長へ。閾値 0.9 到達（success）|
 
-到達 run: `34204186623`（4/5、全体文字数 3506〜4041、下限マージン 146〜681、各回所要 8.6〜10.5s）。数値 range（`manuscript_draft_limits.go`）は一切変えず、`constants.TextWriterBriefPrompt` の指導文だけで gemini の癖（短い field を字義通り詰める・detail を目標より短く書く）を矯正した。cursor 側の PASS 率への影響は別途 `api=cursor` dispatch で確認する（本 branch では未実施。cursor は同 prompt で先行 3/3 実績あり）。
+到達 run: `34207700009`（9/10、PASS 回の全体 3530〜4287、各回所要 8.6〜11.5s）。gemini の癖: 短い field（title / preface / intro / closingSummary）を境界ちょうどまで詰める、detail / total を最小値近くで止める。対処は「実質下限・上限を `{{X_MIN/MAX}}` ではなく `{{X_TARGET}}` placeholder として扱わせる」（TARGET は正本連動、境界から離れるので見積もり誤差を吸収）。残り 1/10 は total の低め side の分散。cursor 側への影響は `api=cursor` 再 dispatch 未実施（D 表）。
