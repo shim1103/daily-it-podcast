@@ -54,9 +54,28 @@ func TestTextWriterBriefPrompt_capsShortFieldsHard(t *testing.T) {
 	required := []string{
 		"# Short-field length（最優先で厳守）",
 		"上限文字数を 1 文字でも超えたら不合格",
-		"intro と closingSummary は 3〜5 文",
+		"intro と closingSummary は 3〜4 文",
 		"title は 1 行の見出しで、下限文字数を必ず満たす",
 		"書き終えたら文字数を数え、超過していれば文を削って上限内へ必ず収める",
+	}
+	for _, s := range required {
+		if !strings.Contains(p, s) {
+			t.Errorf("TextWriterBriefPrompt に %q が無い", s)
+		}
+	}
+}
+
+// TestTextWriterBriefPrompt_enforcesTotalMinimumWithRecipe は、全体合計の下限割れを防ぐため
+// 具体的な文字数配分の目安（topic 5 件・各 detail の下限、合計が下限を割ったら detail を伸ばす）
+// を Length strategy に持つことを固定する（Gemini が total 下限割れした実測 run 34202649569 への対応）。
+func TestTextWriterBriefPrompt_enforcesTotalMinimumWithRecipe(t *testing.T) {
+	t.Parallel()
+
+	p := constants.TextWriterBriefPrompt
+	required := []string{
+		"合計が {{TOTAL_MIN}} 文字を下回ったら不合格",
+		"topic 5 件なら各 detail を {{DETAIL_TARGET}} 文字前後で書けば",
+		"合計を数えて {{TOTAL_MIN}} に満たなければ、各 detail に説明を足して {{TOTAL_MIN}} 文字以上へ必ず伸ばす",
 	}
 	for _, s := range required {
 		if !strings.Contains(p, s) {
