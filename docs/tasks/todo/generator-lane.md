@@ -30,7 +30,7 @@
 
 | topic | 概要 |
 |---|---|
-| Prompt / limits 文案・数値 | 尺モデルは確定済み（正は `entities/constants/manuscript_draft_seconds.go` / `manuscript_draft_limits.go`）。topic 数・全体尺・topic あたり preface/detail を実運用向けに一度調整済み。残は実測後の微調整 |
+| Prompt / limits 文案・数値 | 尺モデルは確定済み（正は `entities/constants/manuscript_draft_seconds.go` / `manuscript_draft_limits.go`）。topic 数 6/8/10・全体尺 14/16/18 分へ一度伸ばしたが、本番 produce run 34209712652 が gemini fallback 経路で HTTP 429（出力 token 増で free-tier rate limit に到達）で失敗したため旧尺（topic 3/5/7・全体 8/10/12 分）へ戻した。尺を再度伸ばすなら先に Gemini quota（TPM/RPD）か有料 tier を手当てする |
 | 挨拶文案 | Opening/Closing 定数は date placeholder 入り template で確定。実運用での文言微調整のみ残 |
 | composite の source またぎ sort | 3 情報源で `OccurredAt` 順の混在が起きる。dedup は `SourceID` が全源で異なるため不要。時系列 sort を Application/Composition のどちらで持つかは別判断（事実: 現状は登録順 concat のみ） |
 | 別媒体の報道源追加 | Publickey / InfoQ / はてブ IT 等は各々専用 Adapter を新設（`infrastructure/<媒体>/`。RSS 汎用 Adapter は作らない）。RSS 2.0 parse の重複が三度現れたら共通化を検討（未実測） |

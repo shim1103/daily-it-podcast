@@ -39,9 +39,9 @@ const (
 	DraftTopicDetailMaxLen = DraftTopicDetailMaxSec * CharsPerSecond
 
 	// topic 数（秒非依存）。
-	DraftTopicCountMin    = 6
-	DraftTopicCountTarget = 8
-	DraftTopicCountMax    = 10
+	DraftTopicCountMin    = 3
+	DraftTopicCountTarget = 5
+	DraftTopicCountMax    = 7
 
 	// 全体文字数（挨拶を除く朗読 field の合計。秒 × CharsPerSecond）。
 	DraftTotalCharsMin    = DraftTotalMinSec * CharsPerSecond
