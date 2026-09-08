@@ -29,7 +29,7 @@
 
 | topic | 概要 |
 |---|---|
-| Prompt / limits 文案・数値 | 尺モデルは確定済み。残は実運用後の微調整 |
+| Prompt / limits 文案・数値 | 尺モデルは確定済み（正は `entities/constants/manuscript_draft_seconds.go` / `manuscript_draft_limits.go`）。topic 数・全体尺・topic あたり preface/detail を実運用向けに一度調整済み。残は実測後の微調整 |
 | 挨拶文案 | Opening/Closing 定数は date placeholder 入り template で確定。実運用での文言微調整のみ残 |
 | composite の source またぎ sort | 3 情報源で `OccurredAt` 順の混在が起きる。dedup は `SourceID` が全源で異なるため不要。時系列 sort を Application/Composition のどちらで持つかは別判断（事実: 現状は登録順 concat のみ） |
 | 別媒体の報道源追加 | Publickey / InfoQ / はてブ IT 等は各々専用 Adapter を新設（`infrastructure/<媒体>/`。RSS 汎用 Adapter は作らない）。RSS 2.0 parse の重複が三度現れたら共通化を検討（未実測） |
@@ -39,7 +39,7 @@
 | draft 尺の下限マージン | `generator-draft-rate` 実測（run 33840526373）で default variant の 1 回が下限 +2 文字。variant `a` の A/B か `constants.TextWriterBriefPrompt` の detail 目安引き上げを検討 |
 | TTS rate 実 dispatch | `TestGeminiTTSRate` が実 API でまだ走っていない。`generator-draft-rate.yml` は実 API dispatch 済み（run 33840526373、3/3 PASS）。TTS 側も同様に 1 度 dispatch して尺帯ごとの PASS 率・所要を台帳化する |
 | `interactionResponse.Status` | 現状未使用。`status != "completed"` の扱いは未決 |
-| Gemini fallback 原稿の品質・token・尺 | `geminiapi.ModelID`（値は constant が正）が `ManuscriptDraft` 検証（topic 3〜7・各 field 文字数・全体 8〜12 分）を何割で通すか未実測。`generator-draft-rate.yml` 同型の dispatch 専用計測を足すか未決（Decision `2026-09-07T19-06-00` の non-scope） |
+| Gemini fallback 原稿の品質・token・尺 | `geminiapi.ModelID`（値は constant が正）が `ManuscriptDraft` 検証（range の正は `entities/constants` の Draft* 定数）を何割で通すか未実測。`generator-draft-rate.yml` 同型の dispatch 専用計測を足すか未決（Decision `2026-09-07T19-06-00` の non-scope） |
 | Cursor 枯渇 error code の網羅 | 番兵 wrap は 401/403 と 400 + `usage_limit_exceeded` のみ（Decision `2026-09-07T23-30-00`）。`billing_*` 等の別 code が出たら都度 Decision を継ぐ |
 | Gemini fallback 発火の観測 | 現状 `logManuscriptSourceSwitched` の stderr 1 行のみ。切り替え成功時は原稿が出るので痕跡が薄い。GHA run summary への出力 / Drive metadata への provenance / 構造化 log 基盤の導入は未決 |
 | Gemini free-tier RPD の実運用値 | 公称 RPD≈1,000 だが実測で下振れ報告あり。1 日 1 回 produce + draft retry 最大 5 でも問題ないはずだが未確認 |

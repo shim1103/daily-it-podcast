@@ -53,12 +53,12 @@ func buildWireJSON(topicCount int) string {
 //   - intro / closing   朗読 field max-1 rune（range 内。境界付近を突く）
 //   - topic.title       見出し max-1 rune（range 内）
 //   - topic.preface     朗読 field min rune（range 内）
-//   - topic.detail      朗読 field min rune（range 内）
+//   - topic.detail      朗読 field target rune（range 内）
 //
 // topic 数 max のとき合計対象は intro + closing + Σ_topics(preface + detail)。
-// topic.preface / topic.detail を min に取るのは、topic 数 max × field max だと合計が
-// DraftTotalCharsMax を超えるため。合計が range 内に収まることは
-// TestBuildWireJSON_producesValidWire_whenTopicCountIsMax が保証する。
+// topic.preface を min、topic.detail を target に取るのは、topic 数 max × field max だと合計が
+// DraftTotalCharsMax を超え、両方 min だと合計が DraftTotalCharsMin に届かないため。
+// 合計が range 内に収まることは TestBuildWireJSON_producesValidWire_whenTopicCountIsMax が保証する。
 func buildWireJSONWith(topicCount int, ov wireOverride) string {
 	title := jaRunes(constants.DraftTitleMaxLen - 1)
 	intro := jaField(constants.DraftIntroMaxLen - 1)
@@ -79,7 +79,7 @@ func buildWireJSONWith(topicCount int, ov wireOverride) string {
 		topics = append(topics, topicJSON(
 			constants.DraftTopicTitleMaxLen-1,
 			constants.DraftTopicPrefaceMinLen,
-			constants.DraftTopicDetailMinLen,
+			constants.DraftTopicDetailTarget,
 		))
 	}
 	return `{"title":"` + title + `","intro":"` + intro +
