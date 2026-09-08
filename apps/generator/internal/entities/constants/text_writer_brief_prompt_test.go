@@ -54,7 +54,7 @@ func TestTextWriterBriefPrompt_capsShortFieldsHard(t *testing.T) {
 	required := []string{
 		"# Short-field length（最優先で厳守）",
 		"上限文字数を 1 文字でも超えたら不合格",
-		"intro と closingSummary は 3〜4 文",
+		"intro と closingSummary は 3 文以内・各文 45 文字以内",
 		"title は 1 行の見出しで、下限文字数を必ず満たす",
 		"書き終えたら文字数を数え、超過していれば文を削って上限内へ必ず収める",
 		// 実測で title が 26〜29 文字に張り付いたため、具体的な語数アンカーを置く。
@@ -95,7 +95,7 @@ func TestTextWriterBriefPrompt_enforcesTotalMinimumWithRecipe(t *testing.T) {
 	p := constants.TextWriterBriefPrompt
 	required := []string{
 		"合計が {{TOTAL_MIN}} 文字を下回ったら不合格",
-		"topic 5 件なら各 detail を {{DETAIL_TARGET}} 文字前後で書けば",
+		"各 detail は {{DETAIL_TARGET}} 文字を目標に書く（{{DETAIL_MIN}} は最低ライン、通常はそれより長く書く）",
 		"合計を数えて {{TOTAL_MIN}} に満たなければ、各 detail に説明を足して {{TOTAL_MIN}} 文字以上へ必ず伸ばす",
 	}
 	for _, s := range required {

@@ -22,7 +22,7 @@ const TextWriterBriefPrompt = `
 
 # Short-field length（最優先で厳守）
 - title / intro / closingSummary は短い field で、指定より長く書きすぎる失敗が最も多い。ここを最優先で守ること
-- intro は {{INTRO_MIN}}〜{{INTRO_MAX}} 文字、closingSummary は {{CLOSING_MIN}}〜{{CLOSING_MAX}} 文字。どちらも上限文字数を 1 文字でも超えたら不合格。目安として intro と closingSummary は 3〜4 文にとどめる（1 文が長いと 3 文でも上限を超えるので、各文も簡潔にする）
+- intro は {{INTRO_MIN}}〜{{INTRO_MAX}} 文字、closingSummary は {{CLOSING_MIN}}〜{{CLOSING_MAX}} 文字。どちらも上限文字数を 1 文字でも超えたら不合格。intro と closingSummary は 3 文以内・各文 45 文字以内にとどめる（4 文書くと上限を超えやすい。上限に近づいたら最後の文を削る）
 - title は 1 行の見出しで、下限文字数を必ず満たす（{{TITLE_MIN}}〜{{TITLE_MAX}} 文字、目安 {{TITLE_TARGET}}）。短くなりすぎる失敗が多いので、下限より短ければ言葉を足して {{TITLE_MIN}} 文字以上にする。{{TITLE_MIN}} 文字は日本語で 20 字前後の見出しに説明句を 1 つ足した長さ（例:「〜が〇〇を発表、△△にも波及」のように主題＋補足を 1 文にする）
 - intro / closingSummary / title を書き終えたら文字数を数え、超過していれば文を削って上限内へ必ず収める。下限割れなら言葉を足す
 
@@ -44,8 +44,8 @@ const TextWriterBriefPrompt = `
 
 # Length strategy（下限割れを最優先で防ぐ）
 - 全体（intro / 全 topic の preface・detail / closingSummary。title と topic.title は数えない）の合計が {{TOTAL_MIN}} 文字を下回ったら不合格。長すぎるより短すぎる失敗が多いので、下限側を厳守する
-- 目安の配分: topic 5 件なら各 detail を {{DETAIL_TARGET}} 文字前後で書けば、preface と intro・closingSummary を足して {{TOTAL_MIN}} 文字を十分に超える。topic を {{TOPIC_COUNT_MIN}} 件に減らすなら各 detail を {{DETAIL_MAX}} 文字近くまで伸ばす
-- 各 detail は必ず {{DETAIL_MIN}} 文字以上書く。ソース素材が薄いと感じても、背景・経緯・影響・今後の見通しを補って下限を満たす
+- 各 detail は {{DETAIL_TARGET}} 文字を目標に書く（{{DETAIL_MIN}} は最低ライン、通常はそれより長く書く）。topic 5 件で各 detail が {{DETAIL_TARGET}} 文字前後あれば、preface と intro・closingSummary を足して {{TOTAL_MIN}} 文字を十分に超える。topic を {{TOPIC_COUNT_MIN}} 件に減らすなら各 detail を {{DETAIL_MAX}} 文字近くまで伸ばす
+- ソース素材が薄いと感じても、背景・経緯・影響・今後の見通しを補って detail を目標文字数まで書く
 - 全 field を書いたら合計を数えて {{TOTAL_MIN}} に満たなければ、各 detail に説明を足して {{TOTAL_MIN}} 文字以上へ必ず伸ばす（intro / closingSummary は上限が近いので、伸ばすのは detail 側で行う）
 - intro と closingSummary はそれぞれ {{INTRO_MIN}} / {{CLOSING_MIN}} 文字以上を必ず確保する
 
