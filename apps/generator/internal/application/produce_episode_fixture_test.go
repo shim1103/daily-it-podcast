@@ -41,7 +41,8 @@ func buildValidWireJSON() string {
 	prefaceRunes := constants.DraftTopicPrefaceMinLen - 5
 	// why: preface / detail 下限を下げたあと、各 field を min 付近にすると total 下限に届かない。
 	// detail を足して total min を満たす（validateTotalChars を fixture が通るための調整）。
-	detailPad := 40
+	// topic 数 target と全体尺を伸ばした（DraftTotalMinSec = 14 分）ぶん pad も増やす。
+	detailPad := 200
 	detailRunes := constants.DraftTopicDetailMinLen - 6 + detailPad
 
 	topics := make([]wireTopic, validWireTopicCount)
