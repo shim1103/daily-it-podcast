@@ -78,7 +78,7 @@ GitHub Actions（Settings → Secrets and variables → Actions）:
 
 workflow が test 登録名を process env 名へ写す。Generator は `TEST_` を知らない。
 
-`GEMINI_API_KEY` は TTS が、`SPARE_GEMINI_API_KEY` は原稿 fallback（Gemini generateContent）が使う。別 key に分けるのは、fallback 発火時に両者が同一 Gemini free-tier 枠を食い合って HTTP 429 へ到達するため（`docs/tasks/todo/generator-lane.md` D 表 / produce run 34209712652）。System test は `TEST_GEMINI_API_KEY` / `TEST_SPARE_GEMINI_API_KEY` を両方要求する。
+`GEMINI_API_KEY` は TTS、`SPARE_GEMINI_API_KEY` は原稿 fallback（Gemini generateContent）。分ける理由は `GeminiConfig`（`internal/config/config.go`）の invariant を正とする。System test は両方を要求する。
 
 credential 付き実 operation は GHA runner のみ。通常 local / Integration gate は実 service を呼ばず local secret を持たない。
 
@@ -96,7 +96,7 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 
 暦日は JST 運用に合わせる。
 
-workflow file を Actions で `workflow_dispatch` するには、**その yml file 名が default branch（`master`）に存在すること**が必要。既に master にある yml なら、`gh workflow run <yml> --ref <feature-branch>` で feature branch 側の yml 内容（env・step・script の変更込み）を回せる。master へ merge / checkout する必要は無い（`--ref` が指す branch の tree で実行される）。`HTTP 404 workflow not found on the default branch` になるのは、その yml file 名自体が master にまだ無い完全新規 workflow のときだけ。その場合は先に yml だけ master へ載せる。
+`workflow_dispatch` は yml **file 名**が `master` にあれば通る。`gh workflow run <yml> --ref <feature-branch>` で feature branch 側の tree（yml の env・step・script 変更込み）が実行され、master への merge / checkout は要らない。`HTTP 404 workflow not found on the default branch` は file 名自体が master に無い完全新規 workflow のときだけで、その場合は yml を先に master へ載せる。
 
 ### Generator System（`generator-system.yml`）
 
