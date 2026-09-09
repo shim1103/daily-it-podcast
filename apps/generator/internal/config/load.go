@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-// configField は Config の field 順（Cursor.APIKey → Gemini.APIKey →
+// configField は Config の field 順（Cursor.APIKey → Gemini.APIKey → Gemini.SpareAPIKey →
 // Drive.GoogleOAuthClientID → Drive.GoogleOAuthClientSecret →
 // Drive.GoogleOAuthRefreshToken → Drive.FolderID）に対応する。
 type configField int
@@ -12,6 +12,7 @@ type configField int
 const (
 	fieldCursorAPIKey configField = iota
 	fieldGeminiAPIKey
+	fieldSpareGeminiAPIKey
 	fieldGoogleOAuthClientID
 	fieldGoogleOAuthClientSecret
 	fieldGoogleOAuthRefreshToken
@@ -22,6 +23,7 @@ const (
 var configFieldKeys = [configFieldCount]string{
 	fieldCursorAPIKey:            CursorAPIKeyEnv,
 	fieldGeminiAPIKey:            GeminiAPIKeyEnv,
+	fieldSpareGeminiAPIKey:       SpareGeminiAPIKeyEnv,
 	fieldGoogleOAuthClientID:     GoogleOAuthClientIDEnv,
 	fieldGoogleOAuthClientSecret: GoogleOAuthClientSecretEnv,
 	fieldGoogleOAuthRefreshToken: GoogleOAuthRefreshTokenEnv,
@@ -55,7 +57,8 @@ func Load(lookup LookupEnv) (Config, error) {
 			APIKey: newSecret(values[fieldCursorAPIKey]),
 		},
 		Gemini: GeminiConfig{
-			APIKey: newSecret(values[fieldGeminiAPIKey]),
+			APIKey:      newSecret(values[fieldGeminiAPIKey]),
+			SpareAPIKey: newSecret(values[fieldSpareGeminiAPIKey]),
 		},
 		Drive: DriveConfig{
 			GoogleOAuthClientID:     values[fieldGoogleOAuthClientID],

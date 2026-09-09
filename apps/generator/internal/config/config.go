@@ -5,9 +5,14 @@ type CursorConfig struct {
 	APIKey Secret
 }
 
-// GeminiConfig は音声生成に必要なconfigである。
+// GeminiConfig はGemini APIを使う機能に必要なconfigである。
+//
+// @invariant APIKeyは音声生成（TTS）が、SpareAPIKeyは原稿fallback（generateContent）が使う。
+// 別keyに分けるのは、両者を同一free-tier枠へ相乗りさせるとfallback発火時に
+// HTTP 429（rate limit）へ到達するため（docs/tasks/todo/generator-lane.md D表）。
 type GeminiConfig struct {
-	APIKey Secret
+	APIKey      Secret
+	SpareAPIKey Secret
 }
 
 // DriveConfig はGoogle Drive保存に必要なconfigである。
