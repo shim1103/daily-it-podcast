@@ -4,6 +4,7 @@ package config
 const (
 	CursorAPIKeyEnv            = "CURSOR_API_KEY"
 	GeminiAPIKeyEnv            = "GEMINI_API_KEY"
+	SpareGeminiAPIKeyEnv       = "SPARE_GEMINI_API_KEY"
 	GoogleOAuthClientIDEnv     = "GOOGLE_OAUTH_CLIENT_ID"
 	GoogleOAuthClientSecretEnv = "GOOGLE_OAUTH_CLIENT_SECRET"
 	GoogleOAuthRefreshTokenEnv = "GOOGLE_OAUTH_REFRESH_TOKEN"
