@@ -67,6 +67,7 @@ process env の正本は `apps/generator/internal/config/names.go`。`GENERATOR_
 | `DRIVE_FOLDER_ID` | Variable |
 | `CURSOR_API_KEY` | Secret |
 | `GEMINI_API_KEY` | Secret |
+| `SPARE_GEMINI_API_KEY` | Secret |
 
 GitHub Actions（Settings → Secrets and variables → Actions）:
 
@@ -76,6 +77,8 @@ GitHub Actions（Settings → Secrets and variables → Actions）:
 | test（System） | `TEST_` + 同名 |
 
 workflow が test 登録名を process env 名へ写す。Generator は `TEST_` を知らない。
+
+`GEMINI_API_KEY` は TTS が、`SPARE_GEMINI_API_KEY` は原稿 fallback（Gemini generateContent）が使う。別 key に分けるのは、fallback 発火時に両者が同一 Gemini free-tier 枠を食い合って HTTP 429 へ到達するため（`docs/tasks/todo/generator-lane.md` D 表 / produce run 34209712652）。System test は `TEST_GEMINI_API_KEY` / `TEST_SPARE_GEMINI_API_KEY` を両方要求する。
 
 credential 付き実 operation は GHA runner のみ。通常 local / Integration gate は実 service を呼ばず local secret を持たない。
 
@@ -93,14 +96,14 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 
 暦日は JST 運用に合わせる。
 
-workflow file を Actions で `workflow_dispatch` するには、**default branch（`master`）にその yml があること**が必要（feature branch にしか無い新規 workflow は `HTTP 404 workflow not found on the default branch` で dispatch できない）。
+workflow file を Actions で `workflow_dispatch` するには、**その yml file 名が default branch（`master`）に存在すること**が必要。既に master にある yml なら、`gh workflow run <yml> --ref <feature-branch>` で feature branch 側の yml 内容（env・step・script の変更込み）を回せる。master へ merge / checkout する必要は無い（`--ref` が指す branch の tree で実行される）。`HTTP 404 workflow not found on the default branch` になるのは、その yml file 名自体が master にまだ無い完全新規 workflow のときだけ。その場合は先に yml だけ master へ載せる。
 
 ### Generator System（`generator-system.yml`）
 
 `-tags=system` の system test を **1 回ずつ通すだけ**。「壊れていないか」だけを測り、PASS 率は定常で測らない。1 回でも FAIL なら run が赤。判断: `docs/decisions/2026-09-03T14-45-00` / `16-30-00`。
 
 - 実体は `TestProduceEpisodeSystem`（`//go:build system`）1 本。`composition.NewProduceEpisodeFromEnv` → `Run` を 1 度通し、実 3 情報源 → Cursor API 原稿 → Gemini TTS → OAuth+Drive 書込 の疎通と通し経路の Drive 実到達を見る。Fetch 窓に SourceItem 0 件だった日は `no_source_items` Domain Error で PASS 扱い（fetch は疎通しており system は壊れていない）。他の error は system 故障として赤。
-- 必要 credential は config 契約の全 key（`TEST_CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` / `TEST_GOOGLE_OAUTH_*` / `TEST_DRIVE_FOLDER_ID`）。1 つでも欠けたら Skip。
+- 必要 credential は config 契約の全 key（`TEST_CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` / `TEST_SPARE_GEMINI_API_KEY` / `TEST_GOOGLE_OAUTH_*` / `TEST_DRIVE_FOLDER_ID`）。1 つでも欠けたら Skip。
 - cron の 1 回通しが **2 週連続で落ちたら** bug 扱いで Issue 化する。1 週だけの赤は provider 起因として再 `workflow_dispatch` する。
 - 赤になったら故障区間に応じて `generator-tts-rate.yml`（TTS 側）/ `generator-draft-rate.yml`（Cursor 原稿側）を手動 dispatch して切り分ける。
 - 定時緑化を運用目標にするのは課金枠移行後。無料枠のうちは「dispatch で回せたとき緑」で可。
