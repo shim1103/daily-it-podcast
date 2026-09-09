@@ -10,6 +10,7 @@ import (
 const (
 	dummyCursorAPIKey            = "cursor-key"
 	dummyGeminiAPIKey            = "gemini-key"
+	dummySpareGeminiAPIKey       = "spare-gemini-key"
 	dummyGoogleOAuthClientID     = "google-client-id"
 	dummyGoogleOAuthClientSecret = "google-client-secret"
 	dummyGoogleOAuthRefreshToken = "google-refresh-token"
@@ -21,6 +22,7 @@ func fullValidEnv() map[string]string {
 	return map[string]string{
 		CursorAPIKeyEnv:            dummyCursorAPIKey,
 		GeminiAPIKeyEnv:            dummyGeminiAPIKey,
+		SpareGeminiAPIKeyEnv:       dummySpareGeminiAPIKey,
 		GoogleOAuthClientIDEnv:     dummyGoogleOAuthClientID,
 		GoogleOAuthClientSecretEnv: dummyGoogleOAuthClientSecret,
 		GoogleOAuthRefreshTokenEnv: dummyGoogleOAuthRefreshToken,
@@ -54,6 +56,9 @@ func TestLoad_returnsConfigMatchingContract_whenAllInputsValid(t *testing.T) {
 	}
 	if cfg.Gemini.APIKey.Reveal() != dummyGeminiAPIKey {
 		t.Fatal("Gemini.APIKey が投入値と一致しない")
+	}
+	if cfg.Gemini.SpareAPIKey.Reveal() != dummySpareGeminiAPIKey {
+		t.Fatal("Gemini.SpareAPIKey が投入値と一致しない")
 	}
 	if cfg.Drive.GoogleOAuthClientID != dummyGoogleOAuthClientID {
 		t.Fatal("Drive.GoogleOAuthClientID が投入値と一致しない")
@@ -173,6 +178,7 @@ func TestLoad_aggregatesViolationsInConfigFieldOrder_whenAllKeysMissing(t *testi
 	wantKeys := []string{
 		CursorAPIKeyEnv,
 		GeminiAPIKeyEnv,
+		SpareGeminiAPIKeyEnv,
 		GoogleOAuthClientIDEnv,
 		GoogleOAuthClientSecretEnv,
 		GoogleOAuthRefreshTokenEnv,
@@ -318,7 +324,7 @@ func TestLoad_returnsNoConfigValues_whenAnySingleViolationExists(t *testing.T) {
 	if err == nil {
 		t.Fatal("violationがあるのにerrorを返さなかった")
 	}
-	if cfg.Cursor.APIKey != nil || cfg.Gemini.APIKey != nil {
+	if cfg.Cursor.APIKey != nil || cfg.Gemini.APIKey != nil || cfg.Gemini.SpareAPIKey != nil {
 		t.Fatal("violation時にSecret fieldが組み立てられた")
 	}
 	if cfg.Drive.GoogleOAuthClientID != "" || cfg.Drive.FolderID != "" {

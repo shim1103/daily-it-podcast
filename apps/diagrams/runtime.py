@@ -93,9 +93,9 @@ def render() -> Path:
         edge_attr=edge_attr,
         outformat="png",
     ):
-        user = Users("リスナー")
+        user = Users("Listener")
 
-        with Cluster("情報源"):
+        with Cluster("Sources"):
             hn = Custom("Hacker News\n(Firebase API)", hn_icon)
             lobsters = Custom("Lobsters\n(hottest.json)", lobsters_icon)
             itmedia = Custom("ITmedia NEWS\n(RSS 2.0)", itmedia_icon)
@@ -103,50 +103,50 @@ def render() -> Path:
             hn - Edge(style="invis") - lobsters - Edge(style="invis") - itmedia
 
         with Cluster("Generator (Go + GHA cron)"):
-            actions = Custom("GitHub Actions\n(cron / 手動)", gha_icon)
+            actions = Custom("GitHub Actions\n(cron / manual)", gha_icon)
             go_cli = Go("Go CLI")
             # why: 原稿は Cursor Cloud Agents が第一経路。枯渇時は Gemini へ fallback する
             #   （text_writer fallback）。どちらも「原稿」を作るので両方を原稿経路として描く。
-            cursor_api = Custom("Cursor Cloud Agents\n(原稿・第一)", cursor_icon)
-            gemini_text = Custom("Gemini\n(原稿・fallback)", gemini_icon)
-            gemini_tts = Custom("Gemini TTS\n(音声)", gemini_icon)
+            cursor_api = Custom("Cursor Cloud Agents\n(Script, primary)", cursor_icon)
+            gemini_text = Custom("Gemini\n(Script, fallback)", gemini_icon)
+            gemini_tts = Custom("Gemini TTS\n(Audio)", gemini_icon)
 
-        drive = Custom("Google Drive\n(音声 + 原稿)", drive_icon)
+        drive = Custom("Google Drive\n(Audio + Script)", drive_icon)
 
         with Cluster("Playback (Cloudflare) — TypeScript"):
-            access = Custom("Cloudflare Access\n(OAuth 2.0 入場制御)", access_icon)
+            access = Custom("Cloudflare Access\n(OAuth 2.0 access control)", access_icon)
             cdn = Cloudflare("DNS / CDN")
             # why: web / worker / contracts すべて TS。contracts の zod schema と hc<AppType> の
             #   型共有が構成の要なので、generator 側の Go node と対称に言語 node を 1 個置く。
-            ts = TypeScript("TypeScript\n(contracts 型共有)")
-            with Cluster("再生 UI"):
-                vite = Custom("Vite\n(bundle 生成 / 配信)", vite_icon)
-                react = React("React\n(描画・再生制御)")
+            ts = TypeScript("TypeScript\n(contracts type sharing)")
+            with Cluster("Playback UI"):
+                vite = Custom("Vite\n(bundle build / serve)", vite_icon)
+                react = React("React\n(rendering, playback control)")
                 vite >> Edge(label="bundle", style="dashed") >> react
-            with Cluster("Workers (Drive 代理 BFF)"):
-                workers = Custom("Cloudflare Workers\n(実行基盤)", workers_icon)
+            with Cluster("Workers (Drive proxy BFF)"):
+                workers = Custom("Cloudflare Workers\n(execution runtime)", workers_icon)
                 # why: Hono の route は 2 本。/episodes は RPC client（hc<AppType>）が叩く JSON、
                 #   /episodes/:id/audio は素の HTTP GET（audio/wav・Range 部分応答）で RPC を経由しない。
-                hono = Custom("Hono\n(route: RPC + 音声 GET)", hono_icon)
+                hono = Custom("Hono\n(routes: RPC + audio GET)", hono_icon)
 
         # 生成フロー
-        hn >> Edge(label="取得") >> go_cli
-        lobsters >> Edge(label="取得") >> go_cli
-        itmedia >> Edge(label="取得") >> go_cli
-        actions >> Edge(label="cron / 手動") >> go_cli
-        go_cli >> Edge(label="原稿生成") >> cursor_api
-        go_cli >> Edge(label="枯渇時 fallback", style="dashed") >> gemini_text
+        hn >> Edge(label="fetch") >> go_cli
+        lobsters >> Edge(label="fetch") >> go_cli
+        itmedia >> Edge(label="fetch") >> go_cli
+        actions >> Edge(label="cron / manual") >> go_cli
+        go_cli >> Edge(label="generate script") >> cursor_api
+        go_cli >> Edge(label="fallback on exhaustion", style="dashed") >> gemini_text
         go_cli >> Edge(label="TTS") >> gemini_tts
-        go_cli >> Edge(label="保存（OAuth 2.0）") >> drive
+        go_cli >> Edge(label="save (OAuth 2.0)") >> drive
 
         # 再生フロー
-        user >> Edge(label="アクセス") >> access >> cdn >> vite
-        ts >> Edge(label="型", style="dotted") >> react
-        ts >> Edge(label="型", style="dotted") >> hono
-        react >> Edge(label="一覧 JSON（Hono RPC）") >> hono
-        react >> Edge(label="音声 WAV / Range（HTTP GET）") >> hono
-        workers >> Edge(label="実行", style="dashed") >> hono
-        hono >> Edge(label="Drive 読取（OAuth 2.0）") >> drive
+        user >> Edge(label="access") >> access >> cdn >> vite
+        ts >> Edge(label="type", style="dotted") >> react
+        ts >> Edge(label="type", style="dotted") >> hono
+        react >> Edge(label="list JSON (Hono RPC)") >> hono
+        react >> Edge(label="audio WAV / Range (HTTP GET)") >> hono
+        workers >> Edge(label="execute", style="dashed") >> hono
+        hono >> Edge(label="Drive read (OAuth 2.0)") >> drive
 
     return Path(str(_OUTPUT) + ".png")
 

@@ -19,6 +19,7 @@
 6. 原稿 TextWriter fallback 本実装 — `manuscript.TextWriter`（`errors.Is(port.ErrSourceExhausted)` で高々 1 回切替）/ `geminiapi.TextWriter`（generateContent 1 回 + retry）を SU / Narrow 込みで実装。切替 trigger は `cursorapi` create の 401/403 と 400 + `usage_limit_exceeded`。`generator-system.yml` run 34133797530 で fallback 経路の e2e を実証（Cursor 400 → Gemini 原稿 → Drive 到達）。判断は Decision `2026-09-07T19-06-00` / `2026-09-07T23-30-00`
 7. `geminiapi` 実 API 疎通 smoke — `generator-geminiapi-smoke.yml`（dispatch 専用、`TEST_GEMINI_API_KEY`）。yml は master（PR #135）、test は `system && ratemeasure` tag で gate 外。`--ref <fallback 実装 branch>` で回す
 8. `generator-draft-rate` を `api`（cursor | gemini）入力化。gemini の default prompt を 9/10 まで調整（数値 range 不変、指導文のみ）。判断・実測は Decision `2026-09-08T07-40-00`
+9. 原稿 fallback の Gemini key を TTS と分離 — `GeminiConfig.SpareAPIKey`（`SPARE_GEMINI_API_KEY`）を新設し `newGeminiTextWriter` だけをそれへ。TTS は `GEMINI_API_KEY` 据え置き。GHA は本番 `SPARE_GEMINI_API_KEY` / System `TEST_SPARE_GEMINI_API_KEY`。`generator-system.yml` run 34298458327 で config 変更 + fallback 実切替の e2e を実証。判断は Decision `2026-09-09T10-00-00`
 
 ### 未完了
 
@@ -30,7 +31,8 @@
 
 | topic | 概要 |
 |---|---|
-| Prompt / limits 文案・数値 | 尺モデルは確定済み（正は `entities/constants/manuscript_draft_seconds.go` / `manuscript_draft_limits.go`）。topic 数 6/8/10・全体尺 14/16/18 分へ一度伸ばしたが、本番 produce run 34209712652 が gemini fallback 経路で HTTP 429（出力 token 増で free-tier rate limit に到達）で失敗したため旧尺（topic 3/5/7・全体 8/10/12 分）へ戻した。尺を再度伸ばすなら先に Gemini quota（TPM/RPD）か有料 tier を手当てする |
+| Prompt / limits 文案・数値 | 尺モデルは確定済み（正は `entities/constants/manuscript_draft_seconds.go` / `manuscript_draft_limits.go`）。topic 数 6/8/10・全体尺 14/16/18 分へ一度伸ばしたが、本番 produce run 34209712652 が gemini fallback 経路で HTTP 429 で失敗したため旧尺（topic 3/5/7・全体 8/10/12 分）へ戻した。済み 9 で原稿 fallback の key を TTS と分離（`SPARE_GEMINI_API_KEY`）したので TTS 消費との食い合いは解消。尺を再度伸ばすなら残るのは `SPARE_GEMINI_API_KEY` 単独の TPM/RPD で足りるかの実測、または有料 tier 手当て |
+| 本番 produce workflow_dispatch（key 分離後）| 済み 9 の変更を本番 `generator-produce-episode.yml` で通す確認が未実施。session 当日は本番 Gemini 枠が 429 中だったため見送り。次の枠回復日に `gh workflow run generator-produce-episode.yml --ref feature/generator-gemini-key-spare`（または merge 後 master）で 1 回回す。本番 `SPARE_GEMINI_API_KEY` の GHA 登録は shim 済み前提 |
 | 挨拶文案 | Opening/Closing 定数は date placeholder 入り template で確定。実運用での文言微調整のみ残 |
 | composite の source またぎ sort | 3 情報源で `OccurredAt` 順の混在が起きる。dedup は `SourceID` が全源で異なるため不要。時系列 sort を Application/Composition のどちらで持つかは別判断（事実: 現状は登録順 concat のみ） |
 | 別媒体の報道源追加 | Publickey / InfoQ / はてブ IT 等は各々専用 Adapter を新設（`infrastructure/<媒体>/`。RSS 汎用 Adapter は作らない）。RSS 2.0 parse の重複が三度現れたら共通化を検討（未実測） |

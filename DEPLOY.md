@@ -67,6 +67,7 @@ process env の正本は `apps/generator/internal/config/names.go`。`GENERATOR_
 | `DRIVE_FOLDER_ID` | Variable |
 | `CURSOR_API_KEY` | Secret |
 | `GEMINI_API_KEY` | Secret |
+| `SPARE_GEMINI_API_KEY` | Secret |
 
 GitHub Actions（Settings → Secrets and variables → Actions）:
 
@@ -76,6 +77,8 @@ GitHub Actions（Settings → Secrets and variables → Actions）:
 | test（System） | `TEST_` + 同名 |
 
 workflow が test 登録名を process env 名へ写す。Generator は `TEST_` を知らない。
+
+`GEMINI_API_KEY` は TTS、`SPARE_GEMINI_API_KEY` は原稿 fallback（Gemini generateContent）。分ける理由は `GeminiConfig`（`internal/config/config.go`）の invariant を正とする。System test は両方を要求する。
 
 credential 付き実 operation は GHA runner のみ。通常 local / Integration gate は実 service を呼ばず local secret を持たない。
 
@@ -93,14 +96,14 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 
 暦日は JST 運用に合わせる。
 
-workflow file を Actions で `workflow_dispatch` するには、**default branch（`master`）にその yml があること**が必要（feature branch にしか無い新規 workflow は `HTTP 404 workflow not found on the default branch` で dispatch できない）。
+`workflow_dispatch` は yml **file 名**が `master` にあれば通る。`gh workflow run <yml> --ref <feature-branch>` で feature branch 側の tree（yml の env・step・script 変更込み）が実行され、master への merge / checkout は要らない。`HTTP 404 workflow not found on the default branch` は file 名自体が master に無い完全新規 workflow のときだけで、その場合は yml を先に master へ載せる。
 
 ### Generator System（`generator-system.yml`）
 
 `-tags=system` の system test を **1 回ずつ通すだけ**。「壊れていないか」だけを測り、PASS 率は定常で測らない。1 回でも FAIL なら run が赤。判断: `docs/decisions/2026-09-03T14-45-00` / `16-30-00`。
 
 - 実体は `TestProduceEpisodeSystem`（`//go:build system`）1 本。`composition.NewProduceEpisodeFromEnv` → `Run` を 1 度通し、実 3 情報源 → Cursor API 原稿 → Gemini TTS → OAuth+Drive 書込 の疎通と通し経路の Drive 実到達を見る。Fetch 窓に SourceItem 0 件だった日は `no_source_items` Domain Error で PASS 扱い（fetch は疎通しており system は壊れていない）。他の error は system 故障として赤。
-- 必要 credential は config 契約の全 key（`TEST_CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` / `TEST_GOOGLE_OAUTH_*` / `TEST_DRIVE_FOLDER_ID`）。1 つでも欠けたら Skip。
+- 必要 credential は config 契約の全 key（`TEST_CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` / `TEST_SPARE_GEMINI_API_KEY` / `TEST_GOOGLE_OAUTH_*` / `TEST_DRIVE_FOLDER_ID`）。1 つでも欠けたら Skip。
 - cron の 1 回通しが **2 週連続で落ちたら** bug 扱いで Issue 化する。1 週だけの赤は provider 起因として再 `workflow_dispatch` する。
 - 赤になったら故障区間に応じて `generator-tts-rate.yml`（TTS 側）/ `generator-draft-rate.yml`（Cursor 原稿側）を手動 dispatch して切り分ける。
 - 定時緑化を運用目標にするのは課金枠移行後。無料枠のうちは「dispatch で回せたとき緑」で可。

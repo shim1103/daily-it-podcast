@@ -44,6 +44,7 @@ import (
 var systemConfigEnvKeys = []string{
 	config.CursorAPIKeyEnv,
 	config.GeminiAPIKeyEnv,
+	config.SpareGeminiAPIKeyEnv,
 	config.GoogleOAuthClientIDEnv,
 	config.GoogleOAuthClientSecretEnv,
 	config.GoogleOAuthRefreshTokenEnv,
