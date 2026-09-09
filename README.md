@@ -15,7 +15,9 @@ Generator (Go + GitHub Actions cron)
 Playback (Vite + TypeScript + React + Cloudflare)
   Access -> UI -> Workers (Hono, proxy for Drive reads)
 ```
-[Runtime diagram](apps/diagrams/runtime.png)　
+
+## Runtime diagram
+![Runtime diagram](./apps/diagrams/runtime.png)　
 
 ## Technology choices
 
