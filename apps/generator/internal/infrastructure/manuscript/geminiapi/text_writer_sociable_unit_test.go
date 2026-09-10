@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 )
 
 // Scope: Sociable Unit
@@ -40,7 +41,26 @@ type fakeClientResponse struct {
 	header http.Header
 	body   string
 	err    error
+	// bodyReadErr を設定すると、応答本文の読み取り途中で此の error を返す（transient network 切断の模倣）。
+	bodyReadErr error
 }
+
+// errAfterReader は先頭 bytes を返した後 err を返す io.ReadCloser。body read 途中断の模倣に使う。
+type errAfterReader struct {
+	data []byte
+	err  error
+}
+
+func (r *errAfterReader) Read(p []byte) (int, error) {
+	if len(r.data) == 0 {
+		return 0, r.err
+	}
+	n := copy(p, r.data)
+	r.data = r.data[n:]
+	return n, nil
+}
+
+func (r *errAfterReader) Close() error { return nil }
 
 // fakeRoundTripper は境界 I/O なしで http.RoundTripper を満たす Spy。
 // 呼び出し順に responses を返し、各 request を記録する。
@@ -79,7 +99,11 @@ func (rt *fakeRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	if resp.body != "" {
 		_, _ = rec.WriteString(resp.body)
 	}
-	return rec.Result(), nil
+	result := rec.Result()
+	if resp.bodyReadErr != nil {
+		result.Body = &errAfterReader{data: []byte(resp.body), err: resp.bodyReadErr}
+	}
+	return result, nil
 }
 
 // sleepSpy は backoffSleepFn が観測した待ち時間を記録する。
@@ -135,9 +159,9 @@ func assertGeminiInfraError(t *testing.T, err error) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *geminiapi.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 	if !strings.HasPrefix(infra.Error(), "geminiapi:") {
 		t.Fatalf("Error() = %q, want prefix geminiapi:", infra.Error())
@@ -150,7 +174,7 @@ func assertGeminiInfraError(t *testing.T, err error) {
 func assertGeminiInfraErrorOp(t *testing.T, err error, wantOp string) {
 	t.Helper()
 	assertGeminiInfraError(t, err)
-	var infra *Error
+	var infra *adaptererror.Error
 	_ = errors.As(err, &infra)
 	if infra.Op != wantOp {
 		t.Fatalf("Op = %q, want %q", infra.Op, wantOp)
@@ -262,8 +286,54 @@ func TestWrite_doesNotRetryTwice_whenStatus5xxPersists(t *testing.T) {
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて")
 
-	// Then: 即再試行は 1 回だけ（calls == 2）で *geminiapi.Error
+	// Then: 即再試行は 1 回だけ（calls == 2）で *adaptererror.Error
 	assertGeminiInfraErrorOp(t, err, "http_status")
+	if got != "" {
+		t.Fatalf("fragment = %q, want empty", got)
+	}
+	if len(rt.calls) != 2 {
+		t.Fatalf("call count = %d, want 2", len(rt.calls))
+	}
+}
+
+func TestWrite_retriesOnceThenSucceeds_whenBodyReadIsInterrupted(t *testing.T) {
+	t.Parallel()
+
+	// Given: 1 回目は body 読み取り途中で切断、2 回目は成功応答
+	w, rt := newFakeTextWriter(
+		fakeClientResponse{status: http.StatusOK, body: `{"candi`, bodyReadErr: errors.New("connection reset by peer")},
+		successResponse("STOP", "再接続後の原稿。"),
+	)
+
+	// When: Write する
+	got, err := w.Write(context.Background(), "原稿を書いて")
+
+	// Then: read_body 断は一過性として 1 回だけ再試行し、2 回目で成功する（calls == 2）
+	if err != nil {
+		t.Fatalf("Write() error = %v, want nil", err)
+	}
+	if got != "再接続後の原稿。" {
+		t.Fatalf("Write() = %q", got)
+	}
+	if len(rt.calls) != 2 {
+		t.Fatalf("call count = %d, want 2", len(rt.calls))
+	}
+}
+
+func TestWrite_doesNotRetryTwice_whenBodyReadInterruptionPersists(t *testing.T) {
+	t.Parallel()
+
+	// Given: body 読み取り途中断が 2 回続く
+	w, rt := newFakeTextWriter(
+		fakeClientResponse{status: http.StatusOK, body: `{"candi`, bodyReadErr: errors.New("connection reset by peer")},
+		fakeClientResponse{status: http.StatusOK, body: `{"candi`, bodyReadErr: errors.New("connection reset by peer")},
+	)
+
+	// When: Write する
+	got, err := w.Write(context.Background(), "原稿を書いて")
+
+	// Then: 即再試行は 1 回だけ（calls == 2）で read_body の Infrastructure Error
+	assertGeminiInfraErrorOp(t, err, "read_body")
 	if got != "" {
 		t.Fatalf("fragment = %q, want empty", got)
 	}
@@ -288,7 +358,7 @@ func TestWrite_retriesOn429_untilMaxAttemptsThenInfraError(t *testing.T) {
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて")
 
-	// Then: 上限到達で *geminiapi.Error、待ち観測は MaxAttempts-1 回、call は MaxAttempts 回
+	// Then: 上限到達で *adaptererror.Error、待ち観測は MaxAttempts-1 回、call は MaxAttempts 回
 	assertGeminiInfraErrorOp(t, err, "http_status")
 	if got != "" {
 		t.Fatalf("fragment = %q, want empty", got)
@@ -374,7 +444,7 @@ func TestWrite_doesNotRetry_whenClientErrorStatus(t *testing.T) {
 			// When: Write する
 			got, err := w.Write(context.Background(), "原稿を書いて")
 
-			// Then: 非 retry（calls == 1）で *geminiapi.Error、断片空
+			// Then: 非 retry（calls == 1）で *adaptererror.Error、断片空
 			assertGeminiInfraErrorOp(t, err, "http_status")
 			if got != "" {
 				t.Fatalf("fragment = %q, want empty", got)
@@ -390,6 +460,26 @@ func TestWrite_doesNotRetry_whenClientErrorStatus(t *testing.T) {
 	}
 }
 
+func TestWrite_includesResponseBodySnippet_whenStatus401(t *testing.T) {
+	t.Parallel()
+
+	// Given: 401 応答の body に切り分け用の理由（status / message）が入っている
+	const body = `{"error":{"code":401,"status":"UNAUTHENTICATED","message":"API key not valid"}}`
+	w, _ := newFakeTextWriter(fakeClientResponse{status: http.StatusUnauthorized, body: body})
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて")
+
+	// Then: http_status Infra Error に応答 body の snippet が載る（System 失敗の切り分け用）
+	assertGeminiInfraErrorOp(t, err, "http_status")
+	if !strings.Contains(err.Error(), "response body:") {
+		t.Fatalf("error message %q does not carry response body snippet", err.Error())
+	}
+	if !strings.Contains(err.Error(), "UNAUTHENTICATED") {
+		t.Fatalf("error message %q does not carry response body reason %q", err.Error(), "UNAUTHENTICATED")
+	}
+}
+
 func TestWrite_returnsInfraError_whenFinishReasonIsNotStop(t *testing.T) {
 	t.Parallel()
 
@@ -399,7 +489,7 @@ func TestWrite_returnsInfraError_whenFinishReasonIsNotStop(t *testing.T) {
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて")
 
-	// Then: 非 retry で *geminiapi.Error、断片空
+	// Then: 非 retry で *adaptererror.Error、断片空
 	assertGeminiInfraErrorOp(t, err, "finish_reason")
 	if got != "" {
 		t.Fatalf("fragment = %q, want empty", got)
@@ -418,7 +508,7 @@ func TestWrite_returnsInfraError_whenTextIsWhitespaceOnly(t *testing.T) {
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて")
 
-	// Then: 非 retry で *geminiapi.Error、断片空
+	// Then: 非 retry で *adaptererror.Error、断片空
 	assertGeminiInfraErrorOp(t, err, "empty_text")
 	if got != "" {
 		t.Fatalf("fragment = %q, want empty", got)
@@ -441,7 +531,7 @@ func TestWrite_returnsInfraError_whenCandidatesEmpty(t *testing.T) {
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて")
 
-	// Then: 非 retry で parse_response の *geminiapi.Error、断片空
+	// Then: 非 retry で parse_response の *adaptererror.Error、断片空
 	assertGeminiInfraErrorOp(t, err, "parse_response")
 	if got != "" {
 		t.Fatalf("fragment = %q, want empty", got)

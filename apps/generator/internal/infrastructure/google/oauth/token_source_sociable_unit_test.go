@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 )
 
 const (
@@ -61,9 +63,9 @@ func TestToken_returnsInfrastructureError_whenUnauthorized(t *testing.T) {
 	_, err := source.Token(context.Background())
 
 	// Then: OAuth 固有の Infrastructure Error を返し、Error / Unwrap が観測できる
-	var oauthErr *Error
+	var oauthErr *adaptererror.Error
 	if !errors.As(err, &oauthErr) {
-		t.Fatalf("error = %T, want *oauth.Error", err)
+		t.Fatalf("error = %T, want *adaptererror.Error", err)
 	}
 	if !strings.HasPrefix(oauthErr.Error(), "google oauth:") {
 		t.Fatalf("Error() = %q, want prefix google oauth:", oauthErr.Error())
@@ -84,9 +86,9 @@ func TestToken_returnsInfrastructureError_whenAccessTokenIsEmpty(t *testing.T) {
 	_, err := source.Token(context.Background())
 
 	// Then: OAuth 固有の Infrastructure Error を返す
-	var oauthErr *Error
+	var oauthErr *adaptererror.Error
 	if !errors.As(err, &oauthErr) {
-		t.Fatalf("error = %T, want *oauth.Error", err)
+		t.Fatalf("error = %T, want *adaptererror.Error", err)
 	}
 }
 
@@ -98,9 +100,9 @@ func TestToken_returnsInfrastructureError_whenClientIsNil(t *testing.T) {
 	_, err := source.Token(context.Background())
 
 	// Then: OAuth 固有の Infrastructure Error を返す
-	var oauthErr *Error
+	var oauthErr *adaptererror.Error
 	if !errors.As(err, &oauthErr) {
-		t.Fatalf("error = %T, want *oauth.Error", err)
+		t.Fatalf("error = %T, want *adaptererror.Error", err)
 	}
 }
 
@@ -114,9 +116,9 @@ func TestToken_returnsInfrastructureError_whenUpstreamConnectionFails(t *testing
 	_, err := source.Token(context.Background())
 
 	// Then: OAuth 固有の Infrastructure Error を返す
-	var oauthErr *Error
+	var oauthErr *adaptererror.Error
 	if !errors.As(err, &oauthErr) {
-		t.Fatalf("error = %T, want *oauth.Error", err)
+		t.Fatalf("error = %T, want *adaptererror.Error", err)
 	}
 }
 
@@ -131,8 +133,8 @@ func TestToken_returnsInfrastructureError_whenResponseIsInvalidJSON(t *testing.T
 	_, err := source.Token(context.Background())
 
 	// Then: OAuth 固有の Infrastructure Error を返す
-	var oauthErr *Error
+	var oauthErr *adaptererror.Error
 	if !errors.As(err, &oauthErr) {
-		t.Fatalf("error = %T, want *oauth.Error", err)
+		t.Fatalf("error = %T, want *adaptererror.Error", err)
 	}
 }

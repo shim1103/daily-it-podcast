@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/lobsters"
 )
 
@@ -402,9 +403,9 @@ func TestList_failsEntirely_whenHottestFetchFails(t *testing.T) {
 
 func assertLobstersInfraError(t *testing.T, err error) {
 	t.Helper()
-	var infra *lobsters.Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *lobsters.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 	if !strings.HasPrefix(infra.Error(), "lobsters:") {
 		t.Fatalf("Error() = %q, want prefix %q", infra.Error(), "lobsters:")

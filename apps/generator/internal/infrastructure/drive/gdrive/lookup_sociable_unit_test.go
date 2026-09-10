@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 )
 
 func newStubLookup(rt *stubRoundTripper, tokens TokenSource) *CompletedEpisodeLookup {
@@ -182,9 +184,9 @@ func TestHasPair_returnsInfrastructureError_whenTokenSourceFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 	if got {
 		t.Fatal("HasPair = true on error, want false")

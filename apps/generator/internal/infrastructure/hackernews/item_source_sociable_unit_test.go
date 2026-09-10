@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/hackernews"
 )
 
@@ -304,9 +305,9 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidJSON(t *t
 		if got != nil {
 			t.Fatalf("got = %+v, want nil", got)
 		}
-		var infra *hackernews.Error
+		var infra *adaptererror.Error
 		if !errors.As(err, &infra) {
-			t.Fatalf("error type %T (%v), want *hackernews.Error", err, err)
+			t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 		}
 		if !strings.HasPrefix(infra.Error(), "hackernews:") {
 			t.Fatalf("Error() = %q, want prefix %q", infra.Error(), "hackernews:")
@@ -329,9 +330,9 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidJSON(t *t
 		if got != nil {
 			t.Fatalf("got = %+v, want nil", got)
 		}
-		var infra *hackernews.Error
+		var infra *adaptererror.Error
 		if !errors.As(err, &infra) {
-			t.Fatalf("error type %T (%v), want *hackernews.Error", err, err)
+			t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 		}
 		if !strings.HasPrefix(infra.Error(), "hackernews:") {
 			t.Fatalf("Error() = %q, want prefix %q", infra.Error(), "hackernews:")
@@ -354,9 +355,9 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidJSON(t *t
 		if got != nil {
 			t.Fatalf("got = %+v, want nil", got)
 		}
-		var infra *hackernews.Error
+		var infra *adaptererror.Error
 		if !errors.As(err, &infra) {
-			t.Fatalf("error type %T (%v), want *hackernews.Error", err, err)
+			t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 		}
 		if !strings.HasPrefix(infra.Error(), "hackernews:") {
 			t.Fatalf("Error() = %q, want prefix %q", infra.Error(), "hackernews:")
@@ -481,9 +482,9 @@ func TestList_failsEntirely_whenTopStoriesFetchFails(t *testing.T) {
 	if got != nil {
 		t.Fatalf("got = %+v, want nil", got)
 	}
-	var infra *hackernews.Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *hackernews.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 }
 
@@ -756,9 +757,9 @@ func TestList_failsAfterRetry_whenSecondTopStoriesAttemptAlsoFails(t *testing.T)
 	if attempts != 2 {
 		t.Fatalf("attempts = %d, want 2 (retry once)", attempts)
 	}
-	var infra *hackernews.Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *hackernews.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 }
 
@@ -784,9 +785,9 @@ func TestList_returnsInfrastructureError_whenResponseBodyReadFails(t *testing.T)
 	if got != nil {
 		t.Fatalf("got = %+v, want nil", got)
 	}
-	var infra *hackernews.Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *hackernews.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 	if !strings.HasPrefix(infra.Error(), "hackernews:") {
 		t.Fatalf("Error() = %q, want prefix %q", infra.Error(), "hackernews:")

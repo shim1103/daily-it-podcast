@@ -1,6 +1,10 @@
 package config
 
-import "strings"
+import (
+	"strings"
+
+	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
+)
 
 // why: typo は compile で捕まらないので違反種別の語彙を定数へ固定する。
 const (
@@ -29,6 +33,19 @@ func (e *Error) Error() string {
 	return errorPrefix + ": " + e.Key + ": " + e.Kind
 }
 
+func (e *Error) ErrorKind() string {
+	return domainerrors.KindConfig
+}
+
+func (e *Error) ErrorOp() string {
+	if e == nil {
+		return ""
+	}
+	return e.Key
+}
+
+var _ domainerrors.Kinded = (*Error)(nil)
+
 // why: application 層と対称に「層ごとに1つの生成 helper」。
 func configErr(key, kind string) *Error {
 	return &Error{Key: key, Kind: kind}
@@ -49,6 +66,15 @@ func (e *Errors) Error() string {
 	}
 	return strings.Join(lines, "\n")
 }
+
+func (e *Errors) ErrorKind() string {
+	return domainerrors.KindConfig
+}
+
+// why: 束ね error に単一 op は無い。nil でも "" を返すので nil ガード不要。
+func (e *Errors) ErrorOp() string { return "" }
+
+var _ domainerrors.Kinded = (*Errors)(nil)
 
 // why: errors.As を個別 *Error へ到達させる（Issue §7-6）。
 func (e *Errors) Unwrap() []error {

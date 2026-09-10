@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 )
 
 const testFolderID = "gdrive-test-folder-id"
@@ -179,9 +180,9 @@ func TestWrite_returnsInfrastructureError_whenTokenSourceFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 	if !strings.HasPrefix(infra.Error(), "gdrive:") {
 		t.Fatalf("Error() = %q", infra.Error())
@@ -214,9 +215,9 @@ func TestWrite_returnsInfrastructureErrorWithoutDelete_whenWAVUploadFailsAfterJS
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 	for _, c := range rt.calls {
 		if c.Method == http.MethodDelete {
@@ -251,9 +252,9 @@ func TestWrite_returnsInfrastructureError_whenClientNil(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 }
 
@@ -270,9 +271,9 @@ func TestWrite_returnsInfrastructureError_whenWriterNil(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 }
 
@@ -293,9 +294,9 @@ func TestWrite_returnsInfrastructureError_whenListHTTPFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 }
 
@@ -316,9 +317,9 @@ func TestWrite_returnsInfrastructureError_whenListBodyInvalid(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 }
 
@@ -340,9 +341,9 @@ func TestWrite_returnsInfrastructureError_whenCreateHTTPFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 }
 
@@ -364,9 +365,9 @@ func TestWrite_returnsInfrastructureError_whenCreateIDEmpty(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 }
 
@@ -388,9 +389,9 @@ func TestWrite_returnsInfrastructureError_whenCreateBodyInvalid(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/itmedia"
 )
 
@@ -336,9 +337,9 @@ func TestList_returnsInfrastructureError_whenNon200OrInvalidXML(t *testing.T) {
 		if got != nil {
 			t.Fatalf("got = %+v, want nil", got)
 		}
-		var infra *itmedia.Error
+		var infra *adaptererror.Error
 		if !errors.As(err, &infra) {
-			t.Fatalf("error type %T (%v), want *itmedia.Error", err, err)
+			t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 		}
 		if !strings.HasPrefix(infra.Error(), "itmedia:") {
 			t.Fatalf("Error() = %q, want prefix %q", infra.Error(), "itmedia:")
@@ -364,9 +365,9 @@ func TestList_returnsInfrastructureError_whenNon200OrInvalidXML(t *testing.T) {
 		if got != nil {
 			t.Fatalf("got = %+v, want nil", got)
 		}
-		var infra *itmedia.Error
+		var infra *adaptererror.Error
 		if !errors.As(err, &infra) {
-			t.Fatalf("error type %T (%v), want *itmedia.Error", err, err)
+			t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 		}
 		if !strings.HasPrefix(infra.Error(), "itmedia:") {
 			t.Fatalf("Error() = %q, want prefix %q", infra.Error(), "itmedia:")
@@ -395,9 +396,9 @@ func TestList_returnsInfrastructureError_whenNon200OrInvalidXML(t *testing.T) {
 		if got != nil {
 			t.Fatalf("got = %+v, want nil", got)
 		}
-		var infra *itmedia.Error
+		var infra *adaptererror.Error
 		if !errors.As(err, &infra) {
-			t.Fatalf("error type %T (%v), want *itmedia.Error", err, err)
+			t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 		}
 		if errors.Unwrap(infra) == nil {
 			t.Fatal("Unwrap() = nil, want non-nil")
@@ -423,9 +424,9 @@ func TestList_returnsInfrastructureError_whenNon200OrInvalidXML(t *testing.T) {
 		if got != nil {
 			t.Fatalf("got = %+v, want nil", got)
 		}
-		var infra *itmedia.Error
+		var infra *adaptererror.Error
 		if !errors.As(err, &infra) {
-			t.Fatalf("error type %T (%v), want *itmedia.Error", err, err)
+			t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 		}
 		if !strings.HasPrefix(infra.Error(), "itmedia:") {
 			t.Fatalf("Error() = %q, want prefix %q", infra.Error(), "itmedia:")

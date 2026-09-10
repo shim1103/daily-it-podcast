@@ -10,7 +10,7 @@
 // 目的: 固定擬似ソース → ComposeBriefWithTemplate(items, variant) → Write → ManuscriptDraftFromWriterOutput を
 //
 //	runs 回直列に通し、valid Draft が返る率を計測する（Decision 2026-09-03T14-47-00 / 2026-09-08T07-40-00）。
-//	*cursorapi.Error / *geminiapi.Error の Op=="do"（API へ到達すらできない環境要因）はその回を分母から除外する。
+//	*adaptererror.Error の Op=="do"（API へ到達すらできない環境要因）はその回を分母から除外する。
 //
 // @require 選んだ API の key env（TEST_CURSOR_API_KEY / TEST_GEMINI_API_KEY）が process env にある（欠けたら Skip）。
 //
@@ -34,6 +34,7 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/build"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorapi"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/geminiapi"
 )
@@ -92,17 +93,13 @@ func resolveDraftAPITarget(t *testing.T, api string) draftAPITarget {
 }
 
 // isEnvUnreachable は Write error が「API へ到達すらできなかった環境要因」かを返す。
-// why: cursorapi.Error / geminiapi.Error は同型で、どちらも client.Do 失敗を Op:"do" で包む。
+// why: cursorapi / geminiapi はどちらも client.Do 失敗を *adaptererror.Error の Op:"do" で包む。
 //
 //	do 以降（応答が返った後）の失敗は prompt 精度の範疇なので分母に含める（Decision 2026-09-03T14-47-00）。
 func isEnvUnreachable(err error) bool {
-	var cerr *cursorapi.Error
-	if errors.As(err, &cerr) {
-		return cerr.Op == "do"
-	}
-	var gerr *geminiapi.Error
-	if errors.As(err, &gerr) {
-		return gerr.Op == "do"
+	var infra *adaptererror.Error
+	if errors.As(err, &infra) {
+		return infra.Op == "do"
 	}
 	return false
 }

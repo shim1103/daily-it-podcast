@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpdiag"
 )
 
 var _ port.TextWriter = (*TextWriter)(nil)
@@ -56,7 +57,7 @@ func ctxSleep(ctx context.Context, d time.Duration) {
 // Write は brief から generateContent 1 回で原稿断片を得る。
 //
 // @require brief は trim 後に非空。
-// @ensure 成功時は非空 text 断片を返す。失敗時は *geminiapi.Error、断片は空。
+// @ensure 成功時は非空 text 断片を返す。失敗時は *adaptererror.Error、断片は空。
 // @invariant generateContent は idempotent（同 body は同じ生成試行・副作用なし）。client.Do error / 5xx を 1 回、429 を MaxAttempts まで backoff で再試行する。401 / 403 / その他 4xx、finishReason が STOP 以外、空 text、parse 失敗は再試行しない。secret 実値を error へ出さない。model は ModelID 固定。
 func (w *TextWriter) Write(ctx context.Context, brief string) (string, error) {
 	if w == nil || w.client == nil {
@@ -172,18 +173,20 @@ func (w *TextWriter) fetchOnce(ctx context.Context, url string, body []byte) (st
 	}
 	defer func() { _ = res.Body.Close() }()
 
-	switch {
-	case res.StatusCode == http.StatusTooManyRequests:
-		return "", retryRateLimited, retryAfter(res.Header), geminiErr("http_status", fmt.Errorf("status %d", res.StatusCode))
-	case res.StatusCode >= 500:
-		return "", retryTransientOnce, 0, geminiErr("http_status", fmt.Errorf("status %d", res.StatusCode))
-	case res.StatusCode != http.StatusOK:
-		return "", retryNone, 0, geminiErr("http_status", fmt.Errorf("status %d", res.StatusCode))
-	}
-
 	raw, err := io.ReadAll(io.LimitReader(res.Body, ResponseBufferBytes))
 	if err != nil {
-		return "", retryNone, 0, geminiErr("read_body", err)
+		// why: body 読みは status 分岐の前。read 途中断（transient network 切断など）は 5xx と同じ一過性として 1 回だけ再試行する。
+		return "", retryTransientOnce, 0, geminiErr("read_body", err)
+	}
+
+	// why: secret は APIKeyHeader（x-goog-api-key）にしか載せないので、応答 body 全体を診断へ出しても credential は漏れない。
+	switch {
+	case res.StatusCode == http.StatusTooManyRequests:
+		return "", retryRateLimited, retryAfter(res.Header), geminiErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
+	case res.StatusCode >= 500:
+		return "", retryTransientOnce, 0, geminiErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
+	case res.StatusCode != http.StatusOK:
+		return "", retryNone, 0, geminiErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
 	}
 
 	text, err := parseGeneratedText(raw)

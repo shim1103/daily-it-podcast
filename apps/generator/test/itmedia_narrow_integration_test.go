@@ -4,7 +4,7 @@
 // @require upstream は controllable な test server。ITmedia RSS は認証不要のため secret を渡さない。
 // @ensure upstream は GET を受け取り、Authorization header は空（認証 header 無しで成功する）。
 // @ensure 成功時 List は SourceItem を 1 件以上返す。
-// @ensure 失敗経路（5xx を返す upstream）で *itmedia.Error が返る。
+// @ensure 失敗経路（5xx を返す upstream）で *adaptererror.Error が返る。
 // @invariant vendor 固有型・監視対象一覧を露出しない。
 package test
 
@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/itmedia"
 )
 
@@ -138,9 +139,9 @@ func TestITmediaListItemSource_returnsInfrastructureError_whenUpstreamFails(t *t
 	if got != nil {
 		t.Fatalf("got = %+v, want nil", got)
 	}
-	var infra *itmedia.Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *itmedia.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 	if !strings.HasPrefix(infra.Error(), "itmedia:") {
 		t.Fatalf("Error() = %q, want prefix %q", infra.Error(), "itmedia:")

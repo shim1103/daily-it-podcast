@@ -1,4 +1,3 @@
-// Package errors は Generator の Domain Error を単一型で表現する。
 package errors
 
 // why: Domain は package 単位でなく層単位の分類なので層名を固定 prefix にする。
@@ -42,6 +41,19 @@ func (e *Error) Unwrap() error {
 	}
 	return e.Err
 }
+
+func (e *Error) ErrorKind() string {
+	return KindDomain
+}
+
+func (e *Error) ErrorOp() string {
+	if e == nil {
+		return ""
+	}
+	return e.Op
+}
+
+var _ Kinded = (*Error)(nil)
 
 // why: application 層が Domain Error を構築するため exported。infraErr / configErr と <層>Err で対称。
 func DomainErr(op string, err error) *Error {
