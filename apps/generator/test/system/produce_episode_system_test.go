@@ -36,6 +36,7 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/composition"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/config"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
 	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
 )
 
@@ -68,7 +69,7 @@ func TestProduceEpisodeSystem_runsEndToEndOnce_whenAllCredentialsPresent(t *test
 	// Given: config 契約の全 key（1 つでも欠けたら Skip）
 	requireSystemConfigEnv(t)
 
-	uc, err := composition.NewProduceEpisodeFromEnv()
+	uc, err := composition.NewProduceEpisodeFromEnv(delivery.NewLogWriter(os.Stderr))
 	if err != nil {
 		t.Fatalf("NewProduceEpisodeFromEnv: %v", err)
 	}
