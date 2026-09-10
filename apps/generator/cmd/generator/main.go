@@ -22,7 +22,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	produceEpisode, err := composition.NewProduceEpisodeFromEnv()
+	logw := delivery.NewLogWriter(os.Stderr)
+
+	produceEpisode, err := composition.NewProduceEpisodeFromEnv(logw)
 	if err != nil {
 		writeExternalError(os.Stderr, err)
 		os.Exit(1)

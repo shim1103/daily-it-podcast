@@ -38,21 +38,3 @@ func TestSynthesize_includesResponseBodySnippet_whenOutputAudioMissingOnOK(t *te
 		t.Fatalf("Error() = %q, want it to contain response body marker %q", err.Error(), marker)
 	}
 }
-
-func TestBodySnippet_truncatesLongBodyAndStripsNewlines(t *testing.T) {
-	t.Parallel()
-
-	long := strings.Repeat("a", bodySnippetMax*2)
-	got := bodySnippet([]byte(long))
-	if len(got) > bodySnippetMax+len(bodySnippetEllipsis) {
-		t.Fatalf("len(bodySnippet) = %d, want <= %d", len(got), bodySnippetMax+len(bodySnippetEllipsis))
-	}
-	if !strings.HasSuffix(got, bodySnippetEllipsis) {
-		t.Fatalf("bodySnippet = %q, want ellipsis suffix", got)
-	}
-
-	multiline := "line1\nline2\r\nline3"
-	if strings.ContainsAny(bodySnippet([]byte(multiline)), "\r\n") {
-		t.Fatalf("bodySnippet kept newlines: %q", bodySnippet([]byte(multiline)))
-	}
-}

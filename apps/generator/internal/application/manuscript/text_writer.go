@@ -15,29 +15,32 @@ import (
 
 var _ port.TextWriter = (*TextWriter)(nil)
 
+// why: event 名の typo は compile で捕まらないので定数化する。
+const fallbackEventSourceSwitched = "manuscript_source_switched"
+
 // TextWriter は primary → secondary の順で原稿断片を確保する UseCase である。
 //
 // primary が port.ErrSourceExhausted を wrap した error を返したときだけ secondary へ 1 回切り替える。
 // primary / secondary の vendor は知らない。切り替え可否は番兵 error だけで判断する。
 type TextWriter struct {
-	primary    port.TextWriter
-	secondary  port.TextWriter
-	onFallback func()
+	primary   port.TextWriter
+	secondary port.TextWriter
+	fallback  port.FallbackReporter
 }
 
-// NewTextWriter は primary / secondary と、切り替え発生時の通知関数を束ねる。
+// NewTextWriter は primary / secondary と、切り替え発生時の観測面を束ねる。
 //
-// @require primary != nil かつ secondary != nil かつ onFallback != nil。
+// @require primary != nil かつ secondary != nil かつ fallback != nil。
 // @ensure 戻りは *TextWriter（port.TextWriter を満たす）。
-func NewTextWriter(primary, secondary port.TextWriter, onFallback func()) *TextWriter {
-	return &TextWriter{primary: primary, secondary: secondary, onFallback: onFallback}
+func NewTextWriter(primary, secondary port.TextWriter, fallback port.FallbackReporter) *TextWriter {
+	return &TextWriter{primary: primary, secondary: secondary, fallback: fallback}
 }
 
 // Write は primary を試し、port.ErrSourceExhausted のときだけ secondary を 1 回だけ呼ぶ。
 //
 // @require brief は trim 後に非空。違反時は domainerrors.DomainErr(OpEmptyBrief) を返し primary を呼ばない。
 // @ensure primary が成功したらその断片を返し、secondary を呼ばない。
-// @ensure primary の error が errors.Is(err, port.ErrSourceExhausted)==true のとき、onFallback を 1 回呼んでから secondary.Write を 1 回だけ呼び、その戻り（成功・失敗を問わず）を返す。
+// @ensure primary の error が errors.Is(err, port.ErrSourceExhausted)==true のとき、fallback.Fallback を 1 回呼んでから secondary.Write を 1 回だけ呼び、その戻り（成功・失敗を問わず）を返す。
 // @ensure primary の error が errors.Is(err, port.ErrSourceExhausted)==false のとき、その error をそのまま返し secondary を呼ばない。
 // @invariant 切り替えは高々 1 回（secondary が再び port.ErrSourceExhausted を返しても 3 つ目は無い）。secondary の error を別型でラップしない。secondary へ渡す brief は primary へ渡したものと同一。
 func (w *TextWriter) Write(ctx context.Context, brief string) (string, error) {
@@ -57,6 +60,6 @@ func (w *TextWriter) Write(ctx context.Context, brief string) (string, error) {
 	}
 
 	// why: primary の取得元が枯れた。高々 1 回だけ secondary へ切り替え、その戻り（成功・失敗）を透過する。
-	w.onFallback()
+	w.fallback.Fallback(fallbackEventSourceSwitched)
 	return w.secondary.Write(ctx, brief)
 }

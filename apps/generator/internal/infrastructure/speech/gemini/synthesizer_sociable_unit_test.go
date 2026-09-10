@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 )
 
 func TestSynthesizeAll_returnsInfrastructureError_whenClientNil(t *testing.T) {
@@ -37,9 +39,9 @@ func TestSynthesizeAll_returnsInfrastructureError_whenReceiverNil(t *testing.T) 
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *Error", err, infra)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, infra)
 	}
 }
 
@@ -189,5 +191,31 @@ func TestSynthesizeAll_capsSingleSegmentAtMaxAttempts_whenBudgetRemains(t *testi
 	}
 	if len(rt.calls) != 2 {
 		t.Fatalf("call count = %d, want 2（1 本目の同種 2 連続打ち切りで即 return）", len(rt.calls))
+	}
+}
+
+func TestSameGeminiOp_returnsTrue_whenSourceAndOpBothMatch(t *testing.T) {
+	t.Parallel()
+
+	// Given: Source も Op も等しい 2 つの Infrastructure Error
+	prev := adaptererror.New("gemini", "http_status", errors.New("status 503"))
+	cur := adaptererror.New("gemini", "http_status", errors.New("status 503"))
+
+	// When / Then: 同種と判定する
+	if !sameGeminiOp(prev, cur) {
+		t.Fatal("sameGeminiOp() = false, want true")
+	}
+}
+
+func TestSameGeminiOp_returnsFalse_whenOpMatchesButSourceDiffers(t *testing.T) {
+	t.Parallel()
+
+	// Given: Op は同じ共通語彙だが Source（発生 Adapter）が違う 2 つの Infrastructure Error
+	prev := adaptererror.New("gemini", "http_status", errors.New("status 503"))
+	cur := adaptererror.New("geminiapi", "http_status", errors.New("status 503"))
+
+	// When / Then: 別 Adapter 由来なので同種ではない
+	if sameGeminiOp(prev, cur) {
+		t.Fatal("sameGeminiOp() = true, want false（Source が違う）")
 	}
 }

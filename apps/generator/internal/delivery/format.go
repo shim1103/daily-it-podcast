@@ -1,27 +1,19 @@
-// Package delivery は Generator CLI の Driving Adapter が使う External 失敗表現を組み立てる。
+// Package delivery は Generator CLI の Driving Adapter の出力面を持つ。
+// error は Format が External 失敗行へ、非 error の観測（進捗・fallback 通知）は LogWriter が
+// "generator: " 1 行 format へ写す。生 log をこの package の外へ出さない。
 package delivery
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/config"
 	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/google/oauth"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/hackernews"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/itmedia"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/lobsters"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorapi"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
 )
 
-const (
-	kindDomain         = "domain"
-	kindConfig         = "config"
-	kindInfrastructure = "infrastructure"
-	kindUnknown        = "unknown"
-)
+// why: 分類不能時のフォールバックだけ delivery が持つ。domain / infrastructure / config は
+//
+//	entities/errors の共有語彙（Kinded が名乗る）を参照する（architecture/error-taxonomy §5）。
+const kindUnknown = "unknown"
 
 // Format は Internal Error を CLI stderr 用の External 行へ写す。
 //
@@ -47,49 +39,10 @@ func Format(err error) string {
 }
 
 func classify(err error) (kind, op string) {
-	// why: Unwrap 連鎖を1段ずつ外側から見て、最初に当たった型付き Error の kind / op を採る。
+	// why: Unwrap 連鎖を1段ずつ外側から見て、最初に Kinded を名乗った Error の宣言をそのまま採る。
 	for current := err; current != nil; current = unwrapOne(current) {
-		switch e := current.(type) {
-		case *domainerrors.Error:
-			if e != nil {
-				return kindDomain, e.Op
-			}
-		case *config.Error:
-			if e != nil {
-				return kindConfig, e.Key
-			}
-		case *config.Errors:
-			if e != nil {
-				return kindConfig, ""
-			}
-		case *cursorapi.Error:
-			if e != nil {
-				return kindInfrastructure, e.Op
-			}
-		case *gemini.Error:
-			if e != nil {
-				return kindInfrastructure, e.Op
-			}
-		case *hackernews.Error:
-			if e != nil {
-				return kindInfrastructure, e.Op
-			}
-		case *lobsters.Error:
-			if e != nil {
-				return kindInfrastructure, e.Op
-			}
-		case *itmedia.Error:
-			if e != nil {
-				return kindInfrastructure, e.Op
-			}
-		case *gdrive.Error:
-			if e != nil {
-				return kindInfrastructure, e.Op
-			}
-		case *oauth.Error:
-			if e != nil {
-				return kindInfrastructure, e.Op
-			}
+		if k, ok := current.(domainerrors.Kinded); ok {
+			return k.ErrorKind(), k.ErrorOp()
 		}
 	}
 	return kindUnknown, ""

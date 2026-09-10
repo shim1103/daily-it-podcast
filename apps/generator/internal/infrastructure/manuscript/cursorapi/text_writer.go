@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpdiag"
 )
 
 var _ port.TextWriter = (*TextWriter)(nil)
@@ -55,7 +56,7 @@ func ctxSleep(ctx context.Context, d time.Duration) {
 // Write は brief から Cloud Agents（毎回 create → SSE 終端 result.text）で原稿断片を得る。
 //
 // @require brief は trim 後に非空。
-// @ensure 成功時は非空 text 断片を返す。失敗時は *cursorapi.Error、断片は空。
+// @ensure 成功時は非空 text 断片を返す。失敗時は *adaptererror.Error、断片は空。
 // @invariant create（POST /v1/agents）は no-repo・非 retry。SSE 取得は idempotent GET として Do error / 5xx を 1 回、429 を MaxAttempts まで backoff で再試行する。SSE 途中断は再 stream しない。secret 実値は error へ出さない。
 func (w *TextWriter) Write(ctx context.Context, brief string) (string, error) {
 	if w == nil || w.client == nil {
@@ -126,12 +127,12 @@ func (w *TextWriter) createAgent(ctx context.Context, brief string) (string, str
 	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
 		// why: System 失敗の切り分けに理由本文が要る。secret は Authorization header にしか
 		//      載せないので body 全体を bounded で出しても credential は漏れない。
-		createErr := infraErr("create_status", fmt.Errorf("create status %d; response body: %s", res.StatusCode, bodySnippet(raw)))
+		createErr := infraErr("create_status", fmt.Errorf("create status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
 		// why: 401/403 は API key / subscription の失効。400 + usage_limit_exceeded は
 		//      Background Agent の利用枠喪失（run 34132953055 で実証。Decision 2026-09-07T23-30-00）。
 		//      どちらも「Cursor から原稿を取れない」状態なので、別の取得元へ切り替えてよい合図として
 		//      vendor 非依存の番兵で wrap する。呼び出し側は errors.Is(err, port.ErrSourceExhausted)
-		//      だけを見て、cursorapi.Error の中身は知らない。それ以外の 400（malformed request 等）は
+		//      だけを見て、wrap した Infrastructure Error の中身は知らない。それ以外の 400（malformed request 等）は
 		//      wrap せず赤で止める。error JSON は struct で parse せず code 文字列の存在だけを見る。
 		exhausted := res.StatusCode == http.StatusUnauthorized ||
 			res.StatusCode == http.StatusForbidden ||

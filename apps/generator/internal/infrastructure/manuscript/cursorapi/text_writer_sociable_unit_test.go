@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 )
 
 // fakeClientCall は fakeRoundTripper が観測した request 1 件分。
@@ -150,9 +151,9 @@ func assertCursorInfraError(t *testing.T, err error) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *cursorapi.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 	if !strings.HasPrefix(infra.Error(), "cursorapi:") {
 		t.Fatalf("Error() = %q, want prefix cursorapi:", infra.Error())
@@ -165,7 +166,7 @@ func assertCursorInfraError(t *testing.T, err error) {
 func assertCursorInfraErrorOp(t *testing.T, err error, wantOp string) {
 	t.Helper()
 	assertCursorInfraError(t, err)
-	var infra *Error
+	var infra *adaptererror.Error
 	_ = errors.As(err, &infra)
 	if infra.Op != wantOp {
 		t.Fatalf("Op = %q, want %q", infra.Op, wantOp)
@@ -410,18 +411,6 @@ func TestWrite_includesResponseBodySnippet_whenCreateStatusNotOK(t *testing.T) {
 	}
 }
 
-func TestBodySnippet_truncatesLongBodyAndStripsNewlines(t *testing.T) {
-
-	// Given: bodySnippetMax を超える改行入りの本文
-	long := strings.Repeat("a", bodySnippetMax*2)
-	if got := bodySnippet([]byte(long)); !strings.HasSuffix(got, bodySnippetEllipsis) {
-		t.Fatalf("bodySnippet = %q, want ellipsis suffix", got)
-	}
-	if got := bodySnippet([]byte("line1\r\nline2\nline3")); strings.ContainsAny(got, "\r\n") {
-		t.Fatalf("bodySnippet kept newlines: %q", got)
-	}
-}
-
 func TestWrite_returnsInfraError_whenResultTextEmpty(t *testing.T) {
 
 	// Given: create 成功後、終端 result の text が空
@@ -527,7 +516,7 @@ func TestWrite_wrapsSourceExhausted_whenCreateStatusIs401Or403(t *testing.T) {
 			// When: Write する
 			_, err := w.Write(context.Background(), "原稿を書いて")
 
-			// Then: vendor 非依存の番兵で wrap され、中身は cursorapi.Error のまま辿れる
+			// Then: vendor 非依存の番兵で wrap され、中身は *adaptererror.Error のまま辿れる
 			if !errors.Is(err, port.ErrSourceExhausted) {
 				t.Fatalf("errors.Is(err, port.ErrSourceExhausted) が false: %v", err)
 			}
@@ -545,7 +534,7 @@ func TestWrite_wrapsSourceExhausted_whenCreateStatusIs400WithUsageLimitExceeded(
 	// When: Write する
 	_, err := w.Write(context.Background(), "原稿を書いて")
 
-	// Then: 401/403 と同じく番兵で wrap され、中身は cursorapi.Error のまま辿れる
+	// Then: 401/403 と同じく番兵で wrap され、中身は *adaptererror.Error のまま辿れる
 	if !errors.Is(err, port.ErrSourceExhausted) {
 		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) が false: %v", err)
 	}

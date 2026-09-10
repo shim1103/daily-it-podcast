@@ -43,7 +43,7 @@
 | `interactionResponse.Status` | 現状未使用。`status != "completed"` の扱いは未決 |
 | gemini prompt 修正の cursor 影響 | 済み 8 の prompt 修正が cursor 側 PASS 率を落としていないか未確認（`generator-draft-rate -f api=cursor` 再 dispatch）|
 | Cursor 枯渇 error code の網羅 | 番兵 wrap は 401/403 と 400 + `usage_limit_exceeded` のみ（Decision `2026-09-07T23-30-00`）。`billing_*` 等の別 code が出たら都度 Decision を継ぐ |
-| Gemini fallback 発火の観測 | 現状 `logManuscriptSourceSwitched` の stderr 1 行のみ。切り替え成功時は原稿が出るので痕跡が薄い。GHA run summary への出力 / Drive metadata への provenance / 構造化 log 基盤の導入は未決 |
+| Gemini fallback 発火の観測 | 現状 `delivery.LogWriter.Fallback("manuscript_source_switched")` の `generator: category=fallback event=...` 1 行のみ。切り替え成功時は原稿が出るので痕跡が薄い。GHA run summary への出力 / Drive metadata への provenance / 構造化 log 基盤の導入は未決 |
 | Gemini free-tier RPD の実運用値 | 公称 RPD≈1,000 だが実測で下振れ報告あり。1 日 1 回 produce + draft retry 最大 5 でも問題ないはずだが未確認 |
 | Cursor 復帰の運用気づき | 毎回 primary（Cursor）を先に試すので枠復活後は自動で戻るが、「毎日 Gemini に落ちている」状態を運用が能動的に気づく手段は未整備 |
 
