@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 )
 
 func TestSynthesizeOne_returnsInfrastructureError_whenTextEmptyAfterTrim(t *testing.T) {
@@ -21,9 +23,9 @@ func TestSynthesizeOne_returnsInfrastructureError_whenTextEmptyAfterTrim(t *test
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gemini.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 	if !strings.HasPrefix(infra.Error(), "gemini:") {
 		t.Fatalf("Error() = %q, want prefix gemini:", infra.Error())
@@ -75,9 +77,9 @@ func TestSynthesizeOne_returnsInfrastructureError_whenSameRetryableOpRepeatsTwic
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gemini.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 	if len(rt.calls) != 2 {
 		t.Fatalf("call count = %d, want 2（同種 2 連続打ち切り）", len(rt.calls))

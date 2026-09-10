@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
 )
 
@@ -110,9 +111,9 @@ func TestGDriveEpisodeWriter_returnsErrorWithoutDummyValues_whenListReturns500(t
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *gdrive.Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gdrive.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 	msg := err.Error()
 	if strings.Contains(msg, gdriveNarrowFolderID) {

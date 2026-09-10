@@ -9,6 +9,7 @@ package test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
@@ -27,6 +28,12 @@ func TestProduceEpisodeBroadIntegration_uploadsEpisodeArtifactsOnce_whenAllProdu
 		t.Fatalf("Run() error = %v, want nil", err)
 	}
 	assertBroadDownstreamCalls(t, h, 1, wantSynth, 2)
+
+	// Then: progress reporter (delivery.LogWriter) の結線が働き、category=progress 行が 1 本以上出る
+	// （全 step 列挙は application SU が所有する。ここは合成結線の代表 assert のみ）。
+	if !strings.Contains(h.logBuf.String(), "generator: category=progress event=") {
+		t.Fatalf("log = %q, want a %q line", h.logBuf.String(), "generator: category=progress event=")
+	}
 }
 
 func TestProduceEpisodeBroadIntegration_returnsNoSourceItemsWithoutDownstreamCalls_whenFetchReturnsEmpty(t *testing.T) {

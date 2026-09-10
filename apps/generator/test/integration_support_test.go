@@ -5,6 +5,7 @@
 package test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/base64"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
@@ -386,6 +388,8 @@ type broadProduceEpisodeHarness struct {
 	textWriter    *broadTextWriter
 	geminiPosts   atomic.Int32
 	gdriveUploads *integrationGDriveProbe
+	// logBuf は progress reporter (delivery.LogWriter) の結線を Broad で観測するための出力先。
+	logBuf *bytes.Buffer
 }
 
 // broadTextWriter は Broad が Application の停止条件を観測するための port.TextWriter double。
@@ -427,6 +431,7 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 	h := &broadProduceEpisodeHarness{
 		gdriveUploads: gdriveProbe,
 		textWriter:    &broadTextWriter{fragment: wireJSON, fail: cfg.cursorFail},
+		logBuf:        &bytes.Buffer{},
 	}
 	geminiHandler := func(w http.ResponseWriter, r *http.Request) {
 		n := h.geminiPosts.Add(1)
@@ -470,6 +475,9 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 	rawWriter := gdrive.NewRawEpisodeWriter(httpClient, tokens, broadDummyDriveFolderID)
 	writeEpisode := application.NewWriteEpisode(rawWriter)
 
+	// progress reporter は production（composition.newProduceEpisode）と同型で delivery.LogWriter そのもの。
+	// logBuf へ "generator: category=progress ..." を書かせる。
+	logw := delivery.NewLogWriter(h.logBuf)
 	h.uc = application.NewProduceEpisode(
 		fetch,
 		lookup,
@@ -478,6 +486,7 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 		writeEpisode,
 		broadFixedEpisodeIDFunc,
 		integrationTestDisplayLocation,
+		logw,
 	)
 	return h
 }

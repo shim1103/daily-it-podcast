@@ -13,10 +13,10 @@ import (
 
 // Scope: Sociable Unit
 // 実物: manuscript.TextWriter（切り替え UseCase）
-// Double: primary / secondary は port.TextWriter の fake Spy。onFallback は呼び出し回数を数える closure。
+// Double: primary / secondary は port.TextWriter の fake Spy。fallback は port.FallbackReporter の Spy。
 //
 // 振る舞い: primary 成功で secondary を呼ばない / primary が port.ErrSourceExhausted を wrap したら
-// onFallback 1 回 + secondary 1 回で戻りを透過 / 非枯渇 error は透過 / 切り替えは高々 1 回 /
+// fallback.Fallback 1 回 + secondary 1 回で戻りを透過 / 非枯渇 error は透過 / 切り替えは高々 1 回 /
 // brief 空（trim 後）は primary を呼ばず error。
 
 // fakeTextWriter は port.TextWriter の Spy。呼び出し回数・最後の ctx/brief を記録し、返す断片と error を設定できる。
@@ -36,11 +36,24 @@ func (f *fakeTextWriter) Write(ctx context.Context, brief string) (string, error
 	return f.fragment, f.err
 }
 
-// newUCWithSpies は fake primary / secondary と onFallback カウンタを束ねた UseCase を返す。
-func newUCWithSpies(primary, secondary *fakeTextWriter) (*TextWriter, *int) {
-	fallbackCalls := 0
-	uc := NewTextWriter(primary, secondary, func() { fallbackCalls++ })
-	return uc, &fallbackCalls
+// fakeFallback は port.FallbackReporter の Spy。呼び出し回数と最後の event 名を記録する。
+type fakeFallback struct {
+	calls     int
+	lastEvent string
+}
+
+func (f *fakeFallback) Fallback(event string) {
+	f.calls++
+	f.lastEvent = event
+}
+
+var _ port.FallbackReporter = (*fakeFallback)(nil)
+
+// newUCWithSpies は fake primary / secondary と fallback Spy を束ねた UseCase を返す。
+func newUCWithSpies(primary, secondary *fakeTextWriter) (*TextWriter, *fakeFallback) {
+	fallback := &fakeFallback{}
+	uc := NewTextWriter(primary, secondary, fallback)
+	return uc, fallback
 }
 
 func exhaustedErr(inner string) error {
@@ -65,12 +78,12 @@ func TestWrite_returnsPrimaryFragment_whenPrimarySucceeds(t *testing.T) {
 	// Given: primary が非空断片を返す
 	primary := &fakeTextWriter{fragment: "primary の原稿断片"}
 	secondary := &fakeTextWriter{fragment: "secondary の原稿断片"}
-	uc, fallbackCalls := newUCWithSpies(primary, secondary)
+	uc, fallback := newUCWithSpies(primary, secondary)
 
 	// When: Write する
 	got, err := uc.Write(context.Background(), "本文の要約から原稿を書いて")
 
-	// Then: primary 断片が透過し、secondary も onFallback も呼ばれない
+	// Then: primary 断片が透過し、secondary も Fallback も呼ばれない
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
@@ -83,8 +96,8 @@ func TestWrite_returnsPrimaryFragment_whenPrimarySucceeds(t *testing.T) {
 	if secondary.calls != 0 {
 		t.Fatalf("secondary calls = %d, want 0", secondary.calls)
 	}
-	if *fallbackCalls != 0 {
-		t.Fatalf("onFallback calls = %d, want 0", *fallbackCalls)
+	if fallback.calls != 0 {
+		t.Fatalf("Fallback calls = %d, want 0", fallback.calls)
 	}
 }
 
@@ -94,20 +107,23 @@ func TestWrite_switchesToSecondary_whenPrimaryReportsSourceExhausted(t *testing.
 	// Given: primary が port.ErrSourceExhausted を wrap した error を返し、secondary は成功する
 	primary := &fakeTextWriter{err: exhaustedErr("boom")}
 	secondary := &fakeTextWriter{fragment: "secondary の原稿断片"}
-	uc, fallbackCalls := newUCWithSpies(primary, secondary)
+	uc, fallback := newUCWithSpies(primary, secondary)
 
 	// When: Write する
 	got, err := uc.Write(context.Background(), "本文の要約から原稿を書いて")
 
-	// Then: onFallback 1 回・secondary 1 回、戻りは secondary の断片、secondary の brief は primary と同一
+	// Then: Fallback 1 回・secondary 1 回、戻りは secondary の断片、secondary の brief は primary と同一
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
 	if got != "secondary の原稿断片" {
 		t.Fatalf("Write() = %q, want %q", got, "secondary の原稿断片")
 	}
-	if *fallbackCalls != 1 {
-		t.Fatalf("onFallback calls = %d, want 1", *fallbackCalls)
+	if fallback.calls != 1 {
+		t.Fatalf("Fallback calls = %d, want 1", fallback.calls)
+	}
+	if fallback.lastEvent != "manuscript_source_switched" {
+		t.Fatalf("Fallback event = %q, want %q", fallback.lastEvent, "manuscript_source_switched")
 	}
 	if secondary.calls != 1 {
 		t.Fatalf("secondary calls = %d, want 1", secondary.calls)
@@ -124,12 +140,12 @@ func TestWrite_propagatesPrimaryError_whenErrorIsNotSourceExhausted(t *testing.T
 	plain := errors.New("plain")
 	primary := &fakeTextWriter{err: plain}
 	secondary := &fakeTextWriter{fragment: "secondary の原稿断片"}
-	uc, fallbackCalls := newUCWithSpies(primary, secondary)
+	uc, fallback := newUCWithSpies(primary, secondary)
 
 	// When: Write する
 	got, err := uc.Write(context.Background(), "本文の要約から原稿を書いて")
 
-	// Then: primary の error がそのまま返り、secondary も onFallback も呼ばれない
+	// Then: primary の error がそのまま返り、secondary も Fallback も呼ばれない
 	if !errors.Is(err, plain) {
 		t.Fatalf("Write() error = %v, want %v", err, plain)
 	}
@@ -139,8 +155,8 @@ func TestWrite_propagatesPrimaryError_whenErrorIsNotSourceExhausted(t *testing.T
 	if secondary.calls != 0 {
 		t.Fatalf("secondary calls = %d, want 0", secondary.calls)
 	}
-	if *fallbackCalls != 0 {
-		t.Fatalf("onFallback calls = %d, want 0", *fallbackCalls)
+	if fallback.calls != 0 {
+		t.Fatalf("Fallback calls = %d, want 0", fallback.calls)
 	}
 }
 
@@ -151,7 +167,7 @@ func TestWrite_doesNotCallThirdSource_whenSecondaryAlsoReportsSourceExhausted(t 
 	primary := &fakeTextWriter{err: exhaustedErr("primary boom")}
 	secondaryErr := exhaustedErr("secondary boom")
 	secondary := &fakeTextWriter{err: secondaryErr}
-	uc, fallbackCalls := newUCWithSpies(primary, secondary)
+	uc, fallback := newUCWithSpies(primary, secondary)
 
 	// When: Write する
 	got, err := uc.Write(context.Background(), "本文の要約から原稿を書いて")
@@ -166,8 +182,8 @@ func TestWrite_doesNotCallThirdSource_whenSecondaryAlsoReportsSourceExhausted(t 
 	if got != "" {
 		t.Fatalf("Write() fragment = %q, want empty", got)
 	}
-	if *fallbackCalls != 1 {
-		t.Fatalf("onFallback calls = %d, want 1", *fallbackCalls)
+	if fallback.calls != 1 {
+		t.Fatalf("Fallback calls = %d, want 1", fallback.calls)
 	}
 }
 
@@ -177,12 +193,12 @@ func TestWrite_returnsError_whenBriefEmptyAfterTrim(t *testing.T) {
 	// Given: trim 後に空の brief
 	primary := &fakeTextWriter{fragment: "primary の原稿断片"}
 	secondary := &fakeTextWriter{fragment: "secondary の原稿断片"}
-	uc, fallbackCalls := newUCWithSpies(primary, secondary)
+	uc, fallback := newUCWithSpies(primary, secondary)
 
 	// When: Write する
 	got, err := uc.Write(context.Background(), "  \t\n  ")
 
-	// Then: empty_brief の Domain Error が返り、primary も secondary も onFallback も呼ばれない
+	// Then: empty_brief の Domain Error が返り、primary も secondary も Fallback も呼ばれない
 	assertDomainOp(t, err, domainerrors.OpEmptyBrief)
 	if got != "" {
 		t.Fatalf("Write() fragment = %q, want empty", got)
@@ -193,15 +209,15 @@ func TestWrite_returnsError_whenBriefEmptyAfterTrim(t *testing.T) {
 	if secondary.calls != 0 {
 		t.Fatalf("secondary calls = %d, want 0", secondary.calls)
 	}
-	if *fallbackCalls != 0 {
-		t.Fatalf("onFallback calls = %d, want 0", *fallbackCalls)
+	if fallback.calls != 0 {
+		t.Fatalf("Fallback calls = %d, want 0", fallback.calls)
 	}
 }
 
 func TestNewTextWriter_returnsNonNil(t *testing.T) {
 	t.Parallel()
 
-	uc := NewTextWriter(&fakeTextWriter{}, &fakeTextWriter{}, func() {})
+	uc := NewTextWriter(&fakeTextWriter{}, &fakeTextWriter{}, &fakeFallback{})
 	if uc == nil {
 		t.Fatal("NewTextWriter が nil を返した")
 	}

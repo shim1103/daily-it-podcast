@@ -1,7 +1,6 @@
 package composition
 
 import (
-	"log"
 	"net/http"
 	"os"
 	"time"
@@ -27,16 +26,6 @@ func sharedHTTPClient() *http.Client {
 // @ensure 戻りは全体 timeout を持たない標準 *http.Client。
 func sharedHTTPClientWithoutTimeout() *http.Client {
 	return &http.Client{}
-}
-
-// logManuscriptSourceSwitched は原稿の取得元が primary から secondary へ切り替わったことを
-// 1 行だけ stderr へ出す。manuscript.NewTextWriter の onFallback として渡す。
-// why: generator は構造化 log 基盤を持たないため、一時的に標準 log で stderr へ WARN 相当 1 行を出す。
-//
-//	Cursor の利用枠喪失で毎日 Gemini に落ちている状態を、後から GHA run log で気づけるようにする。
-//	secret・brief 本文・token は出さない（DEPLOY.md の log 方針）。恒久化（構造化 log・能動通知）は別判断。
-func logManuscriptSourceSwitched() {
-	log.Print("manuscript text writer switched: from=cursor to=gemini reason=source_exhausted")
 }
 
 // sharedLookupEnv は config.Load が使う親環境アクセス手段を返す。

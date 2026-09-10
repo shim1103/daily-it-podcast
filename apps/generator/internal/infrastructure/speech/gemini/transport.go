@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpdiag"
 )
 
 func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]byte, bool, time.Duration, error) {
@@ -50,13 +52,13 @@ func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]
 	// why: MaxAttempts と公式 troubleshooting（429/503/5xx retry、400/403 は retry しない）に従い retryable を分岐する。
 	switch {
 	case res.StatusCode == http.StatusBadRequest, res.StatusCode == http.StatusForbidden:
-		return nil, false, 0, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
+		return nil, false, 0, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
 	case res.StatusCode == http.StatusTooManyRequests, res.StatusCode == http.StatusServiceUnavailable:
-		return nil, true, retryAfter, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
+		return nil, true, retryAfter, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
 	case res.StatusCode >= 500:
-		return nil, true, retryAfter, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
+		return nil, true, retryAfter, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
 	case res.StatusCode != http.StatusOK:
-		return nil, false, 0, infraErr("http_status", fmt.Errorf("status %d", res.StatusCode))
+		return nil, false, 0, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
 	}
 
 	pcm, err := decodePCM(raw)
@@ -65,7 +67,7 @@ func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]
 		//      いずれも一過性劣化として retry する。
 		//      System で MaxAttempts 尽きたとき原因（finish_reason / safety / body 内 quota）を
 		//      読めるよう、応答本文の bounded snippet を error に載せる。
-		return nil, true, 0, infraErr("decode_pcm", fmt.Errorf("%w; response body: %s", err, bodySnippet(raw)))
+		return nil, true, 0, infraErr("decode_pcm", fmt.Errorf("%w; response body: %s", err, httpdiag.BodySnippet(raw)))
 	}
 	return pcm, false, 0, nil
 }

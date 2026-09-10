@@ -45,7 +45,7 @@ func (s *SpeechSynthesizer) synthesizeOne(ctx context.Context, text string, maxA
 			}
 			return models.SpeechAudio{Content: wav}, calls, nil
 		}
-		// why: 同種 error（同じ *gemini.Error.Op）が retryable のまま 2 回連続したら、
+		// why: 同種 error（同じ *adaptererror.Error.Op）が retryable のまま 2 回連続したら、
 		//      その本文に対しては決定論的に失敗しているとみなし打ち切る（Decision 2026-09-02T13-56-00）。
 		//      Op が変われば連続数はリセットする。
 		if retryable && sameGeminiOp(lastErr, err) {

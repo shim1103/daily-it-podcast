@@ -9,6 +9,7 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 )
 
 const geminiAPIKeyHeader = "x-goog-api-key"
@@ -70,15 +71,16 @@ func (s *SpeechSynthesizer) SynthesizeAll(ctx context.Context, texts []string) (
 	return audios, nil
 }
 
-// sameGeminiOp は 2 つの error がともに *gemini.Error で Op 文字列が一致するかを返す。
-// 片方でも *gemini.Error でなければ false。
+// sameGeminiOp は 2 つの error がともに *adaptererror.Error で Source と Op がともに一致するかを返す。
+// 片方でも *adaptererror.Error でなければ false。
+// why: adaptererror.Error は全 infra 共通型なので、Source を見ないと別 Adapter の同名 Op（"http_status" 等の共通語彙）が偶然一致しうる。
 func sameGeminiOp(prev, cur error) bool {
 	if prev == nil || cur == nil {
 		return false
 	}
-	var prevErr, curErr *Error
+	var prevErr, curErr *adaptererror.Error
 	if !errors.As(prev, &prevErr) || !errors.As(cur, &curErr) {
 		return false
 	}
-	return prevErr.Op == curErr.Op
+	return prevErr.Source == curErr.Source && prevErr.Op == curErr.Op
 }

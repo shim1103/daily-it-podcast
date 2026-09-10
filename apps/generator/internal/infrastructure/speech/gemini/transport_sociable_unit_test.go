@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 )
 
 func TestBuildInput_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
@@ -54,6 +56,30 @@ func TestBuildInput_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
 	}
 	if req["model"] != ModelID {
 		t.Fatalf("model = %v, want %q", req["model"], ModelID)
+	}
+}
+
+func TestFetchPCM_includesResponseBodySnippet_whenClientErrorStatus(t *testing.T) {
+
+	// Given: 403 応答の body に切り分け用の理由が入っている
+	const reason = "PERMISSION_DENIED"
+	synth, _ := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusForbidden,
+		body:   jsonBody(t, map[string]any{"error": map[string]any{"status": reason}}),
+	})
+
+	// When: Synthesize する
+	_, err := synth.synthTestOne(context.Background(), "権限エラーの原因を知りたい")
+
+	// Then: http_status Infra Error に応答 body の snippet が載る（System 失敗の切り分け用）
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "response body:") {
+		t.Fatalf("error message %q does not carry response body snippet", err.Error())
+	}
+	if !strings.Contains(err.Error(), reason) {
+		t.Fatalf("error message %q does not carry response body reason %q", err.Error(), reason)
 	}
 }
 
@@ -160,9 +186,9 @@ func TestDecodePCM_retriesTooShortPCM_asTransientDecodeFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	var infra *Error
+	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *gemini.Error", err, err)
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
 	if infra.Op != "decode_pcm" {
 		t.Fatalf("Op = %q, want %q（極小 PCM は decode_pcm 系 retryable）", infra.Op, "decode_pcm")

@@ -9,13 +9,7 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/config"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
 	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/google/oauth"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/hackernews"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/itmedia"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/lobsters"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorapi"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 )
 
 func requireLine(t *testing.T, got, want string) {
@@ -75,102 +69,33 @@ func TestFormat_printsConfigKindWithoutOp_whenErrorIsConfigErrorsBundle(t *testi
 	}
 }
 
-func TestFormat_printsInfrastructureKindAndOp_whenErrorIsCursorapi(t *testing.T) {
+func TestFormat_printsInfrastructureKindAndOp_whenErrorIsAdapterError(t *testing.T) {
 	t.Parallel()
 
-	// Given: cursorapi Infrastructure Error
-	err := &cursorapi.Error{Op: "run", Err: errors.New("status 500")}
+	// Given: Driven Adapter の Infrastructure Error（source は代表として gdrive）
+	err := adaptererror.New("gdrive", "write", errors.New("quota"))
 
 	// When: External 表現へ写す
 	got := delivery.Format(err)
 
 	// Then: kind=infrastructure と Op が出る
 	requireLine(t, got, "generator: kind=infrastructure")
-	requireLine(t, got, "generator: op=run")
-}
-
-func TestFormat_printsInfrastructureKind_whenErrorIsHackerNews(t *testing.T) {
-	t.Parallel()
-
-	// Given: hackernews Infrastructure Error
-	err := &hackernews.Error{Op: "list", Err: errors.New("status 503")}
-
-	// When: External 表現へ写す
-	got := delivery.Format(err)
-
-	// Then: kind=infrastructure
-	requireLine(t, got, "generator: kind=infrastructure")
-	requireLine(t, got, "generator: op=list")
-}
-
-func TestFormat_printsInfrastructureKind_whenErrorIsLobsters(t *testing.T) {
-	t.Parallel()
-
-	// Given: lobsters Infrastructure Error
-	err := &lobsters.Error{Op: "list", Err: errors.New("status 502")}
-
-	// When: External 表現へ写す
-	got := delivery.Format(err)
-
-	// Then: kind=infrastructure
-	requireLine(t, got, "generator: kind=infrastructure")
-	requireLine(t, got, "generator: op=list")
-}
-
-func TestFormat_printsInfrastructureKind_whenErrorIsITmedia(t *testing.T) {
-	t.Parallel()
-
-	// Given: itmedia Infrastructure Error
-	err := &itmedia.Error{Op: "fetch", Err: errors.New("status 504")}
-
-	// When: External 表現へ写す
-	got := delivery.Format(err)
-
-	// Then: kind=infrastructure
-	requireLine(t, got, "generator: kind=infrastructure")
-	requireLine(t, got, "generator: op=fetch")
-}
-
-func TestFormat_printsInfrastructureKind_whenErrorIsGemini(t *testing.T) {
-	t.Parallel()
-
-	// Given: gemini Infrastructure Error
-	err := &gemini.Error{Op: "synthesize", Err: errors.New("timeout")}
-
-	// When: External 表現へ写す
-	got := delivery.Format(err)
-
-	// Then: kind=infrastructure
-	requireLine(t, got, "generator: kind=infrastructure")
-	requireLine(t, got, "generator: op=synthesize")
-}
-
-func TestFormat_printsInfrastructureKind_whenErrorIsGdrive(t *testing.T) {
-	t.Parallel()
-
-	// Given: gdrive Infrastructure Error
-	err := &gdrive.Error{Op: "write", Err: errors.New("quota")}
-
-	// When: External 表現へ写す
-	got := delivery.Format(err)
-
-	// Then: kind=infrastructure
-	requireLine(t, got, "generator: kind=infrastructure")
 	requireLine(t, got, "generator: op=write")
 }
 
-func TestFormat_printsInfrastructureKind_whenErrorIsOauth(t *testing.T) {
+func TestFormat_printsInfrastructureKindAndOp_whenFmtWrapsAdapterError(t *testing.T) {
 	t.Parallel()
 
-	// Given: oauth Infrastructure Error
-	err := &oauth.Error{Op: "refresh", Err: errors.New("invalid_grant")}
+	// Given: fmt wrap の内側に Infrastructure Error（原稿 fallback Adapter 経路の代表）
+	inner := adaptererror.New("geminiapi", "http_status", errors.New("status 401"))
+	err := fmt.Errorf("compose: %w", inner)
 
 	// When: External 表現へ写す
 	got := delivery.Format(err)
 
-	// Then: kind=infrastructure
+	// Then: unwrap して infrastructure と判定し、Op も出る
 	requireLine(t, got, "generator: kind=infrastructure")
-	requireLine(t, got, "generator: op=refresh")
+	requireLine(t, got, "generator: op=http_status")
 }
 
 func TestFormat_printsUnknownKindWithoutOp_whenErrorIsPlain(t *testing.T) {
@@ -189,17 +114,17 @@ func TestFormat_printsUnknownKindWithoutOp_whenErrorIsPlain(t *testing.T) {
 	}
 }
 
-func TestFormat_printsOuterCursorapiOp_whenCursorapiWrapsInnerError(t *testing.T) {
+func TestFormat_printsOuterAdapterOp_whenAdapterErrorWrapsInnerError(t *testing.T) {
 	t.Parallel()
 
-	// Given: cursorapi が内側 error を wrap した chain
-	inner := &cursorapi.Error{Op: "run", Err: errors.New("status 500")}
-	err := &cursorapi.Error{Op: "write", Err: inner}
+	// Given: Infrastructure Error が内側 error を wrap した chain
+	inner := adaptererror.New("cursorapi", "run", errors.New("status 500"))
+	err := adaptererror.New("cursorapi", "write", inner)
 
 	// When: External 表現へ写す
 	got := delivery.Format(err)
 
-	// Then: 外側の cursorapi Op を採用する
+	// Then: 外側の Op を採用する
 	requireLine(t, got, "generator: kind=infrastructure")
 	requireLine(t, got, "generator: op=write")
 }

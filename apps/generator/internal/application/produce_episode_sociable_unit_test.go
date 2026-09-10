@@ -74,14 +74,45 @@ const fixedEpisodeID = "ep-fixed-0001"
 
 func fixedEpisodeIDFunc() string { return fixedEpisodeID }
 
+// progressCall は spyProgress が記録した 1 回の呼び出し（Start または Done）。
+type progressCall struct {
+	method string // "start" または "done"
+	step   string
+	detail string
+}
+
+// spyProgress は port.ProgressReporter の Spy。Start/Done を呼び出し順に記録する。
+type spyProgress struct {
+	calls []progressCall
+}
+
+func (s *spyProgress) Start(step string) {
+	s.calls = append(s.calls, progressCall{method: "start", step: step})
+}
+
+func (s *spyProgress) Done(step, detail string) {
+	s.calls = append(s.calls, progressCall{method: "done", step: step, detail: detail})
+}
+
+func (s *spyProgress) stepNames() []string {
+	names := make([]string, 0)
+	for _, c := range s.calls {
+		names = append(names, c.step)
+	}
+	return names
+}
+
+var _ port.ProgressReporter = (*spyProgress)(nil)
+
 // harness は Run の SU test 用に全 double を結線した UseCase と各 Spy を保持する。
 type harness struct {
-	uc     *application.ProduceEpisode
-	source *fakeItemSource
-	lookup *fakeCompletedEpisodeLookup
-	writer *stubWriter
-	synth  *spySynth
-	episw  *fakeEpisodeWriter
+	uc       *application.ProduceEpisode
+	source   *fakeItemSource
+	lookup   *fakeCompletedEpisodeLookup
+	writer   *stubWriter
+	synth    *spySynth
+	episw    *fakeEpisodeWriter
+	progress *spyProgress
 }
 
 // testDisplayLocation は表示タイムゾーンの test 用 Location。
@@ -99,6 +130,7 @@ func newHarness(t *testing.T, segDurationSec float64) *harness {
 	writer := &stubWriter{out: buildValidWireJSON()}
 	synth := &spySynth{wav: fixedWavOfDuration(t, segDurationSec)}
 	episw := &fakeEpisodeWriter{}
+	progress := &spyProgress{}
 	uc := application.NewProduceEpisode(
 		application.NewFetchSourceItems(source),
 		lookup,
@@ -107,8 +139,9 @@ func newHarness(t *testing.T, segDurationSec float64) *harness {
 		application.NewWriteEpisode(episw),
 		fixedEpisodeIDFunc,
 		testDisplayLocation,
+		progress,
 	)
-	return &harness{uc: uc, source: source, lookup: lookup, writer: writer, synth: synth, episw: episw}
+	return &harness{uc: uc, source: source, lookup: lookup, writer: writer, synth: synth, episw: episw, progress: progress}
 }
 
 // --- 同日完成 skip ---
@@ -268,6 +301,131 @@ func TestProduceEpisodeRun_writesEpisodeWithAssembledManuscriptAndAudio_whenAllS
 	// body.ending.startSec は末尾束（closingSummary+farewell）の開始累積秒。topic の後なので > 0。
 	if m.Body.Ending.StartSec <= 0 {
 		t.Fatalf("body.ending.startSec = %v, want > 0", m.Body.Ending.StartSec)
+	}
+}
+
+func TestProduceEpisodeRun_reportsStepProgressInOrder_whenAllStepsSucceed(t *testing.T) {
+	t.Parallel()
+
+	// Given: 全 step 成功
+	h := newHarness(t, 1.0)
+	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
+
+	// When: Run を呼ぶ
+	if _, err := h.uc.Run(context.Background(), now); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// Then: 先頭は fetch_source_items、末尾は write_episode、already_produced は出ない
+	got := h.progress.stepNames()
+	if len(got) == 0 {
+		t.Fatal("Progress が一度も呼ばれていない")
+	}
+	if got[0] != "fetch_source_items" {
+		t.Fatalf("steps[0] = %q, want %q", got[0], "fetch_source_items")
+	}
+	if last := got[len(got)-1]; last != "write_episode" {
+		t.Fatalf("steps[last] = %q, want %q", last, "write_episode")
+	}
+	for _, s := range got {
+		if s == "already_produced" {
+			t.Fatalf("通常経路で already_produced が出た: %q", got)
+		}
+	}
+}
+
+func TestProduceEpisodeRun_reportsFetchResultCountAsDetail_whenSourcesFetched(t *testing.T) {
+	t.Parallel()
+
+	// Given: 情報源 1 件（newHarness の既定）
+	h := newHarness(t, 1.0)
+	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
+
+	// When: Run を呼ぶ
+	if _, err := h.uc.Run(context.Background(), now); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// Then: fetch_source_items の通知は完了後で detail に件数を含む（完全一致は brittle なので緩く見る）
+	var fetchDetail string
+	for _, c := range h.progress.calls {
+		if c.step == "fetch_source_items" {
+			fetchDetail = c.detail
+		}
+	}
+	if !strings.Contains(fetchDetail, "件") {
+		t.Fatalf("fetch_source_items detail = %q, want it to contain %q", fetchDetail, "件")
+	}
+}
+
+func TestProduceEpisodeRun_reportsWriteEpisodeWithEpisodeIDAsDetail_whenWriteSucceeds(t *testing.T) {
+	t.Parallel()
+
+	// Given: 全 step 成功
+	h := newHarness(t, 1.0)
+	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
+
+	// When: Run を呼ぶ
+	if _, err := h.uc.Run(context.Background(), now); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// Then: write_episode の detail は発行済み episodeID
+	last := h.progress.calls[len(h.progress.calls)-1]
+	if last.step != "write_episode" || last.detail != fixedEpisodeID {
+		t.Fatalf("last progress = %+v, want {write_episode %s}", last, fixedEpisodeID)
+	}
+}
+
+func TestProduceEpisodeRun_doesNotReportDownstreamSteps_whenTextWriterFails(t *testing.T) {
+	t.Parallel()
+
+	// Given: TextWriter が error
+	h := newHarness(t, 1.0)
+	h.writer.err = errors.New("writer boom")
+	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
+
+	// When: Run を呼ぶ
+	if _, err := h.uc.Run(context.Background(), now); err == nil {
+		t.Fatal("Run: want error, got nil")
+	}
+
+	// Then: 失敗後の段階（synthesize_speech / build_timeline / concat_wav / write_episode）の Start は呼ばれない。
+	// write_manuscript_draft の Start は呼ばれるが Done は呼ばれない（error で return）。
+	var foundWriteMsDone bool
+	for _, c := range h.progress.calls {
+		if c.step == "write_manuscript_draft" && c.method == "done" {
+			foundWriteMsDone = true
+		}
+		switch c.step {
+		case "synthesize_speech", "build_timeline", "concat_wav", "write_episode":
+			if c.method == "start" {
+				t.Fatalf("失敗後の段階 %q の Start が呼ばれた: %+v", c.step, h.progress.calls)
+			}
+		}
+	}
+	if foundWriteMsDone {
+		t.Fatalf("write_manuscript_draft の Done が呼ばれるべきではない: %+v", h.progress.calls)
+	}
+}
+
+func TestProduceEpisodeRun_reportsOnlyAlreadyProduced_whenCompletedPairExists(t *testing.T) {
+	t.Parallel()
+
+	// Given: 表示 date に完成ペアあり
+	h := newHarness(t, 1.0)
+	h.lookup.has = true
+	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
+
+	// When: Run を呼ぶ
+	if _, err := h.uc.Run(context.Background(), now); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// Then: already_produced だけが報告され、他の step は出ない
+	got := h.progress.stepNames()
+	if len(got) != 1 || got[0] != "already_produced" {
+		t.Fatalf("steps = %q, want [already_produced]", got)
 	}
 }
 
@@ -454,6 +612,7 @@ func TestProduceEpisodeRun_retriesTextWriter_whenFirstDraftInvalidThenValid(t *t
 		application.NewWriteEpisode(h.episw),
 		fixedEpisodeIDFunc,
 		testDisplayLocation,
+		h.progress,
 	)
 
 	// When: Run を呼ぶ

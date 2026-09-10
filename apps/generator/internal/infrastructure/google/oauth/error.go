@@ -1,19 +1,10 @@
 package oauth
 
-// Error は Google OAuth refresh 呼び出しまたは応答変換の失敗。
-type Error struct {
-	Op  string
-	Err error
-}
+import "github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 
-func (e *Error) Error() string {
-	return "google oauth: " + e.Op + ": " + e.Err.Error()
-}
-
-func (e *Error) Unwrap() error {
-	return e.Err
-}
+// why: この package の Infrastructure Error の発生源名。adaptererror.New へ渡す。
+const errorSource = "google oauth"
 
 func infraErr(op string, err error) error {
-	return &Error{Op: op, Err: err}
+	return adaptererror.New(errorSource, op, err)
 }
