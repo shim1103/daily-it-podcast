@@ -18,8 +18,11 @@ Application が `os/exec` を持たないよう WAV→mp3 を Port + ffmpeg Adap
 - `docs/lessons/index.md` は `origin/develop` を正本にし、本 session 分だけ末尾追記（branch 全体の rebase はしない）。
 - 検証: commit hook 経由で generator static/unit、playback format/lint/tsc/layers 緑。
 
+- PR: https://github.com/shim1103/daily-it-podcast/pull/148
+
 ### Commits
 
 - `13a477d`
 - `a7eb79d`
 - `986760b`
+- `54c2e19`
