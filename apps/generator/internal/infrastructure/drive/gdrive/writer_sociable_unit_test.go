@@ -197,7 +197,7 @@ func TestWrite_returnsInfrastructureError_whenTokenSourceFails(t *testing.T) {
 
 func TestWrite_returnsInfrastructureErrorWithoutDelete_whenWAVUploadFailsAfterJSON(t *testing.T) {
 
-	// Given: json 書込は成功し wav media upload だけ 500 を返す stub
+	// Given: json 書込は成功し mp3 media upload だけ 500 を返す stub
 	rt := &stubRoundTripper{
 		responses: []stubClientResponse{
 			{MatchMethod: http.MethodGet, Status: http.StatusOK, Body: jsonBody(t, map[string]any{"files": []any{}})},
@@ -422,7 +422,7 @@ func TestWrite_escapesQuoteInListQuery_whenEpisodeIDContainsQuote(t *testing.T) 
 			t.Fatalf("parse target: %v", parseErr)
 		}
 		q := u.Query().Get("q")
-		if strings.Contains(q, `name = 'ep\'1.json'`) || strings.Contains(q, `name = 'ep\'1.wav'`) {
+		if strings.Contains(q, `name = 'ep\'1.json'`) || strings.Contains(q, `name = 'ep\'1.mp3'`) {
 			sawEscaped = true
 		}
 	}

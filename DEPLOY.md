@@ -1,8 +1,10 @@
 # DEPLOY
 
-最終更新: 2026-09-04
+最終更新: 2026-09-13
 
 **運用 SSOT**（Playback・Generator の継続運用）。地図は `README.md`、層規則は `DESIGN.md`。Reason / Rejected・再発する判断は `docs/decisions/`。進捗は `docs/tasks/todo/*-lane.md`。
+
+音声の配置契約は mp3（`contracts/drive-layout.md`）。storage の将来方針（R2 完全移行・薄い cache）は Decision `2026-09-13T14-22-55` / `14-23-30`。**本書の Variable/Secret 表は現行 Drive 運用の latest**。R2 切替後に表を差し替える。
 
 Worker 境界契約（`name` / `main` / assets / `/episodes*` / `observability`）の正本は `apps/playback/wrangler.jsonc` と `apps/playback/worker/src/worker-entry.ts`。本書は写さない。
 

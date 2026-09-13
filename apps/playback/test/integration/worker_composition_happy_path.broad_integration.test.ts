@@ -107,7 +107,7 @@ function installHappyDriveFetchStub(): void {
   installDriveFetchStub({
     files: [
       { id: jsonFileId, name: `${episodeId}.json` },
-      { id: wavFileId, name: `${episodeId}.wav` },
+      { id: wavFileId, name: `${episodeId}.mp3` },
     ],
     downloads: {
       [jsonFileId]: JSON.stringify(manuscriptJson),

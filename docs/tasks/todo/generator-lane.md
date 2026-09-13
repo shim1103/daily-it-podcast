@@ -24,10 +24,12 @@
 ### 未完了
 
 1. `generator-textwriter-prompt-source-criteria-adapters.md` — Publickey / TechCrunch / CloudWatch の `List` 実装と raw→SourceItem Verification
+2. `generator-audio-mp3-encode-write.md` — ConcatWAV 後 ffmpeg で mp3 化し Drive へ書く（1 PR。deploy は playback lane `R-mp3-cutover`）
+3. `audio-mp3-batch-migration.md` — 既存 wav 一括 mp3（1 PR。deploy は `R-mp3-migrate`。playback lane と共有）
 
 ### D（未決・未実測・文案）
 
-再発する判断の正は `docs/decisions/`。ここは残りの未実測・文案のみ index する。
+再発する判断の正は `docs/decisions/`。ここは残りの未実測・文案のみ index する。R2 / cache の **方針**は Decision（`2026-09-13T14-22-55` / `14-23-30`）。**C Issue にはしない**。細部は playback-lane 未決と共有。
 
 | topic | 概要 |
 |---|---|
@@ -47,8 +49,9 @@
 | Gemini fallback 発火の観測 | 現状 `delivery.LogWriter.Fallback("manuscript_source_switched")` の `generator: category=fallback event=...` 1 行のみ。切り替え成功時は原稿が出るので痕跡が薄い。GHA run summary への出力 / Drive metadata への provenance / 構造化 log 基盤の導入は未決 |
 | Gemini free-tier RPD の実運用値 | 公称 RPD≈1,000 だが実測で下振れ報告あり。1 日 1 回 produce + draft retry 最大 5 でも問題ないはずだが未確認 |
 | Cursor 復帰の運用気づき | 毎回 primary（Cursor）を先に試すので枠復活後は自動で戻るが、「毎日 Gemini に落ちている」状態を運用が能動的に気づく手段は未整備 |
-
+| GHA / local への `ffmpeg` 配備 | encode-write Issue の前提。runner に無ければ install step が要る（未実測） |
+| R2 書込側の細部 | 方針は `2026-09-13T14-22-55`。credential・GHA 注入・object 鍵設計は未決（playback-lane と共有。C にしない） |
 
 ### 方針 index
 
-閾値・入口の正は `DESIGN.md` / `DEPLOY.md`。
+閾値・入口の正は `DESIGN.md` / `DEPLOY.md`。音声形式は mp3（`contracts/drive-layout.md` / `2026-09-13T13-40-29`）。release 単位の正は `playback-lane.md`。

@@ -15,7 +15,7 @@ Generator が書き、Playback（BFF）が読む。載る成果物は音声と�
 | 原稿 JSON の field・`episodeId` と stem の一致 | `manuscript.schema.json` | **Application**（書込 UseCase の直前） |
 | ファイル名・拡張子・folder 内配置 | 本 file | **Infrastructure** の保存 Adapter（HTTP put の name / MIME / parent） |
 
-Generator の保存 Adapter は schema を import しない。配置（`{episodeId}.json` / `{episodeId}.wav`）だけを実装する。Playback worker の読取 Adapter は従来どおり読取直前に schema を enforce する。
+Generator の保存 Adapter は schema を import しない。配置（`{episodeId}.json` / `{episodeId}.mp3`）だけを実装する。Playback worker の読取 Adapter は従来どおり読取直前に schema を enforce する。
 
 ## 配置
 
@@ -23,7 +23,7 @@ Generator の保存 Adapter は schema を import しない。配置（`{episode
 
 | 種別 | 名前 |
 |------|------|
-| 音声 | `{episodeId}.wav` |
+| 音声 | `{episodeId}.mp3` |
 | 原稿 | `{episodeId}.json` |
 
 - `{episodeId}` は不透明な対応キー。両ファイルで同一。生成規則は Generator に閉じ、Reader は stem 一致だけ見る
