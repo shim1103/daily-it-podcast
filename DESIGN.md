@@ -61,7 +61,7 @@ repo 根 `contracts/` は Drive 表現の SSOT。`apps/playback/contracts/`（HT
 
 | 役割 | 接続 |
 |------|------|
-| 情報取得 | 公式 API / RSS の複数源（HackerNews・Lobsters・ITmedia NEWS）。Port は `ItemSource`。源ごとに専用 Adapter、facade なし（RSS 汎用 Adapter も作らない）。複数源 merge は Composition の composite。Application は源個数を知らない |
+| 情報取得 | 公式 API / RSS の複数源（HackerNews・Lobsters・Publickey・TechCrunch・クラウド Watch）。Port は `ItemSource`。源ごとに専用 Adapter、facade なし（RSS 汎用 Adapter も作らない）。複数源 merge は Composition の composite。Application は源個数を知らない。`SourceItem` 形は Decision `2026-09-13T17-14-00`（正本は `models/source_item.go`）。写像を固定する方針は `2026-09-13T17-14-10`（表の正本は各 Adapter / C Issue）。採用源は `2026-09-13T15-08-55` |
 | 原稿 | Cursor Cloud Agents REST（Port `TextWriter`）。Adapter は `manuscript/cursorapi` |
 | TTS | Gemini |
 | Drive | Google Drive + OAuth refresh |

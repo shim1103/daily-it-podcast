@@ -27,7 +27,7 @@ Playback (Vite + TypeScript + React + Cloudflare)
 | Behind the UI | Cloudflare Workers (Hono, Drive proxy) |
 | Entry to the UI | Cloudflare Access (`DEPLOY.md`) |
 | Generation | Go CLI + GitHub Actions cron |
-| Fetch | Official APIs / RSS from several sources (HackerNews, Lobsters, ITmedia NEWS) |
+| Fetch | Official APIs / RSS from several sources (HackerNews, Lobsters, Publickey, TechCrunch, Cloud Watch) |
 | Storage | Personal Google Drive |
 | Manuscript | Cursor Cloud Agents REST (Port `TextWriter`) |
 | Speech | Google Gemini TTS |
