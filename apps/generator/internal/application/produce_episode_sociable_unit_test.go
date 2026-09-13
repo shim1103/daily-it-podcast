@@ -133,7 +133,7 @@ var testDisplayLocation = time.FixedZone("JST", 9*3600)
 func newHarness(t *testing.T, segDurationSec float64) *harness {
 	t.Helper()
 	source := &fakeItemSource{items: []models.SourceItem{
-		{SourceID: "x", OccurredAt: time.Date(2026, 8, 30, 10, 0, 0, 0, time.UTC), Context: "item_id: a1"},
+		{SourceID: "x", OccurredAt: time.Date(2026, 8, 30, 10, 0, 0, 0, time.UTC), Summary: "item_id: a1"},
 	}}
 	lookup := &fakeCompletedEpisodeLookup{}
 	writer := &stubWriter{out: buildValidWireJSON()}

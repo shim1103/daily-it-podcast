@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/hackernews"
 )
@@ -137,17 +138,24 @@ func TestList_mapsTopStoryToSourceItem_whenStoryInWindow(t *testing.T) {
 	if !got[0].OccurredAt.Equal(wantOccurredAt) || got[0].OccurredAt.Location() != time.UTC {
 		t.Fatalf("OccurredAt = %v, want %v (UTC)", got[0].OccurredAt, wantOccurredAt)
 	}
-	wantContext := strings.Join([]string{
-		"item_id: 101",
-		"actor_id: user101",
-		"actor_name: user101",
-		"title: タイトル本文",
-		"text: 本文テキスト",
-		"permalink: https://news.ycombinator.com/item?id=101",
-		"links: https://example.com/article",
-	}, "\n")
-	if got[0].Context != wantContext {
-		t.Fatalf("Context =\n%q\nwant\n%q", got[0].Context, wantContext)
+	if got[0].Summary != "タイトル本文" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "タイトル本文")
+	}
+	if got[0].Detail.Text != "本文テキスト" {
+		t.Fatalf("Detail.Text = %q, want %q", got[0].Detail.Text, "本文テキスト")
+	}
+	if len(got[0].Detail.Links) != 1 || got[0].Detail.Links[0] != "https://example.com/article" {
+		t.Fatalf("Detail.Links = %#v, want article URL", got[0].Detail.Links)
+	}
+	if got[0].Discourse.Text != "" {
+		t.Fatalf("Discourse.Text = %q, want empty", got[0].Discourse.Text)
+	}
+	wantPermalink := "https://news.ycombinator.com/item?id=101"
+	if len(got[0].Discourse.Links) != 1 || got[0].Discourse.Links[0] != wantPermalink {
+		t.Fatalf("Discourse.Links = %#v, want %q", got[0].Discourse.Links, wantPermalink)
+	}
+	if !strings.Contains(got[0].Meta, "item_id: 101") {
+		t.Fatalf("Meta = %q, want item_id", got[0].Meta)
 	}
 }
 
@@ -172,8 +180,8 @@ func TestList_filtersToTypeStory_whenJobOrPollPresent(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
 	}
-	if !strings.Contains(got[0].Context, "item_id: 3") {
-		t.Fatalf("Context = %q, want story id 3 only", got[0].Context)
+	if got[0].Summary != "記事" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "記事")
 	}
 }
 
@@ -198,8 +206,8 @@ func TestList_excludesDeletedOrDeadItems(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
 	}
-	if !strings.Contains(got[0].Context, "item_id: 12") {
-		t.Fatalf("Context = %q, want story id 12 only", got[0].Context)
+	if got[0].Summary != "生存" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "生存")
 	}
 }
 
@@ -222,8 +230,8 @@ func TestList_excludesItemsOlderThanSince_atBoundary(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
 	}
-	if !strings.Contains(got[0].Context, "item_id: 20") {
-		t.Fatalf("Context = %q, want story id 20 (boundary inclusive)", got[0].Context)
+	if got[0].Summary != "境界ちょうど" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "境界ちょうど")
 	}
 }
 
@@ -389,8 +397,21 @@ func TestList_putsCommentTextIntoTextLine_whenStoryTextEmpty(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("len(got) = %d, want 1", len(got))
 	}
-	if !strings.Contains(got[0].Context, "text: 一つ目のコメント\n二つ目のコメント") {
-		t.Fatalf("Context = %q, want comment bodies in text line", got[0].Context)
+	if got[0].Summary != "外部リンク記事" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "外部リンク記事")
+	}
+	if got[0].Detail.Text != "" {
+		t.Fatalf("Detail.Text = %q, want empty", got[0].Detail.Text)
+	}
+	if len(got[0].Detail.Links) != 1 || got[0].Detail.Links[0] != "https://example.com/x" {
+		t.Fatalf("Detail.Links = %#v, want external URL", got[0].Detail.Links)
+	}
+	wantDiscourse := "一つ目のコメント\n二つ目のコメント"
+	if got[0].Discourse.Text != wantDiscourse {
+		t.Fatalf("Discourse.Text = %q, want %q", got[0].Discourse.Text, wantDiscourse)
+	}
+	if len(got[0].Discourse.Links) != 1 || got[0].Discourse.Links[0] != "https://news.ycombinator.com/item?id=50" {
+		t.Fatalf("Discourse.Links = %#v, want permalink", got[0].Discourse.Links)
 	}
 }
 
@@ -414,20 +435,25 @@ func TestList_omitsLinksLine_whenStoryURLAbsent(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("len(got) = %d, want 2", len(got))
 	}
-	var withURL, withoutURL string
+	summaries := map[string]bool{}
+	var withURL, withoutURL models.SourceItem
 	for _, item := range got {
-		if strings.Contains(item.Context, "item_id: 60") {
-			withURL = item.Context
-		}
-		if strings.Contains(item.Context, "item_id: 61") {
-			withoutURL = item.Context
+		summaries[item.Summary] = true
+		switch item.Summary {
+		case "URLあり":
+			withURL = item
+		case "URLなし":
+			withoutURL = item
 		}
 	}
-	if !strings.Contains(withURL, "links: https://example.com/withurl") {
-		t.Fatalf("story 60 Context = %q, want links line", withURL)
+	if !summaries["URLあり"] || !summaries["URLなし"] {
+		t.Fatalf("Summaries = %v, want URLあり and URLなし", summaries)
 	}
-	if strings.Contains(withoutURL, "links:") {
-		t.Fatalf("story 61 Context = %q, want no links line", withoutURL)
+	if len(withURL.Detail.Links) != 1 || withURL.Detail.Links[0] != "https://example.com/withurl" {
+		t.Fatalf("URLあり Detail.Links = %#v", withURL.Detail.Links)
+	}
+	if len(withoutURL.Detail.Links) != 0 {
+		t.Fatalf("URLなし Detail.Links = %#v, want empty", withoutURL.Detail.Links)
 	}
 }
 
@@ -454,17 +480,12 @@ func TestList_dropsFailedCommentButKeepsRest_whenOneCommentFetchFails(t *testing
 	if len(got) != 2 {
 		t.Fatalf("len(got) = %d, want 2 (%+v)", len(got), got)
 	}
-	var story70 string
+	summaries := map[string]bool{}
 	for _, item := range got {
-		if strings.Contains(item.Context, "item_id: 70") {
-			story70 = item.Context
-		}
+		summaries[item.Summary] = true
 	}
-	if !strings.Contains(story70, "コメント1") || !strings.Contains(story70, "コメント3") {
-		t.Fatalf("story 70 Context = %q, want コメント1 and コメント3", story70)
-	}
-	if strings.Contains(story70, "コメント2") {
-		t.Fatalf("story 70 Context = %q, want no コメント2 (fetch failed)", story70)
+	if !summaries["コメント一部失敗"] || !summaries["別story"] {
+		t.Fatalf("Summaries = %v, want both stories", summaries)
 	}
 }
 
@@ -558,8 +579,8 @@ func TestList_dropsStory_whenItemJSONIsBroken(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
 	}
-	if !strings.Contains(got[0].Context, "item_id: 111") {
-		t.Fatalf("Context = %q, want story id 111 only", got[0].Context)
+	if got[0].Summary != "正常" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "正常")
 	}
 }
 
@@ -586,9 +607,8 @@ func TestList_normalizesHTMLInStoryText_whenTagsAndEntitiesPresent(t *testing.T)
 	if len(got) != 1 {
 		t.Fatalf("len(got) = %d, want 1", len(got))
 	}
-	want := "text: 最初の段落\n次の段落 link & <tag>"
-	if !strings.Contains(got[0].Context, want) {
-		t.Fatalf("Context = %q, want to contain %q", got[0].Context, want)
+	if got[0].Summary != "正規化テスト" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "正規化テスト")
 	}
 }
 
@@ -613,8 +633,8 @@ func TestList_skipsCommentWithEmptyBody_whenCommentTextBlank(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("len(got) = %d, want 1", len(got))
 	}
-	if !strings.Contains(got[0].Context, "text: 中身あり") {
-		t.Fatalf("Context = %q, want text line with only the non-empty comment", got[0].Context)
+	if got[0].Summary != "空コメント混在" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "空コメント混在")
 	}
 }
 
@@ -685,8 +705,8 @@ func TestList_collectsWindowStoriesBeyondFirstMaxStoriesScanned_whenTopStoriesEx
 		t.Fatalf("len(got) = %d, want %d", len(got), hackernews.MaxStoriesScanned)
 	}
 	// 先頭 30 件目より後ろ（先頭に window 外が混じっているぶんズレる）の window 内 story も拾う。
-	if !strings.Contains(got[hackernews.MaxStoriesScanned-1].Context, fmt.Sprintf("item_id: %d", freshIDs[hackernews.MaxStoriesScanned-1])) {
-		t.Fatalf("last collected item = %q, want id %d", got[hackernews.MaxStoriesScanned-1].Context, freshIDs[hackernews.MaxStoriesScanned-1])
+	if got[hackernews.MaxStoriesScanned-1].Summary != "新しい" {
+		t.Fatalf("last Summary = %q, want %q", got[hackernews.MaxStoriesScanned-1].Summary, "新しい")
 	}
 }
 
@@ -723,9 +743,9 @@ func TestList_scansEntireIDListForWindowStories_whenOldStoriesPrecedeFreshOnes(t
 	if len(got) != len(freshIDs) {
 		t.Fatalf("len(got) = %d, want %d", len(got), len(freshIDs))
 	}
-	for i, id := range freshIDs {
-		if !strings.Contains(got[i].Context, fmt.Sprintf("item_id: %d", id)) {
-			t.Fatalf("got[%d] = %q, want id %d", i, got[i].Context, id)
+	for i := range freshIDs {
+		if got[i].Summary != "新しい" {
+			t.Fatalf("got[%d].Summary = %q, want %q", i, got[i].Summary, "新しい")
 		}
 	}
 }

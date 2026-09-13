@@ -17,9 +17,9 @@ import (
 // @ensure len(items) > 0 のとき戻りは trim 後に非空の brief 平文 1 本。
 // @ensure len(items) == 0 のとき ("", Domain Error Op = no_source_items) を返す。
 // @ensure constants.TextWriterBriefPrompt の {{SOURCES}} {{JSON_EXAMPLE}} と数値 placeholder を置換して完成させる。
-// @ensure 数値 placeholder は manuscript_draft_limits 定数を embedManuscriptDraftLimits で埋める。{{SOURCES}} は各 item の SourceID・OccurredAt・Context を平文列挙（窓幅説明なし）。{{JSON_EXAMPLE}} は models.WriterOutput から生成。
+// @ensure 数値 placeholder は manuscript_draft_limits 定数を embedManuscriptDraftLimits で埋める。{{SOURCES}} は各 item の SourceID・OccurredAt・Summary・Detail・Discourse・Meta を平文列挙（窓幅説明なし）。{{JSON_EXAMPLE}} は models.WriterOutput から生成。
 // @ensure OpeningGreeting / ClosingFarewell は含めない。
-// @invariant Prompt 散文を本 package に hardcode しない。Context を structured parse しない。
+// @invariant Prompt 散文を本 package に hardcode しない。Summary / Detail / Discourse / Meta を structured parse しない。
 func ComposeBrief(items []models.SourceItem) (string, error) {
 	return ComposeBriefWithTemplate(items, constants.TextWriterBriefPrompt)
 }
@@ -61,10 +61,36 @@ func formatSourceItems(items []models.SourceItem) string {
 		b.WriteString(item.SourceID)
 		b.WriteString("\noccurred_at: ")
 		b.WriteString(item.OccurredAt.UTC().Format(time.RFC3339))
-		b.WriteByte('\n')
-		b.WriteString(item.Context)
+		if item.Summary != "" {
+			b.WriteString("\nsummary: ")
+			b.WriteString(item.Summary)
+		}
+		appendSourceBody(&b, "detail", item.Detail)
+		appendSourceBody(&b, "discourse", item.Discourse)
+		if item.Meta != "" {
+			b.WriteString("\nmeta: ")
+			b.WriteString(item.Meta)
+		}
 	}
 	return b.String()
+}
+
+func appendSourceBody(b *strings.Builder, label string, body models.SourceBody) {
+	if body.Text != "" {
+		b.WriteByte('\n')
+		b.WriteString(label)
+		b.WriteString(": ")
+		b.WriteString(body.Text)
+	}
+	for _, link := range body.Links {
+		if link == "" {
+			continue
+		}
+		b.WriteByte('\n')
+		b.WriteString(label)
+		b.WriteString("_link: ")
+		b.WriteString(link)
+	}
 }
 
 // marshalWriterOutputExample は {{JSON_EXAMPLE}} に埋める形式例を生成する。

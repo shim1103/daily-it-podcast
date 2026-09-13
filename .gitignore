@@ -15,6 +15,9 @@ apps/playback/web/dist/
 # Wrangler local cache（account id / name など。repo に入れない）
 .wrangler/
 
+# Local investigation cache（FetchSourceItems 実取得 JSON など。repo に入れない）
+.cache/
+
 # Playwright
 apps/playback/test-results/
 apps/playback/playwright-report/

@@ -9,7 +9,7 @@ import (
 )
 
 // newProduceEpisode は検証済み Config の capability ごとに production Adapter を結線した日次 UseCase を返す。
-// 情報源は HackerNews / Lobsters / ITmedia を composite ItemSource 経由で束ね、Application へ情報源個数を渡さない。
+// 情報源は HackerNews / Lobsters / Publickey / TechCrunch / クラウド Watch を composite ItemSource 経由で束ね、Application へ情報源個数を渡さない。
 //
 // @require cfg は Generator の configuration boundary で検証済みである。logw != nil。
 // @ensure 戻りは非 nil の *application.ProduceEpisode。
@@ -20,7 +20,9 @@ func newProduceEpisode(cfg config.Config, logw *delivery.LogWriter) *application
 	fetch := application.NewFetchSourceItems(newCompositeItemSource(
 		newHackerNewsItemSource(httpClient),
 		newLobstersItemSource(httpClient),
-		newITmediaItemSource(httpClient),
+		newPublickeyItemSource(httpClient),
+		newTechCrunchItemSource(httpClient),
+		newCloudWatchItemSource(httpClient),
 	))
 	lookup := newGoogleDriveCompletedEpisodeLookup(httpClient, cfg.Drive)
 	// logw は port.FallbackReporter / port.ProgressReporter を満たす。application 用 callback の
