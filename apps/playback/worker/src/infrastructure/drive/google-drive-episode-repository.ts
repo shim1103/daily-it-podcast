@@ -10,7 +10,8 @@ const tokenEndpoint = "https://oauth2.googleapis.com/token";
 const driveFilesEndpoint = "https://www.googleapis.com/drive/v3/files";
 
 const jsonExtension = ".json";
-const wavExtension = ".wav";
+// why: 値の正本は repo 根 `contracts/drive-layout.md`。HTTP contracts は Infra から import 禁止（dependency-cruiser）
+const audioExtension = ".mp3";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -90,12 +91,12 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
     const accessToken = await this.fetchAccessToken();
     const entries = await this.listEntriesByEpisodeId(accessToken, episodeId);
 
-    const wavEntry = entries.find((entry) => stemOf(entry.name, wavExtension) === episodeId);
-    if (wavEntry === undefined) {
+    const audioEntry = entries.find((entry) => stemOf(entry.name, audioExtension) === episodeId);
+    if (audioEntry === undefined) {
       return undefined;
     }
 
-    return this.downloadBytes(accessToken, wavEntry.id);
+    return this.downloadBytes(accessToken, audioEntry.id);
   }
 
   /**
@@ -146,7 +147,7 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
   /**
    * フォルダ直下の全 file を取得する。
    *
-   * why: `listManuscripts` は全件が必要。`getAudio` は特定 episodeId の wav だけが要るため
+   * why: `listManuscripts` は全件が必要。`getAudio` は特定 episodeId の音声だけが要るため
    * `listEntriesByEpisodeId` を使う。
    */
   private async listFolderEntries(accessToken: string): Promise<DriveFileEntry[]> {
@@ -157,7 +158,7 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
   }
 
   /**
-   * フォルダ直下から、対象 episodeId の wav 名だけへ絞り込んで file を取得する。
+   * フォルダ直下から、対象 episodeId の音声名だけへ絞り込んで file を取得する。
    *
    * why: `getAudio` は1件の episodeId だけを要求されるため、Drive API v3 の `q` へ name
    * 条件を足すことで、フォルダ内 file 数に関わらず応答を定数サイズにする。
@@ -166,8 +167,9 @@ export class GoogleDriveEpisodeRepository implements EpisodeRepository {
     accessToken: string,
     episodeId: string,
   ): Promise<DriveFileEntry[]> {
-    const wavName = `${episodeId}${wavExtension}`;
-    const query = `'${this.folderId}' in parents and trashed = false ` + `and name = '${wavName}'`;
+    const audioName = `${episodeId}${audioExtension}`;
+    const query =
+      `'${this.folderId}' in parents and trashed = false ` + `and name = '${audioName}'`;
     return this.queryFolderEntries(accessToken, query);
   }
 

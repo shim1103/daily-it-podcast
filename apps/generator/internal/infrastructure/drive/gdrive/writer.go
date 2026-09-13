@@ -48,7 +48,7 @@ func (w *EpisodeWriter) Write(ctx context.Context, episodeID string, manuscript 
 	if err := w.putFile(ctx, token, episodeID+jsonExt, jsonMIME, manuscript); err != nil {
 		return err
 	}
-	if err := w.putFile(ctx, token, episodeID+wavExt, wavMIME, audio.Content); err != nil {
+	if err := w.putFile(ctx, token, episodeID+mp3Ext, mp3MIME, audio.Content); err != nil {
 		return err
 	}
 	return nil

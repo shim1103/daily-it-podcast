@@ -170,7 +170,7 @@ func TestGDriveEpisodeWriter_sendsListCreateUploadSequenceWithMatchingStem_whenD
 			switch {
 			case strings.HasSuffix(meta.Name, ".json"):
 				jsonName = meta.Name
-			case strings.HasSuffix(meta.Name, ".wav"):
+			case strings.HasSuffix(meta.Name, ".mp3"):
 				wavName = meta.Name
 			default:
 				t.Fatalf("unexpected create name %q", meta.Name)
@@ -194,7 +194,7 @@ func TestGDriveEpisodeWriter_sendsListCreateUploadSequenceWithMatchingStem_whenD
 	if jsonName != episodeID+".json" {
 		t.Fatalf("json name = %q, want %q", jsonName, episodeID+".json")
 	}
-	if wavName != episodeID+".wav" {
-		t.Fatalf("wav name = %q, want %q", wavName, episodeID+".wav")
+	if wavName != episodeID+".mp3" {
+		t.Fatalf("wav name = %q, want %q", wavName, episodeID+".mp3")
 	}
 }
