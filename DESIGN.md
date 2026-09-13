@@ -1,8 +1,8 @@
 # DESIGN
 
-最終更新: 2026-09-04
+最終更新: 2026-09-13
 
-地図・使い方は `README.md`。deploy・Access・GHA 運用・secret 登録は `DEPLOY.md`。Drive 表現は `contracts/`。runtime 構成図は `apps/diagrams/runtime.png`（code-first、生成元は `apps/diagrams/runtime.py`）。本書は **層・依存・所有・test 配置の規則**だけを書く。再発する判断は `docs/decisions/`。
+地図・使い方は `README.md`。deploy・Access・GHA 運用・secret 登録は `DEPLOY.md`。配置表現は `contracts/`（音声拡張子の正は `drive-layout.md`）。runtime 構成図は `apps/diagrams/runtime.png`（code-first、生成元は `apps/diagrams/runtime.py`）。本書は **層・依存・所有・test 配置の規則**だけを書く。再発する判断は `docs/decisions/`。
 
 ## 1. システム境界
 
@@ -12,7 +12,7 @@
 | `apps/playback/web` | 一覧・再生・原稿表示 | `worker` の HTTP のみ |
 | `apps/playback/worker` | Drive 読取 BFF | Drive API（入場境界は `DEPLOY.md`） |
 
-禁止: `playback` ↔ `generator` の直接依存。二系統の runtime は互いに import しない。つながるのは Drive 上の file だけ（形の正本は repo 根 `contracts/`）。
+禁止: `playback` ↔ `generator` の直接依存。二系統の runtime は互いに import しない。つながるのは共有 storage 上の file だけ（形の正本は repo 根 `contracts/`）。**現行 runtime の storage は Google Drive**。将来 R2 へ完全移行する方針は `docs/decisions/2026-09-13T14-22-55-feature-playback-now-playing-audio-listenability.md`（実装・DEPLOY latest の切替は移行完了後）。
 
 例外: `apps/playback/web` の production runtime（`src/`）は `worker` の HTTP のみ。dev-only（`web/vite.config.ts` middleware）に限り `worker` Composition Root を import して dummy backend を local 起動できる。production HTTP 入口（`worker/src/routes/app.ts`、`worker/src/worker-entry.ts`）は変更しない。
 
@@ -46,7 +46,7 @@
 
 ### `contracts/` の読み手
 
-repo 根 `contracts/` は Drive 表現の SSOT。`apps/playback/contracts/`（HTTP）とは別物。
+repo 根 `contracts/` は **配置表現**の SSOT（現行は Drive folder 上の命名。音声は mp3）。`apps/playback/contracts/`（HTTP）とは別物。
 
 | 層 | repo 根 `contracts/` |
 |----|----------------------|
@@ -64,7 +64,7 @@ repo 根 `contracts/` は Drive 表現の SSOT。`apps/playback/contracts/`（HT
 | 情報取得 | 公式 API / RSS の複数源（HackerNews・Lobsters・ITmedia NEWS）。Port は `ItemSource`。源ごとに専用 Adapter、facade なし（RSS 汎用 Adapter も作らない）。複数源 merge は Composition の composite。Application は源個数を知らない |
 | 原稿 | Cursor Cloud Agents REST（Port `TextWriter`）。Adapter は `manuscript/cursorapi` |
 | TTS | Gemini |
-| Drive | Google Drive + OAuth refresh |
+| Drive | Google Drive + OAuth refresh（**現行**。将来 R2 は Decision `2026-09-13T14-22-55`。薄い配信 cache は R2 後・`2026-09-13T14-23-30`） |
 
 `generator/internal/config` が startup で process environment を一度だけ読み、検証済み capability Config を Composition へ渡す。HTTP Adapter は `*http.Client` と必要な capability config / credential だけを受け取る。保存元・environment key は知らない。
 

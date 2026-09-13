@@ -202,7 +202,7 @@ describe("GoogleDriveEpisodeRepository Narrow Integration", () => {
   });
 
   it("getAudio returns wav bytes when download succeeds over real HTTP", async () => {
-    // Given: token / 絞り込み list / wav download が 2xx を返す local upstream
+    // Given: token / 絞り込み list / 音声 download が 2xx を返す local upstream
     const { origin, server } = await listen((req, res) => {
       oauthSuccessHandler(req, res, (innerReq, innerRes) => {
         const url = new URL(innerReq.url ?? "/", "http://127.0.0.1");
@@ -210,7 +210,7 @@ describe("GoogleDriveEpisodeRepository Narrow Integration", () => {
           writeJson(innerRes, 200, {
             files: [
               { id: narrowJsonFileId, name: "narrow-ep-1.json" },
-              { id: narrowWavFileId, name: "narrow-ep-1.wav" },
+              { id: narrowWavFileId, name: "narrow-ep-1.mp3" },
             ],
           });
           return;
@@ -220,7 +220,7 @@ describe("GoogleDriveEpisodeRepository Narrow Integration", () => {
           url.pathname === `/drive/v3/files/${narrowWavFileId}` &&
           url.searchParams.get("alt") === "media"
         ) {
-          innerRes.writeHead(200, { "Content-Type": "audio/wav" });
+          innerRes.writeHead(200, { "Content-Type": "audio/mpeg" });
           innerRes.end(Buffer.from(validAudioBytes));
           return;
         }
