@@ -21,7 +21,7 @@ deploy・Access・GHA 運用の正: `DEPLOY.md`
 8. 原稿 body の opening / ending を `{ text, startSec }` object へ（3 bookend を「本文 + startSec」へ揃える。text は定型込み朗読全文）。判断は `docs/decisions/2026-09-04T19-30-00-feature-playback-e2e-redeploy-master.md`（先行 `16-44-46` / `16-00-00` を reconcile）
 9. 音源 load 直後の seek が 0:00 に落ちる bug を修正（`readyState` 未達なら `loadedmetadata` を待って `currentTime` 代入）。e2e に seek 回帰 test 追加。安定 fixture を新契約 episode へ差し替え
 10. 週次 `playback-e2e` の全滅を Google OAuth refresh token 失効と特定。consent screen を Production 固定して 7 日失効を運用から外す（`docs/decisions/2026-09-07T22-25-00-fix-playback-e2e-test.md`）。`DriveError` の非 2xx message を呼び出し種別付きにして切り分け可能化
-11. 音声保存・配信の契約を mp3 へ（A）と Decision（`2026-09-13T13-40-29` / `13-41-00`）。`EncodeWAVToMP3` stub 未結線
+11. 音声保存・配信の契約を mp3 へ（A）と Decision（`2026-09-13T13-40-29` / `13-41-00` / encode `16-32-57` / runtime 工場 `17-38-37`）。encode Port + ffmpeg Adapter stub・`internal/runtime`・ProduceEpisode DI 済み。Run 内 encode 呼び出しは未結線
 
 ### 未完了
 

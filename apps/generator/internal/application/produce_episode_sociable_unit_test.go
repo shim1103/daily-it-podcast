@@ -67,7 +67,16 @@ func (s *spySynth) SynthesizeAll(_ context.Context, texts []string) ([]models.Sp
 var (
 	_ port.TextWriter        = (*stubWriter)(nil)
 	_ port.SpeechSynthesizer = (*spySynth)(nil)
+	_ port.WAVToMP3Encoder   = (*stubEncoder)(nil)
 )
+
+// stubEncoder は WAVToMP3Encoder の Stub。A 契約では ProduceEpisode がまだ呼ばない。
+// C 結線後は戻り値を観測対象にする。
+type stubEncoder struct{}
+
+func (s *stubEncoder) EncodeWAVToMP3(_ context.Context, _ []byte) ([]byte, error) {
+	return nil, nil
+}
 
 // fixedEpisodeID は newEpisodeID Stub が返す固定 ID。
 const fixedEpisodeID = "ep-fixed-0001"
@@ -136,6 +145,7 @@ func newHarness(t *testing.T, segDurationSec float64) *harness {
 		lookup,
 		writer,
 		synth,
+		&stubEncoder{},
 		application.NewWriteEpisode(episw),
 		fixedEpisodeIDFunc,
 		testDisplayLocation,
@@ -609,6 +619,7 @@ func TestProduceEpisodeRun_retriesTextWriter_whenFirstDraftInvalidThenValid(t *t
 		h.lookup,
 		seq,
 		h.synth,
+		&stubEncoder{},
 		application.NewWriteEpisode(h.episw),
 		fixedEpisodeIDFunc,
 		testDisplayLocation,

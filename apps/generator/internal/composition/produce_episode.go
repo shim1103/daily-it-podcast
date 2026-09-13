@@ -5,6 +5,7 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/manuscript"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/config"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
+	appruntime "github.com/shim1103/daily-it-podcast/apps/generator/internal/runtime"
 )
 
 // newProduceEpisode は検証済み Config の capability ごとに production Adapter を結線した日次 UseCase を返す。
@@ -15,7 +16,7 @@ import (
 // @ensure Fetch は composite ItemSource 経由で行い、Application へ情報源個数を渡さない。
 // @invariant config.Load 呼び出しをここで行わない。Composition Root の結線責務だけを持つ。
 func newProduceEpisode(cfg config.Config, logw *delivery.LogWriter) *application.ProduceEpisode {
-	httpClient := sharedHTTPClient()
+	httpClient := appruntime.HTTPClient()
 	fetch := application.NewFetchSourceItems(newCompositeItemSource(
 		newHackerNewsItemSource(httpClient),
 		newLobstersItemSource(httpClient),
@@ -25,13 +26,14 @@ func newProduceEpisode(cfg config.Config, logw *delivery.LogWriter) *application
 	// logw は port.FallbackReporter / port.ProgressReporter を満たす。application 用 callback の
 	// 組み立ては delivery.LogWriter が持ち、Composition は結線だけ行う。
 	textWriter := manuscript.NewTextWriter(
-		newCursorTextWriter(sharedHTTPClientWithoutTimeout(), cfg.Cursor),
-		newGeminiTextWriter(sharedHTTPClientWithoutTimeout(), cfg.Gemini),
+		newCursorTextWriter(appruntime.HTTPClientWithoutTimeout(), cfg.Cursor),
+		newGeminiTextWriter(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini),
 		logw,
 	)
-	speech := newGeminiSpeechSynthesizer(sharedHTTPClientWithoutTimeout(), cfg.Gemini)
+	speech := newGeminiSpeechSynthesizer(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini)
+	encode := newFFmpegWAVToMP3Encoder()
 	writeEpisode := newGoogleDriveWriteEpisode(httpClient, cfg.Drive)
-	return application.NewProduceEpisode(fetch, lookup, textWriter, speech, writeEpisode, newEpisodeID, sharedDisplayLocation(), logw)
+	return application.NewProduceEpisode(fetch, lookup, textWriter, speech, encode, writeEpisode, newEpisodeID, appruntime.DisplayLocation(), logw)
 }
 
 // NewProduceEpisodeFromEnv は process environment から Config を読み、production UseCase を組み立てる。
@@ -40,7 +42,7 @@ func newProduceEpisode(cfg config.Config, logw *delivery.LogWriter) *application
 // @ensure config.Load が違反を返したら *config.Errors をそのまま返し、UseCase は nil。
 // @invariant config.Load 呼び出しは Composition Root に閉じ、cmd / infrastructure へ漏らさない。
 func NewProduceEpisodeFromEnv(logw *delivery.LogWriter) (*application.ProduceEpisode, error) {
-	cfg, err := config.Load(sharedLookupEnv())
+	cfg, err := config.Load(appruntime.LookupEnv())
 	if err != nil {
 		return nil, err
 	}
