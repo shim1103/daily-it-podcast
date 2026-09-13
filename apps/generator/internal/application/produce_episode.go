@@ -16,6 +16,7 @@ type ProduceEpisode struct {
 	lookup       port.CompletedEpisodeLookup
 	textWriter   port.TextWriter
 	speech       port.SpeechSynthesizer
+	encode       port.WAVToMP3Encoder
 	writeEpisode *WriteEpisode
 	newEpisodeID func() string
 	displayLoc   *time.Location
@@ -28,13 +29,14 @@ const TextWriterMaxAttempts = 5
 
 // NewProduceEpisode は Fetch から WriteEpisode までを束ねる Builder UseCase を返す。
 //
-// @require fetch != nil かつ lookup != nil かつ textWriter != nil かつ speech != nil かつ writeEpisode != nil かつ newEpisodeID != nil かつ displayLoc != nil かつ progress != nil
+// @require fetch != nil かつ lookup != nil かつ textWriter != nil かつ speech != nil かつ encode != nil かつ writeEpisode != nil かつ newEpisodeID != nil かつ displayLoc != nil かつ progress != nil
 // @ensure 戻りは非 nil。
 func NewProduceEpisode(
 	fetch *FetchSourceItems,
 	lookup port.CompletedEpisodeLookup,
 	textWriter port.TextWriter,
 	speech port.SpeechSynthesizer,
+	encode port.WAVToMP3Encoder,
 	writeEpisode *WriteEpisode,
 	newEpisodeID func() string,
 	displayLoc *time.Location,
@@ -45,6 +47,7 @@ func NewProduceEpisode(
 		lookup:       lookup,
 		textWriter:   textWriter,
 		speech:       speech,
+		encode:       encode,
 		writeEpisode: writeEpisode,
 		newEpisodeID: newEpisodeID,
 		displayLoc:   displayLoc,
@@ -54,7 +57,7 @@ func NewProduceEpisode(
 
 // Run は Fetch から WriteEpisode までの全日次手順を orchestrate する Builder である。
 //
-// @require uc != nil かつ uc.fetch != nil かつ uc.lookup != nil かつ uc.textWriter != nil かつ uc.speech != nil かつ uc.writeEpisode != nil かつ uc.newEpisodeID != nil かつ uc.displayLoc != nil かつ uc.progress != nil。now は CLI 実行時刻（Fetch の since 基準かつ date 暦日化の基準）。
+// @require uc != nil かつ uc.fetch != nil かつ uc.lookup != nil かつ uc.textWriter != nil かつ uc.speech != nil かつ uc.encode != nil かつ uc.writeEpisode != nil かつ uc.newEpisodeID != nil かつ uc.displayLoc != nil かつ uc.progress != nil。now は CLI 実行時刻（Fetch の since 基準かつ date 暦日化の基準）。
 // @ensure 表示 Location で now を暦日化した date につき CompletedEpisodeLookup.HasPair が true なら、Fetch より前に成功 return（episodeID は空。TextWriter / Speech / WriteEpisode を呼ばない）。
 // @ensure HasPair が false なら通常どおり続行する。
 // @ensure Fetch 後 0 件なら Domain Error（Op = no_source_items）。episodeID は空。WriteEpisode.Run を呼ばない。

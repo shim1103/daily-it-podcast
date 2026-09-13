@@ -26,6 +26,7 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/audio/ffmpeg"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/google/oauth"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/hackernews"
@@ -483,6 +484,7 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 		lookup,
 		h.textWriter,
 		speech,
+		ffmpeg.NewEncoder(nil, nil),
 		writeEpisode,
 		broadFixedEpisodeIDFunc,
 		integrationTestDisplayLocation,
