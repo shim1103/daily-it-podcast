@@ -26,12 +26,14 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/cloudwatch"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/google/oauth"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/hackernews"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/itmedia"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/lobsters"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/publickey"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/techcrunch"
 )
 
 const (
@@ -202,7 +204,6 @@ type integrationTLSRoutes struct {
 	gdrive     http.HandlerFunc
 	hackernews http.HandlerFunc
 	lobsters   http.HandlerFunc
-	itmedia    http.HandlerFunc
 }
 
 func newIntegrationTLSClient(t *testing.T, routes integrationTLSRoutes) *http.Client {
@@ -213,7 +214,6 @@ func newIntegrationTLSClient(t *testing.T, routes integrationTLSRoutes) *http.Cl
 		"www.googleapis.com":                httptest.NewTLSServer(routes.gdrive),
 		"hacker-news.firebaseio.com":        httptest.NewTLSServer(routes.hackernews),
 		"lobste.rs":                         httptest.NewTLSServer(routes.lobsters),
-		"rss.itmedia.co.jp":                 httptest.NewTLSServer(routes.itmedia),
 	}
 	for _, srv := range servers {
 		t.Cleanup(srv.Close)
@@ -287,10 +287,10 @@ func writeIntegrationJSONStatus(t *testing.T, w http.ResponseWriter, status int,
 type broadProduceEpisodeConfig struct {
 	cursorFail   bool
 	geminiFailAt int  // 1-origin。0 なら失敗しない
-	emptySources bool // true なら 3 情報源すべてが 0 件を返す
+	emptySources bool // true なら HackerNews / Lobsters が 0 件を返す（stub 3 源は常に空）
 }
 
-// 3 情報源の success / empty handler。時刻は integrationTestFixedNow を使う。
+// HackerNews / Lobsters の success / empty handler。時刻は integrationTestFixedNow を使う。
 // FetchSourceItems は since = now - FetchWindow(24h) を渡すため、now 自体は必ず since 以上になる。
 // Broad は「SourceItem が 1 件以上ある」ことだけを要求する。
 func integrationHackerNewsSuccessHandler(t *testing.T) http.HandlerFunc {
@@ -348,38 +348,6 @@ func integrationLobstersEmptyHandler(t *testing.T) http.HandlerFunc {
 			return
 		}
 		http.Error(w, "unexpected lobsters path", http.StatusNotFound)
-	}
-}
-
-func integrationITmediaSuccessHandler(t *testing.T) http.HandlerFunc {
-	t.Helper()
-	pubDate := integrationTestFixedNow.Format(time.RFC1123Z)
-	body := `<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
-		`<rss version="2.0">` + "\n<channel>\n" +
-		fmt.Sprintf(
-			"<item><title>%s</title><link>%s</link><description>%s</description><pubDate>%s</pubDate></item>\n",
-			"Broad ITmedia 記事", "https://www.itmedia.co.jp/news/articles/broad.html", "本文", pubDate,
-		) +
-		"</channel>\n</rss>\n"
-	return func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/rss/2.0/news_bursts.xml") {
-			_, _ = io.WriteString(w, body)
-			return
-		}
-		http.Error(w, "unexpected itmedia path", http.StatusNotFound)
-	}
-}
-
-func integrationITmediaEmptyHandler(t *testing.T) http.HandlerFunc {
-	t.Helper()
-	body := `<?xml version="1.0" encoding="UTF-8"?>` + "\n" +
-		`<rss version="2.0">` + "\n<channel>\n</channel>\n</rss>\n"
-	return func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/rss/2.0/news_bursts.xml") {
-			_, _ = io.WriteString(w, body)
-			return
-		}
-		http.Error(w, "unexpected itmedia path", http.StatusNotFound)
 	}
 }
 
@@ -446,11 +414,9 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 
 	hackernewsHandler := integrationHackerNewsSuccessHandler(t)
 	lobstersHandler := integrationLobstersSuccessHandler(t)
-	itmediaHandler := integrationITmediaSuccessHandler(t)
 	if cfg.emptySources {
 		hackernewsHandler = integrationHackerNewsEmptyHandler(t)
 		lobstersHandler = integrationLobstersEmptyHandler(t)
-		itmediaHandler = integrationITmediaEmptyHandler(t)
 	}
 
 	httpClient := newIntegrationTLSClient(t, integrationTLSRoutes{
@@ -459,15 +425,16 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 		gdrive:     integrationGDriveSuccessHandler(t, gdriveProbe),
 		hackernews: hackernewsHandler,
 		lobsters:   lobstersHandler,
-		itmedia:    itmediaHandler,
 	})
 
-	// 3 情報源（HackerNews → Lobsters → ITmedia）の upstream double を composite ItemSource へ結線する。
-	// 登録順は composition.newProduceEpisode と同順。真外部は TLS redirect で double 済み。
+	// 5 情報源（HackerNews → Lobsters → Publickey → TechCrunch → クラウド Watch）。
+	// 登録順は composition.newProduceEpisode と同順。新規 3 源は A stub（空 List）。真外部は TLS redirect で double 済み。
 	fetch := application.NewFetchSourceItems(compositeItemSource{
 		hackernews.NewListItemSource(httpClient),
 		lobsters.NewListItemSource(httpClient),
-		itmedia.NewListItemSource(httpClient),
+		publickey.NewListItemSource(httpClient),
+		techcrunch.NewListItemSource(httpClient),
+		cloudwatch.NewListItemSource(httpClient),
 	})
 	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey)
 	tokens := oauth.NewTokenSource(httpClient, broadDummyOAuthClientID, broadDummyOAuthClientSecret, broadDummyOAuthRefreshToken)

@@ -62,7 +62,7 @@ func TestComposeBrief_returnsTrimmedBriefWithoutPlaceholders_whenSingleItemGiven
 		{
 			SourceID:   "x-api",
 			OccurredAt: time.Date(2024, 12, 10, 10, 0, 0, 0, time.UTC),
-			Context:    "item_id: tweet-1",
+			Summary:    "item_id: tweet-1",
 		},
 	}
 
@@ -120,13 +120,13 @@ func TestComposeBrief_embedsSourcesPlainText_whenItemsGiven(t *testing.T) {
 				{
 					SourceID:   "x-api",
 					OccurredAt: occurredUTC,
-					Context:    "item_id: tweet-1",
+					Summary:    "item_id: tweet-1",
 				},
 			},
 			wantSources: strings.Join([]string{
 				"source_id: x-api",
 				"occurred_at: 2024-12-10T10:00:00Z",
-				"item_id: tweet-1",
+				"summary: item_id: tweet-1",
 			}, "\n"),
 		},
 		{
@@ -135,23 +135,27 @@ func TestComposeBrief_embedsSourcesPlainText_whenItemsGiven(t *testing.T) {
 				{
 					SourceID:   "x-api",
 					OccurredAt: occurredUTC,
-					Context:    "item_id: tweet-1\nbody: hello",
+					Summary:    "item_id: tweet-1",
+					Detail:     models.SourceBody{Text: "body: hello"},
 				},
 				{
 					SourceID:   "rss-feed",
 					OccurredAt: occurredJST,
-					Context:    "item_id: article-9",
+					Summary:    "item_id: article-9",
+					Discourse:  models.SourceBody{Text: "note-a", Links: []string{"https://example.com/d"}},
 				},
 			},
 			wantSources: strings.Join([]string{
 				"source_id: x-api",
 				"occurred_at: 2024-12-10T10:00:00Z",
-				"item_id: tweet-1",
-				"body: hello",
+				"summary: item_id: tweet-1",
+				"detail: body: hello",
 				"",
 				"source_id: rss-feed",
 				"occurred_at: 2024-12-10T02:30:00Z",
-				"item_id: article-9",
+				"summary: item_id: article-9",
+				"discourse: note-a",
+				"discourse_link: https://example.com/d",
 			}, "\n"),
 		},
 		{
@@ -160,22 +164,21 @@ func TestComposeBrief_embedsSourcesPlainText_whenItemsGiven(t *testing.T) {
 				{
 					SourceID:   "rss-feed",
 					OccurredAt: occurredJST,
-					Context:    "item_id: article-9",
+					Summary:    "item_id: article-9",
 				},
 			},
 			wantSources: strings.Join([]string{
 				"source_id: rss-feed",
 				"occurred_at: 2024-12-10T02:30:00Z",
-				"item_id: article-9",
+				"summary: item_id: article-9",
 			}, "\n"),
 		},
 		{
-			name: "embedsSourceWithoutContextLines_whenContextEmpty",
+			name: "embedsSourceWithoutFieldLines_whenSummaryDetailDiscourseEmpty",
 			items: []models.SourceItem{
 				{
 					SourceID:   "empty-ctx",
 					OccurredAt: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
-					Context:    "",
 				},
 			},
 			wantSources: strings.Join([]string{

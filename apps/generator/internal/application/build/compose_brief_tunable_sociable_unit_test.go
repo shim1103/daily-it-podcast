@@ -16,7 +16,7 @@ func tunableSeedItems() []models.SourceItem {
 		{
 			SourceID:   "seed-1",
 			OccurredAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
-			Context:    "あるクラウド事業者がコンテナ基盤を更新した。オートスケール閾値を自動推定する。",
+			Summary:    "あるクラウド事業者がコンテナ基盤を更新した。オートスケール閾値を自動推定する。",
 		},
 	}
 }

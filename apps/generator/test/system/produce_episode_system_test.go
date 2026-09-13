@@ -3,7 +3,7 @@
 // Scope: System（e2e 1 回通し）
 // 実物: composition.NewProduceEpisodeFromEnv で結線した本番 UseCase が、
 //
-//	実 3 情報源（HackerNews / Lobsters / ITmedia）→ 実 Cursor Cloud Agents API 原稿 →
+//	実 5 情報源（HackerNews / Lobsters / Publickey / TechCrunch / クラウド Watch）→ 実 Cursor Cloud Agents API 原稿 →
 //	実 Gemini TTS → 実 OAuth + Drive 書込 を 1 度だけ通す。
 //
 // Double: なし（test 専用 credential。実行場所は GHA）。DRIVE_FOLDER_ID は test 専用 folder。

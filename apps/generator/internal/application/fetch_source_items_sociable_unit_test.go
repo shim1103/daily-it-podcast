@@ -37,8 +37,8 @@ func TestFetchSourceItems_returnsItemsFromSource_whenListSucceeds(t *testing.T) 
 	// Given: List が 2 件を返す
 	occurred := time.Date(2024, 12, 10, 10, 0, 0, 0, time.UTC)
 	want := []models.SourceItem{
-		{SourceID: "x", OccurredAt: occurred, Context: "item_id: a1"},
-		{SourceID: "x", OccurredAt: occurred.Add(time.Minute), Context: "item_id: a2"},
+		{SourceID: "x", OccurredAt: occurred, Summary: "item_id: a1"},
+		{SourceID: "x", OccurredAt: occurred.Add(time.Minute), Summary: "item_id: a2"},
 	}
 	fake := &fakeItemSource{items: want}
 	uc := application.NewFetchSourceItems(fake)
@@ -55,7 +55,7 @@ func TestFetchSourceItems_returnsItemsFromSource_whenListSucceeds(t *testing.T) 
 		t.Fatalf("len = %d, want %d: %+v", len(got), len(want), got)
 	}
 	for i := range want {
-		if got[i].SourceID != want[i].SourceID || got[i].Context != want[i].Context || !got[i].OccurredAt.Equal(want[i].OccurredAt) {
+		if got[i].SourceID != want[i].SourceID || got[i].Summary != want[i].Summary || !got[i].OccurredAt.Equal(want[i].OccurredAt) {
 			t.Fatalf("got[%d] = %+v, want %+v", i, got[i], want[i])
 		}
 	}
@@ -86,7 +86,7 @@ func TestFetchSourceItems_returnsErrorWithoutItems_whenListFails(t *testing.T) {
 	// Given: List が失敗する
 	boom := errors.New("list failed")
 	fake := &fakeItemSource{
-		items: []models.SourceItem{{SourceID: "x", Context: "item_id: a1"}},
+		items: []models.SourceItem{{SourceID: "x", Summary: "item_id: a1"}},
 		err:   boom,
 	}
 	uc := application.NewFetchSourceItems(fake)
