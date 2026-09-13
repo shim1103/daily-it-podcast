@@ -54,6 +54,16 @@ linters:
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/entities
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure
+        runtime:
+          list-mode: strict
+          files:
+            - "**/internal/runtime/*.go"
+            - "**/internal/runtime/**/*.go"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/entities
+            - github.com/shim1103/daily-it-podcast/apps/generator/internal/runtime
         # composition は全層 import 特権のため規則なし
 
 formatters:
