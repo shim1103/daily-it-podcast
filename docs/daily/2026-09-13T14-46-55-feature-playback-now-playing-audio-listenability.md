@@ -16,7 +16,7 @@ playback の load 遅さに対し、保存・配信形式を mp3 に契約固定
 - R2/cache を C Issue にする案は shim 訂正で却下。Decision のみ。
 - worker Infra が HTTP contracts から拡張子を import すると dependency-cruiser が落ちるため、値は `drive-layout` 正本・Infra は local 定数へ戻した。
 - 検証: commit hook 経由で generator static/unit coverage、playback format/lint/tsc/layers 緑。
-- PR は create-pr（`gh pr`）で作成予定。
+- PR: https://github.com/shim1103/daily-it-podcast/pull/146（base `develop`）
 
 ### Commits
 
@@ -24,3 +24,4 @@ playback の load 遅さに対し、保存・配信形式を mp3 に契約固定
 - `20ab0e9`
 - `86dbdf9`
 - `ac6fbe8`
+- `ee97d29`
