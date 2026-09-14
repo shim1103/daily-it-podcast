@@ -29,16 +29,16 @@ type EpisodeWriter struct {
 
 // NewEpisodeWriter は R2 EpisodeWriter を返す。
 //
-// @require httpClient は非 nil（Write 時に検証）。cred / ep は Composition が検証済み値を渡す。
+// @require httpClient は非 nil（Write 時に検証）。accessKeyID / secretAccessKey / accountID / bucket は Composition が検証済み値を渡す。
 // @ensure 戻りは非 nil の *EpisodeWriter（port.EpisodeWriter）。
 // @invariant bucket・key・Account ID・Access Key・secret 実値を error / log へ載せない。
-func NewEpisodeWriter(httpClient *http.Client, cred Credentials, ep Endpoint) *EpisodeWriter {
+func NewEpisodeWriter(httpClient *http.Client, accessKeyID, secretAccessKey, accountID, bucket string) *EpisodeWriter {
 	return &EpisodeWriter{
 		client:          httpClient,
-		accessKeyID:     cred.AccessKeyID,
-		secretAccessKey: cred.SecretAccessKey,
-		accountID:       ep.AccountID,
-		bucket:          ep.Bucket,
+		accessKeyID:     accessKeyID,
+		secretAccessKey: secretAccessKey,
+		accountID:       accountID,
+		bucket:          bucket,
 		now:             time.Now,
 	}
 }
@@ -63,16 +63,18 @@ func (w *EpisodeWriter) Write(ctx context.Context, episodeID string, manuscript 
 }
 
 func (w *EpisodeWriter) putObject(ctx context.Context, objectName, mime string, content []byte) error {
+	var last error
 	for attempt := 1; attempt <= maxPutAttempts; attempt++ {
 		retryable, err := w.putOnce(ctx, objectName, mime, content)
 		if err == nil {
 			return nil
 		}
-		if !retryable || attempt == maxPutAttempts {
+		last = err
+		if !retryable {
 			return err
 		}
 	}
-	panic("putObject: maxPutAttempts must be positive")
+	return last
 }
 
 func (w *EpisodeWriter) putOnce(ctx context.Context, objectName, mime string, content []byte) (retryable bool, err error) {

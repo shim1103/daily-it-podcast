@@ -42,17 +42,6 @@ type r2NarrowCall struct {
 	Auth        string
 }
 
-func r2NarrowCredentials() r2.Credentials {
-	return r2.Credentials{
-		AccessKeyID:     r2NarrowAccessKeyID,
-		SecretAccessKey: r2NarrowSecretAccessKey,
-	}
-}
-
-func r2NarrowEndpoint() r2.Endpoint {
-	return r2.Endpoint{AccountID: r2NarrowAccountID, Bucket: r2NarrowBucket}
-}
-
 func newR2WriterWithProxy(t *testing.T, handler http.HandlerFunc) (*r2.EpisodeWriter, *[]r2NarrowCall) {
 	t.Helper()
 	return newR2WriterWithProxyDial(t, handler, nil)
@@ -97,7 +86,13 @@ func newR2WriterWithProxyDial(t *testing.T, handler http.HandlerFunc, dial func(
 	httpClient := &http.Client{
 		Transport: &http.Transport{DialTLSContext: dial},
 	}
-	w := r2.NewEpisodeWriter(httpClient, r2NarrowCredentials(), r2NarrowEndpoint())
+	w := r2.NewEpisodeWriter(
+		httpClient,
+		r2NarrowAccessKeyID,
+		r2NarrowSecretAccessKey,
+		r2NarrowAccountID,
+		r2NarrowBucket,
+	)
 	return w, calls
 }
 

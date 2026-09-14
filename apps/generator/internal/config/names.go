@@ -10,7 +10,7 @@ const (
 	GoogleOAuthRefreshTokenEnv = "GOOGLE_OAUTH_REFRESH_TOKEN"
 	DriveFolderIDEnv           = "DRIVE_FOLDER_ID"
 
-	// R2（generator S3 互換）。LoadR2 / Composition 結線口あり。本番正本への切替は列 6。
+	// R2（generator S3 互換）。Load 必須。本番 write/lookup 結線の切替は列 6。
 	R2AccessKeyIDEnv     = "R2_ACCESS_KEY_ID"
 	R2SecretAccessKeyEnv = "R2_SECRET_ACCESS_KEY"
 	R2AccountIDEnv       = "R2_ACCOUNT_ID"

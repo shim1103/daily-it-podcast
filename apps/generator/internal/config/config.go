@@ -24,7 +24,7 @@ type DriveConfig struct {
 }
 
 // R2Config は Cloudflare R2（S3 互換）保存に必要なconfigである。
-// Load の必須集合には含めない（現行本番正本は Drive。結線切替は列 6）。
+// 本番 write/lookup の結線切替は列 6。Load では他 capability と同様に必須として検証する。
 type R2Config struct {
 	AccessKeyID     Secret
 	SecretAccessKey Secret
@@ -41,4 +41,5 @@ type Config struct {
 	Cursor CursorConfig
 	Gemini GeminiConfig
 	Drive  DriveConfig
+	R2     R2Config
 }
