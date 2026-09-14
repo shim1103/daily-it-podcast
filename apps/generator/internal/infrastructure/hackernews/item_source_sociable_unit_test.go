@@ -157,6 +157,50 @@ func TestList_mapsTopStoryToSourceItem_whenStoryInWindow(t *testing.T) {
 	if !strings.Contains(got[0].Meta, "item_id: 101") {
 		t.Fatalf("Meta = %q, want item_id", got[0].Meta)
 	}
+	if !strings.Contains(got[0].Meta, "actor_id: user101") || !strings.Contains(got[0].Meta, "actor_name: user101") {
+		t.Fatalf("Meta = %q, want by as actor", got[0].Meta)
+	}
+}
+
+func TestList_discardsEngagementFields_whenScoreAndDescendantsPresent(t *testing.T) {
+	// @given score / descendants / kids / type を含む story double（写像では捨てる）
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	unix := since.Add(time.Hour).Unix()
+	rt := newStubRoundTripper()
+	rt.setTopStories(201)
+	rt.setItem(201, fmt.Sprintf(
+		`{"id":201,"type":"story","by":"bob","time":%d,"title":"engagement捨て","text":"本文","url":"https://example.com/e","score":999,"descendants":42,"kids":[202]}`,
+		unix,
+	))
+	rt.setItem(202, commentJSON(202, unix, "c", "コメント"))
+	source := newStubListItemSource(rt)
+
+	// @when
+	got, err := source.List(context.Background(), since)
+
+	// @then 写像先字段は engagement を含まない exact 値
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if got[0].Summary != "engagement捨て" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "engagement捨て")
+	}
+	if got[0].Detail.Text != "本文" {
+		t.Fatalf("Detail.Text = %q, want %q", got[0].Detail.Text, "本文")
+	}
+	if len(got[0].Detail.Links) != 1 || got[0].Detail.Links[0] != "https://example.com/e" {
+		t.Fatalf("Detail.Links = %#v, want article URL", got[0].Detail.Links)
+	}
+	if got[0].Discourse.Text != "コメント" {
+		t.Fatalf("Discourse.Text = %q, want comment body", got[0].Discourse.Text)
+	}
+	wantMeta := "item_id: 201\nactor_id: bob\nactor_name: bob"
+	if got[0].Meta != wantMeta {
+		t.Fatalf("Meta = %q, want %q", got[0].Meta, wantMeta)
+	}
 }
 
 func TestList_filtersToTypeStory_whenJobOrPollPresent(t *testing.T) {

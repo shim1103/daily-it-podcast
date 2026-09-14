@@ -173,6 +173,57 @@ func TestList_mapsHottestStoryToSourceItem_whenStoryInWindow(t *testing.T) {
 	if !strings.Contains(got[0].Meta, "item_id: abc123") || !strings.Contains(got[0].Meta, "actor_id: alice") {
 		t.Fatalf("Meta = %q, want item_id and actor", got[0].Meta)
 	}
+	if !strings.Contains(got[0].Meta, "actor_name: alice") {
+		t.Fatalf("Meta = %q, want actor_name", got[0].Meta)
+	}
+	if strings.Contains(got[0].Discourse.Links[0], "/comments") || strings.Contains(strings.Join(got[0].Detail.Links, ","), "/comments") {
+		t.Fatalf("comments_url leaked into Links: Detail=%#v Discourse=%#v", got[0].Detail.Links, got[0].Discourse.Links)
+	}
+}
+
+func TestList_discardsEngagementAndCommentsURL_whenPresentInRaw(t *testing.T) {
+	// @given score / flags / tags / comment_count / comments_url / HTML description を含む story double
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	createdAt := since.Add(time.Hour).Format(time.RFC3339)
+	rt := newStubRoundTripper()
+	rt.setHottest(hottestEntry{ShortID: "eng1", CreatedAt: createdAt})
+	body := fmt.Sprintf(
+		`{"short_id":"eng1","submitter_user":"carol","title":"捨て検証","description_plain":"平文説明","description":"<p>HTML説明</p>","url":"https://example.com/l","short_id_url":"https://lobste.rs/s/eng1","comments_url":"https://lobste.rs/s/eng1/comments","created_at":%q,"score":88,"flags":2,"tags":["rust","go"],"comment_count":15,"comments":[%s]}`,
+		createdAt,
+		commentJSON("反応", false, false),
+	)
+	rt.setStory("eng1", body)
+	source := newStubListItemSource(rt)
+
+	// @when
+	got, err := source.List(context.Background(), since)
+
+	// @then 写像先字段は捨てる raw を含まない exact 値
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if got[0].Summary != "捨て検証" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "捨て検証")
+	}
+	if got[0].Detail.Text != "平文説明" {
+		t.Fatalf("Detail.Text = %q, want description_plain", got[0].Detail.Text)
+	}
+	if len(got[0].Detail.Links) != 1 || got[0].Detail.Links[0] != "https://example.com/l" {
+		t.Fatalf("Detail.Links = %#v, want article URL", got[0].Detail.Links)
+	}
+	if got[0].Discourse.Text != "反応" {
+		t.Fatalf("Discourse.Text = %q, want comment_plain", got[0].Discourse.Text)
+	}
+	if len(got[0].Discourse.Links) != 1 || got[0].Discourse.Links[0] != "https://lobste.rs/s/eng1" {
+		t.Fatalf("Discourse.Links = %#v, want short_id_url only", got[0].Discourse.Links)
+	}
+	wantMeta := "item_id: eng1\nactor_id: carol\nactor_name: carol"
+	if got[0].Meta != wantMeta {
+		t.Fatalf("Meta = %q, want %q", got[0].Meta, wantMeta)
+	}
 }
 
 func TestList_excludesStoriesOlderThanSince_atBoundary(t *testing.T) {
