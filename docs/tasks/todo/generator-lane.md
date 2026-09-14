@@ -20,12 +20,12 @@
 7. `geminiapi` 実 API 疎通 smoke — `generator-geminiapi-smoke.yml`（dispatch 専用、`TEST_GEMINI_API_KEY`）。yml は master（PR #135）、test は `system && ratemeasure` tag で gate 外。`--ref <fallback 実装 branch>` で回す
 8. `generator-draft-rate` を `api`（cursor | gemini）入力化。gemini の default prompt を 9/10 まで調整（数値 range 不変、指導文のみ）。判断・実測は Decision `2026-09-08T07-40-00`
 9. 原稿 fallback の Gemini key を TTS と分離 — `GeminiConfig.SpareAPIKey`（`SPARE_GEMINI_API_KEY`）を新設し `newGeminiTextWriter` だけをそれへ。TTS は `GEMINI_API_KEY` 据え置き。GHA は本番 `SPARE_GEMINI_API_KEY` / System `TEST_SPARE_GEMINI_API_KEY`。`generator-system.yml` run 34298458327 で config 変更 + fallback 実切替の e2e を実証。判断は Decision `2026-09-09T10-00-00`
+10. ConcatWAV 後 ffmpeg で mp3 化し Drive へ書く — Port `WAVToMP3Encoder` の ffmpeg Adapter 本実装と `ProduceEpisode` 結線。deploy は playback lane `R-mp3-cutover`（読取と同着）。判断は Decision `2026-09-13T16-32-57` / `17-38-37`
 
 ### 未完了
 
 1. `generator-textwriter-prompt-source-criteria-adapters.md` — Publickey / TechCrunch / CloudWatch の `List` 実装と raw→SourceItem Verification
-2. `generator-audio-mp3-encode-write.md` — ConcatWAV 後 ffmpeg で mp3 化し Drive へ書く（1 PR。deploy は playback lane `R-mp3-cutover`）
-3. `audio-mp3-batch-migration.md` — 既存 wav 一括 mp3（1 PR。deploy は `R-mp3-migrate`。playback lane と共有）
+2. `audio-mp3-batch-migration.md` — 既存 wav 一括 mp3（1 PR。deploy は `R-mp3-migrate`。playback lane と共有）
 
 ### D（未決・未実測・文案）
 

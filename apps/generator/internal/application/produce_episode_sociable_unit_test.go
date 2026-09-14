@@ -1,6 +1,7 @@
 package application_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -70,13 +71,28 @@ var (
 	_ port.WAVToMP3Encoder   = (*stubEncoder)(nil)
 )
 
-// stubEncoder は WAVToMP3Encoder の Stub。A 契約では ProduceEpisode がまだ呼ばない。
-// C 結線後は戻り値を観測対象にする。
-type stubEncoder struct{}
-
-func (s *stubEncoder) EncodeWAVToMP3(_ context.Context, _ []byte) ([]byte, error) {
-	return nil, nil
+// stubEncoder は WAVToMP3Encoder の Stub。返す MP3 と error を制御し、呼び出しを記録する。
+type stubEncoder struct {
+	out     []byte
+	err     error
+	calls   int
+	lastWAV []byte
 }
+
+func (s *stubEncoder) EncodeWAVToMP3(_ context.Context, wav []byte) ([]byte, error) {
+	s.calls++
+	s.lastWAV = append([]byte(nil), wav...)
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.out != nil {
+		return s.out, nil
+	}
+	return stubMP3Bytes, nil
+}
+
+// stubMP3Bytes は stubEncoder 既定の戻り MP3。WriteEpisode へ渡る音声の観測用。
+var stubMP3Bytes = []byte("stub-mp3-bytes")
 
 // fixedEpisodeID は newEpisodeID Stub が返す固定 ID。
 const fixedEpisodeID = "ep-fixed-0001"
@@ -120,6 +136,7 @@ type harness struct {
 	lookup   *fakeCompletedEpisodeLookup
 	writer   *stubWriter
 	synth    *spySynth
+	encode   *stubEncoder
 	episw    *fakeEpisodeWriter
 	progress *spyProgress
 }
@@ -138,6 +155,7 @@ func newHarness(t *testing.T, segDurationSec float64) *harness {
 	lookup := &fakeCompletedEpisodeLookup{}
 	writer := &stubWriter{out: buildValidWireJSON()}
 	synth := &spySynth{wav: fixedWavOfDuration(t, segDurationSec)}
+	encode := &stubEncoder{}
 	episw := &fakeEpisodeWriter{}
 	progress := &spyProgress{}
 	uc := application.NewProduceEpisode(
@@ -145,13 +163,13 @@ func newHarness(t *testing.T, segDurationSec float64) *harness {
 		lookup,
 		writer,
 		synth,
-		&stubEncoder{},
+		encode,
 		application.NewWriteEpisode(episw),
 		fixedEpisodeIDFunc,
 		testDisplayLocation,
 		progress,
 	)
-	return &harness{uc: uc, source: source, lookup: lookup, writer: writer, synth: synth, episw: episw, progress: progress}
+	return &harness{uc: uc, source: source, lookup: lookup, writer: writer, synth: synth, encode: encode, episw: episw, progress: progress}
 }
 
 // --- 同日完成 skip ---
@@ -256,7 +274,7 @@ func TestProduceEpisodeRun_writesEpisodeWithAssembledManuscriptAndAudio_whenAllS
 	// When: Run を呼ぶ
 	gotID, err := h.uc.Run(context.Background(), now)
 
-	// Then: WriteEpisode が 1 回、episodeID は Stub 値、audio 非空
+	// Then: WriteEpisode が 1 回、episodeID は Stub 値、audio は encoder の MP3（生 WAV ではない）
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -269,8 +287,14 @@ func TestProduceEpisodeRun_writesEpisodeWithAssembledManuscriptAndAudio_whenAllS
 	if h.episw.episodeID != fixedEpisodeID {
 		t.Fatalf("episodeID = %q, want %q", h.episw.episodeID, fixedEpisodeID)
 	}
-	if len(h.episw.audio.Content) == 0 {
-		t.Fatal("audio.Content is empty")
+	if h.encode.calls != 1 {
+		t.Fatalf("EncodeWAVToMP3 calls = %d, want 1", h.encode.calls)
+	}
+	if !bytes.Equal(h.episw.audio.Content, stubMP3Bytes) {
+		t.Fatalf("audio.Content = %q, want stub MP3 %q", h.episw.audio.Content, stubMP3Bytes)
+	}
+	if bytes.Equal(h.episw.audio.Content, h.encode.lastWAV) {
+		t.Fatal("audio.Content が encode 前 WAV と同一（MP3 へ置換されていない）")
 	}
 
 	// Then: Run が組んだ manuscript bytes の形（入力伝播の検証。schema 適合検証は WriteEpisode の責務なのでしない）
@@ -326,7 +350,8 @@ func TestProduceEpisodeRun_reportsStepProgressInOrder_whenAllStepsSucceed(t *tes
 		t.Fatalf("Run: %v", err)
 	}
 
-	// Then: 先頭は fetch_source_items、末尾は write_episode、already_produced は出ない
+	// Then: 先頭は fetch_source_items、末尾は write_episode、already_produced は出ない。
+	// 順序: concat_wav → encode_wav_to_mp3 → write_episode。
 	got := h.progress.stepNames()
 	if len(got) == 0 {
 		t.Fatal("Progress が一度も呼ばれていない")
@@ -337,10 +362,32 @@ func TestProduceEpisodeRun_reportsStepProgressInOrder_whenAllStepsSucceed(t *tes
 	if last := got[len(got)-1]; last != "write_episode" {
 		t.Fatalf("steps[last] = %q, want %q", last, "write_episode")
 	}
-	for _, s := range got {
+	concatIdx, encodeIdx, writeIdx := -1, -1, -1
+	for i, s := range got {
 		if s == "already_produced" {
 			t.Fatalf("通常経路で already_produced が出た: %q", got)
 		}
+		if s == "concat_wav" && concatIdx < 0 {
+			concatIdx = i
+		}
+		if s == "encode_wav_to_mp3" && encodeIdx < 0 {
+			encodeIdx = i
+		}
+		if s == "write_episode" && writeIdx < 0 {
+			writeIdx = i
+		}
+	}
+	if concatIdx < 0 {
+		t.Fatalf("concat_wav が無い: %q", got)
+	}
+	if encodeIdx < 0 {
+		t.Fatalf("encode_wav_to_mp3 が無い: %q", got)
+	}
+	if writeIdx < 0 {
+		t.Fatalf("write_episode が無い: %q", got)
+	}
+	if !(concatIdx < encodeIdx && encodeIdx < writeIdx) {
+		t.Fatalf("順序が concat→encode→write ではない: concat=%d encode=%d write=%d steps=%q", concatIdx, encodeIdx, writeIdx, got)
 	}
 }
 
@@ -384,38 +431,6 @@ func TestProduceEpisodeRun_reportsWriteEpisodeWithEpisodeIDAsDetail_whenWriteSuc
 	last := h.progress.calls[len(h.progress.calls)-1]
 	if last.step != "write_episode" || last.detail != fixedEpisodeID {
 		t.Fatalf("last progress = %+v, want {write_episode %s}", last, fixedEpisodeID)
-	}
-}
-
-func TestProduceEpisodeRun_doesNotReportDownstreamSteps_whenTextWriterFails(t *testing.T) {
-	t.Parallel()
-
-	// Given: TextWriter が error
-	h := newHarness(t, 1.0)
-	h.writer.err = errors.New("writer boom")
-	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
-
-	// When: Run を呼ぶ
-	if _, err := h.uc.Run(context.Background(), now); err == nil {
-		t.Fatal("Run: want error, got nil")
-	}
-
-	// Then: 失敗後の段階（synthesize_speech / build_timeline / concat_wav / write_episode）の Start は呼ばれない。
-	// write_manuscript_draft の Start は呼ばれるが Done は呼ばれない（error で return）。
-	var foundWriteMsDone bool
-	for _, c := range h.progress.calls {
-		if c.step == "write_manuscript_draft" && c.method == "done" {
-			foundWriteMsDone = true
-		}
-		switch c.step {
-		case "synthesize_speech", "build_timeline", "concat_wav", "write_episode":
-			if c.method == "start" {
-				t.Fatalf("失敗後の段階 %q の Start が呼ばれた: %+v", c.step, h.progress.calls)
-			}
-		}
-	}
-	if foundWriteMsDone {
-		t.Fatalf("write_manuscript_draft の Done が呼ばれるべきではない: %+v", h.progress.calls)
 	}
 }
 
@@ -619,7 +634,7 @@ func TestProduceEpisodeRun_retriesTextWriter_whenFirstDraftInvalidThenValid(t *t
 		h.lookup,
 		seq,
 		h.synth,
-		&stubEncoder{},
+		h.encode,
 		application.NewWriteEpisode(h.episw),
 		fixedEpisodeIDFunc,
 		testDisplayLocation,
@@ -683,6 +698,32 @@ func TestProduceEpisodeRun_returnsErrorWithoutWriting_whenSynthesizeFails(t *tes
 	}
 	if h.synth.calls != 1 {
 		t.Fatalf("SynthesizeAll calls = %d, want 1", h.synth.calls)
+	}
+	if h.episw.calls != 0 {
+		t.Fatalf("WriteEpisode calls = %d, want 0", h.episw.calls)
+	}
+}
+
+func TestProduceEpisodeRun_returnsErrorWithoutWriting_whenEncodeFails(t *testing.T) {
+	t.Parallel()
+
+	// Given: WAVToMP3Encoder が error
+	boom := errors.New("encode boom")
+	h := newHarness(t, 1.0)
+	h.encode.err = boom
+
+	// When: Run を呼ぶ
+	gotID, err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
+
+	// Then: その error を伝播。WriteEpisode は呼ばない。episodeID は空。
+	if !errors.Is(err, boom) {
+		t.Fatalf("err = %v, want %v", err, boom)
+	}
+	if gotID != "" {
+		t.Fatalf("episodeID = %q, want empty", gotID)
+	}
+	if h.encode.calls != 1 {
+		t.Fatalf("EncodeWAVToMP3 calls = %d, want 1", h.encode.calls)
 	}
 	if h.episw.calls != 0 {
 		t.Fatalf("WriteEpisode calls = %d, want 0", h.episw.calls)

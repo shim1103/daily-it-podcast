@@ -3,11 +3,22 @@ package ffmpeg
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 )
 
 var _ port.WAVToMP3Encoder = (*Encoder)(nil)
+
+const ffmpegBin = "ffmpeg"
+
+// encodeArgs は stdin WAV → stdout MP3（libmp3lame 128k）の固定 argv。
+var encodeArgs = []string{
+	"-hide_banner", "-loglevel", "error",
+	"-i", "pipe:0",
+	"-f", "mp3", "-codec:a", "libmp3lame", "-b:a", "128k",
+	"pipe:1",
+}
 
 // LookPath は PATH 上の実行 file を探す契約である。
 // production では Composition が internal/runtime.LookPath を渡す（config.LookupEnv と同型）。
@@ -18,7 +29,6 @@ type LookPath func(file string) (string, error)
 type Run func(ctx context.Context, name string, args []string, stdin []byte) (stdout []byte, err error)
 
 // Encoder は ffmpeg subprocess で WAV を MP3 へ変換する。
-// 本 stub の EncodeWAVToMP3 は零値返却のみ。ffmpeg 本実装は C（Issue）側。
 type Encoder struct {
 	lookPath LookPath
 	run      Run
@@ -34,12 +44,20 @@ func NewEncoder(lookPath LookPath, run Run) *Encoder {
 
 // EncodeWAVToMP3 は WAV バイト列を MP3 へ変換する。
 //
-// @require wav は呼び出し側が非空を保証する想定（stub は検査しない）。
-// @ensure 現 stub は常に (nil, nil) を返す。lookPath / run は C 本実装で使う。
+// @require wav は呼び出し側が非空を保証する想定。lookPath / run は NewEncoder で注入済み。
+// @ensure 成功時は非空 MP3 bytes。ffmpeg 不在・非 0 exit・空出力は *adaptererror.Error。retry しない。
+// @invariant os/exec を import しない。argv / bitrate は本 Adapter に閉じる。
 func (e *Encoder) EncodeWAVToMP3(ctx context.Context, wav []byte) ([]byte, error) {
-	_ = ctx
-	_ = wav
-	_ = e.lookPath
-	_ = e.run
-	return nil, nil
+	path, err := e.lookPath(ffmpegBin)
+	if err != nil {
+		return nil, infraErr("look_path", err)
+	}
+	stdout, err := e.run(ctx, path, encodeArgs, wav)
+	if err != nil {
+		return nil, infraErr("run", err)
+	}
+	if len(stdout) == 0 {
+		return nil, infraErr("empty_output", fmt.Errorf("ffmpeg stdout is empty"))
+	}
+	return stdout, nil
 }
