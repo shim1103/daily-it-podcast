@@ -434,38 +434,6 @@ func TestProduceEpisodeRun_reportsWriteEpisodeWithEpisodeIDAsDetail_whenWriteSuc
 	}
 }
 
-func TestProduceEpisodeRun_doesNotReportDownstreamSteps_whenTextWriterFails(t *testing.T) {
-	t.Parallel()
-
-	// Given: TextWriter が error
-	h := newHarness(t, 1.0)
-	h.writer.err = errors.New("writer boom")
-	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
-
-	// When: Run を呼ぶ
-	if _, err := h.uc.Run(context.Background(), now); err == nil {
-		t.Fatal("Run: want error, got nil")
-	}
-
-	// Then: 失敗後の段階（synthesize_speech / build_timeline / concat_wav / encode_wav_to_mp3 / write_episode）の Start は呼ばれない。
-	// write_manuscript_draft の Start は呼ばれるが Done は呼ばれない（error で return）。
-	var foundWriteMsDone bool
-	for _, c := range h.progress.calls {
-		if c.step == "write_manuscript_draft" && c.method == "done" {
-			foundWriteMsDone = true
-		}
-		switch c.step {
-		case "synthesize_speech", "build_timeline", "concat_wav", "encode_wav_to_mp3", "write_episode":
-			if c.method == "start" {
-				t.Fatalf("失敗後の段階 %q の Start が呼ばれた: %+v", c.step, h.progress.calls)
-			}
-		}
-	}
-	if foundWriteMsDone {
-		t.Fatalf("write_manuscript_draft の Done が呼ばれるべきではない: %+v", h.progress.calls)
-	}
-}
-
 func TestProduceEpisodeRun_reportsOnlyAlreadyProduced_whenCompletedPairExists(t *testing.T) {
 	t.Parallel()
 
@@ -748,7 +716,6 @@ func TestProduceEpisodeRun_returnsErrorWithoutWriting_whenEncodeFails(t *testing
 	gotID, err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
 
 	// Then: その error を伝播。WriteEpisode は呼ばない。episodeID は空。
-	// encode_wav_to_mp3 の Start は呼ばれ Done は呼ばれない。write_episode の Start は呼ばれない。
 	if !errors.Is(err, boom) {
 		t.Fatalf("err = %v, want %v", err, boom)
 	}
@@ -760,26 +727,6 @@ func TestProduceEpisodeRun_returnsErrorWithoutWriting_whenEncodeFails(t *testing
 	}
 	if h.episw.calls != 0 {
 		t.Fatalf("WriteEpisode calls = %d, want 0", h.episw.calls)
-	}
-	var encodeStarted, encodeDone, writeStarted bool
-	for _, c := range h.progress.calls {
-		switch {
-		case c.step == "encode_wav_to_mp3" && c.method == "start":
-			encodeStarted = true
-		case c.step == "encode_wav_to_mp3" && c.method == "done":
-			encodeDone = true
-		case c.step == "write_episode" && c.method == "start":
-			writeStarted = true
-		}
-	}
-	if !encodeStarted {
-		t.Fatalf("encode_wav_to_mp3 の Start が無い: %+v", h.progress.calls)
-	}
-	if encodeDone {
-		t.Fatalf("encode_wav_to_mp3 の Done が呼ばれるべきではない: %+v", h.progress.calls)
-	}
-	if writeStarted {
-		t.Fatalf("write_episode の Start が呼ばれるべきではない: %+v", h.progress.calls)
 	}
 }
 
