@@ -573,7 +573,12 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 		lookup,
 		h.textWriter,
 		speech,
-		ffmpeg.NewEncoder(nil, nil),
+		ffmpeg.NewEncoder(
+			func(string) (string, error) { return "/fake/ffmpeg", nil },
+			func(_ context.Context, _ string, _ []string, _ []byte) ([]byte, error) {
+				return []byte("broad-fake-mp3"), nil
+			},
+		),
 		writeEpisode,
 		broadFixedEpisodeIDFunc,
 		integrationTestDisplayLocation,
