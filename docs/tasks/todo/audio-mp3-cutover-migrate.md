@@ -70,3 +70,8 @@
 ## 10. Notes
 
 batch は不可逆に近い（旧 wav 削除）。実行前に対象 stem 一覧を固定する。旧 lane 名 `R-mp3-cutover` / `R-mp3-migrate` の達成は本 Issue に吸収した。
+
+移行入口（人手 download/upload は Scope 本文。secret 値は書かない）:
+
+1. local encode: `scripts/generator/encode-cache-wav-to-mp3.sh`（`.cache/<prod|test>` → 本番 `Encoder`）
+2. Drive purge+verify: `scripts/generator/drive-purge-wav-verify-set.sh` / `generator-drive-purge-wav-verify-set.yml`（`workflow_dispatch`・`target=prod|test`）
