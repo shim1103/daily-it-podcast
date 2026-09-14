@@ -21,3 +21,9 @@
 - 2026-09-14 [feature/generator-textwriter-prompt-source-criteria-adapters] 「余計な data を載せない」は設計上の判断であり、捨てる字段ごとの専用契約 test を自動では要求しない。写像の正の postcondition 所有と混同しない  # → layer:terms
 - 2026-09-14 [feature/generator-textwriter-prompt-source-criteria-adapters] 実境界の Narrow Integration と、実 HTTP 結果を cache へ残す接続確認 suite は別所有にする。合成 upstream の Narrow を残して二重にしない  # → layer:terms
 - 2026-09-14 [feature/generator-textwriter-prompt-source-criteria-adapters] 共有 helper の dir 名は共有している振る舞い（例: HTTP GET）に合わせる。一部 consumer の方言名（例: RSS）で包むと、非該当 Adapter の依存関係が嘘になる  # → layer:terms
+- 2026-09-14 [docs/generator-r2-write-details] 同じ Reason で解ける問いを Decision へ細分割しない。peer の厚みに揃え、契約値の百科は Decision に置かない  # → layer:workflow
+- 2026-09-14 [docs/generator-r2-write-details] release 名だけの空 Issue を作らない。同着切替や migration の完了条件は達成契約を持つ Issue に載せる  # → layer:workflow
+- 2026-09-14 [docs/generator-r2-write-details] 「登録完了」を宣言する前に Variable と Secret を別確認する。片方だけだと後続が credential 不足に気づかない  # → layer:workflow
+- 2026-09-14 [docs/generator-r2-write-details] 設定 file の why comment に Decision の Reason を写さない。契約値の正本は設定、理由の正本は Decision  # → layer:terms
+- 2026-09-14 [docs/generator-r2-write-details] 公式 bulk 移送の source 一覧に無い upstream を前提にしない。非対応なら人手または自前経路を選ぶ  # → layer:platform
+- 2026-09-14 [docs/generator-r2-write-details] storage 切替の Adapter 実装と旧 credential 削除を同着にしない。検証緑の後に退役する  # → layer:workflow

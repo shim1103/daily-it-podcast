@@ -3,21 +3,20 @@
   "name": "daily-it-podcast",
   "main": "worker/src/worker-entry.ts",
   "compatibility_date": "2026-08-25",
-  // why: production Variables は Cloudflare 側で管理し、deploy 時に未指定値を削除しない。
   "keep_vars": true,
-  // why: UI と `/episodes*` を同一 origin で配信する。Assets は Vite build 出力。
-  //   `/episodes*` だけ Worker を先に走らせ、それ以外は静的 file を返す（hash UI のため厚い SPA fallback は不要）。
   "assets": {
     "directory": "./web/dist",
     "binding": "ASSETS",
     "run_worker_first": ["/episodes", "/episodes/*"]
   },
-  // why: Dashboard に Worker console を残す。即時は wrangler tail。方針は docs/decisions/2026-09-04T02-04-01。
   "observability": {
     "enabled": true
   },
-  // why: workers.dev route 有効時は既定で Preview URL が deploy ごとに生える。個人利用 podcast に
-  //   Access を経由しない別 URL は不要な攻撃面。明示的に無効化する。方針は
-  //   docs/decisions/2026-09-04T23-15-00-feature-playback-e2e-redeploy-master.md
-  "preview_urls": false
+  "preview_urls": false,
+  "r2_buckets": [
+    {
+      "binding": "EPISODES",
+      "bucket_name": "daily-it-podcast-prod"
+    }
+  ]
 }

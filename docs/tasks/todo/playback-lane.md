@@ -2,12 +2,12 @@
 
 参照: docs/daily/2026-08-15T16-23-06-develop.md  
 HTTP 契約の正: `apps/playback/contracts/`  
-配置契約の正: `contracts/drive-layout.md`（音声は mp3）  
+配置契約の正: `contracts/episode-layout.md`（音声は mp3）  
 deploy・Access・GHA 運用の正: `DEPLOY.md`  
 層規則・test 配置の正: `DESIGN.md`  
 再発する判断の正: `docs/decisions/`
 
-未完了の達成契約は `docs/tasks/todo/playback-*.md` および共有の `audio-mp3-batch-migration.md` が正。本 lane は進捗 index と release 単位のみ。GitHub Issue 化しない運用。1 Issue file = 1 PR。
+未完了の達成契約は `docs/tasks/todo/` の Issue file が正。本 lane は進捗 index のみ。GitHub Issue 化しない運用。storage 実施順の正は Decision `2026-09-14T12-49-26`（release 専用 Issue は作らない）。
 
 ### 済み（要約）
 
@@ -23,33 +23,40 @@ deploy・Access・GHA 運用の正: `DEPLOY.md`
 10. 週次 `playback-e2e` の全滅を Google OAuth refresh token 失効と特定。consent screen を Production 固定して 7 日失効を運用から外す（`docs/decisions/2026-09-07T22-25-00-fix-playback-e2e-test.md`）。`DriveError` の非 2xx message を呼び出し種別付きにして切り分け可能化
 11. 音声保存・配信の契約を mp3 へ（A）と Decision（`2026-09-13T13-40-29` / `13-41-00` / encode `16-32-57` / runtime 工場 `17-38-37`）。generator 側は encode Port + ffmpeg Adapter 本実装・`ProduceEpisode` 結線済み。playback 読取は未完了（`playback-audio-mp3-read`）
 
-### 未完了
+### 未完了（storage 順・Decision `2026-09-14T12-49-26`）
 
-1. `playback-audio-mp3-read.md` — 読取・HTTP を mp3 契約で完了（1 PR）
-2. `audio-mp3-batch-migration.md` — 既存 wav 一括 mp3・安定 fixture（1 PR。generator lane からも参照）
+1. `playback-audio-mp3-read.md` — 列 2。読取・HTTP を mp3 契約で完了
+2. `audio-mp3-cutover-migrate.md` — 列 3（共有）。mp3 同着切替 + wav 一括 + fixture
+3. `playback-r2-read-adapter.md` — 列 5。R2 binding 読取 Adapter 本実装
+4. `r2-smoke-migrate-cutover.md` — 列 6（共有）。疎通・人手移行・R2 同着切替
+5. `r2-post-cutover-verify-oauth.md` — 列 7（共有）。System/E2E・OAuth 削除
 
-### release 単位（1 Issue ≠ 1 deploy）
+### 実施順 index（Issue file 単位）
 
-| release | 同着 PR（Issue） | 備考 |
+| 列 | Issue file | 備考 |
 |---|---|---|
-| `R-mp3-cutover` | `generator-audio-mp3-encode-write` + `playback-audio-mp3-read` | 書込/読取を分けて本番 deploy しない |
-| `R-mp3-migrate` | `audio-mp3-batch-migration` | cutover 後 |
+| 1 | `generator-audio-mp3-encode-write` | **済み**（達成契約 file 削除済み） |
+| 2 | `playback-audio-mp3-read` | 本 lane |
+| 3 | `audio-mp3-cutover-migrate` | 旧 `R-mp3-cutover` + `R-mp3-migrate` を吸収 |
+| 4 | `generator-r2-write-adapter` | generator lane |
+| 5 | `playback-r2-read-adapter` | 本 lane |
+| 6 | `r2-smoke-migrate-cutover` | 旧 `R-r2-cutover` の切替達成を吸収。登録手順は書かない |
+| 7 | `r2-post-cutover-verify-oauth` | System/E2E 後に OAuth 削除 |
+
+R2 登録は完了済み（列に含めない）。
 
 ### 未決 index（D）
 
-方針が Decision 済みで、実施契約に落ちない残りだけ置く。R2 / cache は **C Issue にしない**（Decision のみ）。
-
 | topic | 概要 |
 |---|---|
-| R2 移行の細部 | 方針は `2026-09-13T14-22-55`（完全移行・mp3 後）。未決: binding / bucket・Worker proxy vs 直 URL・credential 注入・cutover 手順。Issue 化は細部が埋まるまでしない |
-| 薄い cache の細部 | 方針は `2026-09-13T14-23-30`（R2 後・Cache-Control + CF edge・厚い Worker cache しない）。未決: header 具体値・edge 設定・Access 下 browser cache 実測 |
+| 薄い cache の細部 | 方針は `2026-09-13T14-23-30`。未決: header 具体値・edge 設定・Access 下 browser cache 実測 |
 | Access 下 audio の browser HTTP cache | 未実測。DevTools で確認が次 |
 
 ### 方針 index
 
 各判断の Reason / Rejected は `docs/decisions/`。閾値・入口の正は `DESIGN.md` / `DEPLOY.md`。
 
-1. 音声の保存・配信形式は **mp3**（`contracts/drive-layout.md` / `2026-09-13T13-40-29`）
-2. 着手順: mp3 → R2 → 薄い cache（`2026-09-13T13-41-00`）
-3. 現行 storage runtime は Drive。将来 R2（`2026-09-13T14-22-55`）。cache は R2 後（`2026-09-13T14-23-30`）
+1. 音声の保存・配信形式は **mp3**（`contracts/episode-layout.md` / `2026-09-13T13-40-29`）
+2. 着手順: mp3 → R2 → 薄い cache（`2026-09-13T13-41-00`）。Issue 分割は `2026-09-14T12-49-26`
+3. 現行 storage runtime は Drive。R2 方針 `14-22-55`・実施の形 `11-04-30`・error `11-19-21`。cache は R2 後（`14-23-30`）
 4. generator 書込とは runtime 共有しない（読取専用）

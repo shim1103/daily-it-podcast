@@ -9,11 +9,11 @@
 1. 事実: A が `episodeAudioContentType` / `episodeAudioFileExtension` と読取拡張子を mp3 側へ固定済み。
 2. 事実: 安定 E2E fixture の物理 file はまだ `.wav`（差し替えは batch Issue）。
 3. 事実: HTTP Range は維持（Decision `2026-09-04T23-16-00`）。
-4. 運用: 1 Issue = 1 PR。本番 deploy は lane の release 単位（C1 と同着）。
+4. 運用: 1 Issue = 1 PR。本番同着切替と fixture 物理差し替えは列 3（`audio-mp3-cutover-migrate`）。
 
 ## 3. Canonical Sources
 
-1. 契約: `contracts/drive-layout.md` / `apps/playback/contracts/http.ts`
+1. 契約: `contracts/episode-layout.md` / `apps/playback/contracts/http.ts`
 2. 判断: `docs/decisions/2026-09-13T13-40-29-feature-playback-now-playing-audio-listenability.md`
 3. Range: `docs/decisions/2026-09-04T23-16-00-feature-playback-e2e-redeploy-master.md`
 4. test 方針: testing-strategy（再掲しない）
@@ -29,8 +29,8 @@
 ### Out of Scope
 
 1. generator encode（`generator-audio-mp3-encode-write`）
-2. 本番 Drive 上一括 wav→mp3（`audio-mp3-batch-migration`）
-3. R2 / cache（Decision のみ。本 Issue にしない）
+2. 本番 Drive 上一括 wav→mp3 と同着切替（`audio-mp3-cutover-migrate`）
+3. R2（列 4 以降。Decision `2026-09-14T12-49-26`）
 
 ## 5. Contract
 
@@ -56,9 +56,9 @@
 ## 9. Dependencies
 
 1. mp3 A/B 済み
-2. 本番 deploy は encode-write と同 release（lane `R-mp3-cutover`）
-3. 本番 E2E の物理 fixture は batch Issue 後
+2. 順番: Decision `2026-09-14T12-49-26`（本 Issue は列 2）
+3. 本番同着切替・batch・fixture は `audio-mp3-cutover-migrate`（列 3）
 
 ## 10. Notes
 
-encode 未マージのまま本変更だけを本番に載せると拡張子と中身が食い違う。
+encode 未マージのまま本変更だけを本番に載せると拡張子と中身が食い違う。同着は列 3。
