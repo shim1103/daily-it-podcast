@@ -2,12 +2,12 @@ import { EpisodeContentError } from "../../entities/errors/episode-content-error
 import type { EpisodeRepository } from "../ports/episode-repository.ts";
 
 /**
- * 対象 episodeId の wav byte を返す。
+ * 対象 episodeId の mp3 byte を返す。
  *
- * Port は wav byte か「無し（undefined）」を返すだけなので、不在の Domain Error 化はこの
+ * Port は mp3 byte か「無し（undefined）」を返すだけなので、不在の Domain Error 化はこの
  * use-case が行う。
  *
- * @ensure wav が無い時は {@link EpisodeContentError} を throw する。
+ * @ensure mp3 が無い時は {@link EpisodeContentError} を throw する。
  */
 export async function getAudio(
   repository: EpisodeRepository,

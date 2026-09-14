@@ -10,7 +10,7 @@ const tokenEndpoint = "https://oauth2.googleapis.com/token";
 const driveFilesEndpoint = "https://www.googleapis.com/drive/v3/files";
 
 const jsonExtension = ".json";
-// why: 値の正本は repo 根 `contracts/drive-layout.md`。HTTP contracts は Infra から import 禁止（dependency-cruiser）
+// why: 値の正本は repo 根 `contracts/episode-layout.md`。HTTP contracts は Infra から import 禁止（dependency-cruiser）
 const audioExtension = ".mp3";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -50,7 +50,7 @@ function stemOf(name: string, extension: string): string | undefined {
  * Google Drive REST API（v3）で `EpisodeRepository` を満たす本番 Driven Adapter。
  *
  * 真の外部境界の I/O（token 取得・files.list・bytes download）だけを担い、取得した原稿 json は
- * decode したまま返す。schema 適合・stem 一致・不正 JSON・wav 欠落の判定はしない（use-case が行う）。
+ * decode したまま返す。schema 適合・stem 一致・不正 JSON・mp3 欠落の判定はしない（use-case が行う）。
  *
  * @require deps.folderId は Drive 上の対象フォルダ id
  * @ensure Drive HTTP 自体の失敗（token 取得・network・非 2xx・応答形式不正）は DriveError を throw する

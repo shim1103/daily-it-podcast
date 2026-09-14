@@ -20,7 +20,7 @@ const narrowClientSecret = "gdrive-narrow-client-secret-real-value";
 const narrowRefreshToken = "gdrive-narrow-refresh-token-real-value";
 const narrowFolderId = "gdrive-narrow-folder-id-real-value";
 const narrowJsonFileId = "gdrive-narrow-json-file-id-real-value";
-const narrowWavFileId = "gdrive-narrow-wav-file-id-real-value";
+const narrowAudioFileId = "gdrive-narrow-audio-file-id-real-value";
 const narrowAccessToken = "ya29.gdrive-narrow-access-token-real-value";
 
 const productionHosts = new Set(["oauth2.googleapis.com", "www.googleapis.com"]);
@@ -52,7 +52,7 @@ const sensitiveValues = [
   narrowRefreshToken,
   narrowFolderId,
   narrowJsonFileId,
-  narrowWavFileId,
+  narrowAudioFileId,
   narrowAccessToken,
 ];
 
@@ -201,7 +201,7 @@ describe("GoogleDriveEpisodeRepository Narrow Integration", () => {
     expect(bearerMatchesToken).toBe(true);
   });
 
-  it("getAudio returns wav bytes when download succeeds over real HTTP", async () => {
+  it("getAudio returns mp3 bytes when download succeeds over real HTTP", async () => {
     // Given: token / 絞り込み list / 音声 download が 2xx を返す local upstream
     const { origin, server } = await listen((req, res) => {
       oauthSuccessHandler(req, res, (innerReq, innerRes) => {
@@ -210,14 +210,14 @@ describe("GoogleDriveEpisodeRepository Narrow Integration", () => {
           writeJson(innerRes, 200, {
             files: [
               { id: narrowJsonFileId, name: "narrow-ep-1.json" },
-              { id: narrowWavFileId, name: "narrow-ep-1.mp3" },
+              { id: narrowAudioFileId, name: "narrow-ep-1.mp3" },
             ],
           });
           return;
         }
         if (
           innerReq.method === "GET" &&
-          url.pathname === `/drive/v3/files/${narrowWavFileId}` &&
+          url.pathname === `/drive/v3/files/${narrowAudioFileId}` &&
           url.searchParams.get("alt") === "media"
         ) {
           innerRes.writeHead(200, { "Content-Type": "audio/mpeg" });

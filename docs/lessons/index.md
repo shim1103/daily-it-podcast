@@ -25,3 +25,12 @@
 - 2026-09-14 [feature/generator-item-source-httpget-ni-cache] Given-When-Then は全 case に case 固有の事実を書く。bare `// When` や helper だけへの GWT 寄せは構造ラベル不足として扱う  # → layer:terms
 - 2026-09-14 [feature/generator-item-source-httpget-ni-cache] runtime 図で Application 内製（例: 結合）を外向き辺に出すと、呼び出し元・save 所有が偽になる。外へ描くのは Port / Adapter 境界と入口の I/O だけにする  # → layer:terms
 - 2026-09-14 [feature/generator-item-source-httpget-ni-cache] icon catalog の key は源・製品名に揃える。ブランド無しでも汎用 key（例: rss）へ rename せず、源名 file に図形を cache する  # → layer:platform
+- 2026-09-14 [docs/generator-r2-write-details] 同じ Reason で解ける問いを Decision へ細分割しない。peer の厚みに揃え、契約値の百科は Decision に置かない  # → layer:workflow
+- 2026-09-14 [docs/generator-r2-write-details] release 名だけの空 Issue を作らない。同着切替や migration の完了条件は達成契約を持つ Issue に載せる  # → layer:workflow
+- 2026-09-14 [docs/generator-r2-write-details] 「登録完了」を宣言する前に Variable と Secret を別確認する。片方だけだと後続が credential 不足に気づかない  # → layer:workflow
+- 2026-09-14 [docs/generator-r2-write-details] 設定 file の why comment に Decision の Reason を写さない。契約値の正本は設定、理由の正本は Decision  # → layer:terms
+- 2026-09-14 [docs/generator-r2-write-details] 公式 bulk 移送の source 一覧に無い upstream を前提にしない。非対応なら人手または自前経路を選ぶ  # → layer:platform
+- 2026-09-14 [docs/generator-r2-write-details] storage 切替の Adapter 実装と旧 credential 削除を同着にしない。検証緑の後に退役する  # → layer:workflow
+- 2026-09-14 [feature/playback-audio-mp3-read] HTTP 契約の Content-Type と body の実形式を食い違わせない。test/dev fixture でも MIME に合うバイト列を返す  # → layer:terms
+- 2026-09-14 [feature/playback-audio-mp3-read] base 同期の modify/delete で完了済み Issue file が相手側に残るとき、削除側を維持する。進捗 index だけを済みへ更新する  # → layer:workflow
+- 2026-09-14 [feature/playback-audio-mp3-read] 巨大バイト列の深い等価比較は runner がタイムアウトしうる。配線 test は専用の bytes 比較に寄せ、形式契約は fixture 単体へ閉じる  # → layer:platform

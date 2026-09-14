@@ -60,7 +60,7 @@ export default defineConfig({
           });
           const body = Buffer.from(await response.arrayBuffer());
 
-          // why: dummy 音声は数十 MB の無音 WAV。browser の <audio> は Range 応答が無いと
+          // why: dummy 音声は長尺 silent mp3。browser の <audio> は Range 応答が無いと
           //   全長 buffer 完了まで再生・seek できず、実質「再生されない」ように見える。
           //   dev middleware だけ Range/HEAD をエミュレートして streaming・seek 可能にする
           //   （本番相当の Hono app は変更しない）。
