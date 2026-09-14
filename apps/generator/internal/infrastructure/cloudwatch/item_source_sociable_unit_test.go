@@ -209,6 +209,36 @@ func TestList_excludesItemsOlderThanSince_atBoundary(t *testing.T) {
 	}
 }
 
+func TestList_stopsAfterCollectingMaxStoriesScanned_whenEnoughItemsInWindow(t *testing.T) {
+	// @given window 内 item を MaxStoriesScanned+3 件持つ RDF double
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	total := cloudwatch.MaxStoriesScanned + 3
+	items := make([]rdfItemFixture, 0, total)
+	for i := 0; i < total; i++ {
+		link := fmt.Sprintf("https://cloud.watch.impress.co.jp/docs/news/%d.html", i)
+		items = append(items, rdfItemFixture{
+			title:       fmt.Sprintf("記事%d", i),
+			link:        link,
+			date:        since.Add(time.Duration(i+1) * time.Minute).Format(time.RFC3339),
+			description: "説明",
+		})
+	}
+	rt := newStubRoundTripper()
+	rt.setFeed(rdfXML(items...))
+	source := newStubListItemSource(rt)
+
+	// @when
+	got, err := source.List(context.Background(), since)
+
+	// @then 結果は MaxStoriesScanned 件で打ち切る
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != cloudwatch.MaxStoriesScanned {
+		t.Fatalf("len(got) = %d, want %d", len(got), cloudwatch.MaxStoriesScanned)
+	}
+}
+
 func TestList_returnsNonNilEmptySlice_whenNothingInWindow(t *testing.T) {
 	// @given 全 item が since より古い double
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)

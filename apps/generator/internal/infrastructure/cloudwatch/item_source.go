@@ -16,6 +16,15 @@ import (
 
 var _ port.ItemSource = (*ListItemSource)(nil)
 
+// 取得上限（この file が契約として値を固定する）。
+//
+// why: podcast は 1 日 1 回だけ生成する。window 内 item の結果件数を有界にする。
+const (
+	// MaxStoriesScanned は結果 SourceItem に含める item 数の上限。
+	// dc:date >= since を満たした item を、feed 先頭からこの件数まで集める。
+	MaxStoriesScanned = 15
+)
+
 // ListItemSource は Impress クラウド Watch RDF feed を ItemSource として返す Adapter。
 type ListItemSource struct {
 	client *http.Client
@@ -46,7 +55,7 @@ type rdfItem struct {
 //
 // @require since は OccurredAt の inclusive 下限。
 // @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ since 以上。
-// @ensure 結果は dc:date >= since を満たす item のみ。
+// @ensure 結果は dc:date >= since を満たす item のみ。最大 MaxStoriesScanned 件。
 // @ensure 該当なしは空 slice（nil ではない）。
 // @invariant vendor 固有型・監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
 func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
@@ -64,13 +73,16 @@ func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.So
 		return nil, infraErr("decode_feed", err)
 	}
 
-	out := make([]models.SourceItem, 0, len(feed.Items))
+	out := make([]models.SourceItem, 0, MaxStoriesScanned)
 	for _, item := range feed.Items {
 		occurredAt, ok := parseDCDate(item.Date)
 		if !ok || occurredAt.Before(since) {
 			continue
 		}
 		out = append(out, toSourceItem(item, occurredAt))
+		if len(out) >= MaxStoriesScanned {
+			break
+		}
 	}
 	return out, nil
 }

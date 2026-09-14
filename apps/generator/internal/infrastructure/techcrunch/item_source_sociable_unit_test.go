@@ -222,6 +222,36 @@ func TestList_excludesItemsOlderThanSince_atBoundary(t *testing.T) {
 	}
 }
 
+func TestList_stopsAfterCollectingMaxStoriesScanned_whenEnoughItemsInWindow(t *testing.T) {
+	// @given window 内 item を MaxStoriesScanned+3 件持つ RSS double
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	total := techcrunch.MaxStoriesScanned + 3
+	items := make([]rssItemFixture, 0, total)
+	for i := 0; i < total; i++ {
+		items = append(items, rssItemFixture{
+			title:       fmt.Sprintf("記事%d", i),
+			link:        fmt.Sprintf("https://techcrunch.com/%d/", i),
+			description: "説明",
+			pubDate:     formatRFC1123Z(since.Add(time.Duration(i+1) * time.Minute)),
+			guid:        fmt.Sprintf("guid-%d", i),
+		})
+	}
+	rt := newStubRoundTripper()
+	rt.setFeed(rssXML(items...))
+	source := newStubListItemSource(rt)
+
+	// @when
+	got, err := source.List(context.Background(), since)
+
+	// @then 結果は MaxStoriesScanned 件で打ち切る
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != techcrunch.MaxStoriesScanned {
+		t.Fatalf("len(got) = %d, want %d", len(got), techcrunch.MaxStoriesScanned)
+	}
+}
+
 func TestList_returnsNonNilEmptySlice_whenNothingInWindow(t *testing.T) {
 	// @given 全 item が since より古い double
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)

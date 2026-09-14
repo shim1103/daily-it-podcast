@@ -220,6 +220,35 @@ func TestList_excludesEntriesOlderThanSince_atBoundary(t *testing.T) {
 	}
 }
 
+func TestList_stopsAfterCollectingMaxStoriesScanned_whenEnoughEntriesInWindow(t *testing.T) {
+	// @given window 内 entry を MaxStoriesScanned+3 件持つ Atom double
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	total := publickey.MaxStoriesScanned + 3
+	entries := make([]atomEntryFixture, 0, total)
+	for i := 0; i < total; i++ {
+		entries = append(entries, atomEntryFixture{
+			title:     fmt.Sprintf("記事%d", i),
+			id:        fmt.Sprintf("id-%d", i),
+			published: since.Add(time.Duration(i+1) * time.Minute).Format(time.RFC3339),
+			href:      fmt.Sprintf("https://www.publickey1.jp/%d.html", i),
+		})
+	}
+	rt := newStubRoundTripper()
+	rt.setFeed(atomXML(entries...))
+	source := newStubListItemSource(rt)
+
+	// @when
+	got, err := source.List(context.Background(), since)
+
+	// @then 結果は MaxStoriesScanned 件で打ち切る
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != publickey.MaxStoriesScanned {
+		t.Fatalf("len(got) = %d, want %d", len(got), publickey.MaxStoriesScanned)
+	}
+}
+
 func TestList_returnsNonNilEmptySlice_whenNothingInWindow(t *testing.T) {
 	// @given 全 entry が since より古い double
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
