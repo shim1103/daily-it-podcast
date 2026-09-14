@@ -27,3 +27,6 @@
 - 2026-09-14 [docs/generator-r2-write-details] 設定 file の why comment に Decision の Reason を写さない。契約値の正本は設定、理由の正本は Decision  # → layer:terms
 - 2026-09-14 [docs/generator-r2-write-details] 公式 bulk 移送の source 一覧に無い upstream を前提にしない。非対応なら人手または自前経路を選ぶ  # → layer:platform
 - 2026-09-14 [docs/generator-r2-write-details] storage 切替の Adapter 実装と旧 credential 削除を同着にしない。検証緑の後に退役する  # → layer:workflow
+- 2026-09-14 [feature/playback-audio-mp3-read] HTTP 契約の Content-Type と body の実形式を食い違わせない。test/dev fixture でも MIME に合うバイト列を返す  # → layer:terms
+- 2026-09-14 [feature/playback-audio-mp3-read] base 同期の modify/delete で完了済み Issue file が相手側に残るとき、削除側を維持する。進捗 index だけを済みへ更新する  # → layer:workflow
+- 2026-09-14 [feature/playback-audio-mp3-read] 巨大バイト列の深い等価比較は runner がタイムアウトしうる。配線 test は専用の bytes 比較に寄せ、形式契約は fixture 単体へ閉じる  # → layer:platform
