@@ -50,10 +50,6 @@ var systemConfigEnvKeys = []string{
 	config.GoogleOAuthClientSecretEnv,
 	config.GoogleOAuthRefreshTokenEnv,
 	config.DriveFolderIDEnv,
-	config.R2AccessKeyIDEnv,
-	config.R2SecretAccessKeyEnv,
-	config.R2AccountIDEnv,
-	config.R2BucketEnv,
 }
 
 func requireSystemConfigEnv(t *testing.T) {
