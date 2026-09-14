@@ -205,6 +205,9 @@ type integrationTLSRoutes struct {
 	gdrive     http.HandlerFunc
 	hackernews http.HandlerFunc
 	lobsters   http.HandlerFunc
+	publickey  http.HandlerFunc
+	techcrunch http.HandlerFunc
+	cloudwatch http.HandlerFunc
 }
 
 func newIntegrationTLSClient(t *testing.T, routes integrationTLSRoutes) *http.Client {
@@ -215,6 +218,9 @@ func newIntegrationTLSClient(t *testing.T, routes integrationTLSRoutes) *http.Cl
 		"www.googleapis.com":                httptest.NewTLSServer(routes.gdrive),
 		"hacker-news.firebaseio.com":        httptest.NewTLSServer(routes.hackernews),
 		"lobste.rs":                         httptest.NewTLSServer(routes.lobsters),
+		"www.publickey1.jp":                 httptest.NewTLSServer(routes.publickey),
+		"techcrunch.com":                    httptest.NewTLSServer(routes.techcrunch),
+		"cloud.watch.impress.co.jp":         httptest.NewTLSServer(routes.cloudwatch),
 	}
 	for _, srv := range servers {
 		t.Cleanup(srv.Close)
@@ -288,10 +294,10 @@ func writeIntegrationJSONStatus(t *testing.T, w http.ResponseWriter, status int,
 type broadProduceEpisodeConfig struct {
 	cursorFail   bool
 	geminiFailAt int  // 1-origin。0 なら失敗しない
-	emptySources bool // true なら HackerNews / Lobsters が 0 件を返す（stub 3 源は常に空）
+	emptySources bool // true なら 5 源すべてが 0 件を返す
 }
 
-// HackerNews / Lobsters の success / empty handler。時刻は integrationTestFixedNow を使う。
+// 各情報源の success / empty handler。時刻は integrationTestFixedNow を使う。
 // FetchSourceItems は since = now - FetchWindow(24h) を渡すため、now 自体は必ず since 以上になる。
 // Broad は「SourceItem が 1 件以上ある」ことだけを要求する。
 func integrationHackerNewsSuccessHandler(t *testing.T) http.HandlerFunc {
@@ -349,6 +355,113 @@ func integrationLobstersEmptyHandler(t *testing.T) http.HandlerFunc {
 			return
 		}
 		http.Error(w, "unexpected lobsters path", http.StatusNotFound)
+	}
+}
+
+func integrationPublickeySuccessHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	published := integrationTestFixedNow.UTC().Format(time.RFC3339)
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/atom.xml" {
+			http.Error(w, "unexpected publickey path", http.StatusNotFound)
+			return
+		}
+		_, _ = io.WriteString(w, fmt.Sprintf(
+			`<?xml version="1.0" encoding="UTF-8"?>`+"\n"+
+				`<feed xmlns="http://www.w3.org/2005/Atom">`+"\n"+
+				`<entry><title>Broad Publickey 記事</title>`+
+				`<link rel="alternate" href="https://www.publickey1.jp/blog/broad.html"/>`+
+				`<id>tag:www.publickey1.jp,2026://2.broad</id>`+
+				`<published>%s</published>`+
+				`<summary>要約</summary>`+
+				`<content type="html">本文</content>`+
+				`<author><name>broad</name></author>`+
+				`</entry></feed>`,
+			published,
+		))
+	}
+}
+
+func integrationPublickeyEmptyHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/atom.xml" {
+			http.Error(w, "unexpected publickey path", http.StatusNotFound)
+			return
+		}
+		_, _ = io.WriteString(w, `<?xml version="1.0" encoding="UTF-8"?>`+"\n"+
+			`<feed xmlns="http://www.w3.org/2005/Atom"><title>Publickey</title></feed>`)
+	}
+}
+
+func integrationTechCrunchSuccessHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	pubDate := integrationTestFixedNow.UTC().Format(time.RFC1123Z)
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/feed/" && r.URL.Path != "/feed" {
+			http.Error(w, "unexpected techcrunch path", http.StatusNotFound)
+			return
+		}
+		_, _ = io.WriteString(w, fmt.Sprintf(
+			`<?xml version="1.0" encoding="UTF-8"?>`+"\n"+
+				`<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel>`+
+				`<item><title>Broad TechCrunch 記事</title>`+
+				`<link>https://techcrunch.com/broad/</link>`+
+				`<description>説明</description>`+
+				`<pubDate>%s</pubDate>`+
+				`<guid isPermaLink="false">https://techcrunch.com/?p=broad</guid>`+
+				`<dc:creator>broad-author</dc:creator>`+
+				`</item></channel></rss>`,
+			pubDate,
+		))
+	}
+}
+
+func integrationTechCrunchEmptyHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/feed/" && r.URL.Path != "/feed" {
+			http.Error(w, "unexpected techcrunch path", http.StatusNotFound)
+			return
+		}
+		_, _ = io.WriteString(w, `<?xml version="1.0" encoding="UTF-8"?>`+"\n"+
+			`<rss version="2.0"><channel><title>TechCrunch</title></channel></rss>`)
+	}
+}
+
+func integrationCloudWatchSuccessHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	date := integrationTestFixedNow.UTC().Format(time.RFC3339)
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/data/rss/1.0/clw/feed.rdf" {
+			http.Error(w, "unexpected cloudwatch path", http.StatusNotFound)
+			return
+		}
+		_, _ = io.WriteString(w, fmt.Sprintf(
+			`<?xml version="1.0" encoding="UTF-8"?>`+"\n"+
+				`<rdf:RDF xmlns="http://purl.org/rss/1.0/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/">`+
+				`<item rdf:about="https://cloud.watch.impress.co.jp/docs/news/broad.html?ref=rss">`+
+				`<title>Broad クラウド Watch 記事</title>`+
+				`<link>https://cloud.watch.impress.co.jp/docs/news/broad.html</link>`+
+				`<dc:date>%s</dc:date>`+
+				`<description>説明</description>`+
+				`</item></rdf:RDF>`,
+			date,
+		))
+	}
+}
+
+func integrationCloudWatchEmptyHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/data/rss/1.0/clw/feed.rdf" {
+			http.Error(w, "unexpected cloudwatch path", http.StatusNotFound)
+			return
+		}
+		_, _ = io.WriteString(w, `<?xml version="1.0" encoding="UTF-8"?>`+"\n"+
+			`<rdf:RDF xmlns="http://purl.org/rss/1.0/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">`+
+			`<channel rdf:about="https://cloud.watch.impress.co.jp/data/rss/1.0/clw/feed.rdf">`+
+			`<title>クラウド Watch</title></channel></rdf:RDF>`)
 	}
 }
 
@@ -415,9 +528,15 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 
 	hackernewsHandler := integrationHackerNewsSuccessHandler(t)
 	lobstersHandler := integrationLobstersSuccessHandler(t)
+	publickeyHandler := integrationPublickeySuccessHandler(t)
+	techcrunchHandler := integrationTechCrunchSuccessHandler(t)
+	cloudwatchHandler := integrationCloudWatchSuccessHandler(t)
 	if cfg.emptySources {
 		hackernewsHandler = integrationHackerNewsEmptyHandler(t)
 		lobstersHandler = integrationLobstersEmptyHandler(t)
+		publickeyHandler = integrationPublickeyEmptyHandler(t)
+		techcrunchHandler = integrationTechCrunchEmptyHandler(t)
+		cloudwatchHandler = integrationCloudWatchEmptyHandler(t)
 	}
 
 	httpClient := newIntegrationTLSClient(t, integrationTLSRoutes{
@@ -426,10 +545,13 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 		gdrive:     integrationGDriveSuccessHandler(t, gdriveProbe),
 		hackernews: hackernewsHandler,
 		lobsters:   lobstersHandler,
+		publickey:  publickeyHandler,
+		techcrunch: techcrunchHandler,
+		cloudwatch: cloudwatchHandler,
 	})
 
 	// 5 情報源（HackerNews → Lobsters → Publickey → TechCrunch → クラウド Watch）。
-	// 登録順は composition.newProduceEpisode と同順。新規 3 源は A stub（空 List）。真外部は TLS redirect で double 済み。
+	// 登録順は composition.newProduceEpisode と同順。真外部は TLS redirect で double 済み。
 	fetch := application.NewFetchSourceItems(compositeItemSource{
 		hackernews.NewListItemSource(httpClient),
 		lobsters.NewListItemSource(httpClient),

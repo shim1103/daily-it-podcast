@@ -24,7 +24,7 @@ const apiBaseURL = "https://lobste.rs"
 const (
 	// MaxStoriesScanned は結果 SourceItem に含める story 数の上限。
 	// created_at >= since を満たした story を、hottest.json の先頭からこの件数まで集める。
-	MaxStoriesScanned = 25
+	MaxStoriesScanned = 20
 	// MaxCommentsPerStory は 1 story あたり取得する comment 数の上限。
 	MaxCommentsPerStory = 8
 	// CommentDepth は取得する comment 階層の深さ（top-level のみ）。

@@ -173,6 +173,12 @@ func TestList_mapsHottestStoryToSourceItem_whenStoryInWindow(t *testing.T) {
 	if !strings.Contains(got[0].Meta, "item_id: abc123") || !strings.Contains(got[0].Meta, "actor_id: alice") {
 		t.Fatalf("Meta = %q, want item_id and actor", got[0].Meta)
 	}
+	if !strings.Contains(got[0].Meta, "actor_name: alice") {
+		t.Fatalf("Meta = %q, want actor_name", got[0].Meta)
+	}
+	if strings.Contains(got[0].Discourse.Links[0], "/comments") || strings.Contains(strings.Join(got[0].Detail.Links, ","), "/comments") {
+		t.Fatalf("comments_url leaked into Links: Detail=%#v Discourse=%#v", got[0].Detail.Links, got[0].Discourse.Links)
+	}
 }
 
 func TestList_excludesStoriesOlderThanSince_atBoundary(t *testing.T) {

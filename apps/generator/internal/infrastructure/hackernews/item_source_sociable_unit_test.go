@@ -157,6 +157,9 @@ func TestList_mapsTopStoryToSourceItem_whenStoryInWindow(t *testing.T) {
 	if !strings.Contains(got[0].Meta, "item_id: 101") {
 		t.Fatalf("Meta = %q, want item_id", got[0].Meta)
 	}
+	if !strings.Contains(got[0].Meta, "actor_id: user101") || !strings.Contains(got[0].Meta, "actor_name: user101") {
+		t.Fatalf("Meta = %q, want by as actor", got[0].Meta)
+	}
 }
 
 func TestList_filtersToTypeStory_whenJobOrPollPresent(t *testing.T) {
