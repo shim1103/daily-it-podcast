@@ -17,6 +17,7 @@ Drive 継承のまま R2 実施の形・error/retry・Issue 実施順を Decisio
 - Account ID / bucket 名を GHA Variable として登録。Access Key Secret は shim 側・agent 確認時点では未登録。
 - wrangler の冗長 why comment は削り、binding 契約値だけ残した。
 - 検証: commit hook 経由の generator static/unit と playback format/lint/tsc/layers 緑。
+- PR: https://github.com/shim1103/daily-it-podcast/pull/151
 
 ### Commits
 
