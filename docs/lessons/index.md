@@ -10,3 +10,6 @@
 - 2026-09-13 [feature/generator-wav-to-mp3-port-runtime] Sociable Unit のケース説明は Given/When/Then の構造ラベルを欠かさない。ラベル無しの自由文コメントやケース名だけだと、前提・操作・期待を後から復元できない  # → layer:terms
 - 2026-09-13 [feature/generator-wav-to-mp3-port-runtime] coverprofile に現れない定数だけの file は、別実行経路からその定数が使われていれば個別 ignore の対象にしない。計測不能な分岐（環境依存で再現不能な panic 等）だけを局所コメントで切る  # → layer:platform
 - 2026-09-13 [feature/generator-wav-to-mp3-port-runtime] 「特定 file の正本は origin/base」と「現在 branch を base へ rebase する」を取り違えない。前者は当該 path の内容同期だけ、後者は履歴全体の載せ替えである  # → layer:workflow
+- 2026-09-14 [feature/generator-audio-mp3-encode-write] early return の機械的帰結（失敗 step は Start のみ・Done なし）を failure case ごとに progress spy で再検証しない。共通 helper が無く構造が一様なら、Port 非呼び出しと成功経路の順序観測で足りる  # → layer:terms
+- 2026-09-14 [feature/generator-audio-mp3-encode-write] test が「あるかないか」ではなく「固有の検出力があるか」で要否を決める。所有者が既にある不変条件を別 failure へ複製すると非対称が残り、削除時に理由説明コストだけ増える  # → layer:terms
+- 2026-09-14 [feature/generator-audio-mp3-encode-write] review の should-fix で同型 assert の追加を求められても、検出力が増えないなら採らない。approve 後でも過剰な failure×progress 交差を削ってよい  # → layer:workflow
