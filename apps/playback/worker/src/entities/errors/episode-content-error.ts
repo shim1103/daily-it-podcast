@@ -1,7 +1,7 @@
 /**
- * 対象 episode の実体（原稿 JSON / wav）が揃わない・内容が契約に適合しない時の Domain Error。
+ * 対象 episode の実体（原稿 JSON / mp3）が揃わない・内容が契約に適合しない時の Domain Error。
  *
- * 失敗理由（JSON エントリ欠落 / wav 欠落 / schema 不適合 / stem 不一致）は message で分類する。
+ * 失敗理由（JSON エントリ欠落 / mp3 欠落 / schema 不適合 / stem 不一致）は message で分類する。
  * 種別ごとのクラス細分はしない。
  *
  * @require message は診断用。secret / Drive file id を含めない

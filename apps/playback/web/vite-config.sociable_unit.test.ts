@@ -47,8 +47,7 @@ describe("createDummyBackendMiddleware", () => {
     expect(got.headers.get("Content-Type")).toBe(episodeAudioContentType);
     const bytes = new Uint8Array(await got.arrayBuffer());
     const expected = createFakeEpisodeAudioBytes(validEpisodeItem.durationSec);
-    expect(bytes.byteLength).toBe(expected.byteLength);
-    expect(bytes[0]).toBe(0x52);
+    expect(Buffer.from(bytes).equals(Buffer.from(expected))).toBe(true);
   });
 
   it("契約に無い path へ GET する時、400 と validation_error を返す", async () => {

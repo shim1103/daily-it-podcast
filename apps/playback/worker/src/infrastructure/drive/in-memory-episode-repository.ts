@@ -9,10 +9,10 @@ type StoredEpisode = {
 };
 
 /**
- * local development / unit test 用に、原稿 json / wav をメモリ上に保持する `EpisodeRepository`。
+ * local development / unit test 用に、原稿 json / mp3 をメモリ上に保持する `EpisodeRepository`。
  *
  * 真の外部境界（ここでは Map への格納・取り出し）だけを担い、schema 適合・stem 一致・不正 JSON・
- * wav 欠落の判定はしない。判定は use-case（`application/use-cases/*`）が行う。
+ * mp3 欠落の判定はしない。判定は use-case（`application/use-cases/*`）が行う。
  */
 export class InMemoryEpisodeRepository implements EpisodeRepository {
   private readonly episodes = new Map<string, StoredEpisode>();

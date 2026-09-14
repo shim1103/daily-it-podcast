@@ -21,22 +21,22 @@ deploy・Access・GHA 運用の正: `DEPLOY.md`
 8. 原稿 body の opening / ending を `{ text, startSec }` object へ（3 bookend を「本文 + startSec」へ揃える。text は定型込み朗読全文）。判断は `docs/decisions/2026-09-04T19-30-00-feature-playback-e2e-redeploy-master.md`（先行 `16-44-46` / `16-00-00` を reconcile）
 9. 音源 load 直後の seek が 0:00 に落ちる bug を修正（`readyState` 未達なら `loadedmetadata` を待って `currentTime` 代入）。e2e に seek 回帰 test 追加。安定 fixture を新契約 episode へ差し替え
 10. 週次 `playback-e2e` の全滅を Google OAuth refresh token 失効と特定。consent screen を Production 固定して 7 日失効を運用から外す（`docs/decisions/2026-09-07T22-25-00-fix-playback-e2e-test.md`）。`DriveError` の非 2xx message を呼び出し種別付きにして切り分け可能化
-11. 音声保存・配信の契約を mp3 へ（A）と Decision（`2026-09-13T13-40-29` / `13-41-00` / encode `16-32-57` / runtime 工場 `17-38-37`）。generator 側は encode Port + ffmpeg Adapter 本実装・`ProduceEpisode` 結線済み。playback 読取は未完了（`playback-audio-mp3-read`）
+11. 音声保存・配信の契約を mp3 へ（A）と Decision（`2026-09-13T13-40-29` / `13-41-00` / encode `16-32-57` / runtime 工場 `17-38-37`）。generator 側は encode Port + ffmpeg Adapter 本実装・`ProduceEpisode` 結線済み
+12. playback 読取・HTTP・dev fake を mp3 契約へ揃え（`playback-audio-mp3-read`。達成契約 file 削除済み）
 
 ### 未完了（storage 順・Decision `2026-09-14T12-49-26`）
 
-1. `playback-audio-mp3-read.md` — 列 2。読取・HTTP を mp3 契約で完了
-2. `audio-mp3-cutover-migrate.md` — 列 3（共有）。mp3 同着切替 + wav 一括 + fixture
-3. `playback-r2-read-adapter.md` — 列 5。R2 binding 読取 Adapter 本実装
-4. `r2-smoke-migrate-cutover.md` — 列 6（共有）。疎通・人手移行・R2 同着切替
-5. `r2-post-cutover-verify-oauth.md` — 列 7（共有）。System/E2E・OAuth 削除
+1. `audio-mp3-cutover-migrate.md` — 列 3（共有）。mp3 同着切替 + wav 一括 + fixture
+2. `playback-r2-read-adapter.md` — 列 5。R2 binding 読取 Adapter 本実装
+3. `r2-smoke-migrate-cutover.md` — 列 6（共有）。疎通・人手移行・R2 同着切替
+4. `r2-post-cutover-verify-oauth.md` — 列 7（共有）。System/E2E・OAuth 削除
 
 ### 実施順 index（Issue file 単位）
 
 | 列 | Issue file | 備考 |
 |---|---|---|
 | 1 | `generator-audio-mp3-encode-write` | **済み**（達成契約 file 削除済み） |
-| 2 | `playback-audio-mp3-read` | 本 lane |
+| 2 | `playback-audio-mp3-read` | **済み**（達成契約 file 削除済み） |
 | 3 | `audio-mp3-cutover-migrate` | 旧 `R-mp3-cutover` + `R-mp3-migrate` を吸収 |
 | 4 | `generator-r2-write-adapter` | generator lane |
 | 5 | `playback-r2-read-adapter` | 本 lane |
