@@ -23,7 +23,7 @@ func TestProduceEpisodeBroadIntegration_uploadsEpisodeArtifactsOnce_whenAllProdu
 	// When: Run する
 	_, err := h.uc.Run(context.Background(), integrationTestFixedNow)
 
-	// Then: error なし。TextWriter 1、Synthesize = 2+topic（topic+2 束）、Drive upload 2（json+wav の 1 組）
+	// Then: error なし。TextWriter 1、Synthesize = 2+topic（topic+2 束）、Drive upload 2（json+mp3 の 1 組）
 	if err != nil {
 		t.Fatalf("Run() error = %v, want nil", err)
 	}

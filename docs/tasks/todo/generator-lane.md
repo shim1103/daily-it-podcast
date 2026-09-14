@@ -20,15 +20,15 @@
 7. `geminiapi` 実 API 疎通 smoke — `generator-geminiapi-smoke.yml`（dispatch 専用、`TEST_GEMINI_API_KEY`）。yml は master（PR #135）、test は `system && ratemeasure` tag で gate 外。`--ref <fallback 実装 branch>` で回す
 8. `generator-draft-rate` を `api`（cursor | gemini）入力化。gemini の default prompt を 9/10 まで調整（数値 range 不変、指導文のみ）。判断・実測は Decision `2026-09-08T07-40-00`
 9. 原稿 fallback の Gemini key を TTS と分離 — `GeminiConfig.SpareAPIKey`（`SPARE_GEMINI_API_KEY`）を新設し `newGeminiTextWriter` だけをそれへ。TTS は `GEMINI_API_KEY` 据え置き。GHA は本番 `SPARE_GEMINI_API_KEY` / System `TEST_SPARE_GEMINI_API_KEY`。`generator-system.yml` run 34298458327 で config 変更 + fallback 実切替の e2e を実証。判断は Decision `2026-09-09T10-00-00`
+10. ConcatWAV 後 ffmpeg で mp3 化し Drive へ書く — Port `WAVToMP3Encoder` の ffmpeg Adapter 本実装と `ProduceEpisode` 結線。deploy は playback lane `R-mp3-cutover`（読取と同着）。判断は Decision `2026-09-13T16-32-57` / `17-38-37`
 
 ### 未完了
 
-1. `generator-textwriter-prompt-source-criteria-adapters.md` — Publickey / TechCrunch / CloudWatch の `List` 実装と raw→SourceItem Verification
-2. `generator-audio-mp3-encode-write.md` — 列 1。ConcatWAV 後 ffmpeg で mp3 化して書く
-3. `audio-mp3-cutover-migrate.md` — 列 3（共有）。mp3 同着切替 + wav 一括 + fixture
-4. `generator-r2-write-adapter.md` — 列 4。R2 `EpisodeWriter` 本実装
-5. `r2-smoke-migrate-cutover.md` — 列 6（共有）
-6. `r2-post-cutover-verify-oauth.md` — 列 7（共有）
+1. `generator-item-source-httpget-ni-cache.md` — `httpget` helper・5 源実境界 NI・接続 cache（CI 外）。方針は Decision `2026-09-14T13-06-11`
+2. `audio-mp3-cutover-migrate.md` — 列 3（共有）。mp3 同着切替 + wav 一括 + fixture（列 1 encode は済み）
+3. `generator-r2-write-adapter.md` — 列 4。R2 `EpisodeWriter` 本実装
+4. `r2-smoke-migrate-cutover.md` — 列 6（共有）
+5. `r2-post-cutover-verify-oauth.md` — 列 7（共有）
 
 storage 実施順の正は Decision `2026-09-14T12-49-26` / `playback-lane.md` の実施順 index。
 
@@ -54,7 +54,7 @@ storage 実施順の正は Decision `2026-09-14T12-49-26` / `playback-lane.md` �
 | Gemini fallback 発火の観測 | 現状 `delivery.LogWriter.Fallback("manuscript_source_switched")` の `generator: category=fallback event=...` 1 行のみ。切り替え成功時は原稿が出るので痕跡が薄い。GHA run summary への出力 / Drive metadata への provenance / 構造化 log 基盤の導入は未決 |
 | Gemini free-tier RPD の実運用値 | 公称 RPD≈1,000 だが実測で下振れ報告あり。1 日 1 回 produce + draft retry 最大 5 でも問題ないはずだが未確認 |
 | Cursor 復帰の運用気づき | 毎回 primary（Cursor）を先に試すので枠復活後は自動で戻るが、「毎日 Gemini に落ちている」状態を運用が能動的に気づく手段は未整備 |
-| GHA / local への `ffmpeg` 配備 | encode-write Issue の前提。runner に無ければ install step が要る（未実測） |
+| GHA / local への `ffmpeg` 配備 | encode 済み後も runner 配備の実測が残る場合のみ。未実測なら残置 |
 
 ### 方針 index
 

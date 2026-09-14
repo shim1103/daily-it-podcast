@@ -13,4 +13,11 @@
 - 2026-09-13 [feature/generator-wav-to-mp3-port-runtime] package 全体の coverage gate だけ見て新規 unit の到達を宣言しない。巨大 codebase では未計測の新規実装でも aggregate を満たせる。unit 種別ごとの下限（薄い wrapper は到達可能分岐の全通過など）を正とする  # → layer:terms
 - 2026-09-13 [feature/generator-wav-to-mp3-port-runtime] Sociable Unit のケース説明は Given/When/Then の構造ラベルを欠かさない。ラベル無しの自由文コメントやケース名だけだと、前提・操作・期待を後から復元できない  # → layer:terms
 - 2026-09-13 [feature/generator-wav-to-mp3-port-runtime] coverprofile に現れない定数だけの file は、別実行経路からその定数が使われていれば個別 ignore の対象にしない。計測不能な分岐（環境依存で再現不能な panic 等）だけを局所コメントで切る  # → layer:platform
-- 2026-09-13 [feature/generator-wav-to-mp3-port-runtime] 「特定 file の正本は origin/base」と「現在 branch を base へ rebase する」を取り違えない。前者は当該 path の内容同期だけ、後者は履歴全体の載せ替えである  # → layer:workflow
+- 2026-09-14 [feature/generator-wav-to-mp3-port-runtime] 「特定 file の正本は origin/base」と「現在 branch を base へ rebase する」を取り違えない。前者は当該 path の内容同期だけ、後者は履歴全体の載せ替えである  # → layer:workflow
+- 2026-09-14 [feature/generator-audio-mp3-encode-write] early return の機械的帰結（失敗 step は Start のみ・Done なし）を failure case ごとに progress spy で再検証しない。共通 helper が無く構造が一様なら、Port 非呼び出しと成功経路の順序観測で足りる  # → layer:terms
+- 2026-09-14 [feature/generator-audio-mp3-encode-write] test が「あるかないか」ではなく「固有の検出力があるか」で要否を決める。所有者が既にある不変条件を別 failure へ複製すると非対称が残り、削除時に理由説明コストだけ増える  # → layer:terms
+- 2026-09-14 [feature/generator-audio-mp3-encode-write] review の should-fix で同型 assert の追加を求められても、検出力が増えないなら採らない。approve 後でも過剰な failure×progress 交差を削ってよい  # → layer:workflow
+- 2026-09-14 [feature/generator-textwriter-prompt-source-criteria-adapters] commit の対象範囲 option と分割粒度 option は直交する。範囲 option の文面に残る件数上限を、分割粒度の上限と読まない  # → layer:workflow
+- 2026-09-14 [feature/generator-textwriter-prompt-source-criteria-adapters] 「余計な data を載せない」は設計上の判断であり、捨てる字段ごとの専用契約 test を自動では要求しない。写像の正の postcondition 所有と混同しない  # → layer:terms
+- 2026-09-14 [feature/generator-textwriter-prompt-source-criteria-adapters] 実境界の Narrow Integration と、実 HTTP 結果を cache へ残す接続確認 suite は別所有にする。合成 upstream の Narrow を残して二重にしない  # → layer:terms
+- 2026-09-14 [feature/generator-textwriter-prompt-source-criteria-adapters] 共有 helper の dir 名は共有している振る舞い（例: HTTP GET）に合わせる。一部 consumer の方言名（例: RSS）で包むと、非該当 Adapter の依存関係が嘘になる  # → layer:terms

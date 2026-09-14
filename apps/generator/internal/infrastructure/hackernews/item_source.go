@@ -33,7 +33,7 @@ const (
 	// fetch 回数は min(len(ids), 探索必要数) で有界。
 	//
 	// 名前が「Scanned」だと誤解を生むが、契約値の識別子変更は scope 外なので名前は変えない。
-	MaxStoriesScanned = 30
+	MaxStoriesScanned = 20
 	// MaxCommentsPerStory は 1 story あたり取得する top-level comment 数の上限。
 	MaxCommentsPerStory = 8
 	// CommentDepth は取得する comment 階層の深さ（top-level のみ）。
