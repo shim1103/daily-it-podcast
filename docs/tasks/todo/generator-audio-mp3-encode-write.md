@@ -6,15 +6,15 @@
 
 ## 2. Context
 
-1. 事実: A が encode Port・ffmpeg Adapter stub・drive-layout `.mp3`・gdrive `mp3Ext`/`mp3MIME`・Composition DI 口を固定済み。`ProduceEpisode.Run` 内の encode 呼び出しは未結線。
+1. 事実: A が encode Port・ffmpeg Adapter stub・episode-layout `.mp3`・gdrive `mp3Ext`/`mp3MIME`・Composition DI 口を固定済み。`ProduceEpisode.Run` 内の encode 呼び出しは未結線。
 2. 事実: TTS Port はセグメント WAV のまま（Decision `2026-09-13T13-40-29`）。
 3. 事実: ffmpeg/`os/exec` 工場は `internal/runtime`。Adapter は `os/exec` を持たない。Composition が Port として inject（Decision `2026-09-13T16-32-57` / `17-38-37`）。
 4. 仮定: CI / 開発機に `ffmpeg` が PATH にある（無ければ Verification で明示 fail）。
-5. 運用: 1 Issue = 1 PR。本番 deploy は lane の release 単位に従う（C2 と同着）。
+5. 運用: 1 Issue = 1 PR。本番同着切替と batch は列 3（`audio-mp3-cutover-migrate`）。
 
 ## 3. Canonical Sources
 
-1. 契約: `contracts/drive-layout.md` / `apps/generator/internal/application/port/wav_to_mp3_encoder.go` / `apps/generator/internal/infrastructure/audio/ffmpeg`
+1. 契約: `contracts/episode-layout.md` / `apps/generator/internal/application/port/wav_to_mp3_encoder.go` / `apps/generator/internal/infrastructure/audio/ffmpeg`
 2. 判断（形式・TTS WAV・ffmpeg 手段）: `docs/decisions/2026-09-13T13-40-29-feature-playback-now-playing-audio-listenability.md`
 3. 判断（Port + Composition inject・Application は exec なし）: `docs/decisions/2026-09-13T16-32-57-feature-generator-audio-mp3-encode-write.md`
 4. 判断（OS/HTTP 工場は `internal/runtime`・ffmpeg は infra）: `docs/decisions/2026-09-13T17-38-37-feature-generator-audio-mp3-encode-write.md`
@@ -34,8 +34,8 @@
 ### Out of Scope
 
 1. playback 読取（`playback-audio-mp3-read`）
-2. 既存 Drive 上 wav の一括変換（`audio-mp3-batch-migration`）
-3. R2 / cache（Decision のみ。本 Issue にしない）
+2. 既存 Drive 上 wav の一括変換と mp3 本番同着（`audio-mp3-cutover-migrate`）
+3. R2（列 4 以降。Decision `2026-09-14T12-49-26`）
 4. Application / `build` への `os` / `os/exec` 直置き
 5. TTS Port / Gemini Adapter への encode 混入
 
@@ -70,8 +70,9 @@
 ## 9. Dependencies
 
 1. mp3 形式 A/B および層配置 Decision `2026-09-13T16-32-57` / `17-38-37` 済み
-2. 本番 deploy は `playback-audio-mp3-read` と同 release（lane `R-mp3-cutover`）
+2. 順番: Decision `2026-09-14T12-49-26`（本 Issue は列 1）
+3. 本番同着切替・batch は `audio-mp3-cutover-migrate`（列 3）
 
 ## 10. Notes
 
-本 PR 単独で本番 produce すると、読取側が未追随の期間に再生が割れる。
+本 PR 単独で本番 produce すると、読取側が未追随の期間に再生が割れる。同着は列 3。
