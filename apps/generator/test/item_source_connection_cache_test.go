@@ -28,54 +28,97 @@ import (
 )
 
 func TestConnectionCache_hackernewsListSucceedsAndSaves(t *testing.T) {
-	runConnectionCacheCase(t, "hackernews", hackernews.SourceID, func(client *http.Client) itemSourceLister {
-		return hackernews.NewListItemSource(client)
-	})
+	// Given: HackerNews 本番向け client と広い since 窓
+	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
+	source := hackernews.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second))
+
+	// When: List(ctx, since) を呼ぶ
+	got, err := source.List(context.Background(), since)
+
+	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
+	assertConnectionCacheItemSourceList(t, got, err, hackernews.SourceID, since)
+	saveConnectionCache(t, "hackernews", got)
 }
 
 func TestConnectionCache_lobstersListSucceedsAndSaves(t *testing.T) {
-	runConnectionCacheCase(t, "lobsters", lobsters.SourceID, func(client *http.Client) itemSourceLister {
-		return lobsters.NewListItemSource(client)
-	})
+	// Given: Lobsters 本番向け client と広い since 窓
+	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
+	source := lobsters.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second))
+
+	// When: List(ctx, since) を呼ぶ
+	got, err := source.List(context.Background(), since)
+
+	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
+	assertConnectionCacheItemSourceList(t, got, err, lobsters.SourceID, since)
+	saveConnectionCache(t, "lobsters", got)
 }
 
 func TestConnectionCache_publickeyListSucceedsAndSaves(t *testing.T) {
-	runConnectionCacheCase(t, "publickey", publickey.SourceID, func(client *http.Client) itemSourceLister {
-		return publickey.NewListItemSource(client)
-	})
+	// Given: Publickey 本番向け client と広い since 窓
+	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
+	source := publickey.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second))
+
+	// When: List(ctx, since) を呼ぶ
+	got, err := source.List(context.Background(), since)
+
+	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
+	assertConnectionCacheItemSourceList(t, got, err, publickey.SourceID, since)
+	saveConnectionCache(t, "publickey", got)
 }
 
 func TestConnectionCache_techcrunchListSucceedsAndSaves(t *testing.T) {
-	runConnectionCacheCase(t, "techcrunch", techcrunch.SourceID, func(client *http.Client) itemSourceLister {
-		return techcrunch.NewListItemSource(client)
-	})
+	// Given: TechCrunch 本番向け client と広い since 窓
+	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
+	source := techcrunch.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second))
+
+	// When: List(ctx, since) を呼ぶ
+	got, err := source.List(context.Background(), since)
+
+	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
+	assertConnectionCacheItemSourceList(t, got, err, techcrunch.SourceID, since)
+	saveConnectionCache(t, "techcrunch", got)
 }
 
 func TestConnectionCache_cloudwatchListSucceedsAndSaves(t *testing.T) {
-	runConnectionCacheCase(t, "cloudwatch", cloudwatch.SourceID, func(client *http.Client) itemSourceLister {
-		return cloudwatch.NewListItemSource(client)
-	})
-}
-
-// itemSourceLister は接続 cache が呼ぶ List 面だけを表す。
-type itemSourceLister interface {
-	List(ctx context.Context, since time.Time) ([]models.SourceItem, error)
-}
-
-func runConnectionCacheCase(t *testing.T, name, wantSourceID string, newSource func(*http.Client) itemSourceLister) {
-	t.Helper()
-
-	// Given: 本番向け client と広い since 窓
-	// why: HN 含め複数源を同一 helper で回すため、story+comment 多段 fetch でも切れない timeout を共通採用。
+	// Given: クラウド Watch 本番向け client と広い since 窓
 	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
-	source := newSource(newItemSourceHTTPClient(120 * time.Second))
+	source := cloudwatch.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second))
 
-	// When: 実 HTTP で List し、結果を .cache/ へ保存する
+	// When: List(ctx, since) を呼ぶ
 	got, err := source.List(context.Background(), since)
 
-	// Then: I/O 契約は NI と同一 SSoT。cache 保存のみ本 suite 固有。
-	assertRealBoundaryItemSourceList(t, got, err, wantSourceID, since)
-	saveConnectionCache(t, name, got)
+	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
+	assertConnectionCacheItemSourceList(t, got, err, cloudwatch.SourceID, since)
+	saveConnectionCache(t, "cloudwatch", got)
+}
+
+// newConnectionCacheHTTPClient は接続 cache suite 専用の標準 *http.Client を返す。
+// why: HN 含め複数源を回すため、story+comment 多段 fetch でも切れない timeout を呼び出し側が渡す。
+func newConnectionCacheHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{Timeout: timeout}
+}
+
+// assertConnectionCacheItemSourceList は接続 cache が観測する本番直撃 I/O 契約を assert する。
+// 写像 exact・retry 表・件数上限は Sociable Unit の所有。NI（controllable peer）とは別 suite。
+func assertConnectionCacheItemSourceList(t *testing.T, got []models.SourceItem, err error, wantSourceID string, since time.Time) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil（認証不要 GET が成功すること）", err)
+	}
+	if got == nil {
+		t.Fatal("List() = nil, want non-nil slice（該当なしは空 slice）")
+	}
+	for i, item := range got {
+		if item.SourceID != wantSourceID {
+			t.Fatalf("got[%d].SourceID = %q, want %q", i, item.SourceID, wantSourceID)
+		}
+		if item.OccurredAt.Location() != time.UTC {
+			t.Fatalf("got[%d].OccurredAt.Location() = %v, want UTC", i, item.OccurredAt.Location())
+		}
+		if item.OccurredAt.Before(since) {
+			t.Fatalf("got[%d].OccurredAt = %v, want >= since %v", i, item.OccurredAt, since)
+		}
+	}
 }
 
 func saveConnectionCache(t *testing.T, name string, items []models.SourceItem) {

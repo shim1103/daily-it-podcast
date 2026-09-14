@@ -16,7 +16,7 @@ import (
 func TestGetWithRetry_returnsBody_whenFirstGetSucceeds(t *testing.T) {
 	t.Parallel()
 
-	// Given: 1 回目で 200 を返す server
+	// Given: 1 回目で 200 と body "ok-body" を返す server
 	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
@@ -27,10 +27,10 @@ func TestGetWithRetry_returnsBody_whenFirstGetSucceeds(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	// When: GetWithRetry する
+	// When: GetWithRetry(ctx, client, url) を呼ぶ
 	got, err := httpget.GetWithRetry(context.Background(), srv.Client(), srv.URL)
 
-	// Then: body を返し、呼び出しは 1 回
+	// Then: body は "ok-body"、呼び出しは 1 回
 	if err != nil {
 		t.Fatalf("GetWithRetry() error = %v, want nil", err)
 	}
@@ -45,7 +45,7 @@ func TestGetWithRetry_returnsBody_whenFirstGetSucceeds(t *testing.T) {
 func TestGetWithRetry_retriesOnce_whenStatus5xxThenSucceeds(t *testing.T) {
 	t.Parallel()
 
-	// Given: 1 回目 503、2 回目 200
+	// Given: 1 回目 503、2 回目 200 と body "recovered" を返す server
 	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		n := calls.Add(1)
@@ -57,10 +57,10 @@ func TestGetWithRetry_retriesOnce_whenStatus5xxThenSucceeds(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	// When
+	// When: GetWithRetry(ctx, client, url) を呼ぶ
 	got, err := httpget.GetWithRetry(context.Background(), srv.Client(), srv.URL)
 
-	// Then: 2 回目の body、retry 1 回
+	// Then: body は "recovered"、呼び出しは 2 回（5xx で 1 回 retry）
 	if err != nil {
 		t.Fatalf("GetWithRetry() error = %v, want nil", err)
 	}
@@ -75,7 +75,7 @@ func TestGetWithRetry_retriesOnce_whenStatus5xxThenSucceeds(t *testing.T) {
 func TestGetWithRetry_stopsAfterOneRetry_whenStatus5xxPersists(t *testing.T) {
 	t.Parallel()
 
-	// Given: 常に 502
+	// Given: 常に 502 を返す server
 	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		calls.Add(1)
@@ -83,10 +83,10 @@ func TestGetWithRetry_stopsAfterOneRetry_whenStatus5xxPersists(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	// When
+	// When: GetWithRetry(ctx, client, url) を呼ぶ
 	got, err := httpget.GetWithRetry(context.Background(), srv.Client(), srv.URL)
 
-	// Then: error、呼び出しは 2 回で打ち切り
+	// Then: body は nil、error に 502、呼び出しは 2 回で打ち切り
 	if got != nil {
 		t.Fatalf("body = %q, want nil", got)
 	}
@@ -109,7 +109,7 @@ func TestGetWithRetry_doesNotRetry_whenStatus4xxIncluding429(t *testing.T) {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			t.Parallel()
 
-			// Given: 4xx（429 含む）
+			// Given: 指定 4xx（429 含む）を返す server
 			var calls atomic.Int32
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				calls.Add(1)
@@ -117,10 +117,10 @@ func TestGetWithRetry_doesNotRetry_whenStatus4xxIncluding429(t *testing.T) {
 			}))
 			t.Cleanup(srv.Close)
 
-			// When
+			// When: GetWithRetry(ctx, client, url) を呼ぶ
 			got, err := httpget.GetWithRetry(context.Background(), srv.Client(), srv.URL)
 
-			// Then: 非 retry（1 回）で error
+			// Then: body は nil、error あり、呼び出しは 1 回（4xx は非 retry）
 			if got != nil {
 				t.Fatalf("body = %q, want nil", got)
 			}
@@ -137,7 +137,7 @@ func TestGetWithRetry_doesNotRetry_whenStatus4xxIncluding429(t *testing.T) {
 func TestGetWithRetry_retriesOnce_whenTransportErrorThenSucceeds(t *testing.T) {
 	t.Parallel()
 
-	// Given: 1 回目は transport error、2 回目は成功する RoundTripper
+	// Given: 1 回目は transport error、2 回目は 200 と body "after-transport" を返す RoundTripper
 	var calls atomic.Int32
 	rt := roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		n := calls.Add(1)
@@ -153,10 +153,10 @@ func TestGetWithRetry_retriesOnce_whenTransportErrorThenSucceeds(t *testing.T) {
 	})
 	client := &http.Client{Transport: rt}
 
-	// When
+	// When: GetWithRetry(ctx, client, url) を呼ぶ
 	got, err := httpget.GetWithRetry(context.Background(), client, "http://example.invalid/x")
 
-	// Then
+	// Then: body は "after-transport"、呼び出しは 2 回
 	if err != nil {
 		t.Fatalf("GetWithRetry() error = %v, want nil", err)
 	}
@@ -184,10 +184,10 @@ func TestGetWithRetry_doesNotRetry_whenBodyReadFails(t *testing.T) {
 	})
 	client := &http.Client{Transport: rt}
 
-	// When
+	// When: GetWithRetry(ctx, client, url) を呼ぶ
 	got, err := httpget.GetWithRetry(context.Background(), client, "http://example.invalid/x")
 
-	// Then: 非 retry
+	// Then: body は nil、error あり、呼び出しは 1 回（body read 失敗は非 retry）
 	if got != nil {
 		t.Fatalf("body = %q, want nil", got)
 	}
@@ -203,10 +203,10 @@ func TestGetWithRetry_returnsError_whenClientNil(t *testing.T) {
 	t.Parallel()
 
 	// Given: client が nil
-	// When
+	// When: GetWithRetry(ctx, nil, url) を呼ぶ
 	got, err := httpget.GetWithRetry(context.Background(), nil, "http://example.invalid/x")
 
-	// Then
+	// Then: body は nil、error あり
 	if got != nil {
 		t.Fatalf("body = %q, want nil", got)
 	}
@@ -221,10 +221,10 @@ func TestNormalizeHTML_unescapesEntitiesAndStripsTags_whenMarkupPresent(t *testi
 	// Given: <p>・他タグ・HTML entity を含む文字列
 	raw := `最初の段落<p>次の段落 <a href="https://e.example">link</a> &amp; &lt;tag&gt;`
 
-	// When
+	// When: NormalizeHTML(raw) を呼ぶ
 	got := httpget.NormalizeHTML(raw)
 
-	// Then: 段落改行・タグ除去・entity unescape・trim
+	// Then: 段落改行・タグ除去・entity unescape・trim した文字列
 	want := "最初の段落\n次の段落 link & <tag>"
 	if got != want {
 		t.Fatalf("NormalizeHTML() = %q, want %q", got, want)
@@ -234,7 +234,14 @@ func TestNormalizeHTML_unescapesEntitiesAndStripsTags_whenMarkupPresent(t *testi
 func TestNormalizeHTML_returnsEmpty_whenInputEmpty(t *testing.T) {
 	t.Parallel()
 
-	if got := httpget.NormalizeHTML(""); got != "" {
+	// Given: 空文字
+	raw := ""
+
+	// When: NormalizeHTML("") を呼ぶ
+	got := httpget.NormalizeHTML(raw)
+
+	// Then: 空文字を返す
+	if got != "" {
 		t.Fatalf("NormalizeHTML(\"\") = %q, want empty", got)
 	}
 }
