@@ -33,7 +33,9 @@ CUSTOM_NODE_NAMES: tuple[str, ...] = (
     "github-actions",
     "hackernews",
     "lobsters",
-    "itmedia-rss",
+    "techcrunch",
+    "publickey",
+    "cloudwatch",
     "vite",
 )
 
@@ -63,7 +65,7 @@ def render() -> Path:
         "fontname": font,
         "fontsize": "16",
         "pad": "0.6",
-        "nodesep": "0.6",
+        "nodesep": "0.55",
         "ranksep": "0.9",
         "bgcolor": "white",
         "splines": "spline",
@@ -80,7 +82,9 @@ def render() -> Path:
     gha_icon = str(rasterize(icon_path("github-actions")))
     hn_icon = str(rasterize(icon_path("hackernews")))
     lobsters_icon = str(rasterize(icon_path("lobsters")))
-    itmedia_icon = str(rasterize(icon_path("itmedia-rss")))
+    publickey_icon = str(rasterize(icon_path("publickey")))
+    techcrunch_icon = str(rasterize(icon_path("techcrunch")))
+    cloudwatch_icon = str(rasterize(icon_path("cloudwatch")))
     vite_icon = str(rasterize(icon_path("vite")))
 
     with Diagram(
@@ -95,23 +99,40 @@ def render() -> Path:
     ):
         user = Users("Listener")
 
-        with Cluster("Sources"):
-            hn = Custom("Hacker News\n(Firebase API)", hn_icon)
-            lobsters = Custom("Lobsters\n(hottest.json)", lobsters_icon)
-            itmedia = Custom("ITmedia NEWS\n(RSS 2.0)", itmedia_icon)
-            # why: 3 サイトは対等な並列取得元。invisible edge で同一 rank に固定し横並びにする。
-            hn - Edge(style="invis") - lobsters - Edge(style="invis") - itmedia
+        # why: SourceItem を返す 5 Adapter（DESIGN / Decision 2026-09-13T15-08-55）。
+        #   ITmedia 単源ではない。JSON API と feed（Atom/RSS/RDF）を並べる。
+        with Cluster("Sources → SourceItem"):
+            hn = Custom("Hacker News\n(Firebase JSON)", hn_icon)
+            lobsters = Custom("Lobsters\n(hottest JSON)", lobsters_icon)
+            publickey = Custom("Publickey\n(Atom)", publickey_icon)
+            techcrunch = Custom("TechCrunch\n(RSS 2.0)", techcrunch_icon)
+            cloudwatch = Custom("クラウド Watch\n(RDF)", cloudwatch_icon)
+            # why: 5 源は対等な並列取得。invisible edge で同一 rank に寄せる。
+            (
+                hn
+                - Edge(style="invis")
+                - lobsters
+                - Edge(style="invis")
+                - publickey
+                - Edge(style="invis")
+                - techcrunch
+                - Edge(style="invis")
+                - cloudwatch
+            )
 
         with Cluster("Generator (Go + GHA cron)"):
             actions = Custom("GitHub Actions\n(cron / manual)", gha_icon)
-            go_cli = Go("Go CLI")
+            # why: ConcatWAV / Timeline は Application 内製。外へ出さない。
+            go_cli = Go("Go CLI\n(ProduceEpisode)")
             # why: 原稿は Cursor Cloud Agents が第一経路。枯渇時は Gemini へ fallback する
             #   （text_writer fallback）。どちらも「原稿」を作るので両方を原稿経路として描く。
             cursor_api = Custom("Cursor Cloud Agents\n(Script, primary)", cursor_icon)
             gemini_text = Custom("Gemini\n(Script, fallback)", gemini_icon)
-            gemini_tts = Custom("Gemini TTS\n(Audio)", gemini_icon)
+            gemini_tts = Custom("Gemini TTS\n(segment WAV)", gemini_icon)
+            # why: WAV→mp3 は Port（WAVToMP3Encoder）経由の Infra Adapter。save はしない。
+            ffmpeg = Go("ffmpeg Adapter\n(EncodeWAVToMP3)")
 
-        drive = Custom("Google Drive\n(Audio + Script)", drive_icon)
+        drive = Custom("Google Drive\n({id}.json + {id}.mp3)", drive_icon)
 
         with Cluster("Playback (Cloudflare) — TypeScript"):
             access = Custom("Cloudflare Access\n(OAuth 2.0 access control)", access_icon)
@@ -126,17 +147,21 @@ def render() -> Path:
             with Cluster("Workers (Drive proxy BFF)"):
                 workers = Custom("Cloudflare Workers\n(execution runtime)", workers_icon)
                 # why: Hono の route は 2 本。/episodes は RPC client（hc<AppType>）が叩く JSON、
-                #   /episodes/:id/audio は素の HTTP GET（audio/wav・Range 部分応答）で RPC を経由しない。
+                #   /episodes/:id/audio は素の HTTP GET（audio/mpeg・Range 部分応答）で RPC を経由しない。
                 hono = Custom("Hono\n(routes: RPC + audio GET)", hono_icon)
 
         # 生成フロー
-        hn >> Edge(label="fetch") >> go_cli
-        lobsters >> Edge(label="fetch") >> go_cli
-        itmedia >> Edge(label="fetch") >> go_cli
+        # why: ConcatWAV は Go CLI（ProduceEpisode）内。TTS→ffmpeg 直結や ffmpeg の save は描かない。
+        hn >> Edge(label="List") >> go_cli
+        lobsters >> Edge(label="List") >> go_cli
+        publickey >> Edge(label="List") >> go_cli
+        techcrunch >> Edge(label="List") >> go_cli
+        cloudwatch >> Edge(label="List") >> go_cli
         actions >> Edge(label="cron / manual") >> go_cli
         go_cli >> Edge(label="generate script") >> cursor_api
         go_cli >> Edge(label="fallback on exhaustion", style="dashed") >> gemini_text
-        go_cli >> Edge(label="TTS") >> gemini_tts
+        go_cli >> Edge(label="TTS → segment WAV") >> gemini_tts
+        go_cli >> Edge(label="EncodeWAVToMP3") >> ffmpeg
         go_cli >> Edge(label="save (OAuth 2.0)") >> drive
 
         # 再生フロー
@@ -144,7 +169,7 @@ def render() -> Path:
         ts >> Edge(label="type", style="dotted") >> react
         ts >> Edge(label="type", style="dotted") >> hono
         react >> Edge(label="list JSON (Hono RPC)") >> hono
-        react >> Edge(label="audio WAV / Range (HTTP GET)") >> hono
+        react >> Edge(label="audio MP3 / Range (HTTP GET)") >> hono
         workers >> Edge(label="execute", style="dashed") >> hono
         hono >> Edge(label="Drive read (OAuth 2.0)") >> drive
 

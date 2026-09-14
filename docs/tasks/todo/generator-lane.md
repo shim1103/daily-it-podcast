@@ -20,24 +20,32 @@
 7. `geminiapi` 実 API 疎通 smoke — `generator-geminiapi-smoke.yml`（dispatch 専用、`TEST_GEMINI_API_KEY`）。yml は master（PR #135）、test は `system && ratemeasure` tag で gate 外。`--ref <fallback 実装 branch>` で回す
 8. `generator-draft-rate` を `api`（cursor | gemini）入力化。gemini の default prompt を 9/10 まで調整（数値 range 不変、指導文のみ）。判断・実測は Decision `2026-09-08T07-40-00`
 9. 原稿 fallback の Gemini key を TTS と分離 — `GeminiConfig.SpareAPIKey`（`SPARE_GEMINI_API_KEY`）を新設し `newGeminiTextWriter` だけをそれへ。TTS は `GEMINI_API_KEY` 据え置き。GHA は本番 `SPARE_GEMINI_API_KEY` / System `TEST_SPARE_GEMINI_API_KEY`。`generator-system.yml` run 34298458327 で config 変更 + fallback 実切替の e2e を実証。判断は Decision `2026-09-09T10-00-00`
+10. ConcatWAV 後 ffmpeg で mp3 化し Drive へ書く — Port `WAVToMP3Encoder` の ffmpeg Adapter 本実装と `ProduceEpisode` 結線。deploy は playback lane `R-mp3-cutover`（読取と同着）。判断は Decision `2026-09-13T16-32-57` / `17-38-37`
+11. `httpget` helper・5 源 Narrow（controllable peer）・接続 cache（CI 外）— Decision `2026-09-14T13-06-11` / `15-05-00`
 
 ### 未完了
 
-（現在なし。rate 計測 follow-up は下記 D 表が index）
+1. `audio-mp3-cutover-migrate.md` — 列 3（共有）。mp3 同着切替 + wav 一括 + fixture（列 1 encode は済み）
+2. `generator-r2-write-adapter.md` — 列 4。R2 `EpisodeWriter` 本実装
+3. `r2-smoke-migrate-cutover.md` — 列 6（共有）
+4. `r2-post-cutover-verify-oauth.md` — 列 7（共有）
+
+storage 実施順の正は Decision `2026-09-14T12-49-26` / `playback-lane.md` の実施順 index。
 
 ### D（未決・未実測・文案）
 
-再発する判断の正は `docs/decisions/`。ここは残りの未実測・文案のみ index する。
+再発する判断の正は `docs/decisions/`。ここは残りの未実測・文案のみ index する。R2 実施の形は `2026-09-14T11-04-30`（方針は `14-22-55`）。error は `11-19-21`。実施順は `12-49-26`。cache 方針は `14-23-30`。
 
 | topic | 概要 |
 |---|---|
 | Prompt / limits 文案・数値 | 尺モデルは確定済み（正は `entities/constants/manuscript_draft_seconds.go` / `manuscript_draft_limits.go`）。topic 数 6/8/10・全体尺 14/16/18 分へ一度伸ばしたが、本番 produce run 34209712652 が gemini fallback 経路で HTTP 429 で失敗したため旧尺（topic 3/5/7・全体 8/10/12 分）へ戻した。済み 9 で原稿 fallback の key を TTS と分離（`SPARE_GEMINI_API_KEY`）したので TTS 消費との食い合いは解消。尺を再度伸ばすなら残るのは `SPARE_GEMINI_API_KEY` 単独の TPM/RPD で足りるかの実測、または有料 tier 手当て |
 | 本番 produce workflow_dispatch（key 分離後）| 済み 9 の変更を本番 `generator-produce-episode.yml` で通す確認が未実施。session 当日は本番 Gemini 枠が 429 中だったため見送り。次の枠回復日に `gh workflow run generator-produce-episode.yml --ref feature/generator-gemini-key-spare`（または merge 後 master）で 1 回回す。本番 `SPARE_GEMINI_API_KEY` の GHA 登録は shim 済み前提 |
 | 挨拶文案 | Opening/Closing 定数は date placeholder 入り template で確定。実運用での文言微調整のみ残 |
-| composite の source またぎ sort | 3 情報源で `OccurredAt` 順の混在が起きる。dedup は `SourceID` が全源で異なるため不要。時系列 sort を Application/Composition のどちらで持つかは別判断（事実: 現状は登録順 concat のみ） |
-| 別媒体の報道源追加 | Publickey / InfoQ / はてブ IT 等は各々専用 Adapter を新設（`infrastructure/<媒体>/`。RSS 汎用 Adapter は作らない）。RSS 2.0 parse の重複が三度現れたら共通化を検討（未実測） |
-| 議論 comment のスレッド深掘り | HN / Lobsters は 1 階層のみ取得（上限は Adapter stub 定数）。ネストした議論を辿るかは未決 |
-| TextWriter の web_fetch 実測 | `links:` の URL を Cloud Agents 経路が実際に fetch できるか未実測。できない場合の補完は TextWriter 経路の内側（Application には置かない） |
+| composite の source またぎ sort | 情報源で `OccurredAt` 順の混在が起きる。dedup は `SourceID` が全源で異なるため不要。時系列 sort を Application/Composition のどちらで持つかは別判断（事実: 現状は登録順 concat のみ） |
+| TextWriter prompt の P1/P2 | purpose1/purpose2 の書き分け・全体 summary は TextWriter prompt（D）。源セットは Decision `2026-09-13T15-08-55` |
+| Links 件数→UseCase 先 fetch | `SourceBody.Links` 件数を見て TextWriter fetch 上限前に Application が先 fetch するかは未決。Adapter HTML scrape はしない（`14-41-02`） |
+| 議論 comment のスレッド深掘り | HN / Lobsters は 1 階層のみ取得（上限は Adapter 定数）。ネストした議論を辿るかは未決 |
+| TextWriter の web_fetch / url_context 実測 | `Detail.Links` / `Discourse.Links` を Cloud Agents / Gemini 経路が実際に fetch できるか・件数上限は未実測 |
 | no-repo 原稿品質・token・job timeout | Cloud Agents no-repo が ask 相当の断片になるか、Pro 日次消費、SSE 待ちが GHA job に収まるかは未実測 |
 | TTS rate 実 dispatch | `TestGeminiTTSRate` が実 API でまだ走っていない。1 度 dispatch して尺帯ごとの PASS 率・所要を台帳化する |
 | `interactionResponse.Status` | 現状未使用。`status != "completed"` の扱いは未決 |
@@ -46,8 +54,8 @@
 | Gemini fallback 発火の観測 | 現状 `delivery.LogWriter.Fallback("manuscript_source_switched")` の `generator: category=fallback event=...` 1 行のみ。切り替え成功時は原稿が出るので痕跡が薄い。GHA run summary への出力 / Drive metadata への provenance / 構造化 log 基盤の導入は未決 |
 | Gemini free-tier RPD の実運用値 | 公称 RPD≈1,000 だが実測で下振れ報告あり。1 日 1 回 produce + draft retry 最大 5 でも問題ないはずだが未確認 |
 | Cursor 復帰の運用気づき | 毎回 primary（Cursor）を先に試すので枠復活後は自動で戻るが、「毎日 Gemini に落ちている」状態を運用が能動的に気づく手段は未整備 |
-
+| GHA / local への `ffmpeg` 配備 | encode 済み後も runner 配備の実測が残る場合のみ。未実測なら残置 |
 
 ### 方針 index
 
-閾値・入口の正は `DESIGN.md` / `DEPLOY.md`。
+閾値・入口の正は `DESIGN.md` / `DEPLOY.md`。音声形式は mp3（`contracts/episode-layout.md` / `2026-09-13T13-40-29`）。R2 実施の形は `2026-09-14T11-04-30`。実施順は `2026-09-14T12-49-26`（index は `playback-lane.md`）。

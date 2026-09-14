@@ -4,7 +4,7 @@ A personal daily IT-news podcast: generated automatically and listened to only b
 
 ## Shape
 
-Generation and playback are separate systems. The only thing that connects them is a set of files on a personal Google Drive. Episodes are never generated through the UI.
+Generation and playback are separate systems. The only thing that connects them is a set of files on shared storage. **Today that storage is personal Google Drive.** Future direction is full migration to Cloudflare R2（方針 `docs/decisions/2026-09-13T14-22-55-feature-playback-now-playing-audio-listenability.md`。実施の形・順は `2026-09-14T11-04-30` / `12-49-26`）。Episodes are never generated through the UI. Completed audio format is mp3 (`contracts/episode-layout.md`).
 
 ```text
 Generator (Go + GitHub Actions cron)
@@ -27,8 +27,8 @@ Playback (Vite + TypeScript + React + Cloudflare)
 | Behind the UI | Cloudflare Workers (Hono, Drive proxy) |
 | Entry to the UI | Cloudflare Access (`DEPLOY.md`) |
 | Generation | Go CLI + GitHub Actions cron |
-| Fetch | Official APIs / RSS from several sources (HackerNews, Lobsters, ITmedia NEWS) |
-| Storage | Personal Google Drive |
+| Fetch | Official APIs / RSS from several sources (HackerNews, Lobsters, Publickey, TechCrunch, Cloud Watch) |
+| Storage | Personal Google Drive（現行）。将来 R2: `14-22-55` / 実施の形 `11-04-30` / 実施順 `12-49-26` |
 | Manuscript | Cursor Cloud Agents REST (Port `TextWriter`) |
 | Speech | Google Gemini TTS |
 
@@ -48,7 +48,7 @@ contracts/               # representation on Drive (SSOT)
 |------|------|
 | Layers, dependencies, test layout | `DESIGN.md` |
 | Deploy, Access, GHA operation, secret registration | `DEPLOY.md` |
-| Drive file contracts | `contracts/` |
+| Drive file contracts（配置。音声 mp3） | `contracts/` |
 | Playback HTTP contracts | `apps/playback/contracts/` |
 | Open-work index | `docs/tasks/todo/*-lane.md` |
 | Recurring decisions | `docs/decisions/` |

@@ -14,17 +14,17 @@ func newStubLookup(rt *stubRoundTripper, tokens TokenSource) *CompletedEpisodeLo
 	return NewCompletedEpisodeLookup(&http.Client{Transport: rt}, tokens, testFolderID)
 }
 
-func TestHasPair_returnsTrue_whenSameStemJsonAndWavMatchDate(t *testing.T) {
+func TestHasPair_returnsTrue_whenSameStemJsonAndMp3MatchDate(t *testing.T) {
 	t.Parallel()
 
-	// Given: folder に同 stem の json+wav。json の date が照会日と一致
+	// Given: folder に同 stem の json+mp3。json の date が照会日と一致
 	const stem = "ep-complete-1"
 	rt := &stubRoundTripper{
 		responses: []stubClientResponse{
 			{MatchMethod: http.MethodGet, MatchPath: "files?", Status: http.StatusOK, Body: jsonBody(t, map[string]any{
 				"files": []map[string]any{
 					{"id": "json-id", "name": stem + ".json"},
-					{"id": "wav-id", "name": stem + ".wav"},
+					{"id": "mp3-id", "name": stem + ".mp3"},
 				},
 			})},
 			{MatchMethod: http.MethodGet, MatchPath: "alt=media", Status: http.StatusOK, Body: `{"date":"2026-08-31","episodeId":"` + stem + `"}`},
@@ -59,7 +59,7 @@ func TestHasPair_returnsTrue_whenSameStemJsonAndWavMatchDate(t *testing.T) {
 func TestHasPair_returnsFalse_whenJsonOnlyForDate(t *testing.T) {
 	t.Parallel()
 
-	// Given: 同日 date の json のみ（対応 wav 無し）
+	// Given: 同日 date の json のみ（対応 mp3 無し）
 	rt := &stubRoundTripper{
 		responses: []stubClientResponse{
 			{MatchMethod: http.MethodGet, MatchPath: "files?", Status: http.StatusOK, Body: jsonBody(t, map[string]any{
@@ -88,15 +88,15 @@ func TestHasPair_returnsFalse_whenJsonOnlyForDate(t *testing.T) {
 	}
 }
 
-func TestHasPair_returnsFalse_whenWavOnly(t *testing.T) {
+func TestHasPair_returnsFalse_whenMp3Only(t *testing.T) {
 	t.Parallel()
 
-	// Given: wav のみ（date を持つ json が無い）
+	// Given: mp3 のみ（date を持つ json が無い）
 	rt := &stubRoundTripper{
 		responses: []stubClientResponse{
 			{MatchMethod: http.MethodGet, MatchPath: "files?", Status: http.StatusOK, Body: jsonBody(t, map[string]any{
 				"files": []map[string]any{
-					{"id": "wav-id", "name": "ep-wav-only.wav"},
+					{"id": "mp3-id", "name": "ep-mp3-only.mp3"},
 				},
 			})},
 		},
@@ -150,7 +150,7 @@ func TestHasPair_returnsFalse_whenPairDateDiffers(t *testing.T) {
 			{MatchMethod: http.MethodGet, MatchPath: "files?", Status: http.StatusOK, Body: jsonBody(t, map[string]any{
 				"files": []map[string]any{
 					{"id": "json-id", "name": stem + ".json"},
-					{"id": "wav-id", "name": stem + ".wav"},
+					{"id": "mp3-id", "name": stem + ".mp3"},
 				},
 			})},
 			{MatchMethod: http.MethodGet, MatchPath: "alt=media", Status: http.StatusOK, Body: `{"date":"2026-08-30","episodeId":"` + stem + `"}`},

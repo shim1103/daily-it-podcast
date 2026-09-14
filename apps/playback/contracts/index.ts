@@ -3,6 +3,7 @@ export {
   EpisodeIdRequestSchema,
   ListEpisodesResponseSchema,
   episodeAudioContentType,
+  episodeAudioFileExtension,
   episodeAudioPath,
   episodeAudioRoutePath,
   episodeItemSchema,

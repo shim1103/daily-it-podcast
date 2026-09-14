@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpget"
 )
 
 var _ port.ItemSource = (*ListItemSource)(nil)
@@ -24,7 +24,7 @@ const apiBaseURL = "https://lobste.rs"
 const (
 	// MaxStoriesScanned は結果 SourceItem に含める story 数の上限。
 	// created_at >= since を満たした story を、hottest.json の先頭からこの件数まで集める。
-	MaxStoriesScanned = 25
+	MaxStoriesScanned = 20
 	// MaxCommentsPerStory は 1 story あたり取得する comment 数の上限。
 	MaxCommentsPerStory = 8
 	// CommentDepth は取得する comment 階層の深さ（top-level のみ）。
@@ -76,7 +76,7 @@ type storyComment struct {
 // @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ since 以上。
 // @ensure 結果は created_at >= since を満たす story のみ。最大 MaxStoriesScanned 件。
 // @ensure 該当なしは空 slice（nil ではない）。
-// @invariant vendor 固有型・監視対象一覧を露出しない。Context を key として解釈しない。
+// @invariant vendor 固有型・監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
 func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
 	if s == nil || s.client == nil {
 		return nil, infraErr("list", fmt.Errorf("client is nil"))
@@ -148,46 +148,13 @@ func (s *ListItemSource) fetchStoryDetail(ctx context.Context, shortID string, s
 	return detail, createdAt, true
 }
 
-// getWithRetry は GET を実行し body を返す。
-// client.Do error / 5xx は 1 回だけ即再試行（backoff なし）。4xx（429 含む）/ 読み取り失敗は即 return。
+// getWithRetry は httpget へ委譲し、失敗を Adapter の infraErr で包む。
 func (s *ListItemSource) getWithRetry(ctx context.Context, url, op string) ([]byte, error) {
-	body, retryable, err := s.get(ctx, url)
-	if err == nil {
-		return body, nil
-	}
-	if !retryable {
-		return nil, infraErr(op, err)
-	}
-	body, _, err = s.get(ctx, url)
+	body, err := httpget.GetWithRetry(ctx, s.client, url)
 	if err != nil {
 		return nil, infraErr(op, err)
 	}
 	return body, nil
-}
-
-// get は GET を 1 回実行し body を返す。
-// 2 つめの戻り値は再試行してよい失敗（client.Do error / 5xx）かどうか。
-func (s *ListItemSource) get(ctx context.Context, url string) (body []byte, retryable bool, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, false, err
-	}
-	res, err := s.client.Do(req)
-	if err != nil {
-		return nil, true, err
-	}
-	defer func() { _ = res.Body.Close() }()
-	body, err = io.ReadAll(res.Body)
-	if err != nil {
-		return nil, false, err
-	}
-	if res.StatusCode >= 500 {
-		return nil, true, fmt.Errorf("status %d", res.StatusCode)
-	}
-	if res.StatusCode != http.StatusOK {
-		return nil, false, fmt.Errorf("status %d", res.StatusCode)
-	}
-	return body, false, nil
 }
 
 // parseCreatedAt は offset 付き RFC3339 相当の created_at を UTC に変換する。
@@ -195,14 +162,11 @@ func parseCreatedAt(s string) (time.Time, error) {
 	return time.Parse(time.RFC3339, s)
 }
 
-// collectCommentBodies は deleted / moderated でない comment の comment_plain を先頭 MaxCommentsPerStory 件まで返す。
+// collectCommentBodies は deleted / moderated でない comment_plain を先頭 MaxCommentsPerStory 件まで返す。
 func collectCommentBodies(comments []storyComment) []string {
 	bodies := make([]string, 0, MaxCommentsPerStory)
 	for _, c := range comments {
-		if c.IsDeleted || c.IsModerated {
-			continue
-		}
-		if c.CommentPlain == "" {
+		if c.IsDeleted || c.IsModerated || c.CommentPlain == "" {
 			continue
 		}
 		bodies = append(bodies, c.CommentPlain)
@@ -214,40 +178,26 @@ func collectCommentBodies(comments []storyComment) []string {
 }
 
 // toSourceItem は story 詳細と検証済み occurredAt から SourceItem を組む。
+// 写像の方針は Decision 2026-09-13T17-14-10。本 func が lobsters 写像の正本。
 func toSourceItem(detail storyDetail, occurredAt time.Time) models.SourceItem {
-	lines := []string{
-		"item_id: " + detail.ShortID,
-	}
-	if detail.SubmitterUser != "" {
-		lines = append(lines, "actor_id: "+detail.SubmitterUser, "actor_name: "+detail.SubmitterUser)
-	}
-	if detail.Title != "" {
-		lines = append(lines, "title: "+detail.Title)
-	}
-
-	texts := make([]string, 0, MaxCommentsPerStory+1)
-	if detail.DescriptionPlain != "" {
-		texts = append(texts, detail.DescriptionPlain)
-	}
-	texts = append(texts, collectCommentBodies(detail.Comments)...)
-	if len(texts) > 0 {
-		lines = append(lines, "text: "+strings.Join(texts, "\n"))
-	}
-
-	permalink := detail.ShortIDURL
-	if permalink == "" {
-		permalink = detail.CommentsURL
-	}
-	if permalink != "" {
-		lines = append(lines, "permalink: "+permalink)
-	}
+	dBody := models.SourceBody{Text: detail.DescriptionPlain}
 	if detail.URL != "" {
-		lines = append(lines, "links: "+detail.URL)
+		dBody.Links = []string{detail.URL}
 	}
-
+	discourse := models.SourceBody{Text: strings.Join(collectCommentBodies(detail.Comments), "\n")}
+	if detail.ShortIDURL != "" {
+		discourse.Links = []string{detail.ShortIDURL}
+	}
+	metaLines := []string{"item_id: " + detail.ShortID}
+	if detail.SubmitterUser != "" {
+		metaLines = append(metaLines, "actor_id: "+detail.SubmitterUser, "actor_name: "+detail.SubmitterUser)
+	}
 	return models.SourceItem{
 		SourceID:   SourceID,
 		OccurredAt: occurredAt.UTC(),
-		Context:    strings.Join(lines, "\n"),
+		Summary:    detail.Title,
+		Detail:     dBody,
+		Discourse:  discourse,
+		Meta:       strings.Join(metaLines, "\n"),
 	}
 }

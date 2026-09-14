@@ -2,8 +2,9 @@
 // 実物境界: gdrive.EpisodeWriter が標準 *http.Client で送信する外向き HTTP request（test upstream server）
 // Double: TokenSource は stub。本番 credential は使わない。DialTLSContext で本番 host 宛先だけを test server へ redirect する。
 // @require dummy Folder ID（capability config）を Adapter へ直接渡す。upstream は controllable な test server。
-// @ensure list→create→upload の成功 call sequence を 1 連 upstream が受ける。json/wav の stem が一致する。
+// @ensure list→create→upload の成功 call sequence を 1 連 upstream が受ける。json/mp3 の stem が一致する。
 // @ensure Authorization header に TokenSource の token が Bearer で乗る。create metadata の Parents に Folder ID が入る。
+// @ensure mp3 create の mimeType と upload の Content-Type は audio/mpeg。mp3 upload body は非空。
 // @invariant error message・assertion 失敗文言に dummy Folder ID の実値を含めない。
 package test
 
@@ -43,6 +44,7 @@ type gdriveNarrowCall struct {
 	Method        string
 	Body          string
 	Authorization string
+	ContentType   string
 }
 
 // newGDriveWriterWithProxy は本番 host（www.googleapis.com）への接続を test TLS server へ差し替えた
@@ -63,6 +65,7 @@ func newGDriveWriterWithProxy(t *testing.T, token string, handler http.HandlerFu
 			Method:        r.Method,
 			Body:          string(body),
 			Authorization: r.Header.Get("Authorization"),
+			ContentType:   r.Header.Get("Content-Type"),
 		})
 		r.Body = io.NopCloser(bytes.NewReader(body))
 		handler(w, r)
@@ -128,19 +131,24 @@ func TestGDriveEpisodeWriter_sendsListCreateUploadSequenceWithMatchingStem_whenD
 	// Given: token stub と、Drive が空一覧と create/upload 成功を返す test upstream
 	const episodeID = "narrow-ep-1"
 	const token = "ya29.narrow-test-token"
+	wantAudio := []byte("narrow-mp3-body")
 	writer, calls := newGDriveWriterWithProxy(t, token, gdriveNarrowSucceedHandler(t))
-	audio := models.SpeechAudio{Content: []byte("RIFFWAV")}
+	audio := models.SpeechAudio{Content: wantAudio}
 
-	// When: 非空 manuscript と非空 WAV で Write する
+	// When: 非空 manuscript と非空音声で Write する
 	err := writer.Write(context.Background(), episodeID, []byte(`{"episodeId":"narrow-ep-1"}`), audio)
 
-	// Then: list→create→upload の呼び出しを json/wav それぞれ観測し、stem が一致する
+	// Then: list→create→upload の呼び出しを json/mp3 それぞれ観測し、stem が一致する。
+	// mp3 は create mimeType・upload Content-Type が audio/mpeg、upload body 非空。
 	if err != nil {
 		t.Fatalf("Write: %v", err)
 	}
 
 	var listCount, createCount, uploadCount int
-	var jsonName, wavName string
+	var jsonName, mp3Name string
+	var mp3CreateMIME string
+	var mp3UploadBody string
+	var mp3UploadContentType string
 	for _, c := range *calls {
 		u, parseErr := url.Parse(c.TargetURL)
 		if parseErr != nil {
@@ -158,8 +166,9 @@ func TestGDriveEpisodeWriter_sendsListCreateUploadSequenceWithMatchingStem_whenD
 		case c.Method == http.MethodPost && u.Path == "/drive/v3/files":
 			createCount++
 			var meta struct {
-				Name    string   `json:"name"`
-				Parents []string `json:"parents"`
+				Name     string   `json:"name"`
+				MimeType string   `json:"mimeType"`
+				Parents  []string `json:"parents"`
 			}
 			if err := json.Unmarshal([]byte(c.Body), &meta); err != nil {
 				t.Fatalf("unmarshal create metadata: %v", err)
@@ -170,13 +179,18 @@ func TestGDriveEpisodeWriter_sendsListCreateUploadSequenceWithMatchingStem_whenD
 			switch {
 			case strings.HasSuffix(meta.Name, ".json"):
 				jsonName = meta.Name
-			case strings.HasSuffix(meta.Name, ".wav"):
-				wavName = meta.Name
+			case strings.HasSuffix(meta.Name, ".mp3"):
+				mp3Name = meta.Name
+				mp3CreateMIME = meta.MimeType
 			default:
 				t.Fatalf("unexpected create name %q", meta.Name)
 			}
 		case c.Method == http.MethodPatch && strings.HasPrefix(u.Path, "/upload/drive/v3/files/"):
 			uploadCount++
+			if c.ContentType == "audio/mpeg" {
+				mp3UploadContentType = c.ContentType
+				mp3UploadBody = c.Body
+			}
 		default:
 			t.Fatalf("unexpected call method=%s path=%s", c.Method, u.Path)
 		}
@@ -194,7 +208,19 @@ func TestGDriveEpisodeWriter_sendsListCreateUploadSequenceWithMatchingStem_whenD
 	if jsonName != episodeID+".json" {
 		t.Fatalf("json name = %q, want %q", jsonName, episodeID+".json")
 	}
-	if wavName != episodeID+".wav" {
-		t.Fatalf("wav name = %q, want %q", wavName, episodeID+".wav")
+	if mp3Name != episodeID+".mp3" {
+		t.Fatalf("mp3 name = %q, want %q", mp3Name, episodeID+".mp3")
+	}
+	if mp3CreateMIME != "audio/mpeg" {
+		t.Fatalf("mp3 create mimeType = %q, want audio/mpeg", mp3CreateMIME)
+	}
+	if mp3UploadContentType != "audio/mpeg" {
+		t.Fatalf("mp3 upload Content-Type = %q, want audio/mpeg", mp3UploadContentType)
+	}
+	if len(mp3UploadBody) == 0 {
+		t.Fatal("mp3 upload body is empty")
+	}
+	if mp3UploadBody != string(wantAudio) {
+		t.Fatalf("mp3 upload body = %q, want %q", mp3UploadBody, wantAudio)
 	}
 }

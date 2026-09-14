@@ -66,7 +66,7 @@ func newLobstersListItemSourceWithProxy(t *testing.T, handler http.HandlerFunc) 
 }
 
 func TestLobstersListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucceeds(t *testing.T) {
-	// Given: hottest→story 詳細の成功応答を返す upstream double
+	// Given: hottest→story 詳細の成功応答を返す httptest TLS upstream（本番 lobste.rs は使わない）
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	createdAt := since.Add(2 * time.Hour).Format(time.RFC3339)
 	source, probe := newLobstersListItemSourceWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
@@ -83,10 +83,10 @@ func TestLobstersListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucceed
 		}
 	})
 
-	// When: List する
+	// When: List(ctx, since) を呼ぶ
 	got, err := source.List(context.Background(), since)
 
-	// Then: 戻り値と upstream 観測面
+	// Then: upstream は GET・Authorization 空、戻りは SourceID=lobsters の 1 件以上
 	if err != nil {
 		t.Fatalf("List() error = %v, want nil", err)
 	}
@@ -112,16 +112,16 @@ func TestLobstersListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucceed
 }
 
 func TestLobstersListItemSource_returnsInfrastructureError_whenUpstreamFails(t *testing.T) {
-	// Given: hottest.json が常に 502 を返す upstream double
+	// Given: hottest.json が常に 502 を返す httptest TLS upstream
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	source, probe := newLobstersListItemSourceWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad gateway", http.StatusBadGateway)
 	})
 
-	// When: List する
+	// When: List(ctx, since) を呼ぶ
 	got, err := source.List(context.Background(), since)
 
-	// Then: 戻り値と再試行回数
+	// Then: *adaptererror.Error（lobsters: prefix）かつ top-level 5xx で 2 回 request（retry once）
 	if got != nil {
 		t.Fatalf("got = %+v, want nil", got)
 	}

@@ -31,8 +31,8 @@ describe("InMemoryEpisodeRepository", () => {
     expect(got).toEqual([]);
   });
 
-  it("put した wav は getAudio でそのまま取り出せる", async () => {
-    // Given: json + wav
+  it("put した mp3 は getAudio でそのまま取り出せる", async () => {
+    // Given: json + mp3
     const repository = new InMemoryEpisodeRepository();
     repository.put("ep-1", manuscriptJson, validAudioBytes);
 
@@ -43,7 +43,7 @@ describe("InMemoryEpisodeRepository", () => {
     expect(got).toEqual(validAudioBytes);
   });
 
-  it("wav 無し / 未格納の getAudio は undefined", async () => {
+  it("mp3 無し / 未格納の getAudio は undefined", async () => {
     // Given: json のみ / 空
     const repository = new InMemoryEpisodeRepository();
     repository.put("ep-1", manuscriptJson);

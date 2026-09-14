@@ -5,8 +5,8 @@ const (
 	UploadURL = "https://www.googleapis.com/upload/drive/v3/files"
 
 	jsonMIME = "application/json"
-	wavMIME  = "audio/wav"
+	mp3MIME  = "audio/mpeg"
 
 	jsonExt = ".json"
-	wavExt  = ".wav"
+	mp3Ext  = ".mp3"
 )

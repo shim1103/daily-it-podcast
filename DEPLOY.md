@@ -1,8 +1,10 @@
 # DEPLOY
 
-最終更新: 2026-09-04
+最終更新: 2026-09-13
 
 **運用 SSOT**（Playback・Generator の継続運用）。地図は `README.md`、層規則は `DESIGN.md`。Reason / Rejected・再発する判断は `docs/decisions/`。進捗は `docs/tasks/todo/*-lane.md`。
+
+音声の配置契約は mp3（`contracts/episode-layout.md`）。storage の将来方針（R2 完全移行・薄い cache）は Decision `2026-09-13T14-22-55` / `14-23-30`。実施の形は `2026-09-14T11-04-30`。実施順（Issue 単位）は `2026-09-14T12-49-26`（index は `docs/tasks/todo/playback-lane.md`）。**現行 runtime の正本は Drive**。R2 の GHA Variable/Secret と Worker binding 名は先行登録済み（下表）。正本切替・OAuth 削除は列 6–7。登録手順の百科はここに書かない。
 
 Worker 境界契約（`name` / `main` / assets / `/episodes*` / `observability`）の正本は `apps/playback/wrangler.jsonc` と `apps/playback/worker/src/worker-entry.ts`。本書は写さない。
 
@@ -36,7 +38,9 @@ Worker 境界契約（`name` / `main` / assets / `/episodes*` / `observability`�
 | `GOOGLE_OAUTH_CLIENT_SECRET` | Secret |
 | `GOOGLE_OAUTH_REFRESH_TOKEN` | Secret |
 
-production では 4 key 必須。Drive config は Worker のみ。`wrangler.jsonc` は `keep_vars: true`（deploy で未指定 Variable を消さない）。
+production では Drive 4 key 必須（正本切替前）。Drive config は Worker のみ。`wrangler.jsonc` は `keep_vars: true`（deploy で未指定 Variable を消さない）。
+
+R2 読取は Worker binding（S3 key を Worker に持たない）。binding 契約の正本は `apps/playback/wrangler.jsonc` の `r2_buckets`（方針は Decision `2026-09-14T11-04-30`）。
 
 `refresh_token` 失効時: 再認可 → `cd apps/playback && npx wrangler secret put GOOGLE_OAUTH_REFRESH_TOKEN`。
 
@@ -68,6 +72,10 @@ process env の正本は `apps/generator/internal/config/names.go`。`GENERATOR_
 | `CURSOR_API_KEY` | Secret |
 | `GEMINI_API_KEY` | Secret |
 | `SPARE_GEMINI_API_KEY` | Secret |
+| `R2_ACCOUNT_ID` | Variable |
+| `R2_BUCKET` | Variable |
+| `R2_ACCESS_KEY_ID` | Secret |
+| `R2_SECRET_ACCESS_KEY` | Secret |
 
 GitHub Actions（Settings → Secrets and variables → Actions）:
 
@@ -77,6 +85,8 @@ GitHub Actions（Settings → Secrets and variables → Actions）:
 | test（System） | `TEST_` + 同名 |
 
 workflow が test 登録名を process env 名へ写す。Generator は `TEST_` を知らない。
+
+R2 key は上表（値は書かない）。workflow 注入と Composition 結線は列 4・6（Decision `2026-09-14T12-49-26`）。
 
 `GEMINI_API_KEY` は TTS、`SPARE_GEMINI_API_KEY` は原稿 fallback（Gemini generateContent）。分ける理由は `GeminiConfig`（`internal/config/config.go`）の invariant を正とする。System test は両方を要求する。
 
@@ -150,7 +160,7 @@ local 実行時の path env 名は `PLAYWRIGHT_STORAGE_STATE`（GHA には登録
 
 手動確認: `gh workflow run playback-e2e.yml --ref <branch>`（Secret 付き）。
 
-安定 fixture（`apps/playback/test/e2e/fixtures/stable-episode/`）は本番 `DRIVE_FOLDER_ID` **直下**に json+wav を置く。日次 produce が増えても残す。
+安定 fixture（`apps/playback/test/e2e/fixtures/stable-episode/`）は本番 `DRIVE_FOLDER_ID` **直下**に置く。配置契約は mp3（`contracts/episode-layout.md`）。wav→mp3 一括と Drive 検証入口は `docs/tasks/todo/audio-mp3-cutover-migrate.md`。日次 produce が増えても fixture pair は残す。
 
 ## 6. 再 deploy
 

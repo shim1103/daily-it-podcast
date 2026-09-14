@@ -14,7 +14,7 @@ import (
 
 var _ port.CompletedEpisodeLookup = (*CompletedEpisodeLookup)(nil)
 
-// CompletedEpisodeLookup は Drive 上の完成ペア（同一 stem の json+wav）を表示 date で照会する。
+// CompletedEpisodeLookup は Drive 上の完成ペア（同一 stem の json+mp3）を表示 date で照会する。
 type CompletedEpisodeLookup struct {
 	client   *http.Client
 	tokens   TokenSource
@@ -45,20 +45,20 @@ func (l *CompletedEpisodeLookup) HasPair(ctx context.Context, date string) (bool
 		return false, err
 	}
 
-	wavStems := make(map[string]struct{})
+	mp3Stems := make(map[string]struct{})
 	var jsonFiles []driveListedFile
 	for _, f := range files {
 		switch {
 		case strings.HasSuffix(f.Name, jsonExt):
 			jsonFiles = append(jsonFiles, f)
-		case strings.HasSuffix(f.Name, wavExt):
-			wavStems[strings.TrimSuffix(f.Name, wavExt)] = struct{}{}
+		case strings.HasSuffix(f.Name, mp3Ext):
+			mp3Stems[strings.TrimSuffix(f.Name, mp3Ext)] = struct{}{}
 		}
 	}
 
 	for _, jf := range jsonFiles {
 		stem := strings.TrimSuffix(jf.Name, jsonExt)
-		if _, ok := wavStems[stem]; !ok {
+		if _, ok := mp3Stems[stem]; !ok {
 			continue
 		}
 		raw, err := l.downloadMedia(ctx, token, jf.ID)

@@ -27,7 +27,7 @@ func newCompositeItemSource(sources ...port.ItemSource) port.ItemSource {
 // @ensure 各 source を登録順に 1 回ずつ逐次呼ぶ。並列化しない。
 // @ensure いずれかの source.List が error を返したらその error をそのまま返し、成功分は返さない。
 // @ensure 全 source が空、または source が 0 本のときも非 nil の空 slice を返す。
-// @invariant vendor 固有型・情報源内部の監視対象一覧を露出しない。Context を key として解釈しない。
+// @invariant vendor 固有型・情報源内部の監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
 func (c compositeItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
 	merged := make([]models.SourceItem, 0)
 	for _, source := range c {

@@ -113,7 +113,7 @@ describe("GoogleDriveEpisodeRepository", () => {
 
     it("listManuscripts は json エントリ 0 件でも空配列を返す（throw しない）", async () => {
       // Given: json が無いフォルダ
-      const repository = createRepository(stubFetch({ files: [{ id: "w", name: "ep-1.wav" }] }));
+      const repository = createRepository(stubFetch({ files: [{ id: "w", name: "ep-1.mp3" }] }));
 
       // When / Then
       expect(await repository.listManuscripts()).toEqual([]);
@@ -137,7 +137,7 @@ describe("GoogleDriveEpisodeRepository", () => {
   });
 
   describe("取得対象の不在は undefined で表現する", () => {
-    it("wav エントリが Drive に無い時、getAudio は undefined", async () => {
+    it("音声エントリが Drive に無い時、getAudio は undefined", async () => {
       // Given: json のみ
       const repository = createRepository(
         stubFetch({
@@ -250,9 +250,9 @@ describe("GoogleDriveEpisodeRepository", () => {
   });
 
   describe("files.list の絞り込み q", () => {
-    it("getAudio は files.list へ対象 episodeId の wav 名を絞り込む q を渡す", async () => {
+    it("getAudio は files.list へ対象 episodeId の音声名を絞り込む q を渡す", async () => {
       const fetchStub = stubFetch({
-        files: [{ id: "w1", name: "ep-1.wav" }],
+        files: [{ id: "w1", name: "ep-1.mp3" }],
         downloads: { w1: validAudioBytes },
       });
       const repository = createRepository(fetchStub);
@@ -266,21 +266,21 @@ describe("GoogleDriveEpisodeRepository", () => {
         );
       expect(listCall).toBeDefined();
       const query = new URL(listCall?.[0] ?? "").searchParams.get("q") ?? "";
-      expect(query).toContain("name = 'ep-1.wav'");
+      expect(query).toContain("name = 'ep-1.mp3'");
       expect(query).not.toContain("name = 'ep-1.json'");
     });
 
-    it("getAudio はフォルダ内の無関係な大量 file を無視し、対象 stem の wav だけを見る", async () => {
+    it("getAudio はフォルダ内の無関係な大量 file を無視し、対象 stem の音声だけを見る", async () => {
       const unrelatedFiles = Array.from({ length: 50 }, (_, i) => ({
         id: `unrelated-${i}`,
-        name: `other-${i}.wav`,
+        name: `other-${i}.mp3`,
       }));
       const repository = createRepository(
         stubFetch({
           files: [
             ...unrelatedFiles,
             { id: "j1", name: "ep-1.json" },
-            { id: "w1", name: "ep-1.wav" },
+            { id: "w1", name: "ep-1.mp3" },
           ],
           downloads: { j1: JSON.stringify(manuscriptJson), w1: validAudioBytes },
         }),
