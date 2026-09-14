@@ -40,7 +40,7 @@ const (
 	CommentDepth = 1
 )
 
-// permalinkBaseURL は Context の permalink 行が指す Hacker News item ページ。
+// permalinkBaseURL は Hacker News item ページ（C の raw→field 写像で使う契約定数）。
 const permalinkBaseURL = "https://news.ycombinator.com/item?id="
 
 // ListItemSource は Hacker News の topstories を ItemSource として返す Adapter。
@@ -77,7 +77,7 @@ type hnItem struct {
 // @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ since 以上。
 // @ensure 結果は time >= since を満たす story のみ。最大 MaxStoriesScanned 件。
 // @ensure 該当なしは空 slice（nil ではない）。
-// @invariant vendor 固有型・監視対象一覧を露出しない。Context を key として解釈しない。
+// @invariant vendor 固有型・監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
 func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
 	if s == nil || s.client == nil {
 		return nil, infraErr("list", fmt.Errorf("client is nil"))
@@ -215,35 +215,27 @@ func (s *ListItemSource) get(ctx context.Context, url string) (body []byte, retr
 }
 
 // toSourceItem は story と取得済み comment 本文から SourceItem を組む。
+// 写像の方針は Decision 2026-09-13T17-14-10。本 func が hackernews 写像の正本。
 func toSourceItem(story hnItem, commentBodies []string) models.SourceItem {
-	lines := []string{
-		fmt.Sprintf("item_id: %d", story.ID),
-	}
-	if story.By != "" {
-		lines = append(lines, "actor_id: "+story.By, "actor_name: "+story.By)
-	}
-	if story.Title != "" {
-		lines = append(lines, "title: "+story.Title)
-	}
-
-	texts := make([]string, 0, len(commentBodies)+1)
-	if storyText := normalizeHTML(story.Text); storyText != "" {
-		texts = append(texts, storyText)
-	}
-	texts = append(texts, commentBodies...)
-	if len(texts) > 0 {
-		lines = append(lines, "text: "+strings.Join(texts, "\n"))
-	}
-
-	lines = append(lines, fmt.Sprintf("permalink: %s%d", permalinkBaseURL, story.ID))
+	detail := models.SourceBody{Text: normalizeHTML(story.Text)}
 	if story.URL != "" {
-		lines = append(lines, "links: "+story.URL)
+		detail.Links = []string{story.URL}
 	}
-
+	discourse := models.SourceBody{
+		Text:  strings.Join(commentBodies, "\n"),
+		Links: []string{fmt.Sprintf("%s%d", permalinkBaseURL, story.ID)},
+	}
+	metaLines := []string{fmt.Sprintf("item_id: %d", story.ID)}
+	if story.By != "" {
+		metaLines = append(metaLines, "actor_id: "+story.By, "actor_name: "+story.By)
+	}
 	return models.SourceItem{
 		SourceID:   SourceID,
 		OccurredAt: time.Unix(story.Time, 0).UTC(),
-		Context:    strings.Join(lines, "\n"),
+		Summary:    story.Title,
+		Detail:     detail,
+		Discourse:  discourse,
+		Meta:       strings.Join(metaLines, "\n"),
 	}
 }
 
