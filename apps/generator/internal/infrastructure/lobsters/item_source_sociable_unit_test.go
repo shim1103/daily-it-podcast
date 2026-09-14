@@ -155,17 +155,23 @@ func TestList_mapsHottestStoryToSourceItem_whenStoryInWindow(t *testing.T) {
 	if !got[0].OccurredAt.Equal(wantOccurredAt) || got[0].OccurredAt.Location() != time.UTC {
 		t.Fatalf("OccurredAt = %v, want %v (UTC)", got[0].OccurredAt, wantOccurredAt)
 	}
-	wantContext := strings.Join([]string{
-		"item_id: abc123",
-		"actor_id: alice",
-		"actor_name: alice",
-		"title: タイトル本文",
-		"text: 説明テキスト",
-		"permalink: https://lobste.rs/s/abc123",
-		"links: https://example.com/article",
-	}, "\n")
-	if got[0].Context != wantContext {
-		t.Fatalf("Context =\n%q\nwant\n%q", got[0].Context, wantContext)
+	if got[0].Summary != "タイトル本文" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "タイトル本文")
+	}
+	if got[0].Detail.Text != "説明テキスト" {
+		t.Fatalf("Detail.Text = %q, want %q", got[0].Detail.Text, "説明テキスト")
+	}
+	if len(got[0].Detail.Links) != 1 || got[0].Detail.Links[0] != "https://example.com/article" {
+		t.Fatalf("Detail.Links = %#v, want article URL", got[0].Detail.Links)
+	}
+	if got[0].Discourse.Text != "" {
+		t.Fatalf("Discourse.Text = %q, want empty", got[0].Discourse.Text)
+	}
+	if len(got[0].Discourse.Links) != 1 || got[0].Discourse.Links[0] != "https://lobste.rs/s/abc123" {
+		t.Fatalf("Discourse.Links = %#v, want short_id_url", got[0].Discourse.Links)
+	}
+	if !strings.Contains(got[0].Meta, "item_id: abc123") || !strings.Contains(got[0].Meta, "actor_id: alice") {
+		t.Fatalf("Meta = %q, want item_id and actor", got[0].Meta)
 	}
 }
 
@@ -193,8 +199,8 @@ func TestList_excludesStoriesOlderThanSince_atBoundary(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
 	}
-	if !strings.Contains(got[0].Context, "item_id: inwin") {
-		t.Fatalf("Context = %q, want story inwin (boundary inclusive)", got[0].Context)
+	if got[0].Summary != "境界ちょうど" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "境界ちょうど")
 	}
 }
 
@@ -223,11 +229,14 @@ func TestList_excludesDeletedOrModeratedComments(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("len(got) = %d, want 1", len(got))
 	}
-	if !strings.Contains(got[0].Context, "正常コメント") {
-		t.Fatalf("Context = %q, want 正常コメント", got[0].Context)
+	if got[0].Summary != "コメント除外" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "コメント除外")
 	}
-	if strings.Contains(got[0].Context, "削除済み") || strings.Contains(got[0].Context, "モデレート済み") {
-		t.Fatalf("Context = %q, want no deleted/moderated comment text", got[0].Context)
+	if got[0].Discourse.Text != "正常コメント" {
+		t.Fatalf("Discourse.Text = %q, want %q", got[0].Discourse.Text, "正常コメント")
+	}
+	if len(got[0].Discourse.Links) != 1 || got[0].Discourse.Links[0] != "https://lobste.rs/s/cmt1" {
+		t.Fatalf("Discourse.Links = %#v, want short_id_url", got[0].Discourse.Links)
 	}
 }
 
@@ -263,19 +272,16 @@ func TestList_usesCommentPlainForCommentBody(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("len(got) = %d, want 1", len(got))
 	}
-	ctx := got[0].Context
+	if got[0].Summary != "plain テスト" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "plain テスト")
+	}
+	wantParts := make([]string, 0, lobsters.MaxCommentsPerStory)
 	for i := 0; i < lobsters.MaxCommentsPerStory; i++ {
-		if !strings.Contains(ctx, fmt.Sprintf("plain-%d", i)) {
-			t.Fatalf("Context = %q, want plain-%d", ctx, i)
-		}
+		wantParts = append(wantParts, fmt.Sprintf("plain-%d", i))
 	}
-	if strings.Contains(ctx, "html-") {
-		t.Fatalf("Context = %q, want no HTML comment field", ctx)
-	}
-	for i := lobsters.MaxCommentsPerStory; i < commentCount; i++ {
-		if strings.Contains(ctx, fmt.Sprintf("plain-%d", i)) {
-			t.Fatalf("Context = %q, want no plain-%d (over MaxCommentsPerStory)", ctx, i)
-		}
+	wantText := strings.Join(wantParts, "\n")
+	if got[0].Discourse.Text != wantText {
+		t.Fatalf("Discourse.Text = %q, want first %d plains", got[0].Discourse.Text, lobsters.MaxCommentsPerStory)
 	}
 }
 
@@ -379,8 +385,8 @@ func TestList_dropsFailedStoryButKeepsRest_whenOneStoryDetailFetchFails(t *testi
 	if len(got) != 1 {
 		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
 	}
-	if !strings.Contains(got[0].Context, "item_id: ok1") {
-		t.Fatalf("Context = %q, want story ok1 only", got[0].Context)
+	if got[0].Summary != "正常 story" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "正常 story")
 	}
 }
 
@@ -459,8 +465,8 @@ func TestList_dropsStory_whenStoryJSONIsBroken(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
 	}
-	if !strings.Contains(got[0].Context, "item_id: ok2") {
-		t.Fatalf("Context = %q, want story ok2 only", got[0].Context)
+	if got[0].Summary != "正常" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "正常")
 	}
 }
 

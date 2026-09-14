@@ -76,7 +76,7 @@ type storyComment struct {
 // @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ since 以上。
 // @ensure 結果は created_at >= since を満たす story のみ。最大 MaxStoriesScanned 件。
 // @ensure 該当なしは空 slice（nil ではない）。
-// @invariant vendor 固有型・監視対象一覧を露出しない。Context を key として解釈しない。
+// @invariant vendor 固有型・監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
 func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
 	if s == nil || s.client == nil {
 		return nil, infraErr("list", fmt.Errorf("client is nil"))
@@ -195,14 +195,11 @@ func parseCreatedAt(s string) (time.Time, error) {
 	return time.Parse(time.RFC3339, s)
 }
 
-// collectCommentBodies は deleted / moderated でない comment の comment_plain を先頭 MaxCommentsPerStory 件まで返す。
+// collectCommentBodies は deleted / moderated でない comment_plain を先頭 MaxCommentsPerStory 件まで返す。
 func collectCommentBodies(comments []storyComment) []string {
 	bodies := make([]string, 0, MaxCommentsPerStory)
 	for _, c := range comments {
-		if c.IsDeleted || c.IsModerated {
-			continue
-		}
-		if c.CommentPlain == "" {
+		if c.IsDeleted || c.IsModerated || c.CommentPlain == "" {
 			continue
 		}
 		bodies = append(bodies, c.CommentPlain)
@@ -214,40 +211,26 @@ func collectCommentBodies(comments []storyComment) []string {
 }
 
 // toSourceItem は story 詳細と検証済み occurredAt から SourceItem を組む。
+// 写像の方針は Decision 2026-09-13T17-14-10。本 func が lobsters 写像の正本。
 func toSourceItem(detail storyDetail, occurredAt time.Time) models.SourceItem {
-	lines := []string{
-		"item_id: " + detail.ShortID,
-	}
-	if detail.SubmitterUser != "" {
-		lines = append(lines, "actor_id: "+detail.SubmitterUser, "actor_name: "+detail.SubmitterUser)
-	}
-	if detail.Title != "" {
-		lines = append(lines, "title: "+detail.Title)
-	}
-
-	texts := make([]string, 0, MaxCommentsPerStory+1)
-	if detail.DescriptionPlain != "" {
-		texts = append(texts, detail.DescriptionPlain)
-	}
-	texts = append(texts, collectCommentBodies(detail.Comments)...)
-	if len(texts) > 0 {
-		lines = append(lines, "text: "+strings.Join(texts, "\n"))
-	}
-
-	permalink := detail.ShortIDURL
-	if permalink == "" {
-		permalink = detail.CommentsURL
-	}
-	if permalink != "" {
-		lines = append(lines, "permalink: "+permalink)
-	}
+	dBody := models.SourceBody{Text: detail.DescriptionPlain}
 	if detail.URL != "" {
-		lines = append(lines, "links: "+detail.URL)
+		dBody.Links = []string{detail.URL}
 	}
-
+	discourse := models.SourceBody{Text: strings.Join(collectCommentBodies(detail.Comments), "\n")}
+	if detail.ShortIDURL != "" {
+		discourse.Links = []string{detail.ShortIDURL}
+	}
+	metaLines := []string{"item_id: " + detail.ShortID}
+	if detail.SubmitterUser != "" {
+		metaLines = append(metaLines, "actor_id: "+detail.SubmitterUser, "actor_name: "+detail.SubmitterUser)
+	}
 	return models.SourceItem{
 		SourceID:   SourceID,
 		OccurredAt: occurredAt.UTC(),
-		Context:    strings.Join(lines, "\n"),
+		Summary:    detail.Title,
+		Detail:     dBody,
+		Discourse:  discourse,
+		Meta:       strings.Join(metaLines, "\n"),
 	}
 }
