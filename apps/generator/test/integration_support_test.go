@@ -1,6 +1,6 @@
 // Scope: Integration test 共通 support（Narrow / Broad 中立）
-// 実物境界: なし（test double 組み立て helper のみ）
-// Double: httptest TLS redirect・fake agent script・wire JSON fixture
+// 実物境界: なし（test double 組み立て helper のみ。実境界 NI の assert / client 組み立ても含む）
+// Double: httptest TLS redirect・fake agent script・wire JSON fixture。実境界 NI 向け assertRealBoundaryItemSourceList / newItemSourceHTTPClient も同居。
 // @invariant dummy secret 実値は helper が error message へ出さない。
 package test
 
@@ -53,6 +53,35 @@ const (
 	broadDummyOAuthAccessToken  = "ya29.broad-access-token-dummy-value"
 	broadFixedEpisodeID         = "broad-ep-fixed-0001"
 )
+
+// assertRealBoundaryItemSourceList は源 NI / 接続 cache が観測する実境界 I/O 契約を assert する。
+// 写像 exact・retry 表・件数上限は Sociable Unit の所有なのでここでは見ない。
+func assertRealBoundaryItemSourceList(t *testing.T, got []models.SourceItem, err error, wantSourceID string, since time.Time) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil（認証不要 GET が成功すること）", err)
+	}
+	if got == nil {
+		t.Fatal("List() = nil, want non-nil slice（該当なしは空 slice）")
+	}
+	for i, item := range got {
+		if item.SourceID != wantSourceID {
+			t.Fatalf("got[%d].SourceID = %q, want %q", i, item.SourceID, wantSourceID)
+		}
+		if item.OccurredAt.Location() != time.UTC {
+			t.Fatalf("got[%d].OccurredAt.Location() = %v, want UTC", i, item.OccurredAt.Location())
+		}
+		if item.OccurredAt.Before(since) {
+			t.Fatalf("got[%d].OccurredAt = %v, want >= since %v", i, item.OccurredAt, since)
+		}
+	}
+}
+
+// newItemSourceHTTPClient は源 NI / 接続 cache 向けの標準 *http.Client を返す。
+// timeout は呼び出し側が源ごとの実 fetch 量に合わせて渡す。
+func newItemSourceHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{Timeout: timeout}
+}
 
 var broadDummySecrets = []string{
 	broadDummyCursorKey,
