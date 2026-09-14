@@ -21,6 +21,10 @@
 - 2026-09-14 [feature/generator-textwriter-prompt-source-criteria-adapters] 「余計な data を載せない」は設計上の判断であり、捨てる字段ごとの専用契約 test を自動では要求しない。写像の正の postcondition 所有と混同しない  # → layer:terms
 - 2026-09-14 [feature/generator-textwriter-prompt-source-criteria-adapters] 実境界の Narrow Integration と、実 HTTP 結果を cache へ残す接続確認 suite は別所有にする。合成 upstream の Narrow を残して二重にしない  # → layer:terms
 - 2026-09-14 [feature/generator-textwriter-prompt-source-criteria-adapters] 共有 helper の dir 名は共有している振る舞い（例: HTTP GET）に合わせる。一部 consumer の方言名（例: RSS）で包むと、非該当 Adapter の依存関係が嘘になる  # → layer:terms
+- 2026-09-14 [feature/generator-item-source-httpget-ni-cache] Narrow Integration の「実物」は境界 provider（client / TLS / local listener）であり、本番 peer への直撃ではない。本番到達は接続確認 suite か System へ分離する。Decision 文言の「実境界」を本番 GET と読むと testing-strategy と衝突する  # → layer:terms
+- 2026-09-14 [feature/generator-item-source-httpget-ni-cache] Given-When-Then は全 case に case 固有の事実を書く。bare `// When` や helper だけへの GWT 寄せは構造ラベル不足として扱う  # → layer:terms
+- 2026-09-14 [feature/generator-item-source-httpget-ni-cache] runtime 図で Application 内製（例: 結合）を外向き辺に出すと、呼び出し元・save 所有が偽になる。外へ描くのは Port / Adapter 境界と入口の I/O だけにする  # → layer:terms
+- 2026-09-14 [feature/generator-item-source-httpget-ni-cache] icon catalog の key は源・製品名に揃える。ブランド無しでも汎用 key（例: rss）へ rename せず、源名 file に図形を cache する  # → layer:platform
 - 2026-09-14 [docs/generator-r2-write-details] 同じ Reason で解ける問いを Decision へ細分割しない。peer の厚みに揃え、契約値の百科は Decision に置かない  # → layer:workflow
 - 2026-09-14 [docs/generator-r2-write-details] release 名だけの空 Issue を作らない。同着切替や migration の完了条件は達成契約を持つ Issue に載せる  # → layer:workflow
 - 2026-09-14 [docs/generator-r2-write-details] 「登録完了」を宣言する前に Variable と Secret を別確認する。片方だけだと後続が credential 不足に気づかない  # → layer:workflow
@@ -30,3 +34,7 @@
 - 2026-09-14 [feature/playback-audio-mp3-read] HTTP 契約の Content-Type と body の実形式を食い違わせない。test/dev fixture でも MIME に合うバイト列を返す  # → layer:terms
 - 2026-09-14 [feature/playback-audio-mp3-read] base 同期の modify/delete で完了済み Issue file が相手側に残るとき、削除側を維持する。進捗 index だけを済みへ更新する  # → layer:workflow
 - 2026-09-14 [feature/playback-audio-mp3-read] 巨大バイト列の深い等価比較は runner がタイムアウトしうる。配線 test は専用の bytes 比較に寄せ、形式契約は fixture 単体へ閉じる  # → layer:platform
+- 2026-09-14 [chore/audio-mp3-cutover-migrate] 一度きりの運用入口を production の cmd / internal 本体と同じ置き場へ上げない。gate 外の使い捨て領域（hack 等）へ閉じ、入口 script だけを残す  # → layer:terms
+- 2026-09-14 [chore/audio-mp3-cutover-migrate] local に secret を置けない運用では、変換など secret 不要の作業と Drive 改変を分ける。後者だけ credential 付き workflow に載せる  # → layer:workflow
+- 2026-09-14 [chore/audio-mp3-cutover-migrate] 品質設定を持つ既存 Adapter がある変換を、同じ argv の shell 複製でやり直さない。既存入口へ bytes を渡して戻す  # → layer:terms
+- 2026-09-14 [chore/audio-mp3-cutover-migrate] 「完成ペアのみ」検証は許可 suffix の相互欠落だけでなく、許可外 object の残存も失敗にする。無視すると契約外 file が残る  # → layer:terms

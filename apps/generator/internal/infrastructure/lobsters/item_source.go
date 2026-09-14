@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpget"
 )
 
 var _ port.ItemSource = (*ListItemSource)(nil)
@@ -148,46 +148,13 @@ func (s *ListItemSource) fetchStoryDetail(ctx context.Context, shortID string, s
 	return detail, createdAt, true
 }
 
-// getWithRetry は GET を実行し body を返す。
-// client.Do error / 5xx は 1 回だけ即再試行（backoff なし）。4xx（429 含む）/ 読み取り失敗は即 return。
+// getWithRetry は httpget へ委譲し、失敗を Adapter の infraErr で包む。
 func (s *ListItemSource) getWithRetry(ctx context.Context, url, op string) ([]byte, error) {
-	body, retryable, err := s.get(ctx, url)
-	if err == nil {
-		return body, nil
-	}
-	if !retryable {
-		return nil, infraErr(op, err)
-	}
-	body, _, err = s.get(ctx, url)
+	body, err := httpget.GetWithRetry(ctx, s.client, url)
 	if err != nil {
 		return nil, infraErr(op, err)
 	}
 	return body, nil
-}
-
-// get は GET を 1 回実行し body を返す。
-// 2 つめの戻り値は再試行してよい失敗（client.Do error / 5xx）かどうか。
-func (s *ListItemSource) get(ctx context.Context, url string) (body []byte, retryable bool, err error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, false, err
-	}
-	res, err := s.client.Do(req)
-	if err != nil {
-		return nil, true, err
-	}
-	defer func() { _ = res.Body.Close() }()
-	body, err = io.ReadAll(res.Body)
-	if err != nil {
-		return nil, false, err
-	}
-	if res.StatusCode >= 500 {
-		return nil, true, fmt.Errorf("status %d", res.StatusCode)
-	}
-	if res.StatusCode != http.StatusOK {
-		return nil, false, fmt.Errorf("status %d", res.StatusCode)
-	}
-	return body, false, nil
 }
 
 // parseCreatedAt は offset 付き RFC3339 相当の created_at を UTC に変換する。

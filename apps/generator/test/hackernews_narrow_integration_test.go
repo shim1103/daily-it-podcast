@@ -66,7 +66,7 @@ func newHackerNewsListItemSourceWithProxy(t *testing.T, handler http.HandlerFunc
 }
 
 func TestHackerNewsListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucceeds(t *testing.T) {
-	// Given: topstories→item の成功応答を返す upstream double
+	// Given: topstories→item の成功応答を返す httptest TLS upstream（本番 Firebase は使わない）
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	storyUnix := since.Add(2 * time.Hour).Unix()
 	source, probe := newHackerNewsListItemSourceWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
@@ -83,10 +83,10 @@ func TestHackerNewsListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucce
 		}
 	})
 
-	// When: List する
+	// When: List(ctx, since) を呼ぶ
 	got, err := source.List(context.Background(), since)
 
-	// Then: 戻り値と upstream 観測面
+	// Then: upstream は GET・Authorization 空、戻りは SourceID=hackernews の 1 件以上
 	if err != nil {
 		t.Fatalf("List() error = %v, want nil", err)
 	}
@@ -112,16 +112,16 @@ func TestHackerNewsListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucce
 }
 
 func TestHackerNewsListItemSource_returnsInfrastructureError_whenUpstreamFails(t *testing.T) {
-	// Given: topstories.json が常に 502 を返す upstream double
+	// Given: topstories.json が常に 502 を返す httptest TLS upstream
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	source, probe := newHackerNewsListItemSourceWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad gateway", http.StatusBadGateway)
 	})
 
-	// When: List する
+	// When: List(ctx, since) を呼ぶ
 	got, err := source.List(context.Background(), since)
 
-	// Then: 戻り値と再試行回数
+	// Then: *adaptererror.Error（hackernews: prefix）かつ top-level 5xx で 2 回 request（retry once）
 	if got != nil {
 		t.Fatalf("got = %+v, want nil", got)
 	}
