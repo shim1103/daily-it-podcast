@@ -8,7 +8,7 @@ import { createFakeGetAudioUseCase, validEpisodeItem } from "./fake-use-cases.ts
 
 describe("createGetAudioController", () => {
   it("UseCase が成功する時、音声 byte を返す", async () => {
-    // Given: wav byte を返す Fake UseCase
+    // Given: mp3 byte を返す Fake UseCase
     const useCase = createFakeGetAudioUseCase();
     const controller = createGetAudioController(useCase);
 
@@ -16,16 +16,12 @@ describe("createGetAudioController", () => {
     const got = await controller({ episodeId: "ep-1" });
     const expected = createFakeEpisodeAudioBytes(validEpisodeItem.durationSec);
 
-    // Then: Fake が返した再生可能 WAV と尺が一致する
-    expect(got.byteLength).toBe(expected.byteLength);
-    expect(got[0]).toBe(0x52);
-    expect(got[1]).toBe(0x49);
-    expect(got[2]).toBe(0x46);
-    expect(got[3]).toBe(0x46);
+    // Then: Fake が返した再生可能 mp3 と一致する
+    expect(Buffer.from(got).equals(Buffer.from(expected))).toBe(true);
   });
 
-  it("同一 episodeId を連続取得する時、キャッシュ済み WAV を返す", async () => {
-    // Given: wav byte を返す Fake UseCase
+  it("同一 episodeId を連続取得する時、キャッシュ済み mp3 を返す", async () => {
+    // Given: mp3 byte を返す Fake UseCase
     const useCase = createFakeGetAudioUseCase();
     const controller = createGetAudioController(useCase);
 

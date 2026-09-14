@@ -30,7 +30,7 @@ const sensitiveValues = Object.values(driveEnv);
 
 const episodeId = "bi-ep-1";
 const jsonFileId = "bi-comp-json-file-id";
-const wavFileId = "bi-comp-wav-file-id";
+const audioFileId = "bi-comp-audio-file-id";
 
 const manuscriptJson = {
   episodeId,
@@ -107,11 +107,11 @@ function installHappyDriveFetchStub(): void {
   installDriveFetchStub({
     files: [
       { id: jsonFileId, name: `${episodeId}.json` },
-      { id: wavFileId, name: `${episodeId}.mp3` },
+      { id: audioFileId, name: `${episodeId}.mp3` },
     ],
     downloads: {
       [jsonFileId]: JSON.stringify(manuscriptJson),
-      [wavFileId]: validAudioBytes,
+      [audioFileId]: validAudioBytes,
     },
   });
 }
@@ -148,7 +148,7 @@ describe("Playback Worker composition happy path", () => {
   });
 
   it("returns 200 audio bytes through Worker entry when Drive env is complete", async () => {
-    // Given: Drive env が揃い、対象 wav が Stub にある
+    // Given: Drive env が揃い、対象 mp3 が Stub にある
     installHappyDriveFetchStub();
     const request = new Request(`https://worker.example${episodeAudioPath(episodeId)}`);
 

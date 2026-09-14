@@ -20,7 +20,7 @@ function createFakeRepository(overrides: Partial<EpisodeRepository> = {}): Episo
 }
 
 describe("getAudio", () => {
-  it("Port が返した wav バイト列をそのまま返す", async () => {
+  it("Port が返した mp3 バイト列をそのまま返す", async () => {
     // Given: 音声 byte を返す Fake Port
     const repository = createFakeRepository();
 
@@ -31,8 +31,8 @@ describe("getAudio", () => {
     expect(got).toEqual(validAudioBytes);
   });
 
-  it("Port が undefined（wav 無し）を返す時、EpisodeContentError（音声が無い）", async () => {
-    // Given: wav 無し
+  it("Port が undefined（mp3 無し）を返す時、EpisodeContentError（音声が無い）", async () => {
+    // Given: mp3 無し
     const repository = createFakeRepository({ getAudio: async () => undefined });
 
     // When: 音声取得 UseCase を実行する
