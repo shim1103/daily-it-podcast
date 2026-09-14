@@ -23,7 +23,7 @@
 
 ### 未完了
 
-1. `generator-textwriter-prompt-source-criteria-adapters.md` — Publickey / TechCrunch / CloudWatch の `List` 実装と raw→SourceItem Verification
+1. `generator-item-source-httpget-ni-cache.md` — `httpget` helper・5 源実境界 NI・接続 cache（CI 外）。方針は Decision `2026-09-14T13-06-11`
 2. `generator-audio-mp3-encode-write.md` — ConcatWAV 後 ffmpeg で mp3 化し Drive へ書く（1 PR。deploy は playback lane `R-mp3-cutover`）
 3. `audio-mp3-batch-migration.md` — 既存 wav 一括 mp3（1 PR。deploy は `R-mp3-migrate`。playback lane と共有）
 
