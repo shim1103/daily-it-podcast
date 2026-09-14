@@ -74,9 +74,9 @@ ICON_CATALOG: dict[str, IconSource] = {
         "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/githubactions.svg",
         "#2088FF",
     ),
-    # why: 情報源 3 サイト。HackerNews は Y Combinator、Lobsters は専用 icon。
-    #   ITmedia NEWS は Simple Icons にブランドが無く、取得経路が RSS 2.0 feed なので
-    #   RSS icon を充てる（item_source.go の feedURL と整合）。
+    # why: 情報源 5 Adapter。HN=Y Combinator、Lobsters=専用、TechCrunch=公式ブランド。
+    #   Publickey / クラウド Watch は Simple Icons にブランドが無いので RSS 図形を源名
+    #   file として cache する（旧 itmedia-rss と同型。汎用 key "rss" は置かない）。
     "hackernews": IconSource(
         "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/ycombinator.svg",
         "#F0652F",
@@ -85,7 +85,15 @@ ICON_CATALOG: dict[str, IconSource] = {
         "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/lobsters.svg",
         "#AC130D",
     ),
-    "itmedia-rss": IconSource(
+    "techcrunch": IconSource(
+        "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/techcrunch.svg",
+        "#0A9E01",
+    ),
+    "publickey": IconSource(
+        "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/rss.svg",
+        "#FFA500",
+    ),
+    "cloudwatch": IconSource(
         "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/rss.svg",
         "#FFA500",
     ),
