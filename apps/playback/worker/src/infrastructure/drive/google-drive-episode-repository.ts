@@ -10,7 +10,7 @@ const tokenEndpoint = "https://oauth2.googleapis.com/token";
 const driveFilesEndpoint = "https://www.googleapis.com/drive/v3/files";
 
 const jsonExtension = ".json";
-// why: 値の正本は repo 根 `contracts/drive-layout.md`。HTTP contracts は Infra から import 禁止（dependency-cruiser）
+// why: 値の正本は repo 根 `contracts/episode-layout.md`。HTTP contracts は Infra から import 禁止（dependency-cruiser）
 const audioExtension = ".mp3";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
