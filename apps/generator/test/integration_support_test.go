@@ -1,7 +1,8 @@
 // Scope: Integration test 共通 support（Narrow / Broad 中立）
 // 実物境界: なし（test double 組み立て helper のみ）
-// Double: httptest TLS redirect・fake agent script・wire JSON fixture
+// Double: httptest TLS redirect・fake agent script・wire JSON fixture。
 // @invariant dummy secret 実値は helper が error message へ出さない。
+// @invariant 本番直撃の assert / client 組み立ては接続 cache suite（item_source_connection_cache_test.go）が所有する。
 package test
 
 import (

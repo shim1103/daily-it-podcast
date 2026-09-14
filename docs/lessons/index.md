@@ -21,6 +21,10 @@
 - 2026-09-14 [feature/generator-textwriter-prompt-source-criteria-adapters] 「余計な data を載せない」は設計上の判断であり、捨てる字段ごとの専用契約 test を自動では要求しない。写像の正の postcondition 所有と混同しない  # → layer:terms
 - 2026-09-14 [feature/generator-textwriter-prompt-source-criteria-adapters] 実境界の Narrow Integration と、実 HTTP 結果を cache へ残す接続確認 suite は別所有にする。合成 upstream の Narrow を残して二重にしない  # → layer:terms
 - 2026-09-14 [feature/generator-textwriter-prompt-source-criteria-adapters] 共有 helper の dir 名は共有している振る舞い（例: HTTP GET）に合わせる。一部 consumer の方言名（例: RSS）で包むと、非該当 Adapter の依存関係が嘘になる  # → layer:terms
+- 2026-09-14 [feature/generator-item-source-httpget-ni-cache] Narrow Integration の「実物」は境界 provider（client / TLS / local listener）であり、本番 peer への直撃ではない。本番到達は接続確認 suite か System へ分離する。Decision 文言の「実境界」を本番 GET と読むと testing-strategy と衝突する  # → layer:terms
+- 2026-09-14 [feature/generator-item-source-httpget-ni-cache] Given-When-Then は全 case に case 固有の事実を書く。bare `// When` や helper だけへの GWT 寄せは構造ラベル不足として扱う  # → layer:terms
+- 2026-09-14 [feature/generator-item-source-httpget-ni-cache] runtime 図で Application 内製（例: 結合）を外向き辺に出すと、呼び出し元・save 所有が偽になる。外へ描くのは Port / Adapter 境界と入口の I/O だけにする  # → layer:terms
+- 2026-09-14 [feature/generator-item-source-httpget-ni-cache] icon catalog の key は源・製品名に揃える。ブランド無しでも汎用 key（例: rss）へ rename せず、源名 file に図形を cache する  # → layer:platform
 - 2026-09-14 [docs/generator-r2-write-details] 同じ Reason で解ける問いを Decision へ細分割しない。peer の厚みに揃え、契約値の百科は Decision に置かない  # → layer:workflow
 - 2026-09-14 [docs/generator-r2-write-details] release 名だけの空 Issue を作らない。同着切替や migration の完了条件は達成契約を持つ Issue に載せる  # → layer:workflow
 - 2026-09-14 [docs/generator-r2-write-details] 「登録完了」を宣言する前に Variable と Secret を別確認する。片方だけだと後続が credential 不足に気づかない  # → layer:workflow

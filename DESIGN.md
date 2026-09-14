@@ -1,6 +1,6 @@
 # DESIGN
 
-最終更新: 2026-09-13
+最終更新: 2026-09-14
 
 地図・使い方は `README.md`。deploy・Access・GHA 運用・secret 登録は `DEPLOY.md`。配置表現は `contracts/`（音声拡張子の正は `episode-layout.md`）。runtime 構成図は `apps/diagrams/runtime.png`（code-first、生成元は `apps/diagrams/runtime.py`）。本書は **層・依存・所有・test 配置の規則**だけを書く。再発する判断は `docs/decisions/`。
 
@@ -61,7 +61,7 @@ repo 根 `contracts/` は **配置表現**の SSOT（現行は Drive folder 上�
 
 | 役割 | 接続 |
 |------|------|
-| 情報取得 | 公式 API / RSS の複数源（HackerNews・Lobsters・Publickey・TechCrunch・クラウド Watch）。Port は `ItemSource`。源ごとに専用 Adapter、facade なし（RSS 汎用 Adapter も作らない）。GET+retry / HTML 正規化の共有は `infrastructure/httpget`（Decision `2026-09-14T13-06-11`）。複数源 merge は Composition の composite。Application は源個数を知らない。`SourceItem` 形は Decision `2026-09-13T17-14-00`（正本は `models/source_item.go`）。写像を固定する方針は `2026-09-13T17-14-10`（表の正本は各 Adapter）。採用源は `2026-09-13T15-08-55` |
+| 情報取得 | 公式 API / RSS の複数源（HackerNews・Lobsters・Publickey・TechCrunch・クラウド Watch）。Port は `ItemSource`。源ごとに専用 Adapter、facade なし（RSS 汎用 Adapter も作らない）。GET+retry / HTML 正規化の共有は `infrastructure/httpget`（Decision `2026-09-14T13-06-11`）。源 NI は controllable peer（`httptest` + DialTLS）。本番直撃の接続確認は gate 外 cache suite（Decision `2026-09-14T15-05-00`）。複数源 merge は Composition の composite。Application は源個数を知らない。`SourceItem` 形は Decision `2026-09-13T17-14-00`（正本は `models/source_item.go`）。写像を固定する方針は `2026-09-13T17-14-10`（表の正本は各 Adapter）。採用源は `2026-09-13T15-08-55` |
 | 原稿 | Cursor Cloud Agents REST（Port `TextWriter`）。Adapter は `manuscript/cursorapi` |
 | TTS | Gemini |
 | Drive | Google Drive + OAuth refresh（**現行**。将来 R2 方針 `2026-09-13T14-22-55`・実施の形 `2026-09-14T11-04-30`・実施順 `2026-09-14T12-49-26`。薄い配信 cache は R2 後・`2026-09-13T14-23-30`） |
@@ -98,6 +98,6 @@ repo 根 `contracts/` は **配置表現**の SSOT（現行は Drive folder 上�
 9. generator static: `go build` + golangci（depguard / errcheck / govet / gofmt）。Infrastructure→Application は Port のみ。playback static: Biome / tsc / dependency-cruiser
 10. generator race: `go test -race` は Unit package のみ
 11. Go / Node version の正本は `go.mod` / `.nvmrc`。GHA は `*-version-file` で参照
-12. Integration **gate**（pre-push / GHA Integration）: secret なし Narrow + Broad。System / Playback E2E / 本番 produce は gate 外（収集・入口の正は code と `DEPLOY.md`）。情報源の接続 cache suite（実 HTTP→`.cache/`）も gate 外（Decision `2026-09-14T13-06-11`）。Playback Vitest Integration project は `system_e2e` を収集しない
+12. Integration **gate**（pre-push / GHA Integration）: secret なし Narrow + Broad。System / Playback E2E / 本番 produce は gate 外（収集・入口の正は code と `DEPLOY.md`）。情報源 Narrow は controllable peer（本番直撃しない）。接続 cache suite（実 HTTP→`.cache/`）は gate 外（Decision `2026-09-14T15-05-00`）。Playback Vitest Integration project は `system_e2e` を収集しない
 
 実行手順の入口一覧は `README.md`。credential 付き定時・secret 名は `DEPLOY.md`。
