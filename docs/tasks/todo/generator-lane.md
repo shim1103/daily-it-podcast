@@ -24,13 +24,13 @@
 11. `httpget` helper・5 源 Narrow（controllable peer）・接続 cache（CI 外）— Decision `2026-09-14T13-06-11` / `15-05-00`
 12. mp3 同着切替 + wav 一括 + fixture（`audio-mp3-cutover-migrate`。達成契約 file 削除済み）。prod Drive は `{json,mp3}` のみ。`playback-e2e` PASS
 13. R2 `EpisodeWriter` 本実装・結線口（列 4）。達成契約 file 削除済み。本番正本は Drive のまま（列 6 で切替）。`R2_*` は `config.Load` 必須
+14. R2 `CompletedEpisodeLookup` 振る舞い本実装。達成契約 file 削除済み。本番結線は列 6 で Writer と同着。NI gate peer は C1（Decision `12-02-48`）
+15. R2 NI gate peer（C1）。experimental local S3 + Writer/Lookup NI と playback `getPlatformProxy` infra。達成契約 file 削除済み（Decision `12-02-48`）
 
 ### 未完了
 
-1. `generator-r2-test-peer-scope.md` — C1=infra。experimental local S3 gate + playback `getPlatformProxy` 基盤（Decision `2026-09-15T12-02-48`。`19-29-08` の任意条を supersede）。A stub 済み
-2. `generator-r2-completed-episode-lookup.md` — R2 `CompletedEpisodeLookup` 振る舞い本実装（A stub 済み。NI gate peer は C1。本番結線は列 6 で Writer と同着）
-3. `r2-smoke-migrate-cutover.md` — 列 6（共有）
-4. `r2-post-cutover-verify-oauth.md` — 列 7（共有）
+1. `r2-smoke-migrate-cutover.md` — 列 6（共有）
+2. `r2-post-cutover-verify-oauth.md` — 列 7（共有）
 
 storage 実施順の正は Decision `2026-09-14T12-49-26` / `playback-lane.md` の実施順 index。R2 NI gate peer の正は `2026-09-15T12-02-48`（本番口は `11-04-30`）。
 
