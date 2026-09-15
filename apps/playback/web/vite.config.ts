@@ -5,6 +5,7 @@ import {
   createFakeListEpisodesUseCase,
 } from "../worker/src/controllers/fake-use-cases.ts";
 import { createApp } from "../worker/src/routes/app.ts";
+import { createDevBackendMiddleware } from "./dev-backend-proxy.ts";
 
 /**
  * localhost:3000 単体起動で dummy backend（fake-use-cases）由来の data を流す dev-only middleware。
@@ -46,53 +47,9 @@ export default defineConfig({
     {
       name: "dummy-backend-api",
       configureServer(server) {
-        const handle = createDummyBackendMiddleware();
-        server.middlewares.use(async (req, res, next) => {
-          if (!req.url?.startsWith("/episodes")) {
-            next();
-            return;
-          }
-          const response = await handle(
-            new Request(new URL(req.url, "http://localhost"), { method: req.method }),
-          );
-          response.headers.forEach((value, key) => {
-            res.setHeader(key, value);
-          });
-          const body = Buffer.from(await response.arrayBuffer());
-
-          // why: dummy 音声は長尺 silent mp3。browser の <audio> は Range 応答が無いと
-          //   全長 buffer 完了まで再生・seek できず、実質「再生されない」ように見える。
-          //   dev middleware だけ Range/HEAD をエミュレートして streaming・seek 可能にする
-          //   （本番相当の Hono app は変更しない）。
-          const rangeHeader = req.headers.range;
-          if (res.statusCode === 200 && response.status === 200 && body.byteLength > 0) {
-            res.setHeader("Accept-Ranges", "bytes");
-            res.setHeader("Content-Length", String(body.byteLength));
-          }
-          if (req.method === "HEAD") {
-            res.statusCode = response.status;
-            res.end();
-            return;
-          }
-          const rangeMatch = rangeHeader?.match(/^bytes=(\d*)-(\d*)$/);
-          if (response.status === 200 && rangeMatch && body.byteLength > 0) {
-            const start = rangeMatch[1] === "" ? 0 : Number(rangeMatch[1]);
-            const end = rangeMatch[2] === "" ? body.byteLength - 1 : Number(rangeMatch[2]);
-            if (start <= end && end < body.byteLength) {
-              res.statusCode = 206;
-              res.setHeader("Content-Range", `bytes ${start}-${end}/${body.byteLength}`);
-              res.setHeader("Content-Length", String(end - start + 1));
-              res.end(body.subarray(start, end + 1));
-              return;
-            }
-            res.statusCode = 416;
-            res.setHeader("Content-Range", `bytes */${body.byteLength}`);
-            res.end();
-            return;
-          }
-          res.statusCode = response.status;
-          res.end(body);
-        });
+        // why: Range/HEAD は Hono app 自身（routes/audio-response.ts）が処理する。
+        //   dev-backend-proxy はそれを透過中継するだけで streaming・seek が成立する。
+        server.middlewares.use(createDevBackendMiddleware(createDummyBackendMiddleware()));
       },
     },
   ],

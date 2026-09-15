@@ -2,35 +2,37 @@
 
 A personal daily IT-news podcast: generated automatically and listened to only by me. Not a commercial or public service.
 
+## Scope of this file
+
+This file answers **"what is this repo, where do I start."** It is the map, not the source of truth for any single topic.
+
+| What you want | Source of truth |
+|------|------|
+| Layers, dependencies, technology choices, test layout | `DESIGN.md` |
+| Deploy, Access, GHA operation, secret registration | `DEPLOY.md` |
+| Drive file contracts（配置。音声 mp3） | `contracts/` |
+| Playback HTTP contracts | `apps/playback/contracts/` |
+| Open-work index | `docs/tasks/todo/*-lane.md` |
+| Recurring decisions | `docs/decisions/` |
+
+Non-scope: technology choices, layer boundaries, credential registration, workflow schedules. This file never restates values owned by the tables above; it links to them.
+
 ## Shape
 
-Generation and playback are separate systems. The only thing that connects them is a set of files on shared storage. **Today that storage is personal Google Drive.** Future direction is full migration to Cloudflare R2（方針 `docs/decisions/2026-09-13T14-22-55-feature-playback-now-playing-audio-listenability.md`。実施の形・順は `2026-09-14T11-04-30` / `12-49-26`）。Episodes are never generated through the UI. Completed audio format is mp3 (`contracts/episode-layout.md`).
+Generation and playback are separate systems, connected only by files on shared storage (currently personal Google Drive; migration direction in `DESIGN.md` §1). Episodes are never generated through the UI.
 
 ```text
 Generator (Go + GitHub Actions cron)
-  fetch -> manuscript (Cursor Cloud Agents REST) -> speech (Gemini TTS) -> save
+  fetch -> manuscript -> speech -> save
         |
-  Personal Google Drive (audio + manuscript)
+  shared storage (audio + manuscript)
         |
-Playback (Vite + TypeScript + React + Cloudflare)
-  Access -> UI -> Workers (Hono, proxy for Drive reads)
+Playback (Vite + React + Cloudflare Workers)
+  Access -> UI -> Workers (proxy for storage reads)
 ```
 
 ## Runtime diagram
 ![Runtime diagram](./apps/diagrams/runtime.png)　
-
-## Technology choices
-
-| Role | Choice |
-|------|--------|
-| Playback UI | Vite + TypeScript + React + Pico.css (classless) |
-| Behind the UI | Cloudflare Workers (Hono, Drive proxy) |
-| Entry to the UI | Cloudflare Access (`DEPLOY.md`) |
-| Generation | Go CLI + GitHub Actions cron |
-| Fetch | Official APIs / RSS from several sources (HackerNews, Lobsters, Publickey, TechCrunch, Cloud Watch) |
-| Storage | Personal Google Drive（現行）。将来 R2: `14-22-55` / 実施の形 `11-04-30` / 実施順 `12-49-26` |
-| Manuscript | Cursor Cloud Agents REST (Port `TextWriter`) |
-| Speech | Google Gemini TTS |
 
 ## Repository
 
@@ -43,15 +45,6 @@ apps/diagrams/           # runtime diagram (code-first)
 contracts/               # representation on Drive (SSOT)
 .github/workflows/
 ```
-
-| What you want | Source of truth |
-|------|------|
-| Layers, dependencies, test layout | `DESIGN.md` |
-| Deploy, Access, GHA operation, secret registration | `DEPLOY.md` |
-| Drive file contracts（配置。音声 mp3） | `contracts/` |
-| Playback HTTP contracts | `apps/playback/contracts/` |
-| Open-work index | `docs/tasks/todo/*-lane.md` |
-| Recurring decisions | `docs/decisions/` |
 
 ## Branches
 

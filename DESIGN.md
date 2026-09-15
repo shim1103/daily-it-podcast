@@ -2,7 +2,18 @@
 
 最終更新: 2026-09-14
 
-地図・使い方は `README.md`。deploy・Access・GHA 運用・secret 登録は `DEPLOY.md`。配置表現は `contracts/`（音声拡張子の正は `episode-layout.md`）。runtime 構成図は `apps/diagrams/runtime.png`（code-first、生成元は `apps/diagrams/runtime.py`）。本書は **層・依存・所有・test 配置の規則**だけを書く。再発する判断は `docs/decisions/`。
+## Scope
+
+本書が持つのは **層・依存・所有・技術選定・test 配置の規則**だけ。「何が」「どこに」「何へ依存してよいか」を扱う。
+
+Non-scope（書かない・写さない）:
+
+- 地図・使い方 → `README.md`
+- deploy・Access・GHA 運用・secret 登録・workflow 一覧 → `DEPLOY.md`
+- 配置表現（Drive file契約） → `contracts/`（音声拡張子の正は `episode-layout.md`）
+- runtime 構成図 → `apps/diagrams/runtime.png`（code-first、生成元は `apps/diagrams/runtime.py`）
+- 再発する判断の Reason / Rejected → `docs/decisions/`
+- Playback UI の concept・視覚言語 → `docs/decisions/`
 
 ## 1. システム境界
 
@@ -38,7 +49,7 @@
 | `playback/web/src/{pages,components/feature,components/primitive,view-models,api,utils,lib}` | frontend（role と dir は 1 対 1） |
 | `playback/contracts` | web↔worker HTTP 境界共有型（Infrastructure は import 禁止） |
 
-`playback/web` は Vite + TypeScript + React + Pico.css classless。`playback/worker` 入口は Hono、型同期は Hono RPC。Next.js / shadcn / TanStack は使わない。Playback UI の concept / 視覚言語は `docs/decisions/` を正とし、本書へ写さない。
+`playback/web` は Vite + TypeScript + React + Pico.css classless。`playback/worker` 入口は Hono、型同期は Hono RPC。Next.js / shadcn / TanStack は使わない。
 
 依存は内側へ。Composition Root だけが全層を結線する。未完了 index は `docs/tasks/todo/*-lane.md`。
 

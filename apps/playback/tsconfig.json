@@ -11,7 +11,7 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "types": ["vite/client"],
+    "types": ["vite/client", "node"],
     "jsx": "react-jsx"
   },
   "include": [
