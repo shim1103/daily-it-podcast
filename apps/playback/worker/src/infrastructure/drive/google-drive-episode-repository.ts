@@ -3,15 +3,12 @@ import type {
   EpisodeRepository,
   RawManuscriptEntry,
 } from "../../application/ports/episode-repository.ts";
+import { audioExtension, jsonExtension, stemOf } from "../episode-layout.ts";
 import { DriveError } from "./drive-error.ts";
 import { DriveFileEntrySchema } from "./drive-file-entry-schema.ts";
 
 const tokenEndpoint = "https://oauth2.googleapis.com/token";
 const driveFilesEndpoint = "https://www.googleapis.com/drive/v3/files";
-
-const jsonExtension = ".json";
-// why: 値の正本は repo 根 `contracts/episode-layout.md`。HTTP contracts は Infra から import 禁止（dependency-cruiser）
-const audioExtension = ".mp3";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -38,13 +35,6 @@ type DriveFileEntry = {
   id: string;
   name: string;
 };
-
-function stemOf(name: string, extension: string): string | undefined {
-  if (!name.endsWith(extension)) {
-    return undefined;
-  }
-  return name.slice(0, name.length - extension.length);
-}
 
 /**
  * Google Drive REST API（v3）で `EpisodeRepository` を満たす本番 Driven Adapter。

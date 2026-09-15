@@ -19,9 +19,6 @@ export default defineConfig({
         branches: 100,
         "worker/src/routes/**": { branches: 90 },
         "worker/src/composition/**": { branches: 90 },
-        "worker/src/infrastructure/drive/google-drive-episode-repository.ts": {
-          branches: 90,
-        },
         "worker/src/controllers/map-internal-error.ts": { branches: 90 },
         "web/src/pages/**": { branches: 90 },
         "web/src/view-models/**": { branches: 90 },
