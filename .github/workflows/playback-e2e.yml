@@ -1,24 +1,34 @@
-# scope: Playback browser E2E（Access session 付き・gate 外）
+# scope: Playback browser E2E（Access session 付き・deploy 後・gate 外）
 # 実物: scripts/playback/test-e2e.sh
 # double: なし（remote 本番 path。Drive / `/episodes*` を double しない）
-# @require Node（version は apps/playback/.nvmrc）。Playwright chromium。
+# @require Node（version は apps/playback/.nvmrc）。Playwright chromium。playback-deploy.yml が成功済み。
 # @ensure E2E 入口が exit 0。
 # @invariant 必須 Unit / Integration gate に載せない。Service Token で Access を迂回しない。generator を触らない。
 # @invariant toolchain の playwright test を YAML に直書きしない。secret 値を log に出さない。
-# 登録の正: DEPLOY.md「Playback E2E 登録」。判断: docs/decisions/2026-08-30T16-20-00 / 2026-08-30T16-20-03
+# @invariant playback-deploy（wrangler deploy）の成功後にのみ発火する。push 直後の即時実行はしない
+#   （edge 反映の遅延を待つ）。
+# 登録の正: DEPLOY.md「Playback E2E 登録」。判断: docs/decisions/2026-08-30T16-20-00 / 2026-08-30T16-20-03 / 2026-09-15T03-51-41 / 2026-09-15T05-36-32 / 2026-09-15T05-04-17
 name: playback-e2e
 
 on:
-  schedule:
-    # 毎週月曜 07:00 Asia/Tokyo = 日曜 22:00 UTC
-    - cron: "0 22 * * 0"
+  workflow_run:
+    workflows: [playback-deploy]
+    branches: [master]
+    types: [completed]
   workflow_dispatch:
+
+concurrency:
+  group: playback-e2e
+  cancel-in-progress: false
 
 jobs:
   e2e:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-node@v5
         with:
@@ -33,6 +43,10 @@ jobs:
       - name: Playwright chromium を install
         working-directory: apps/playback
         run: npx playwright install --with-deps chromium
+
+      - name: deploy 反映を待つ
+        if: ${{ github.event_name == 'workflow_run' }}
+        run: sleep 30
 
       # Secret が無い（placeholder のみ）でも落ちない。値があるときだけ file 化して env へ渡す。
       - name: storageState を file 化し E2E を実行
