@@ -15,6 +15,10 @@ const (
 	dummyGoogleOAuthClientSecret = "google-client-secret"
 	dummyGoogleOAuthRefreshToken = "google-refresh-token"
 	dummyDriveFolderID           = "drive-folder-id"
+	dummyR2AccessKeyID           = "r2-access-key"
+	dummyR2SecretAccessKey       = "r2-secret-access-key"
+	dummyR2AccountID             = "r2-account-id"
+	dummyR2Bucket                = "r2-bucket"
 )
 
 // fullValidEnv は全 key へ有効値を持つenv mapである。
@@ -27,6 +31,10 @@ func fullValidEnv() map[string]string {
 		GoogleOAuthClientSecretEnv: dummyGoogleOAuthClientSecret,
 		GoogleOAuthRefreshTokenEnv: dummyGoogleOAuthRefreshToken,
 		DriveFolderIDEnv:           dummyDriveFolderID,
+		R2AccessKeyIDEnv:           dummyR2AccessKeyID,
+		R2SecretAccessKeyEnv:       dummyR2SecretAccessKey,
+		R2AccountIDEnv:             dummyR2AccountID,
+		R2BucketEnv:                dummyR2Bucket,
 	}
 }
 
@@ -71,6 +79,18 @@ func TestLoad_returnsConfigMatchingContract_whenAllInputsValid(t *testing.T) {
 	}
 	if cfg.Drive.FolderID != dummyDriveFolderID {
 		t.Fatal("Drive.FolderID が投入値と一致しない")
+	}
+	if cfg.R2.AccessKeyID.Reveal() != dummyR2AccessKeyID {
+		t.Fatal("R2.AccessKeyID が投入値と一致しない")
+	}
+	if cfg.R2.SecretAccessKey.Reveal() != dummyR2SecretAccessKey {
+		t.Fatal("R2.SecretAccessKey が投入値と一致しない")
+	}
+	if cfg.R2.AccountID != dummyR2AccountID {
+		t.Fatal("R2.AccountID が投入値と一致しない")
+	}
+	if cfg.R2.Bucket != dummyR2Bucket {
+		t.Fatal("R2.Bucket が投入値と一致しない")
 	}
 }
 
@@ -161,6 +181,73 @@ func TestLoad_classifiesViolation_whenSingleKeyIsInvalid(t *testing.T) {
 	}
 }
 
+func TestLoad_classifiesR2Violation_whenSingleR2KeyIsInvalid(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		mutate   func(env map[string]string)
+		wantKey  string
+		wantKind string
+	}{
+		{
+			name: "missing_access_key",
+			mutate: func(env map[string]string) {
+				delete(env, R2AccessKeyIDEnv)
+			},
+			wantKey:  R2AccessKeyIDEnv,
+			wantKind: KindMissing,
+		},
+		{
+			name: "empty_bucket",
+			mutate: func(env map[string]string) {
+				env[R2BucketEnv] = ""
+			},
+			wantKey:  R2BucketEnv,
+			wantKind: KindEmpty,
+		},
+		{
+			name: "invalid_format_account_id",
+			mutate: func(env map[string]string) {
+				env[R2AccountIDEnv] = " account "
+			},
+			wantKey:  R2AccountIDEnv,
+			wantKind: KindInvalidFormat,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Given: R2 の 1 key だけを無効化した env
+			env := fullValidEnv()
+			tc.mutate(env)
+
+			// When: Loadする
+			_, err := Load(lookupFrom(env))
+
+			// Then: 該当 R2 key について期待する Kind へ分類され、secret 実値は Error() に出ない
+			if err == nil {
+				t.Fatal("Load() がviolationでerrorを返さなかった")
+			}
+			var bundled *Errors
+			if !errors.As(err, &bundled) {
+				t.Fatalf("error type %T, want *Errors", err)
+			}
+			if len(bundled.Violations) != 1 {
+				t.Fatalf("violations = %d, want 1", len(bundled.Violations))
+			}
+			if bundled.Violations[0].Key != tc.wantKey || bundled.Violations[0].Kind != tc.wantKind {
+				t.Fatalf("violation = %+v, want key=%s kind=%s", bundled.Violations[0], tc.wantKey, tc.wantKind)
+			}
+			if strings.Contains(err.Error(), dummyR2SecretAccessKey) {
+				t.Fatalf("Error() に secret 実値: %q", err.Error())
+			}
+		})
+	}
+}
+
 func TestLoad_aggregatesViolationsInConfigFieldOrder_whenAllKeysMissing(t *testing.T) {
 	t.Parallel()
 
@@ -183,6 +270,10 @@ func TestLoad_aggregatesViolationsInConfigFieldOrder_whenAllKeysMissing(t *testi
 		GoogleOAuthClientSecretEnv,
 		GoogleOAuthRefreshTokenEnv,
 		DriveFolderIDEnv,
+		R2AccessKeyIDEnv,
+		R2SecretAccessKeyEnv,
+		R2AccountIDEnv,
+		R2BucketEnv,
 	}
 	if len(lines) != len(wantKeys) {
 		t.Fatal("集約された違反行数がkey数と一致しない")
@@ -205,7 +296,7 @@ func TestLoad_aggregatesMixedViolationKinds_whenKeysFailDifferently(t *testing.T
 	env := fullValidEnv()
 	delete(env, CursorAPIKeyEnv)
 	env[GeminiAPIKeyEnv] = ""
-	env[DriveFolderIDEnv] = "drive-folder-id "
+	env[R2BucketEnv] = "r2-bucket "
 
 	// When: Loadする
 	_, err := Load(lookupFrom(env))
@@ -221,7 +312,7 @@ func TestLoad_aggregatesMixedViolationKinds_whenKeysFailDifferently(t *testing.T
 	}{
 		{CursorAPIKeyEnv, "missing"},
 		{GeminiAPIKeyEnv, "empty"},
-		{DriveFolderIDEnv, "invalid_format"},
+		{R2BucketEnv, "invalid_format"},
 	}
 	if len(lines) != len(want) {
 		t.Fatal("集約された違反行数が3件ではない")
@@ -240,7 +331,7 @@ func TestLoad_reachesEachViolationViaErrorsAs_whenKeysFailDifferently(t *testing
 	// Given: 先頭keyがmissing、末尾keyがinvalid_formatのenv
 	env := fullValidEnv()
 	delete(env, CursorAPIKeyEnv)
-	env[DriveFolderIDEnv] = "drive-folder-id "
+	env[R2BucketEnv] = "r2-bucket "
 
 	// When: Loadする
 	_, err := Load(lookupFrom(env))
@@ -329,5 +420,8 @@ func TestLoad_returnsNoConfigValues_whenAnySingleViolationExists(t *testing.T) {
 	}
 	if cfg.Drive.GoogleOAuthClientID != "" || cfg.Drive.FolderID != "" {
 		t.Fatal("violation時にstring fieldが組み立てられた")
+	}
+	if cfg.R2.AccessKeyID != nil || cfg.R2.SecretAccessKey != nil || cfg.R2.AccountID != "" || cfg.R2.Bucket != "" {
+		t.Fatal("violation時に R2 fieldが組み立てられた")
 	}
 }

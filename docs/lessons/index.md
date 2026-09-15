@@ -1,5 +1,10 @@
 # lessons
 
+- 2026-09-15 [feature/generator-r2-peer-binding-lookup] 1 branch に Writer 本実装と peer/Lookup A を同居させたまま PR すると review 境界が溶ける。完全分離できない依存は stacked PR（後続 base=先行 feature）で許容し、差分の見出しを Decision / Issue / stub に揃える  # → layer:workflow
+- 2026-09-15 [feature/generator-r2-write-adapter] user が「導入して gate する」と言った topic を、旧 Decision の optional / D 表記だけで「今はやらない」と読むな。intent と Decision がズレたら Decision を直し、Audit-only の C Issue を作らない  # → layer:workflow
+- 2026-09-15 [feature/generator-r2-write-adapter] shim が commit を明示していないのに manager が commit すると規約違反になる。無断 commit は revert で戻し、差分は unstaged に残して明示指示を待て。reset --hard は禁止範囲なので使わない  # → layer:workflow
+- 2026-09-15 [feature/generator-r2-write-adapter] lane の D 行は「まだ Load が別経路」という事実が消えたら即削除する。実装済み差分を残したまま D を置くと、次 session が同じ統合を再設計する  # → layer:workflow
+- 2026-09-15 [feature/generator-r2-write-adapter] Narrow Integration の AC（retry 等）を Sociable Unit に逃がすと Issue の検証契約が壊れる。AC が Narrow と書いたなら Narrow に残す  # → layer:terms
 - 2026-09-13 [feature/playback-now-playing-audio-listenability] user の文末が確認問い（？？／「〜しますよ？」）だけのとき、それを execute / edit 許可と読まない。許可は動詞が明示された指示（execute・書け・commit 等）に限る。確認を実装と取り違えると規約違反の無断 edit になる  # → layer:workflow
 - 2026-09-13 [feature/playback-now-playing-audio-listenability] 「将来やる方針」と「今 Issue 化する実施契約」を混ぜない。方針だけ固まった topic は Decision（と未決細部の lane）に留め、Acceptance が書けないまま C Issue を起こさない。user が「Decision だけ」と明示したら Issue 化案を押し戻す  # → layer:workflow
 - 2026-09-13 [feature/playback-now-playing-audio-listenability] HTTP 境界の共有定数と Infrastructure の配置定数を同一 module から import して揃えようとすると、層ルール（Infra が HTTP contracts を import 禁止）と衝突する。配置の正本は配置契約 doc に置き、HTTP 側と Infra 側はそれぞれがその値を持ち comment で正本を指す  # → layer:terms

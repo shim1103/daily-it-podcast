@@ -6,7 +6,8 @@ import (
 
 // configField は Config の field 順（Cursor.APIKey → Gemini.APIKey → Gemini.SpareAPIKey →
 // Drive.GoogleOAuthClientID → Drive.GoogleOAuthClientSecret →
-// Drive.GoogleOAuthRefreshToken → Drive.FolderID）に対応する。
+// Drive.GoogleOAuthRefreshToken → Drive.FolderID →
+// R2.AccessKeyID → R2.SecretAccessKey → R2.AccountID → R2.Bucket）に対応する。
 type configField int
 
 const (
@@ -17,6 +18,10 @@ const (
 	fieldGoogleOAuthClientSecret
 	fieldGoogleOAuthRefreshToken
 	fieldDriveFolderID
+	fieldR2AccessKeyID
+	fieldR2SecretAccessKey
+	fieldR2AccountID
+	fieldR2Bucket
 	configFieldCount
 )
 
@@ -28,6 +33,10 @@ var configFieldKeys = [configFieldCount]string{
 	fieldGoogleOAuthClientSecret: GoogleOAuthClientSecretEnv,
 	fieldGoogleOAuthRefreshToken: GoogleOAuthRefreshTokenEnv,
 	fieldDriveFolderID:           DriveFolderIDEnv,
+	fieldR2AccessKeyID:           R2AccessKeyIDEnv,
+	fieldR2SecretAccessKey:       R2SecretAccessKeyEnv,
+	fieldR2AccountID:             R2AccountIDEnv,
+	fieldR2Bucket:                R2BucketEnv,
 }
 
 // Load はprocess environmentを一度だけ読み、検証済みConfigを構築する。
@@ -65,6 +74,12 @@ func Load(lookup LookupEnv) (Config, error) {
 			GoogleOAuthClientSecret: newSecret(values[fieldGoogleOAuthClientSecret]),
 			GoogleOAuthRefreshToken: newSecret(values[fieldGoogleOAuthRefreshToken]),
 			FolderID:                values[fieldDriveFolderID],
+		},
+		R2: R2Config{
+			AccessKeyID:     newSecret(values[fieldR2AccessKeyID]),
+			SecretAccessKey: newSecret(values[fieldR2SecretAccessKey]),
+			AccountID:       values[fieldR2AccountID],
+			Bucket:          values[fieldR2Bucket],
 		},
 	}, nil
 }
