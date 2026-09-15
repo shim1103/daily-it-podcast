@@ -23,12 +23,12 @@
 10. ConcatWAV 後 ffmpeg で mp3 化し Drive へ書く — Port `WAVToMP3Encoder` の ffmpeg Adapter 本実装と `ProduceEpisode` 結線。deploy は playback lane `R-mp3-cutover`（読取と同着）。判断は Decision `2026-09-13T16-32-57` / `17-38-37`
 11. `httpget` helper・5 源 Narrow（controllable peer）・接続 cache（CI 外）— Decision `2026-09-14T13-06-11` / `15-05-00`
 12. mp3 同着切替 + wav 一括 + fixture（`audio-mp3-cutover-migrate`。達成契約 file 削除済み）。prod Drive は `{json,mp3}` のみ。`playback-e2e` PASS
+13. R2 `EpisodeWriter` 本実装・結線口（列 4）。達成契約 file 削除済み。本番正本は Drive のまま（列 6 で切替）。`R2_*` は `config.Load` 必須
 
 ### 未完了
 
-1. `generator-r2-write-adapter.md` — 列 4。R2 `EpisodeWriter` 本実装
-2. `r2-smoke-migrate-cutover.md` — 列 6（共有）
-3. `r2-post-cutover-verify-oauth.md` — 列 7（共有）
+1. `r2-smoke-migrate-cutover.md` — 列 6（共有）
+2. `r2-post-cutover-verify-oauth.md` — 列 7（共有）
 
 storage 実施順の正は Decision `2026-09-14T12-49-26` / `playback-lane.md` の実施順 index。
 
