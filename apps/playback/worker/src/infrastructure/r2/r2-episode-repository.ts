@@ -38,6 +38,12 @@ function isR2ObjectBodyLike(value: unknown): value is R2ObjectBodyLike {
  * 真の外部境界の I/O（list・get・bytes 取り出し）だけを担い、取得した原稿 json は decode したまま
  * 返す。schema 適合・stem 一致・不正 JSON・mp3 欠落の判定はしない（use-case が行う）。
  *
+ * why: R2 binding は HTTP ではなく Workers runtime の JS 関数呼び出し契約であり、controllable な
+ * local listener へ実送信する Narrow Integration の手法（`GoogleDriveEpisodeRepository` 参照）が
+ * 使えない。実 binding runtime（Miniflare）を挟む案は wrangler の transitive dependency への
+ * phantom import と内部限定 API 依存を伴い costに見合わないため採らず、Sociable Unit Test
+ * （`r2-episode-repository.sociable_unit.test.ts`）1本へ寄せる。
+ *
  * @require deps.bucket は Worker の R2 binding（配置契約は `contracts/episode-layout.md`）
  * @ensure R2 I/O 自体の失敗（list・get の例外・非 null だが不正形状の応答）は R2Error を throw する
  * @invariant R2 object key の実値を Error message に含めない
