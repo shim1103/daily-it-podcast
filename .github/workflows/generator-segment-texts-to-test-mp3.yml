@@ -1,21 +1,17 @@
-# scope: segmentTexts[] から TEST Drive へ mp3 だけ書く（dispatch 専用・gate 外・正常系）
+# scope: 完成稿 json から TTS→sec 更新→TEST Drive へ json+mp3（dispatch 専用・gate 外・正常系）
 # 実物: scripts/generator/segment-texts-to-test-mp3.sh → hack/segment-texts-to-mp3
 # double: なし（TEST_GEMINI_API_KEY + TEST Drive OAuth）
 # @require Go（version は apps/generator/go.mod）。ffmpeg。TEST_* secret/var が登録済み。
-# @ensure 入口が exit 0（TEST folder に {episode_id}.mp3）。
+# @ensure 入口が exit 0（TEST folder に {episodeId}.{json,mp3}。json の sec だけ TTS 後）。
 # @invariant 必須 Unit / Integration gate に載せない。cron を持たない。本番 credential を読まない。
-# @invariant json を書かない。細かい set verify をしない。secret 値を log に出さない。
+# @invariant 原稿 text は変えない。細かい set verify をしない。secret 値を log に出さない。
 name: generator-segment-texts-to-test-mp3
 
 on:
   workflow_dispatch:
     inputs:
-      episode_id:
-        description: "出力 stem（{episode_id}.mp3）"
-        required: true
-        type: string
-      segment_texts_json:
-        description: "segmentTexts[] の JSON 配列（一言一句）"
+      manuscript_json:
+        description: "完成稿 manuscript JSON 全文（sec 以外は一言一句維持）"
         required: true
         type: string
 
@@ -33,10 +29,9 @@ jobs:
       - name: ffmpeg を入れる
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
-      - name: segmentTexts → TEST mp3
+      - name: manuscript → sec 更新 + TEST json/mp3
         env:
-          EPISODE_ID: ${{ inputs.episode_id }}
-          SEGMENT_TEXTS_JSON: ${{ inputs.segment_texts_json }}
+          MANUSCRIPT_JSON: ${{ inputs.manuscript_json }}
           TEST_GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_API_KEY }}
           TEST_GOOGLE_OAUTH_CLIENT_ID: ${{ vars.TEST_GOOGLE_OAUTH_CLIENT_ID }}
           TEST_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.TEST_GOOGLE_OAUTH_CLIENT_SECRET }}

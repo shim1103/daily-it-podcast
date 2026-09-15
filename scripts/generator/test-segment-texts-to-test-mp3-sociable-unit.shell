@@ -24,10 +24,10 @@ if [ ! -x "$script" ]; then
 fi
 
 # --- case: 必須 env 欠落 ---
-# Given: EPISODE_ID 他を unset
+# Given: MANUSCRIPT_JSON 他を unset
 # When: segment-texts-to-test-mp3.sh を呼ぶ
 set +e
-env -u EPISODE_ID -u SEGMENT_TEXTS_JSON -u TEST_GEMINI_API_KEY \
+env -u MANUSCRIPT_JSON -u TEST_GEMINI_API_KEY \
   -u TEST_GOOGLE_OAUTH_CLIENT_ID -u TEST_GOOGLE_OAUTH_CLIENT_SECRET \
   -u TEST_GOOGLE_OAUTH_REFRESH_TOKEN -u TEST_DRIVE_FOLDER_ID \
   bash "$script"

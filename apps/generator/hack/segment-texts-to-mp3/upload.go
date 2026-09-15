@@ -13,8 +13,8 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
 )
 
-// mp3Uploader は TEST Drive folder へ mp3 1 本だけ書く（json は書かない）。
-type mp3Uploader struct {
+// driveUploader は TEST Drive folder へ json / mp3 を書く。
+type driveUploader struct {
 	http     *http.Client
 	tokens   tokenSource
 	folderID string
@@ -24,40 +24,44 @@ type tokenSource interface {
 	Token(ctx context.Context) (string, error)
 }
 
+// PutJSON は episodeID.json を folder 直下へ create/upload する。
+func (u *driveUploader) PutJSON(ctx context.Context, episodeID string, manuscript []byte) error {
+	return u.putFile(ctx, episodeID+".json", "application/json", manuscript)
+}
+
 // PutMP3 は episodeID.mp3 を folder 直下へ create/upload する。
-//
-// @require episodeID・mp3 非空。Drive OAuth 済み。
-// @ensure 同名があれば上書き upload。json は触らない。
-func (u *mp3Uploader) PutMP3(ctx context.Context, episodeID string, mp3 []byte) error {
+func (u *driveUploader) PutMP3(ctx context.Context, episodeID string, mp3 []byte) error {
+	return u.putFile(ctx, episodeID+".mp3", "audio/mpeg", mp3)
+}
+
+func (u *driveUploader) putFile(ctx context.Context, name, mime string, content []byte) error {
 	if u == nil || u.http == nil || u.tokens == nil {
 		return fmt.Errorf("uploader 未初期化")
 	}
-	episodeID = strings.TrimSpace(episodeID)
-	if episodeID == "" {
-		return fmt.Errorf("episodeID が空")
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("name が空")
 	}
-	if len(mp3) == 0 {
-		return fmt.Errorf("mp3 が空")
+	if len(content) == 0 {
+		return fmt.Errorf("%s が空", name)
 	}
 	token, err := u.tokens.Token(ctx)
 	if err != nil {
 		return fmt.Errorf("token: %w", err)
 	}
-	name := episodeID + ".mp3"
 	fileID, err := u.findFileID(ctx, token, name)
 	if err != nil {
 		return err
 	}
 	if fileID == "" {
-		fileID, err = u.createMetadata(ctx, token, name)
+		fileID, err = u.createMetadata(ctx, token, name, mime)
 		if err != nil {
 			return err
 		}
 	}
-	return u.uploadMedia(ctx, token, fileID, mp3)
+	return u.uploadMedia(ctx, token, fileID, mime, content)
 }
 
-func (u *mp3Uploader) findFileID(ctx context.Context, token, name string) (string, error) {
+func (u *driveUploader) findFileID(ctx context.Context, token, name string) (string, error) {
 	q := url.Values{}
 	q.Set("q", "name = '"+escapeDriveQueryValue(name)+"' and trashed = false")
 	q.Set("fields", "files(id)")
@@ -79,10 +83,10 @@ func (u *mp3Uploader) findFileID(ctx context.Context, token, name string) (strin
 	return parsed.Files[0].ID, nil
 }
 
-func (u *mp3Uploader) createMetadata(ctx context.Context, token, name string) (string, error) {
+func (u *driveUploader) createMetadata(ctx context.Context, token, name, mime string) (string, error) {
 	meta, err := json.Marshal(map[string]any{
 		"name":     name,
-		"mimeType": "audio/mpeg",
+		"mimeType": mime,
 		"parents":  []string{u.folderID},
 	})
 	if err != nil {
@@ -104,9 +108,9 @@ func (u *mp3Uploader) createMetadata(ctx context.Context, token, name string) (s
 	return parsed.ID, nil
 }
 
-func (u *mp3Uploader) uploadMedia(ctx context.Context, token, fileID string, content []byte) error {
+func (u *driveUploader) uploadMedia(ctx context.Context, token, fileID, mime string, content []byte) error {
 	target := gdrive.UploadURL + "/" + url.PathEscape(fileID) + "?uploadType=media"
-	res, err := u.do(ctx, http.MethodPatch, target, token, "audio/mpeg", content)
+	res, err := u.do(ctx, http.MethodPatch, target, token, mime, content)
 	if err != nil {
 		return fmt.Errorf("upload: %w", err)
 	}
@@ -118,7 +122,7 @@ func (u *mp3Uploader) uploadMedia(ctx context.Context, token, fileID string, con
 	return nil
 }
 
-func (u *mp3Uploader) do(ctx context.Context, method, target, token, contentType string, body []byte) (*http.Response, error) {
+func (u *driveUploader) do(ctx context.Context, method, target, token, contentType string, body []byte) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, target, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
