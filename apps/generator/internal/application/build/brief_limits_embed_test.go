@@ -1,12 +1,10 @@
 package build
 
 import (
-	"errors"
 	"strings"
 	"testing"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
-	domainerr "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
 )
 
 func TestEmbedManuscriptDraftLimits_replacesNumericPlaceholdersButKeepsDynamicOnes(t *testing.T) {
@@ -54,73 +52,5 @@ func TestEmbedManuscriptDraftLimits_leavesNoNumericPlaceholder_whenTemplateLists
 	// Then: 列挙した数値 placeholder が全て消えている
 	if strings.Contains(got, "{{") || strings.Contains(got, "}}") {
 		t.Fatalf("数値 placeholder が残っている: %q", got)
-	}
-}
-
-// TestLoadWriterOutputExampleJSON_returnsRaw_whenValid は embed 済み example が
-// loadWriterOutputExampleJSON を通り ManuscriptDraftFromWriterOutput も通ることを固定する。
-func TestLoadWriterOutputExampleJSON_returnsRaw_whenValid(t *testing.T) {
-	t.Parallel()
-
-	// Given: embed 済みの WriterOutput JSON 平文
-	raw := strings.TrimSpace(writerOutputExampleJSON)
-
-	// When: 読込と正当性検査をする
-	got, err := loadWriterOutputExampleJSON(raw)
-
-	// Then: error なしで同一 JSON が返り、ManuscriptDraftFromWriterOutput も通る
-	if err != nil {
-		t.Fatalf("loadWriterOutputExampleJSON: %v", err)
-	}
-	if got != raw {
-		t.Fatal("戻り JSON が入力と異なる")
-	}
-	if _, err := ManuscriptDraftFromWriterOutput(got); err != nil {
-		t.Fatalf("ManuscriptDraftFromWriterOutput: %v", err)
-	}
-}
-
-// TestLoadWriterOutputExampleJSON_returnsValidationErrorAsIs_whenInvalid は
-// invalid JSON のとき ManuscriptDraftFromWriterOutput の error を wrap せず返すことを固定する。
-func TestLoadWriterOutputExampleJSON_returnsValidationErrorAsIs_whenInvalid(t *testing.T) {
-	t.Parallel()
-
-	// Given: draft 検証に落ちる短い JSON と、同一 raw を直接検証したときの error
-	raw := `{"title":"短すぎる題","intro":"短い。","topics":[],"closingSummary":"短い。"}`
-	wantErr := mustManuscriptDraftErrForExampleLoad(t, raw)
-
-	// When: 読込検査する
-	_, gotErr := loadWriterOutputExampleJSON(raw)
-
-	// Then: ManuscriptDraftFromWriterOutput と同じ Domain Error がそのまま返る
-	if gotErr == nil {
-		t.Fatal("error を期待したが nil")
-	}
-	assertSameDomainErrForExampleLoad(t, gotErr, wantErr)
-}
-
-func mustManuscriptDraftErrForExampleLoad(t *testing.T, raw string) error {
-	t.Helper()
-	_, err := ManuscriptDraftFromWriterOutput(raw)
-	if err == nil {
-		t.Fatal("ManuscriptDraftFromWriterOutput が error を返さなかった")
-	}
-	return err
-}
-
-func assertSameDomainErrForExampleLoad(t *testing.T, got, want error) {
-	t.Helper()
-	var gotDE, wantDE *domainerr.Error
-	if !errors.As(got, &gotDE) {
-		t.Fatalf("got が Domain Error ではない: %T (%v)", got, got)
-	}
-	if !errors.As(want, &wantDE) {
-		t.Fatalf("want が Domain Error ではない: %T (%v)", want, want)
-	}
-	if gotDE.Op != wantDE.Op {
-		t.Fatalf("Op = %q, want %q", gotDE.Op, wantDE.Op)
-	}
-	if got.Error() != want.Error() {
-		t.Fatalf("error 文言が変わっている\ngot:  %s\nwant: %s", got.Error(), want.Error())
 	}
 }

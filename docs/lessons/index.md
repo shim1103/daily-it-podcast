@@ -1,10 +1,5 @@
 # lessons
 
-- 2026-09-15 [feature/generator-r2-peer-binding-lookup] 1 branch に Writer 本実装と peer/Lookup A を同居させたまま PR すると review 境界が溶ける。完全分離できない依存は stacked PR（後続 base=先行 feature）で許容し、差分の見出しを Decision / Issue / stub に揃える  # → layer:workflow
-- 2026-09-15 [feature/generator-r2-write-adapter] user が「導入して gate する」と言った topic を、旧 Decision の optional / D 表記だけで「今はやらない」と読むな。intent と Decision がズレたら Decision を直し、Audit-only の C Issue を作らない  # → layer:workflow
-- 2026-09-15 [feature/generator-r2-write-adapter] shim が commit を明示していないのに manager が commit すると規約違反になる。無断 commit は revert で戻し、差分は unstaged に残して明示指示を待て。reset --hard は禁止範囲なので使わない  # → layer:workflow
-- 2026-09-15 [feature/generator-r2-write-adapter] lane の D 行は「まだ Load が別経路」という事実が消えたら即削除する。実装済み差分を残したまま D を置くと、次 session が同じ統合を再設計する  # → layer:workflow
-- 2026-09-15 [feature/generator-r2-write-adapter] Narrow Integration の AC（retry 等）を Sociable Unit に逃がすと Issue の検証契約が壊れる。AC が Narrow と書いたなら Narrow に残す  # → layer:terms
 - 2026-09-13 [feature/playback-now-playing-audio-listenability] user の文末が確認問い（？？／「〜しますよ？」）だけのとき、それを execute / edit 許可と読まない。許可は動詞が明示された指示（execute・書け・commit 等）に限る。確認を実装と取り違えると規約違反の無断 edit になる  # → layer:workflow
 - 2026-09-13 [feature/playback-now-playing-audio-listenability] 「将来やる方針」と「今 Issue 化する実施契約」を混ぜない。方針だけ固まった topic は Decision（と未決細部の lane）に留め、Acceptance が書けないまま C Issue を起こさない。user が「Decision だけ」と明示したら Issue 化案を押し戻す  # → layer:workflow
 - 2026-09-13 [feature/playback-now-playing-audio-listenability] HTTP 境界の共有定数と Infrastructure の配置定数を同一 module から import して揃えようとすると、層ルール（Infra が HTTP contracts を import 禁止）と衝突する。配置の正本は配置契約 doc に置き、HTTP 側と Infra 側はそれぞれがその値を持ち comment で正本を指す  # → layer:terms
@@ -39,14 +34,7 @@
 - 2026-09-14 [feature/playback-audio-mp3-read] HTTP 契約の Content-Type と body の実形式を食い違わせない。test/dev fixture でも MIME に合うバイト列を返す  # → layer:terms
 - 2026-09-14 [feature/playback-audio-mp3-read] base 同期の modify/delete で完了済み Issue file が相手側に残るとき、削除側を維持する。進捗 index だけを済みへ更新する  # → layer:workflow
 - 2026-09-14 [feature/playback-audio-mp3-read] 巨大バイト列の深い等価比較は runner がタイムアウトしうる。配線 test は専用の bytes 比較に寄せ、形式契約は fixture 単体へ閉じる  # → layer:platform
-- 2026-09-14 [feature/generator-textwriter-brief-prompt-update] prompt 本文に閉じる指導文を、定数化された placeholder 契約と同じ test で固定しない。変更頻度が高く、検査対象が二重の SSoT になる  # → layer:terms
-- 2026-09-14 [feature/generator-textwriter-brief-prompt-update] unexported の検証が必要なら同一 package の既存 test file へ足す。package 境界のためだけに専用 file を増やさない  # → layer:terms
-- 2026-09-14 [feature/generator-textwriter-brief-prompt-update] 生成文の「耳で追える語り」と「検証を通す要点列挙」は別人格。後者に寄るなら brief 側でナレーター契約と推測禁止を明示する  # → layer:workflow
-- 2026-09-14 [feature/generator-textwriter-brief-prompt-update] episode title は main topic が分かれば足りる。番組目的の自明な問いかけで伸ばさない。intro の topic 列挙自体は問題にならず、推測過多と聞きにくさが問題になる  # → layer:terms
 - 2026-09-14 [chore/audio-mp3-cutover-migrate] 一度きりの運用入口を production の cmd / internal 本体と同じ置き場へ上げない。gate 外の使い捨て領域（hack 等）へ閉じ、入口 script だけを残す  # → layer:terms
 - 2026-09-14 [chore/audio-mp3-cutover-migrate] local に secret を置けない運用では、変換など secret 不要の作業と Drive 改変を分ける。後者だけ credential 付き workflow に載せる  # → layer:workflow
 - 2026-09-14 [chore/audio-mp3-cutover-migrate] 品質設定を持つ既存 Adapter がある変換を、同じ argv の shell 複製でやり直さない。既存入口へ bytes を渡して戻す  # → layer:terms
 - 2026-09-14 [chore/audio-mp3-cutover-migrate] 「完成ペアのみ」検証は許可 suffix の相互欠落だけでなく、許可外 object の残存も失敗にする。無視すると契約外 file が残る  # → layer:terms
-- 2026-09-15 [chore/orphan-mp3-run] 一度きりの運用入口は達成後に削除する。残置は「次も使うかも」より腐った入口の方が高い。復元は git 履歴で足りる  # → layer:workflow
-- 2026-09-15 [chore/orphan-mp3-run] 既存完成稿の音声だけ作り直すとき、原稿 text は触らず尺（startSec / durationSec）だけを新 TTS timeline へ書き戻す  # → layer:terms
-- 2026-09-15 [chore/orphan-mp3-run] 達成契約 file を消すときは進捗 index（lane）も同じ変更で済みへ移す。file だけ消すと未完了一覧が嘘になる  # → layer:workflow

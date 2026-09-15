@@ -23,15 +23,6 @@ type DriveConfig struct {
 	FolderID                string
 }
 
-// R2Config は Cloudflare R2（S3 互換）保存に必要なconfigである。
-// 本番 write/lookup の結線切替は列 6。Load では他 capability と同様に必須として検証する。
-type R2Config struct {
-	AccessKeyID     Secret
-	SecretAccessKey Secret
-	AccountID       string
-	Bucket          string
-}
-
 // Config はGeneratorがstartup時に確定するcapability別runtime configである。
 //
 // 全fieldが必須であること、およびvalidation violationの分類・集約順の契約はLoadを正とする。
@@ -41,5 +32,4 @@ type Config struct {
 	Cursor CursorConfig
 	Gemini GeminiConfig
 	Drive  DriveConfig
-	R2     R2Config
 }

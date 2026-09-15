@@ -10,7 +10,6 @@ import (
 // TestTextWriterBriefPrompt_hasAllNumericPlaceholders は、brief template が
 // build.embedManuscriptDraftLimits が埋める数値 placeholder 一式を漏れなく含むことを固定する。
 // prompt variant（testdata/brief_prompt_variant_*.txt）も同じ placeholder 集合を保つ前提。
-// prompt 本文に閉じる指導文（Purpose / Workflow / Draft content 等）は検査しない。
 func TestTextWriterBriefPrompt_hasAllNumericPlaceholders(t *testing.T) {
 	t.Parallel()
 
@@ -40,6 +39,27 @@ func TestTextWriterBriefPrompt_hasDynamicPlaceholders(t *testing.T) {
 	for _, ph := range []string{"{{SOURCES}}", "{{JSON_EXAMPLE}}"} {
 		if !strings.Contains(constants.TextWriterBriefPrompt, ph) {
 			t.Errorf("TextWriterBriefPrompt に動的 placeholder %s が無い", ph)
+		}
+	}
+}
+
+// TestTextWriterBriefPrompt_guidesDetailNewlines_whenParagraphBreakNeeded は
+// 改行を入れてよいのは topic.detail の中だけ・detail の段落は1個だけ・他 field は改行禁止の
+// 指導文があることを固定する（validation はしない）。
+func TestTextWriterBriefPrompt_guidesDetailNewlines_whenParagraphBreakNeeded(t *testing.T) {
+	t.Parallel()
+
+	p := constants.TextWriterBriefPrompt
+	required := []string{
+		"# topic detail",
+		"改行を入れてよいのは topic.detail の中だけ",
+		"段落は 1 個だけ",
+		"無意味な空白",
+		"title / intro / topic.title / topic.preface / closingSummary には改行を一切入れない",
+	}
+	for _, s := range required {
+		if !strings.Contains(p, s) {
+			t.Errorf("TextWriterBriefPrompt に %q が無い", s)
 		}
 	}
 }

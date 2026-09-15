@@ -43,10 +43,6 @@ jobs:
           GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.TEST_GOOGLE_OAUTH_REFRESH_TOKEN }}
           GOOGLE_OAUTH_CLIENT_ID: ${{ vars.TEST_GOOGLE_OAUTH_CLIENT_ID }}
           DRIVE_FOLDER_ID: ${{ vars.TEST_DRIVE_FOLDER_ID }}
-          R2_ACCOUNT_ID: ${{ vars.TEST_R2_ACCOUNT_ID }}
-          R2_BUCKET: ${{ vars.TEST_R2_BUCKET }}
-          R2_ACCESS_KEY_ID: ${{ secrets.TEST_R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.TEST_R2_SECRET_ACCESS_KEY }}
         run: ./scripts/generator/test-system.sh
 
       - name: PASS 率を summary へ

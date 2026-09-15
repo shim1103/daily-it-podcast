@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# name: test-segment-texts-to-test-mp3-sociable-unit
+# description: segment-texts-to-test-mp3 入口と hack pipeline の契約を確認する。
+# @require リポジトリ内から呼ぶ。bash 3.2+。Go が PATH にある。
+# @ensure hack unit が緑。必須 env 欠落は非0。
+# @invariant 実 Gemini / Drive へ出ない。credential を設定しない。
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+script="${root}/scripts/generator/segment-texts-to-test-mp3.sh"
+
+# --- case: hack segment-texts-to-mp3 unit ---
+# Given: hack/segment-texts-to-mp3 package
+# When: go test を実行する
+# Then: exit 0
+(
+  cd "$root/apps/generator"
+  go test ./hack/segment-texts-to-mp3/ -count=1
+)
+
+if [ ! -x "$script" ]; then
+  echo "FAIL: ${script} が実行可能でない" >&2
+  exit 1
+fi
+
+# --- case: 必須 env 欠落 ---
+# Given: EPISODE_ID 他を unset
+# When: segment-texts-to-test-mp3.sh を呼ぶ
+set +e
+env -u EPISODE_ID -u SEGMENT_TEXTS_JSON -u TEST_GEMINI_API_KEY \
+  -u TEST_GOOGLE_OAUTH_CLIENT_ID -u TEST_GOOGLE_OAUTH_CLIENT_SECRET \
+  -u TEST_GOOGLE_OAUTH_REFRESH_TOKEN -u TEST_DRIVE_FOLDER_ID \
+  bash "$script"
+status=$?
+set -e
+# Then: 非0
+if [ "$status" -eq 0 ]; then
+  echo "FAIL: 必須 env 欠落なのに exit 0" >&2
+  exit 1
+fi
+
+echo "PASS: segment-texts-to-test-mp3 sociable unit"

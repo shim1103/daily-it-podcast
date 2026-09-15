@@ -37,8 +37,6 @@ export default defineConfig({
             "web/vite-config.sociable_unit.test.ts",
             "web/src/**/*sociable_unit*.test.ts",
             "worker/src/**/*sociable_unit*.test.ts",
-            // why: C1 A 足場（getPlatformProxy local binding 入口）。support は製品 coverage 分母外
-            "test/support/**/*sociable_unit*.test.ts",
             // why: secret なし NI を Unit coverage 分母へ算入する（Decision 2026-08-30T16-20-01）
             "test/integration/**/*narrow_integration*.test.ts",
             // why: frontend Broad は真の外部を Stub せず経路がそのまま製品ロジックの実行になるため
