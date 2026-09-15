@@ -407,3 +407,38 @@ func TestHasPair_returnsInfrastructureError_whenLookupNil(t *testing.T) {
 		t.Fatalf("Error() = %q", infra.Error())
 	}
 }
+
+func TestHasPair_listsOnEndpointBaseHost_whenWithEndpointBase(t *testing.T) {
+	t.Parallel()
+
+	// Given: endpoint base を上書きした Lookup（空 bucket list）
+	rt := &seqRoundTripper{resps: []stubResp{
+		{Status: http.StatusOK, Body: listObjectsV2XML()},
+	}}
+	lookup := newStubLookup(rt).WithEndpointBase(" http://127.0.0.1:18787/cdn-cgi/local/r2/s3 ")
+
+	// When: 照会する
+	got, err := lookup.HasPair(context.Background(), "2099-01-01")
+
+	// Then: override host へ list。false・error 無し
+	if err != nil {
+		t.Fatalf("HasPair: %v", err)
+	}
+	if got {
+		t.Fatal("HasPair = true, want false")
+	}
+	if len(rt.calls) != 1 {
+		t.Fatalf("calls = %d, want 1", len(rt.calls))
+	}
+	if rt.calls[0].Host != "127.0.0.1:18787" {
+		t.Fatalf("host = %q, want 127.0.0.1:18787", rt.calls[0].Host)
+	}
+}
+
+func TestCompletedEpisodeLookup_WithEndpointBase_returnsNil_whenReceiverNil(t *testing.T) {
+	t.Parallel()
+	var lookup *r2.CompletedEpisodeLookup
+	if got := lookup.WithEndpointBase("http://127.0.0.1:1/x"); got != nil {
+		t.Fatalf("got = %v, want nil", got)
+	}
+}

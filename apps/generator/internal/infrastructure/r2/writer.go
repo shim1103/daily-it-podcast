@@ -23,7 +23,8 @@ type EpisodeWriter struct {
 	secretAccessKey string
 	accountID       string
 	bucket          string
-	now             func() time.Time
+	endpointOverride
+	now func() time.Time
 }
 
 // NewEpisodeWriter は R2 EpisodeWriter を返す。
@@ -40,6 +41,20 @@ func NewEpisodeWriter(httpClient *http.Client, accessKeyID, secretAccessKey, acc
 		bucket:          bucket,
 		now:             time.Now,
 	}
+}
+
+// WithEndpointBase は本番 Account ID host の代わりに使う S3 互換 endpoint base を返す。
+// local S3 gate peer（`/cdn-cgi/local/r2/s3`）向け。空のままなら本番 URL。
+//
+// @require base は scheme+host を持つ絶対 URL（trailing slash 可）。
+// @ensure 戻りは endpointBase を持つ別 *EpisodeWriter。受信者は変更しない。
+func (w *EpisodeWriter) WithEndpointBase(base string) *EpisodeWriter {
+	if w == nil {
+		return nil
+	}
+	cp := *w
+	cp.endpointOverride = cp.withBase(base)
+	return &cp
 }
 
 // Write は原稿と音声を所定 bucket へ公開順（json → mp3）で put する。同 key は upsert。
@@ -100,5 +115,8 @@ func (w *EpisodeWriter) putOnce(ctx context.Context, objectName, mime string, co
 }
 
 func (w *EpisodeWriter) objectURL(objectName string) (string, error) {
+	if w.endpointBase != "" {
+		return buildObjectURLFromBase(w.endpointBase, w.bucket, objectName)
+	}
 	return buildObjectURL(w.accountID, w.bucket, objectName)
 }
