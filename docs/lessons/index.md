@@ -42,3 +42,6 @@
 - 2026-09-14 [chore/audio-mp3-cutover-migrate] local に secret を置けない運用では、変換など secret 不要の作業と Drive 改変を分ける。後者だけ credential 付き workflow に載せる  # → layer:workflow
 - 2026-09-14 [chore/audio-mp3-cutover-migrate] 品質設定を持つ既存 Adapter がある変換を、同じ argv の shell 複製でやり直さない。既存入口へ bytes を渡して戻す  # → layer:terms
 - 2026-09-14 [chore/audio-mp3-cutover-migrate] 「完成ペアのみ」検証は許可 suffix の相互欠落だけでなく、許可外 object の残存も失敗にする。無視すると契約外 file が残る  # → layer:terms
+- 2026-09-15 [chore/orphan-mp3-run] 一度きりの運用入口は達成後に削除する。残置は「次も使うかも」より腐った入口の方が高い。復元は git 履歴で足りる  # → layer:workflow
+- 2026-09-15 [chore/orphan-mp3-run] 既存完成稿の音声だけ作り直すとき、原稿 text は触らず尺（startSec / durationSec）だけを新 TTS timeline へ書き戻す  # → layer:terms
+- 2026-09-15 [chore/orphan-mp3-run] 達成契約 file を消すときは進捗 index（lane）も同じ変更で済みへ移す。file だけ消すと未完了一覧が嘘になる  # → layer:workflow
