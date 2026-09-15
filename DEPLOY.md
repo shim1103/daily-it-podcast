@@ -86,7 +86,7 @@ GitHub Actions（Settings → Secrets and variables → Actions）:
 
 workflow が test 登録名を process env 名へ写す。Generator は `TEST_` を知らない。
 
-R2 key は上表（値は書かない）。workflow 注入と Composition 結線は列 4・6（Decision `2026-09-14T12-49-26`）。
+R2 key は上表（値は書かない）。`config.Load` 必須と workflow 注入は列 4。本番 write/lookup の Composition 結線切替は列 6（Decision `2026-09-14T12-49-26`）。
 
 `GEMINI_API_KEY` は TTS、`SPARE_GEMINI_API_KEY` は原稿 fallback（Gemini generateContent）。分ける理由は `GeminiConfig`（`internal/config/config.go`）の invariant を正とする。System test は両方を要求する。
 
@@ -113,7 +113,7 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 `-tags=system` の system test を **1 回ずつ通すだけ**。「壊れていないか」だけを測り、PASS 率は定常で測らない。1 回でも FAIL なら run が赤。判断: `docs/decisions/2026-09-03T14-45-00` / `16-30-00`。
 
 - 実体は `TestProduceEpisodeSystem`（`//go:build system`）1 本。`composition.NewProduceEpisodeFromEnv` → `Run` を 1 度通し、実 3 情報源 → Cursor API 原稿 → Gemini TTS → OAuth+Drive 書込 の疎通と通し経路の Drive 実到達を見る。Fetch 窓に SourceItem 0 件だった日は `no_source_items` Domain Error で PASS 扱い（fetch は疎通しており system は壊れていない）。他の error は system 故障として赤。
-- 必要 credential は config 契約の全 key（`TEST_CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` / `TEST_SPARE_GEMINI_API_KEY` / `TEST_GOOGLE_OAUTH_*` / `TEST_DRIVE_FOLDER_ID`）。1 つでも欠けたら Skip。
+- 必要 credential は config 契約の全 key（`TEST_CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` / `TEST_SPARE_GEMINI_API_KEY` / `TEST_GOOGLE_OAUTH_*` / `TEST_DRIVE_FOLDER_ID` / `TEST_R2_*`）。1 つでも欠けたら Skip。
 - cron の 1 回通しが **2 週連続で落ちたら** bug 扱いで Issue 化する。1 週だけの赤は provider 起因として再 `workflow_dispatch` する。
 - 赤になったら故障区間に応じて `generator-tts-rate.yml`（TTS 側）/ `generator-draft-rate.yml`（Cursor 原稿側）を手動 dispatch して切り分ける。
 - 定時緑化を運用目標にするのは課金枠移行後。無料枠のうちは「dispatch で回せたとき緑」で可。

@@ -23,17 +23,6 @@ const (
 	testBucket          = "r2-test-bucket-real-value"
 )
 
-func testCredentials() r2.Credentials {
-	return r2.Credentials{
-		AccessKeyID:     testAccessKeyID,
-		SecretAccessKey: testSecretAccessKey,
-	}
-}
-
-func testEndpoint() r2.Endpoint {
-	return r2.Endpoint{AccountID: testAccountID, Bucket: testBucket}
-}
-
 type stubCall struct {
 	Method      string
 	Path        string
@@ -91,8 +80,10 @@ func (rt *seqRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 func newStubWriter(rt *seqRoundTripper) *r2.EpisodeWriter {
 	return r2.NewEpisodeWriter(
 		&http.Client{Transport: rt},
-		testCredentials(),
-		testEndpoint(),
+		testAccessKeyID,
+		testSecretAccessKey,
+		testAccountID,
+		testBucket,
 	)
 }
 
@@ -117,7 +108,7 @@ func TestWrite_retriesOnce_whenPutReturns5xxThenSucceeds(t *testing.T) {
 	}}
 	w := newStubWriter(rt)
 
-	// When
+	// When: Write する
 	err := w.Write(context.Background(), "ep-r5", []byte(`{}`), models.SpeechAudio{Content: []byte("a")})
 
 	// Then: 有限 retry 後に成功。json path が 2 回
@@ -138,6 +129,7 @@ func TestWrite_retriesOnce_whenPutReturns5xxThenSucceeds(t *testing.T) {
 func TestWrite_retriesOnce_whenPutReturns429ThenSucceeds(t *testing.T) {
 	t.Parallel()
 
+	// Given: json が 429→200、mp3 が 200
 	rt := &seqRoundTripper{resps: []stubResp{
 		{Status: http.StatusTooManyRequests},
 		{Status: http.StatusOK},
@@ -145,7 +137,10 @@ func TestWrite_retriesOnce_whenPutReturns429ThenSucceeds(t *testing.T) {
 	}}
 	w := newStubWriter(rt)
 
+	// When: Write する
 	err := w.Write(context.Background(), "ep-r429", []byte(`{}`), models.SpeechAudio{Content: []byte("a")})
+
+	// Then: 有限 retry 後に成功。PUT は 3 回
 	if err != nil {
 		t.Fatalf("Write: %v", err)
 	}
@@ -157,6 +152,7 @@ func TestWrite_retriesOnce_whenPutReturns429ThenSucceeds(t *testing.T) {
 func TestWrite_retriesOnce_whenNetworkFailsThenSucceeds(t *testing.T) {
 	t.Parallel()
 
+	// Given: 初回 network fail、続く json/mp3 は 200
 	rt := &seqRoundTripper{resps: []stubResp{
 		{Err: errors.New("connection reset")},
 		{Status: http.StatusOK},
@@ -164,7 +160,10 @@ func TestWrite_retriesOnce_whenNetworkFailsThenSucceeds(t *testing.T) {
 	}}
 	w := newStubWriter(rt)
 
+	// When: Write する
 	err := w.Write(context.Background(), "ep-net", []byte(`{}`), models.SpeechAudio{Content: []byte("a")})
+
+	// Then: network 有限 retry 後に成功。PUT は 3 回
 	if err != nil {
 		t.Fatalf("Write: %v", err)
 	}
@@ -176,13 +175,17 @@ func TestWrite_retriesOnce_whenNetworkFailsThenSucceeds(t *testing.T) {
 func TestWrite_failsFastWithoutRetry_whenPutReturns4xxOtherThan429(t *testing.T) {
 	t.Parallel()
 
+	// Given: json が 403、続きの応答は到達しない想定
 	rt := &seqRoundTripper{resps: []stubResp{
 		{Status: http.StatusForbidden, Body: "denied"},
 		{Status: http.StatusOK}, // 到達しない想定
 	}}
 	w := newStubWriter(rt)
 
+	// When: Write する
 	err := w.Write(context.Background(), "ep-4xx", []byte(`{}`), models.SpeechAudio{Content: []byte("a")})
+
+	// Then: fail-fast で 1 回だけ PUT。*adaptererror.Error・secret/key 非露出
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -205,13 +208,17 @@ func TestWrite_failsFastWithoutRetry_whenPutReturns4xxOtherThan429(t *testing.T)
 func TestWrite_returnsInfrastructureErrorWithoutSecrets_when5xxExhaustsRetries(t *testing.T) {
 	t.Parallel()
 
+	// Given: json put が常に 502（有限 retry を使い切る）
 	rt := &seqRoundTripper{resps: []stubResp{
 		{Status: http.StatusBadGateway},
 		{Status: http.StatusBadGateway},
 	}}
 	w := newStubWriter(rt)
 
+	// When: Write する
 	err := w.Write(context.Background(), "ep-ex", []byte(`{}`), models.SpeechAudio{Content: []byte("a")})
+
+	// Then: *adaptererror.Error・secret/key 非露出。PUT は 2 回で打ち切る
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -231,8 +238,13 @@ func TestWrite_returnsInfrastructureErrorWithoutSecrets_when5xxExhaustsRetries(t
 func TestWrite_returnsInfrastructureError_whenClientNil(t *testing.T) {
 	t.Parallel()
 
-	w := r2.NewEpisodeWriter(nil, testCredentials(), testEndpoint())
+	// Given: http.Client が nil の EpisodeWriter
+	w := r2.NewEpisodeWriter(nil, testAccessKeyID, testSecretAccessKey, testAccountID, testBucket)
+
+	// When: Write する
 	err := w.Write(context.Background(), "ep-1", []byte(`{}`), models.SpeechAudio{Content: []byte("a")})
+
+	// Then: *adaptererror.Error かつ secret 非露出
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -246,8 +258,13 @@ func TestWrite_returnsInfrastructureError_whenClientNil(t *testing.T) {
 func TestWrite_returnsInfrastructureError_whenWriterNil(t *testing.T) {
 	t.Parallel()
 
+	// Given: nil の *EpisodeWriter
 	var w *r2.EpisodeWriter
+
+	// When: Write する
 	err := w.Write(context.Background(), "ep-1", []byte(`{}`), models.SpeechAudio{Content: []byte("a")})
+
+	// Then: *adaptererror.Error（r2: prefix）
 	if err == nil {
 		t.Fatal("expected error")
 	}

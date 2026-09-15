@@ -38,7 +38,7 @@ deploy・Access・GHA 運用の正: `DEPLOY.md`
 | 1 | `generator-audio-mp3-encode-write` | **済み**（達成契約 file 削除済み） |
 | 2 | `playback-audio-mp3-read` | **済み**（達成契約 file 削除済み） |
 | 3 | `audio-mp3-cutover-migrate` | 旧 `R-mp3-cutover` + `R-mp3-migrate` を吸収 |
-| 4 | `generator-r2-write-adapter` | generator lane |
+| 4 | `generator-r2-write-adapter` | generator lane。**Writer 済み**（達成契約 file 削除済み） |
 | 5 | `playback-r2-read-adapter` | 本 lane |
 | 6 | `r2-smoke-migrate-cutover` | 旧 `R-r2-cutover` の切替達成を吸収。登録手順は書かない |
 | 7 | `r2-post-cutover-verify-oauth` | System/E2E 後に OAuth 削除 |
