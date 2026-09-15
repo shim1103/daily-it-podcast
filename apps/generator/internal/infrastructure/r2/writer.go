@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
@@ -63,18 +62,11 @@ func (w *EpisodeWriter) Write(ctx context.Context, episodeID string, manuscript 
 }
 
 func (w *EpisodeWriter) putObject(ctx context.Context, objectName, mime string, content []byte) error {
-	var last error
-	for attempt := 1; attempt <= maxPutAttempts; attempt++ {
-		retryable, err := w.putOnce(ctx, objectName, mime, content)
-		if err == nil {
-			return nil
-		}
-		last = err
-		if !retryable {
-			return err
-		}
-	}
-	return last
+	_, err := retryLoop(maxPutAttempts, func() (bool, struct{}, error) {
+		retryable, opErr := w.putOnce(ctx, objectName, mime, content)
+		return retryable, struct{}{}, opErr
+	})
+	return err
 }
 
 func (w *EpisodeWriter) putOnce(ctx context.Context, objectName, mime string, content []byte) (retryable bool, err error) {
@@ -108,14 +100,5 @@ func (w *EpisodeWriter) putOnce(ctx context.Context, objectName, mime string, co
 }
 
 func (w *EpisodeWriter) objectURL(objectName string) (string, error) {
-	if w.accountID == "" || w.bucket == "" {
-		return "", fmt.Errorf("endpoint incomplete")
-	}
-	// why: path-style PutObject。host は Account ID 由来だが error へ載せない。
-	u := &url.URL{
-		Scheme: "https",
-		Host:   w.accountID + ".r2.cloudflarestorage.com",
-		Path:   "/" + w.bucket + "/" + objectName,
-	}
-	return u.String(), nil
+	return buildObjectURL(w.accountID, w.bucket, objectName)
 }
