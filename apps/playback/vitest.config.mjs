@@ -44,7 +44,7 @@ export default defineConfig({
             "test/integration/episode_list_page.broad_integration.test.ts",
           ],
           exclude: [
-            // why: getPlatformProxy 実起動は SU/unit に載せない（Decision 2026-09-15T12-02-48 §1-8）
+            // why: getPlatformProxy 実起動は SU/unit に載せない（Decision 2026-09-16T00-20-08）
             "test/integration/local_r2_binding.narrow_integration.test.ts",
           ],
           passWithNoTests: true,

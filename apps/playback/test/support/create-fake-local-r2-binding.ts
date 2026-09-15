@@ -4,7 +4,7 @@ import type { R2BucketBinding } from "../../worker/src/infrastructure/r2/r2-epis
 /**
  * SU 用 Fake local R2 binding。実 getPlatformProxy / wrangler を起動しない。
  *
- * 正: docs/decisions/2026-09-15T12-02-48-feature-generator-r2-write-adapter.md §1-8
+ * 正: docs/decisions/2026-09-16T00-20-08-feature-generator-r2-test-peer-scope.md
  *
  * @ensure 空 list / null get の bucket と no-op dispose を返す。
  */

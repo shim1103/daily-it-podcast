@@ -4,7 +4,7 @@ import type { R2BucketBinding } from "../../worker/src/infrastructure/r2/r2-epis
  * local R2 binding（getPlatformProxy）の注入ハンドル。
  * 本番 Worker env ではない。列 5 が Adapter に渡す入口。
  *
- * 正: docs/decisions/2026-09-15T12-02-48-feature-generator-r2-write-adapter.md
+ * 正: docs/decisions/2026-09-16T00-20-08-feature-generator-r2-test-peer-scope.md
  */
 export type LocalR2BindingHandle = {
   bucket: R2BucketBinding;
