@@ -160,7 +160,7 @@ local 実行時の path env 名は `PLAYWRIGHT_STORAGE_STATE`（GHA には登録
 
 手動確認: `gh workflow run playback-e2e.yml --ref <branch>`（Secret 付き）。
 
-安定 fixture（`apps/playback/test/e2e/fixtures/stable-episode/`）は本番 `DRIVE_FOLDER_ID` **直下**に json+wav を置く。日次 produce が増えても残す。
+安定 fixture（`apps/playback/test/e2e/fixtures/stable-episode/`）は本番 `DRIVE_FOLDER_ID` **直下**に置く。配置契約は mp3（`contracts/episode-layout.md`）。日次 produce が増えても fixture pair は残す。
 
 ## 6. 再 deploy
 

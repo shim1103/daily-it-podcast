@@ -38,3 +38,14 @@
 - 2026-09-14 [feature/playback-audio-mp3-read] HTTP 契約の Content-Type と body の実形式を食い違わせない。test/dev fixture でも MIME に合うバイト列を返す  # → layer:terms
 - 2026-09-14 [feature/playback-audio-mp3-read] base 同期の modify/delete で完了済み Issue file が相手側に残るとき、削除側を維持する。進捗 index だけを済みへ更新する  # → layer:workflow
 - 2026-09-14 [feature/playback-audio-mp3-read] 巨大バイト列の深い等価比較は runner がタイムアウトしうる。配線 test は専用の bytes 比較に寄せ、形式契約は fixture 単体へ閉じる  # → layer:platform
+- 2026-09-14 [feature/generator-textwriter-brief-prompt-update] prompt 本文に閉じる指導文を、定数化された placeholder 契約と同じ test で固定しない。変更頻度が高く、検査対象が二重の SSoT になる  # → layer:terms
+- 2026-09-14 [feature/generator-textwriter-brief-prompt-update] unexported の検証が必要なら同一 package の既存 test file へ足す。package 境界のためだけに専用 file を増やさない  # → layer:terms
+- 2026-09-14 [feature/generator-textwriter-brief-prompt-update] 生成文の「耳で追える語り」と「検証を通す要点列挙」は別人格。後者に寄るなら brief 側でナレーター契約と推測禁止を明示する  # → layer:workflow
+- 2026-09-14 [feature/generator-textwriter-brief-prompt-update] episode title は main topic が分かれば足りる。番組目的の自明な問いかけで伸ばさない。intro の topic 列挙自体は問題にならず、推測過多と聞きにくさが問題になる  # → layer:terms
+- 2026-09-14 [chore/audio-mp3-cutover-migrate] 一度きりの運用入口を production の cmd / internal 本体と同じ置き場へ上げない。gate 外の使い捨て領域（hack 等）へ閉じ、入口 script だけを残す  # → layer:terms
+- 2026-09-14 [chore/audio-mp3-cutover-migrate] local に secret を置けない運用では、変換など secret 不要の作業と Drive 改変を分ける。後者だけ credential 付き workflow に載せる  # → layer:workflow
+- 2026-09-14 [chore/audio-mp3-cutover-migrate] 品質設定を持つ既存 Adapter がある変換を、同じ argv の shell 複製でやり直さない。既存入口へ bytes を渡して戻す  # → layer:terms
+- 2026-09-14 [chore/audio-mp3-cutover-migrate] 「完成ペアのみ」検証は許可 suffix の相互欠落だけでなく、許可外 object の残存も失敗にする。無視すると契約外 file が残る  # → layer:terms
+- 2026-09-15 [chore/orphan-mp3-run] 一度きりの運用入口は達成後に削除する。残置は「次も使うかも」より腐った入口の方が高い。復元は git 履歴で足りる  # → layer:workflow
+- 2026-09-15 [chore/orphan-mp3-run] 既存完成稿の音声だけ作り直すとき、原稿 text は触らず尺（startSec / durationSec）だけを新 TTS timeline へ書き戻す  # → layer:terms
+- 2026-09-15 [chore/orphan-mp3-run] 達成契約 file を消すときは進捗 index（lane）も同じ変更で済みへ移す。file だけ消すと未完了一覧が嘘になる  # → layer:workflow

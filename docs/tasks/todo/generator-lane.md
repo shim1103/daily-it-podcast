@@ -22,13 +22,13 @@
 9. 原稿 fallback の Gemini key を TTS と分離 — `GeminiConfig.SpareAPIKey`（`SPARE_GEMINI_API_KEY`）を新設し `newGeminiTextWriter` だけをそれへ。TTS は `GEMINI_API_KEY` 据え置き。GHA は本番 `SPARE_GEMINI_API_KEY` / System `TEST_SPARE_GEMINI_API_KEY`。`generator-system.yml` run 34298458327 で config 変更 + fallback 実切替の e2e を実証。判断は Decision `2026-09-09T10-00-00`
 10. ConcatWAV 後 ffmpeg で mp3 化し Drive へ書く — Port `WAVToMP3Encoder` の ffmpeg Adapter 本実装と `ProduceEpisode` 結線。deploy は playback lane `R-mp3-cutover`（読取と同着）。判断は Decision `2026-09-13T16-32-57` / `17-38-37`
 11. `httpget` helper・5 源 Narrow（controllable peer）・接続 cache（CI 外）— Decision `2026-09-14T13-06-11` / `15-05-00`
-12. R2 `EpisodeWriter` 本実装・結線口（列 4）。達成契約 file 削除済み。本番正本は Drive のまま（列 6 で切替）。`R2_*` は `config.Load` 必須
+12. mp3 同着切替 + wav 一括 + fixture（`audio-mp3-cutover-migrate`。達成契約 file 削除済み）。prod Drive は `{json,mp3}` のみ。`playback-e2e` PASS
+13. R2 `EpisodeWriter` 本実装・結線口（列 4）。達成契約 file 削除済み。本番正本は Drive のまま（列 6 で切替）。`R2_*` は `config.Load` 必須
 
 ### 未完了
 
-1. `audio-mp3-cutover-migrate.md` — 列 3（共有）。mp3 同着切替 + wav 一括 + fixture（列 1 encode は済み）
-2. `r2-smoke-migrate-cutover.md` — 列 6（共有）
-3. `r2-post-cutover-verify-oauth.md` — 列 7（共有）
+1. `r2-smoke-migrate-cutover.md` — 列 6（共有）
+2. `r2-post-cutover-verify-oauth.md` — 列 7（共有）
 
 storage 実施順の正は Decision `2026-09-14T12-49-26` / `playback-lane.md` の実施順 index。
 
@@ -42,7 +42,7 @@ storage 実施順の正は Decision `2026-09-14T12-49-26` / `playback-lane.md` �
 | 本番 produce workflow_dispatch（key 分離後）| 済み 9 の変更を本番 `generator-produce-episode.yml` で通す確認が未実施。session 当日は本番 Gemini 枠が 429 中だったため見送り。次の枠回復日に `gh workflow run generator-produce-episode.yml --ref feature/generator-gemini-key-spare`（または merge 後 master）で 1 回回す。本番 `SPARE_GEMINI_API_KEY` の GHA 登録は shim 済み前提 |
 | 挨拶文案 | Opening/Closing 定数は date placeholder 入り template で確定。実運用での文言微調整のみ残 |
 | composite の source またぎ sort | 情報源で `OccurredAt` 順の混在が起きる。dedup は `SourceID` が全源で異なるため不要。時系列 sort を Application/Composition のどちらで持つかは別判断（事実: 現状は登録順 concat のみ） |
-| TextWriter prompt の P1/P2 | purpose1/purpose2 の書き分け・全体 summary は TextWriter prompt（D）。源セットは Decision `2026-09-13T15-08-55` |
+| TextWriter prompt の P1/P2 | purpose1/purpose2 の書き分け・選出 Workflow・target 狙い・draft meta 禁止は `constants.TextWriterBriefPrompt` へ実装済み（正本は Decision `2026-09-13T15-08-55` / `17-14-00`）。残るのは `generator-draft-rate` で cursor / gemini の PASS 率再測（済み 8 の cursor 影響行と接続） |
 | Links 件数→UseCase 先 fetch | `SourceBody.Links` 件数を見て TextWriter fetch 上限前に Application が先 fetch するかは未決。Adapter HTML scrape はしない（`14-41-02`） |
 | 議論 comment のスレッド深掘り | HN / Lobsters は 1 階層のみ取得（上限は Adapter 定数）。ネストした議論を辿るかは未決 |
 | TextWriter の web_fetch / url_context 実測 | `Detail.Links` / `Discourse.Links` を Cloud Agents / Gemini 経路が実際に fetch できるか・件数上限は未実測 |
