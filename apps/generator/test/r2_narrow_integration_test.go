@@ -1,8 +1,8 @@
 // Scope: Narrow Integration
-// 実物境界: r2.EpisodeWriter が標準 *http.Client で送信する外向き HTTPS PutObject（test upstream server）
-// Double: 本番 R2 peer は使わない。DialTLSContext で Account ID 由来 host 宛先だけを test server へ redirect する。
+// 実物境界: r2.EpisodeWriter / r2.CompletedEpisodeLookup が標準 *http.Client で送信する外向き HTTPS PutObject / ListObjectsV2 / GetObject（test upstream server）
+// Double: 本番 R2 peer は使わない。DialTLSContext で Account ID 由来 host 宛先だけを test server へ redirect する（httptest 経路。experimental local S3 gate は C1 依存で別 Verification）。
 // @require dummy credential / Account ID / bucket を Adapter へ直接渡す。upstream は controllable な test server。
-// @ensure path-style Host / フル path・SigV4 Authorization と、成功系代表（json→mp3 順・MIME・upsert）を観測できる。
+// @ensure path-style Host / フル path・SigV4 Authorization と、成功系代表（Writer: json→mp3 順・MIME・upsert。Lookup: List→Get→date 一致判定）を観測できる。
 // @ensure 5xx / network の有限 retry と、その他 4xx の fail-fast を実 *http.Client + TLS double 経由で観測できる。
 // @invariant error message に bucket・key・Account ID・Access Key・secret 実値を含めない。
 package test
@@ -94,6 +94,46 @@ func newR2WriterWithProxyDial(t *testing.T, handler http.HandlerFunc, dial func(
 		r2NarrowBucket,
 	)
 	return w, calls
+}
+
+// newR2LookupWithProxy は httptest TLS double を刺した r2.CompletedEpisodeLookup を返す。
+// Writer 用 newR2WriterWithProxy と同型の DialTLSContext redirect を使う。
+func newR2LookupWithProxy(t *testing.T, handler http.HandlerFunc) (*r2.CompletedEpisodeLookup, *[]r2NarrowCall) {
+	t.Helper()
+	calls := &[]r2NarrowCall{}
+	var mu sync.Mutex
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read upstream body: %v", err)
+		}
+		mu.Lock()
+		*calls = append(*calls, r2NarrowCall{
+			Method: r.Method,
+			Path:   r.URL.EscapedPath(),
+			Host:   r.Host,
+			Auth:   r.Header.Get("Authorization"),
+		})
+		mu.Unlock()
+		r.Body = io.NopCloser(bytes.NewReader(body))
+		handler(w, r)
+	}))
+	t.Cleanup(server.Close)
+
+	dial := func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return tls.Dial(network, server.Listener.Addr().String(), &tls.Config{InsecureSkipVerify: true}) //nolint:gosec // why: test server 自己署名を信頼する。
+	}
+	httpClient := &http.Client{
+		Transport: &http.Transport{DialTLSContext: dial},
+	}
+	l := r2.NewCompletedEpisodeLookup(
+		httpClient,
+		r2NarrowAccessKeyID,
+		r2NarrowSecretAccessKey,
+		r2NarrowAccountID,
+		r2NarrowBucket,
+	)
+	return l, calls
 }
 
 func assertR2NarrowNoSecretLeak(t *testing.T, msg string) {
@@ -252,6 +292,122 @@ func TestR2EpisodeWriter_failsFastWithoutRetry_whenUpstreamReturns4xx(t *testing
 	if strings.Contains(err.Error(), "narrow-ep-4xx") {
 		t.Fatalf("Error() に object key 断片が含まれる: %q", err.Error())
 	}
+	if len(*calls) != 1 {
+		t.Fatalf("upstream received %d requests, want 1 (fail-fast on 4xx)", len(*calls))
+	}
+}
+
+func r2NarrowListObjectsV2XML(keys ...string) string {
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
+	b.WriteString(`<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">`)
+	for _, k := range keys {
+		b.WriteString("<Contents><Key>")
+		b.WriteString(k)
+		b.WriteString("</Key></Contents>")
+	}
+	b.WriteString(`<IsTruncated>false</IsTruncated>`)
+	b.WriteString(`</ListBucketResult>`)
+	return b.String()
+}
+
+func TestR2CompletedEpisodeLookup_returnsTrue_whenUpstreamHasMatchingPair(t *testing.T) {
+	// Given: List が同 stem の json+mp3 を返し、Get した json の date が照会日と一致する S3 互換 double
+	const stem = "narrow-lookup-pair"
+	lookup, calls := newR2LookupWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("list-type") == "2" {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(r2NarrowListObjectsV2XML(stem+".json", stem+".mp3")))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"date":"2026-08-31","episodeId":"` + stem + `"}`))
+	})
+
+	// When: 一致 date で照会する
+	got, err := lookup.HasPair(context.Background(), "2026-08-31")
+
+	// Then: true。List→Get の順で host / SigV4 が観測できる
+	if err != nil {
+		t.Fatalf("HasPair: %v", err)
+	}
+	if !got {
+		t.Fatal("HasPair = false, want true")
+	}
+	if len(*calls) != 2 {
+		t.Fatalf("upstream received %d requests, want 2 (list + get)", len(*calls))
+	}
+	wantHost := r2NarrowAccountID + ".r2.cloudflarestorage.com"
+	for i, c := range *calls {
+		if c.Method != http.MethodGet {
+			t.Fatalf("call[%d] method = %q, want GET", i, c.Method)
+		}
+		if c.Host != wantHost {
+			t.Fatalf("call[%d] host = %q, want %q", i, c.Host, wantHost)
+		}
+		if !strings.HasPrefix(c.Auth, "AWS4-HMAC-SHA256 ") {
+			t.Fatalf("call[%d] Authorization missing SigV4", i)
+		}
+	}
+	wantGetPath := "/" + r2NarrowBucket + "/" + stem + ".json"
+	if (*calls)[1].Path != wantGetPath {
+		t.Fatalf("get path = %q, want %q", (*calls)[1].Path, wantGetPath)
+	}
+}
+
+func TestR2CompletedEpisodeLookup_returnsInfrastructureErrorAfterFiniteRetry_whenUpstreamKeeps5xx(t *testing.T) {
+	// Given: List が常に 502 を返す S3 互換 TLS double
+	lookup, calls := newR2LookupWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "bad gateway", http.StatusBadGateway)
+	})
+
+	// When: 照会する
+	got, err := lookup.HasPair(context.Background(), "2026-08-31")
+
+	// Then: *adaptererror.Error（r2: prefix）かつ List が 2 回（有限 retry once）
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if got {
+		t.Fatal("HasPair = true on error, want false")
+	}
+	var infra *adaptererror.Error
+	if !errors.As(err, &infra) {
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
+	}
+	if !strings.HasPrefix(infra.Error(), "r2:") {
+		t.Fatalf("Error() = %q, want prefix %q", infra.Error(), "r2:")
+	}
+	assertR2NarrowNoSecretLeak(t, err.Error())
+	if len(*calls) != 2 {
+		t.Fatalf("upstream received %d requests, want 2 (retry once on 5xx)", len(*calls))
+	}
+}
+
+func TestR2CompletedEpisodeLookup_failsFastWithoutRetry_whenUpstreamReturns4xx(t *testing.T) {
+	// Given: List が常に 403 を返す S3 互換 TLS double（429 以外の 4xx）
+	lookup, calls := newR2LookupWithProxy(t, func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "denied", http.StatusForbidden)
+	})
+
+	// When: 照会する
+	got, err := lookup.HasPair(context.Background(), "2026-08-31")
+
+	// Then: fail-fast で 1 回だけ List。*adaptererror.Error かつ secret 非露出
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if got {
+		t.Fatal("HasPair = true on error, want false")
+	}
+	var infra *adaptererror.Error
+	if !errors.As(err, &infra) {
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
+	}
+	if !strings.HasPrefix(infra.Error(), "r2:") {
+		t.Fatalf("Error() = %q, want prefix %q", infra.Error(), "r2:")
+	}
+	assertR2NarrowNoSecretLeak(t, err.Error())
 	if len(*calls) != 1 {
 		t.Fatalf("upstream received %d requests, want 1 (fail-fast on 4xx)", len(*calls))
 	}
