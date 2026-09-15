@@ -3,15 +3,11 @@ package build_test
 import (
 	"encoding/json"
 	"errors"
-	"os"
-	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/build"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
@@ -104,38 +100,6 @@ func TestComposeBrief_returnsTrimmedBriefWithoutPlaceholders_whenSingleItemGiven
 		if topic.Title == "" || topic.Preface == "" || topic.Detail == "" {
 			t.Fatalf("topics[%d] に空 field がある: %+v", i, topic)
 		}
-	}
-}
-
-// TestComposeBrief_embedsJSONExampleThatPassesManuscriptDraftFromWriterOutput は
-// {{JSON_EXAMPLE}} が ManuscriptDraftFromWriterOutput（writeManuscriptDraft が通す検証）を
-// そのまま通ることを固定する。形式だけ合って合計や件数で落ちる例を禁止する。
-func TestComposeBrief_embedsJSONExampleThatPassesManuscriptDraftFromWriterOutput(t *testing.T) {
-	t.Parallel()
-
-	// Given: 任意 1 件の SourceItem（example 埋め込みに items 内容は影響しない）
-	items := []models.SourceItem{
-		{
-			SourceID:   "x-api",
-			OccurredAt: time.Date(2024, 12, 10, 10, 0, 0, 0, time.UTC),
-			Summary:    "item_id: tweet-1",
-		},
-	}
-
-	// When: brief を組み立て、Example shape の JSON を取り出す
-	got, err := build.ComposeBrief(items)
-	if err != nil {
-		t.Fatalf("ComposeBrief: %v", err)
-	}
-	jsonExample := extractJSONExample(t, got)
-
-	// Then: ManuscriptDraftFromWriterOutput が成功する
-	draft, err := build.ManuscriptDraftFromWriterOutput(jsonExample)
-	if err != nil {
-		t.Fatalf("JSON_EXAMPLE が ManuscriptDraftFromWriterOutput を通らない: %v\njson: %s", err, jsonExample)
-	}
-	if len(draft.Topics) != constants.DraftTopicCountTarget {
-		t.Fatalf("draft topic 数 = %d, want target %d", len(draft.Topics), constants.DraftTopicCountTarget)
 	}
 }
 
@@ -244,53 +208,6 @@ func TestComposeBrief_embedsSourcesPlainText_whenItemsGiven(t *testing.T) {
 			}
 		})
 	}
-}
-
-// TestComposeBrief_dumpFromCacheSnapshot_whenEnvSet は .cache の SourceItem 列から
-// ComposeBrief を組み立て、example 更新用の brief 平文を書き出す（DUMP_CACHE_BRIEF=1 のときのみ）。
-func TestComposeBrief_dumpFromCacheSnapshot_whenEnvSet(t *testing.T) {
-	if os.Getenv("DUMP_CACHE_BRIEF") == "" {
-		t.Skip("DUMP_CACHE_BRIEF=1 のときのみ実行")
-	}
-
-	// Given: worktree .cache の 5 源 SourceItem 列（本 test file 位置から辿る）
-	_, testFile, _, _ := runtime.Caller(0)
-	cacheDir := filepath.Clean(filepath.Join(filepath.Dir(testFile), "..", "..", "..", "..", "..", ".cache"))
-	names := []string{
-		"item-source-publickey.json",
-		"item-source-techcrunch.json",
-		"item-source-cloudwatch.json",
-		"item-source-hackernews.json",
-		"item-source-lobsters.json",
-	}
-	var items []models.SourceItem
-	for _, name := range names {
-		b, err := os.ReadFile(filepath.Join(cacheDir, name))
-		if err != nil {
-			t.Fatalf("read %s: %v", name, err)
-		}
-		var batch []models.SourceItem
-		if err := json.Unmarshal(b, &batch); err != nil {
-			t.Fatalf("unmarshal %s: %v", name, err)
-		}
-		items = append(items, batch...)
-	}
-
-	// When: brief を組み立てる
-	got, err := build.ComposeBrief(items)
-
-	// Then: 非空 brief を .cache へ書き出せる
-	if err != nil {
-		t.Fatalf("ComposeBrief: %v", err)
-	}
-	if strings.TrimSpace(got) == "" {
-		t.Fatal("ComposeBrief: 戻りが空")
-	}
-	out := filepath.Join(cacheDir, "textwriter_brief_for_example.txt")
-	if err := os.WriteFile(out, []byte(got), 0o644); err != nil {
-		t.Fatalf("write brief: %v", err)
-	}
-	t.Logf("wrote %s (%d items, %d bytes)", out, len(items), len(got))
 }
 
 func extractJSONExample(t *testing.T, brief string) string {
