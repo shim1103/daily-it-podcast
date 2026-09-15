@@ -1,7 +1,7 @@
 package build
 
 import (
-	"encoding/json"
+	_ "embed"
 	"strings"
 	"time"
 
@@ -10,6 +10,9 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
+//go:embed writer_output_example.json
+var writerOutputExampleJSON string
+
 // ComposeBrief は Fetch 結果から TextWriter へ渡す brief 平文 1 本を組み立てる。
 // 固定 Prompt は entities/constants.TextWriterBriefPrompt。本 func は埋め込みのみ。
 //
@@ -17,7 +20,7 @@ import (
 // @ensure len(items) > 0 のとき戻りは trim 後に非空の brief 平文 1 本。
 // @ensure len(items) == 0 のとき ("", Domain Error Op = no_source_items) を返す。
 // @ensure constants.TextWriterBriefPrompt の {{SOURCES}} {{JSON_EXAMPLE}} と数値 placeholder を置換して完成させる。
-// @ensure 数値 placeholder は manuscript_draft_limits 定数を embedManuscriptDraftLimits で埋める。{{SOURCES}} は各 item の SourceID・OccurredAt・Summary・Detail・Discourse・Meta を平文列挙（窓幅説明なし）。{{JSON_EXAMPLE}} は models.WriterOutput から生成。
+// @ensure 数値 placeholder は manuscript_draft_limits 定数を embedManuscriptDraftLimits で埋める。{{SOURCES}} は各 item の SourceID・OccurredAt・Summary・Detail・Discourse・Meta を平文列挙（窓幅説明なし）。{{JSON_EXAMPLE}} は writer_output_example.json を読込・検証して埋める。
 // @ensure OpeningGreeting / ClosingFarewell は含めない。
 // @invariant Prompt 散文を本 package に hardcode しない。Summary / Detail / Discourse / Meta を structured parse しない。
 func ComposeBrief(items []models.SourceItem) (string, error) {
@@ -31,10 +34,11 @@ func ComposeBrief(items []models.SourceItem) (string, error) {
 // @require items は Fetch 成功後の slice。template は brief prompt template（parse しない）。
 // @ensure template の {{…_MIN}} 等の数値 placeholder を manuscript_draft_limits 定数で、
 //
-//	{{SOURCES}} を items の平文列挙で、{{JSON_EXAMPLE}} を models.WriterOutput 形式例で埋める。
+//	{{SOURCES}} を items の平文列挙で、{{JSON_EXAMPLE}} を writer_output_example.json（検証済み）で埋める。
 //
 // @ensure ComposeBriefWithTemplate(items, constants.TextWriterBriefPrompt) は ComposeBrief(items) と同一出力。
 // @ensure len(items) == 0 のとき ("", Domain Error Op = no_source_items) を返す。
+// @ensure writer_output_example.json が ManuscriptDraftFromWriterOutput に落ちるとき、その error をそのまま返す。
 func ComposeBriefWithTemplate(items []models.SourceItem, template string) (string, error) {
 	if len(items) == 0 {
 		return "", domainerrors.DomainErr(domainerrors.OpNoSourceItems, nil)
@@ -42,7 +46,7 @@ func ComposeBriefWithTemplate(items []models.SourceItem, template string) (strin
 
 	brief := embedManuscriptDraftLimits(template)
 	brief = strings.Replace(brief, "{{SOURCES}}", formatSourceItems(items), 1)
-	jsonExample, err := marshalWriterOutputExample()
+	jsonExample, err := loadWriterOutputExampleJSON(writerOutputExampleJSON)
 	if err != nil {
 		return "", err
 	}
@@ -93,37 +97,16 @@ func appendSourceBody(b *strings.Builder, label string, body models.SourceBody) 
 	}
 }
 
-// marshalWriterOutputExample は {{JSON_EXAMPLE}} に埋める形式例を生成する。
-// 実在の固有名詞は入れず、各 field は Prompt 各セクションの target 付近の長さのダミー文にする。
-// これは形式例であり、topic 数と全体合計は Prompt の指定（目安 5 件・合計下限以上）に従うこと。
-// example 内の 3 topic はあくまで shape を示すための最小構成で、各 field 単体は
-// manuscript_draft_limits の rune 数 range 内に収めてある。
-func marshalWriterOutputExample() (string, error) {
-	example := models.WriterOutput{
-		Title: "運用基盤の大型更新と開発ツール新版、ブラウザ標準仕様の提案までを一望する本日の技術ニュースまとめの形式例タイトル",
-		Intro: "本日は運用基盤の大型更新から広く使われる開発ツールの新版、ブラウザ標準仕様の提案まで、幅のある技術ニュースを順番にまとめて取り上げます。いずれも利用者の負担を下げて仕組みに任せる範囲を広げるという共通の流れがあり、これから学ぶ方にも関わる変更が含まれます。専門用語は話の中で都度かみ砕いて説明するので、前提から順に追ってください。",
-		Topics: []models.WriterOutputTopic{
-			{
-				Title:   "一つ目のトピックの題名の形式例",
-				Preface: "一つ目の話題は運用基盤の大きな更新です。何がどう変わるのか、なぜ多くの開発チームが注目しているのかを、まずは全体像として短く押さえてから詳しい中身に入っていきます。前提となる用語や、これまでどんな課題があったのかも、ここで簡単に整理しておきます。",
-				Detail:  "一つ目の話題の本文です。まず背景として、これまでこの分野では利用者が多くの設定を手作業で調整する必要があり、運用の負担が大きいという課題が長く指摘されてきました。設定を一つ誤るだけで性能が急に落ちることもあり、経験の浅いチームには扱いが難しい領域でした。監視のためのダッシュボードを整えるだけでも手間がかかり、専任の担当者を置けない現場では後回しになりがちでした。今回の更新では、過去の利用傾向をもとに主要なパラメータを自動で推定する仕組みが導入され、手作業の調整がほぼ不要になります。あわせて、急なアクセス増を見越して事前に処理能力を確保しておく機能も追加され、想定外の集中に対しても落ち着いて対応できるようになりました。この変化により、小規模なチームでも安定した性能を保ちやすくなり、これまで運用にかけていた時間を機能開発に回せるようになります。一方で、自動推定に任せきりにすると想定外の課金が発生する場合があるため、上限の設定と定期的な見直しは引き続き必要です。提供元は、今後さらに推定の精度を高め、対応する構成の種類も段階的に増やしていく方針だと説明しています。",
-			},
-			{
-				Title:   "二つ目のトピックの題名の形式例",
-				Preface: "二つ目の話題は、広く使われている開発ツールの新しい版についてです。全体の中での位置づけと、押さえておきたい論点を先に示してから、従来との違いや移行のしやすさを具体的に見ていきます。学び始めの方にも関わる変更なので、丁寧に追っていきます。",
-				Detail:  "二つ目の話題の本文です。まず発表の要旨として、次のメジャー版の候補が公開され、非同期処理まわりの仕組みが標準の機能として取り込まれました。従来は各プロジェクトが独自に実装していた処理の受け渡しが、追加の部品を入れなくても書けるようになります。実際の開発では、複数の処理をまたいで情報を引き継ぐコードが短くなり、書き方のばらつきや設定ミスも減ると期待されます。とくに、いくつものチームが並行して開発する規模の大きな現場では、共通の書き方が決まっていることの価値が大きいと説明されています。ただし、古い前提で書かれた一部の拡張は手直しが必要になるため、移行の手順書と、機械的に書き換えを助ける道具が同時に用意されました。手順書には、変更の影響が出やすい箇所と、確認しておくべきテストの観点がまとめられています。メンテナは、正式版までに大きな仕様変更は入れない方針だと説明しており、今のうちに候補版で試して不具合を報告しておく価値があります。関連する周辺ツールも順次この版への対応を進めており、数か月のうちに主要なものはそろう見通しです。",
-			},
-			{
-				Title:   "三つ目のトピックの題名の形式例",
-				Preface: "三つ目の話題は、ブラウザに関わる標準仕様の新しい提案です。なぜこの話題を最後に置くのか、全体の流れの中での位置づけを短く述べてから、提案が何を解決しようとしているのか、その中身に入っていきます。",
-				Detail:  "三つ目の話題の本文です。まず位置づけとして、これは既存の仕組みを置き換えるものではなく、機能を追加で足す提案であるという点が重要です。公表された内容によると、これまで実装ごとにばらつきがあった動作を、開発者が方針を明示的に指定できる形に整えます。指定できるのは、処理を実行する条件や、失敗したときにどう再試行するかといった考え方です。これまでは同じ書き方をしても環境によって挙動が変わることがあり、その差を吸収するための場当たりのコードが増えていました。新しい提案では、その差を仕様の側で埋めることを狙っています。これにより、利用者の環境が異なっても同じように動くことが期待でき、不具合が起きたときの切り分けもしやすくなります。提案はまだ意見募集の段階で、参照用の実装が一部のブラウザの開発版に入っている状況です。正式に決まるまでには時間がかかる見込みですが、主要な関係者の方向性はおおむね一致しているとされています。聞き手としては、対応状況の発表を折に触れて確認し、自分の使っている環境で試せるようになったら小さく動かしてみるとよいでしょう。",
-			},
-		},
-		ClosingSummary: "本日は、運用基盤の更新が手作業の調整を減らし、開発ツールの新版が共通処理を標準化し、標準仕様の提案が動作のばらつきを抑える、という三つの話題を取り上げました。いずれも利用者の負担を下げて仕組みに任せる範囲を広げる方向で共通しています。細かな条件や対応時期は変わることもあるため、詳細は各自で一次情報を確認してください。",
-	}
-	data, err := json.Marshal(example)
-	if err != nil {
+// loadWriterOutputExampleJSON は {{JSON_EXAMPLE}} 用の WriterOutput JSON 平文を受け取り、
+// ManuscriptDraftFromWriterOutput で正当性を検査してから返す。
+//
+// @require raw は WriterOutput 形の JSON 平文（前後空白可）。
+// @ensure 成功時は trim 後の raw を返す。
+// @ensure 失敗時は ManuscriptDraftFromWriterOutput の error を wrap せずそのまま返す。
+func loadWriterOutputExampleJSON(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if _, err := ManuscriptDraftFromWriterOutput(trimmed); err != nil {
 		return "", err
 	}
-	return string(data), nil
+	return trimmed, nil
 }
