@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -35,8 +36,24 @@ func signingKey(secret, dateStamp, region, service string) []byte {
 // @ensure Authorization / X-Amz-Date / X-Amz-Content-Sha256 を設定する。
 // @invariant secret 実値を error message へ載せない。
 func signV4Put(req *http.Request, payload []byte, accessKeyID, secretAccessKey string, now time.Time) error {
+	return signV4(req, payload, accessKeyID, secretAccessKey, now)
+}
+
+// signV4Get は S3 互換 GetObject / ListObjectsV2 用に AWS Signature Version 4 を付与する。
+//
+// @require req は絶対 URL の GET。body 無し（payload は空）。
+// @ensure Authorization / X-Amz-Date / X-Amz-Content-Sha256 を設定する。
+// @invariant secret 実値を error message へ載せない。
+func signV4Get(req *http.Request, accessKeyID, secretAccessKey string, now time.Time) error {
+	return signV4(req, nil, accessKeyID, secretAccessKey, now)
+}
+
+func signV4(req *http.Request, payload []byte, accessKeyID, secretAccessKey string, now time.Time) error {
 	if req == nil || req.URL == nil {
 		return fmt.Errorf("request is nil")
+	}
+	if payload == nil {
+		payload = []byte{}
 	}
 	payloadHash := sha256Hex(payload)
 	amzDate := now.UTC().Format("20060102T150405Z")
@@ -50,11 +67,11 @@ func signV4Put(req *http.Request, payload []byte, accessKeyID, secretAccessKey s
 	if canonicalURI == "" {
 		canonicalURI = "/"
 	}
-	const canonicalQuery = ""
+	canonicalQuery := canonicalQueryString(req.URL.Query())
 
 	signedHeadersList, canonicalHeaders := canonicalHeadersBlock(req.Header)
 	canonicalRequest := strings.Join([]string{
-		http.MethodPut,
+		req.Method,
 		canonicalURI,
 		canonicalQuery,
 		canonicalHeaders,
@@ -80,6 +97,46 @@ func signV4Put(req *http.Request, payload []byte, accessKeyID, secretAccessKey s
 	)
 	req.Header.Set("Authorization", auth)
 	return nil
+}
+
+// canonicalQueryString は SigV4 用に query を名前順・URI encode で並べる。
+// url.Values.Encode の + 空白は AWS 規約の %20 とずれるため使わない。
+func canonicalQueryString(q url.Values) string {
+	if len(q) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(q))
+	for k := range q {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		vals := append([]string(nil), q[k]...)
+		sort.Strings(vals)
+		ek := uriEncode(k, true)
+		for _, v := range vals {
+			parts = append(parts, ek+"="+uriEncode(v, true))
+		}
+	}
+	return strings.Join(parts, "&")
+}
+
+func uriEncode(s string, encodeSlash bool) string {
+	var b strings.Builder
+	b.Grow(len(s) * 3)
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+			c == '-' || c == '_' || c == '.' || c == '~' || (!encodeSlash && c == '/') {
+			b.WriteByte(c)
+			continue
+		}
+		b.WriteByte('%')
+		b.WriteByte("0123456789ABCDEF"[c>>4])
+		b.WriteByte("0123456789ABCDEF"[c&15])
+	}
+	return b.String()
 }
 
 func canonicalHeadersBlock(h http.Header) (signedHeaders, canonicalHeaders string) {
