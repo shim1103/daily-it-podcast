@@ -1,5 +1,6 @@
 # lessons
 
+- 2026-09-15 [feature/generator-r2-peer-binding-lookup] 1 branch に Writer 本実装と peer/Lookup A を同居させたまま PR すると review 境界が溶ける。完全分離できない依存は stacked PR（後続 base=先行 feature）で許容し、差分の見出しを Decision / Issue / stub に揃える  # → layer:workflow
 - 2026-09-15 [feature/generator-r2-write-adapter] user が「導入して gate する」と言った topic を、旧 Decision の optional / D 表記だけで「今はやらない」と読むな。intent と Decision がズレたら Decision を直し、Audit-only の C Issue を作らない  # → layer:workflow
 - 2026-09-15 [feature/generator-r2-write-adapter] shim が commit を明示していないのに manager が commit すると規約違反になる。無断 commit は revert で戻し、差分は unstaged に残して明示指示を待て。reset --hard は禁止範囲なので使わない  # → layer:workflow
 - 2026-09-15 [feature/generator-r2-write-adapter] lane の D 行は「まだ Load が別経路」という事実が消えたら即削除する。実装済み差分を残したまま D を置くと、次 session が同じ統合を再設計する  # → layer:workflow

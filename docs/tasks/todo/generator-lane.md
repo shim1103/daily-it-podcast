@@ -27,14 +27,16 @@
 
 ### 未完了
 
-1. `r2-smoke-migrate-cutover.md` — 列 6（共有）
-2. `r2-post-cutover-verify-oauth.md` — 列 7（共有）
+1. `generator-r2-test-peer-scope.md` — C1=infra。experimental local S3 gate + playback `getPlatformProxy` 基盤（Decision `2026-09-15T12-02-48`。`19-29-08` の任意条を supersede）。A stub 済み
+2. `generator-r2-completed-episode-lookup.md` — R2 `CompletedEpisodeLookup` 振る舞い本実装（A stub 済み。NI gate peer は C1。本番結線は列 6 で Writer と同着）
+3. `r2-smoke-migrate-cutover.md` — 列 6（共有）
+4. `r2-post-cutover-verify-oauth.md` — 列 7（共有）
 
-storage 実施順の正は Decision `2026-09-14T12-49-26` / `playback-lane.md` の実施順 index。
+storage 実施順の正は Decision `2026-09-14T12-49-26` / `playback-lane.md` の実施順 index。R2 NI gate peer の正は `2026-09-15T12-02-48`（本番口は `11-04-30`）。
 
 ### D（未決・未実測・文案）
 
-再発する判断の正は `docs/decisions/`。ここは残りの未実測・文案のみ index する。R2 実施の形は `2026-09-14T11-04-30`（方針は `14-22-55`）。error は `11-19-21`。実施順は `12-49-26`。cache 方針は `14-23-30`。
+再発する判断の正は `docs/decisions/`。ここは残りの未実測・文案のみ index する。R2 実施の形は `2026-09-14T11-04-30`（方針は `14-22-55`）。error は `11-19-21`。実施順は `12-49-26`。NI gate peer は `12-02-48`。cache 方針は `14-23-30`。
 
 | topic | 概要 |
 |---|---|
