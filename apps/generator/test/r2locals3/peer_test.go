@@ -1,3 +1,5 @@
+//go:build !r2locals3
+
 package r2locals3_test
 
 import (
@@ -7,7 +9,7 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/test/r2locals3"
 )
 
-// A 足場: Start の signature / zero 契約だけを固定する。実 peer 起動は C。
+// Fake Start の signature / zero 契約。実 peer 起動は -tags r2locals3。
 func TestStart_returnsZeroPeerAndNoopCleanup_whenStub(t *testing.T) {
 	t.Parallel()
 

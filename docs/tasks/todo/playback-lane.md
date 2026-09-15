@@ -27,7 +27,7 @@ deploy・Access・GHA 運用の正: `DEPLOY.md`
 
 ### 未完了（storage 順・Decision `2026-09-14T12-49-26`）
 
-1. `playback-r2-read-adapter.md` — 列 5。R2 binding 読取 **Adapter 振る舞い**本実装（local binding infra は C1 `generator-r2-test-peer-scope`）
+1. `playback-r2-read-adapter.md` — 列 5。R2 binding 読取 **Adapter 振る舞い**本実装（local binding infra は C1 済み）
 2. `r2-smoke-migrate-cutover.md` — 列 6（共有）。疎通・人手移行・R2 同着切替
 3. `r2-post-cutover-verify-oauth.md` — 列 7（共有）。System/E2E・OAuth 削除
 
@@ -39,13 +39,13 @@ deploy・Access・GHA 運用の正: `DEPLOY.md`
 | 2 | `playback-audio-mp3-read` | **済み**（達成契約 file 削除済み） |
 | 3 | `audio-mp3-cutover-migrate` | **済み**（達成契約 file 削除済み） |
 | 4 | `generator-r2-write-adapter` | generator lane。**Writer 済み**（達成契約 file 削除済み） |
-| 4b | `generator-r2-completed-episode-lookup` | generator lane。Lookup 振る舞い。NI gate は C1 |
-| 4c | `generator-r2-test-peer-scope` | C1=infra。local S3 gate + `getPlatformProxy`（`12-02-48`）。A stub 済み |
+| 4b | `generator-r2-completed-episode-lookup` | generator lane。Lookup 振る舞い。Adapter NI は httptest |
+| 4c | `generator-r2-test-peer-scope` | C1=infra。**済み**（達成契約 file 削除済み）。local S3 peer 到達 + `getPlatformProxy`（`2026-09-16T00-20-08`） |
 | 5 | `playback-r2-read-adapter` | 本 lane。**behavior**（infra は 4c） |
 | 6 | `r2-smoke-migrate-cutover` | 旧 `R-r2-cutover` の切替達成を吸収。登録手順は書かない |
 | 7 | `r2-post-cutover-verify-oauth` | System/E2E 後に OAuth 削除 |
 
-R2 登録は完了済み（列に含めない）。NI gate peer の正は Decision `2026-09-15T12-02-48`（`19-29-08` の任意条は superseded）。
+R2 登録は完了済み（列に含めない）。R2 Adapter NI の正 peer は Decision `2026-09-16T00-20-08`（本番口は `11-04-30`）。
 
 ### 未決 index（D）
 

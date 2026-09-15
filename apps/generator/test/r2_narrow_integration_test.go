@@ -1,6 +1,6 @@
 // Scope: Narrow Integration
 // 実物境界: r2.EpisodeWriter / r2.CompletedEpisodeLookup が標準 *http.Client で送信する外向き HTTPS PutObject / ListObjectsV2 / GetObject（test upstream server）
-// Double: 本番 R2 peer は使わない。DialTLSContext で Account ID 由来 host 宛先だけを test server へ redirect する（httptest 経路。experimental local S3 gate は C1 依存で別 Verification）。
+// Double: 本番 R2 peer は使わない。DialTLSContext で Account ID 由来 host 宛先だけを test server へ redirect する（httptest。Adapter NI の正 peer。Decision 2026-09-16T00-20-08）。
 // @require dummy credential / Account ID / bucket を Adapter へ直接渡す。upstream は controllable な test server。
 // @ensure path-style Host / フル path・SigV4 Authorization と、成功系代表（Writer: json→mp3 順・MIME・upsert。Lookup: List→Get→date 一致判定）を観測できる。
 // @ensure 5xx / network の有限 retry と、その他 4xx の fail-fast を実 *http.Client + TLS double 経由で観測できる。

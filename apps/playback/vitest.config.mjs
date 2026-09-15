@@ -34,7 +34,7 @@ export default defineConfig({
             "web/vite-config.sociable_unit.test.ts",
             "web/src/**/*sociable_unit*.test.ts",
             "worker/src/**/*sociable_unit*.test.ts",
-            // why: C1 A 足場（getPlatformProxy local binding 入口）。support は製品 coverage 分母外
+            // why: C1 Fake（getPlatformProxy を起動しない）。support は製品 coverage 分母外
             "test/support/**/*sociable_unit*.test.ts",
             // why: secret なし NI を Unit coverage 分母へ算入する（Decision 2026-08-30T16-20-01）
             "test/integration/**/*narrow_integration*.test.ts",
@@ -42,6 +42,10 @@ export default defineConfig({
             //   Unit coverage 分母へ算入する（Decision 2026-09-04T18-30-00 §5）。worker Broad は
             //   Drive Stub を挟むため分母から外す方針を維持し、frontend の合成入口 file だけを足す
             "test/integration/episode_list_page.broad_integration.test.ts",
+          ],
+          exclude: [
+            // why: getPlatformProxy 実起動は SU/unit に載せない（Decision 2026-09-16T00-20-08）
+            "test/integration/local_r2_binding.narrow_integration.test.ts",
           ],
           passWithNoTests: true,
         },
