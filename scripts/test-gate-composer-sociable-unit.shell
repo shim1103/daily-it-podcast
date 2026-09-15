@@ -28,10 +28,12 @@ test_per_system_entries_are_executable_when_layout_is_split() {
   need_exec "$root/scripts/generator/test-unit.sh" || return
   need_exec "$root/scripts/generator/test-race.sh" || return
   need_exec "$root/scripts/generator/test-integration.sh" || return
+  need_exec "$root/scripts/generator/test-r2-local-s3.sh" || return
   need_exec "$root/scripts/generator/test-system.sh" || return
   need_exec "$root/scripts/generator/produce-episode.sh" || return
   need_exec "$root/scripts/playback/test-unit.sh" || return
   need_exec "$root/scripts/playback/test-integration.sh" || return
+  need_exec "$root/scripts/playback/test-local-r2-binding.sh" || return
   need_exec "$root/scripts/playback/test-e2e.sh" || return
   need_exec "$root/scripts/check-static.sh" || return
   need_exec "$root/scripts/test-unit.sh" || return
@@ -116,6 +118,22 @@ test_generator_integration_gate_does_not_pass_build_tags() {
   local gate="$root/scripts/generator/test-integration.sh"
   if command_lines "$gate" | grep -Eq 'go[[:space:]]+test.*-tags'; then
     fail "gate Integration script が -tags を go test に渡す: $gate" || return
+  fi
+}
+
+# Given: generator Integration gate と local S3 専用入口
+# When: 呼び出し関係を読む
+# Then: gate が test-r2-local-s3.sh を呼び、専用入口だけが -tags r2locals3 を持つ（Decision §1-5）
+test_generator_integration_gate_calls_r2_local_s3_script() {
+  local gate="$root/scripts/generator/test-integration.sh"
+  local local_s3="$root/scripts/generator/test-r2-local-s3.sh"
+  need_exec "$local_s3" || return
+  need_named "$gate" 'scripts/generator/test-r2-local-s3.sh' || return
+  if ! command_lines "$local_s3" | grep -Eq 'go[[:space:]]+test.*-tags[[:space:]]+r2locals3'; then
+    fail "local S3 script が go test へ -tags r2locals3 を渡さない: $local_s3" || return
+  fi
+  if command_lines "$root/scripts/generator/test-unit.sh" | grep -Fq 'test-r2-local-s3.sh'; then
+    fail "test-unit が test-r2-local-s3.sh を呼ぶ" || return
   fi
 }
 
@@ -281,6 +299,7 @@ test_root_composer_does_not_invoke_toolchain_directly
 test_hooks_call_root_scripts_only
 test_generator_entrypoints_enforce_ci_contracts
 test_generator_integration_gate_does_not_pass_build_tags
+test_generator_integration_gate_calls_r2_local_s3_script
 test_generator_system_entrypoint_is_outside_integration_gate
 test_playback_e2e_entrypoint_is_outside_integration_gate
 test_condition_coverage_report_is_local_and_documented
