@@ -267,6 +267,69 @@ func TestHasPair_failsFastWithoutRetry_whenListReturns4xxOtherThan429(t *testing
 	}
 }
 
+func TestHasPair_failsFastWithoutRetry_whenListReturns201(t *testing.T) {
+	t.Parallel()
+
+	// Given: List（GetObjectsV2/GET）が 201 を返す。ListObjectsV2 は正常時常に 200 固定であり、
+	// 201 は PUT/POST 系専用のため List 応答としては異常値として扱う想定
+	rt := &seqRoundTripper{resps: []stubResp{
+		{Status: http.StatusCreated, Body: listObjectsV2XML()},
+		{Status: http.StatusOK, Body: listObjectsV2XML()}, // 到達しない想定（200 固定判定は retry 対象にしない）
+	}}
+	lookup := newStubLookup(rt)
+
+	// When: 照会する
+	got, err := lookup.HasPair(context.Background(), "2026-08-31")
+
+	// Then: fail-fast で 1 回だけ。*adaptererror.Error・secret/key 非露出
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if got {
+		t.Fatal("HasPair = true on error, want false")
+	}
+	var infra *adaptererror.Error
+	if !errors.As(err, &infra) {
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
+	}
+	assertNoSecretLeak(t, err.Error())
+	if len(rt.calls) != 1 {
+		t.Fatalf("calls = %d, want 1 (fail-fast, 200 固定判定なので 201 は success 扱いしない)", len(rt.calls))
+	}
+}
+
+func TestHasPair_failsFastWithoutRetry_whenGetReturns201(t *testing.T) {
+	t.Parallel()
+
+	// Given: List は完成ペア候補を返すが、Get（GetObject/GET）が 201 を返す。
+	// GetObject は正常時常に 200 固定であり、201 は Get 応答としては異常値として扱う想定
+	const stem = "ep-get-201"
+	rt := &seqRoundTripper{resps: []stubResp{
+		{Status: http.StatusOK, Body: listObjectsV2XML(stem+".json", stem+".mp3")},
+		{Status: http.StatusCreated, Body: `{"date":"2026-08-31"}`},
+	}}
+	lookup := newStubLookup(rt)
+
+	// When: 照会する
+	got, err := lookup.HasPair(context.Background(), "2026-08-31")
+
+	// Then: fail-fast で Get 1 回だけ（List 1 + Get 1 = 2）。*adaptererror.Error・secret/key 非露出
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if got {
+		t.Fatal("HasPair = true on error, want false")
+	}
+	var infra *adaptererror.Error
+	if !errors.As(err, &infra) {
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
+	}
+	assertNoSecretLeak(t, err.Error())
+	if len(rt.calls) != 2 {
+		t.Fatalf("calls = %d, want 2 (list + fail-fast get, 200 固定判定なので 201 は success 扱いしない)", len(rt.calls))
+	}
+}
+
 func TestHasPair_returnsInfrastructureErrorWithoutSecrets_when5xxExhaustsRetries(t *testing.T) {
 	t.Parallel()
 

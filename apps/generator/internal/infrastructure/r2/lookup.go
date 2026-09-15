@@ -140,7 +140,9 @@ func (l *CompletedEpisodeLookup) listObjectKeysPageOnce(ctx context.Context, con
 	if err != nil {
 		return false, objectKeysPage{}, infraErr("read", fmt.Errorf("read body failed"))
 	}
-	if res.StatusCode >= 200 && res.StatusCode < 300 {
+	// why: ListObjectsV2 は正常時常に 200 固定（S3 仕様、R2 も S3 互換 API 準拠）。201/204 等の他 2xx は
+	// PUT/POST 系専用で List には本来出現しないため、範囲判定ではなく 200 固定で判定する。
+	if res.StatusCode == http.StatusOK {
 		parsed, parseErr := parseListBucketResult(body)
 		if parseErr != nil {
 			return false, objectKeysPage{}, infraErr("parse_list", fmt.Errorf("list parse failed"))
@@ -190,7 +192,8 @@ func (l *CompletedEpisodeLookup) getObjectOnce(ctx context.Context, objectName s
 	if err != nil {
 		return false, nil, infraErr("read", fmt.Errorf("read body failed"))
 	}
-	if res.StatusCode >= 200 && res.StatusCode < 300 {
+	// why: GetObject も正常時常に 200 固定。List 同様に範囲判定ではなく 200 固定で判定する。
+	if res.StatusCode == http.StatusOK {
 		return false, raw, nil
 	}
 	if res.StatusCode >= 500 || res.StatusCode == http.StatusTooManyRequests {
