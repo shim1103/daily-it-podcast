@@ -75,6 +75,45 @@ describe("validatePlaybackEnv", () => {
     expect(act).toThrow(PlaybackRuntimeConfigError);
   });
 
+  it("明示的 r2 mode で EPISODES binding がある時、r2 config として返す", () => {
+    // Given: R2 binding だけを持つ env と明示的な r2 mode
+    const bucket = { get: async () => null, list: async () => ({ objects: [] }) };
+    const env = { EPISODES: bucket };
+
+    // When: runtime config を検証する
+    const got = validatePlaybackEnv(env, { mode: "r2" });
+
+    // Then: r2 config として bucket を返す
+    expect(got).toEqual({ mode: "r2", bucket });
+  });
+
+  it("明示的 r2 mode で EPISODES binding が無い時、throw する", () => {
+    // Given: R2 binding が無い env と明示的な r2 mode
+    const env = {};
+
+    // When / Then: 未設定は明確な runtime config error
+    expect(() => validatePlaybackEnv(env, { mode: "r2" })).toThrow(PlaybackRuntimeConfigError);
+    expect(() => validatePlaybackEnv(env, { mode: "r2" })).toThrow("EPISODES");
+  });
+
+  it("env に Drive 4key が揃っていても、mode 未指定では r2 を自動選択しない", () => {
+    // Given: Drive 4key と R2 binding が両方揃う env（mode 未指定）
+    const bucket = { get: async () => null, list: async () => ({ objects: [] }) };
+    const env = {
+      GOOGLE_OAUTH_CLIENT_ID: "client-id",
+      GOOGLE_OAUTH_CLIENT_SECRET: "client-secret",
+      GOOGLE_OAUTH_REFRESH_TOKEN: "refresh-token",
+      DRIVE_FOLDER_ID: "folder-id",
+      EPISODES: bucket,
+    };
+
+    // When: mode を指定せず検証する
+    const got = validatePlaybackEnv(env);
+
+    // Then: 既存の Drive 暗黙判定のまま。R2 は自動選択されない
+    expect(got.mode).toBe("drive");
+  });
+
   it("診断 message に secret の値を含めない", () => {
     // Given: secret 値を含む不完全な env
     const env = {

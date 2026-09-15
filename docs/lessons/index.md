@@ -50,3 +50,5 @@
 - 2026-09-15 [chore/orphan-mp3-run] 一度きりの運用入口は達成後に削除する。残置は「次も使うかも」より腐った入口の方が高い。復元は git 履歴で足りる  # → layer:workflow
 - 2026-09-15 [chore/orphan-mp3-run] 既存完成稿の音声だけ作り直すとき、原稿 text は触らず尺（startSec / durationSec）だけを新 TTS timeline へ書き戻す  # → layer:terms
 - 2026-09-15 [chore/orphan-mp3-run] 達成契約 file を消すときは進捗 index（lane）も同じ変更で済みへ移す。file だけ消すと未完了一覧が嘘になる  # → layer:workflow
+- 2026-09-15 [feature/playback-r2-read-adapter] 並行 branch が先に base へ merge され、その成果物が自 branch の変更後の型・契約に依存していると、git 上は自動 merge 可能でも type error として semantic conflict が顕在化する。PR 作成後の CI で初めて検出されることがあるため、base merge 後は必ず typecheck / build まで走らせる  # → layer:workflow
+- 2026-09-15 [feature/playback-r2-read-adapter] rebase の reword で commit message を書き換える時、`GIT_EDITOR=true` は「変更なしで確定」を意味し message は変わらない。BSD sed の `a\` 構文は heredoc 内の改行をエスケープとして吸収し追記に失敗する。確実に書き換えるには sequence editor 側で todo に `exec git commit --amend -F <file>` を注入する  # → layer:workflow

@@ -8,6 +8,7 @@ import type { ListEpisodesController } from "../controllers/list-episodes-contro
 import { createListEpisodesController } from "../controllers/list-episodes-controller.ts";
 import { GoogleDriveEpisodeRepository } from "../infrastructure/drive/google-drive-episode-repository.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/drive/in-memory-episode-repository.ts";
+import { R2EpisodeRepository } from "../infrastructure/r2/r2-episode-repository.ts";
 import { validatePlaybackEnv, type PlaybackRepositoryOptions } from "./runtime-config.ts";
 import type { PlaybackEnv } from "./runtime-config-bindings.ts";
 
@@ -40,14 +41,18 @@ export type PlaybackUseCaseOverrides = {
  */
 export type EpisodeRepositorySelection =
   | { kind: "drive"; repository: EpisodeRepository }
-  | { kind: "in-memory"; repository: EpisodeRepository };
+  | { kind: "in-memory"; repository: EpisodeRepository }
+  | { kind: "r2"; repository: EpisodeRepository };
 
 /**
  * env から `EpisodeRepository` を選ぶ。
  *
  * @require env は Cloudflare Workers native secrets/vars（`.env` は読まない）
  * @ensure OAuth 値と DRIVE_FOLDER_ID が全て揃う時は "drive"、明示的 local / unit test mode の時は
- *   "in-memory"。設定不足は runtime config module が throw する
+ *   "in-memory"、明示的 `options.mode === "r2"` の時は "r2"。設定不足は runtime config module が throw
+ *   する
+ * @invariant env に R2 binding が存在するだけでは "r2" を自動選択しない（Drive の暗黙 4key 判定を
+ *   変更しないため、mode の明示指定が必須）
  */
 export function createEpisodeRepository(
   env: PlaybackEnv,
@@ -74,6 +79,10 @@ export function createEpisodeRepository(
         folderId,
       }),
     };
+  }
+
+  if (validated.mode === "r2") {
+    return { kind: "r2", repository: new R2EpisodeRepository({ bucket: validated.bucket }) };
   }
 
   return { kind: "in-memory", repository: new InMemoryEpisodeRepository() };

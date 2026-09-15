@@ -22,9 +22,6 @@ export async function createLocalR2Binding(): Promise<LocalR2BindingHandle> {
     async get() {
       return null;
     },
-    async put() {
-      return undefined;
-    },
     async list() {
       return { objects: [] };
     },
