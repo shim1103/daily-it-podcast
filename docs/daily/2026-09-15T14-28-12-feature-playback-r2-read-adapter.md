@@ -19,6 +19,9 @@ playback Worker の R2 binding `EpisodeRepository` stub を本実装し、Compos
 - commit message の説明不足（branches 90% 例外削除の理由が本文に無い）を shim から指摘され、該当 commit を `git commit --amend` で修正。rebase 経由の reword で `GIT_EDITOR` 非対話設定が2回失敗（`GIT_EDITOR=true` は変更なしで通過、BSD sed の `a\` 構文は heredoc 内改行を吸収しない）、awk ベースの exec 注入方式で解決した。
 - `git push --force-with-lease` で history 書き換えを反映。
 - 検証: `apps/playback` typecheck / lint / lint:layers / unit（coverage 全file 100%）/ integration 全緑。
+- `gh pr create`（`shim gh` 未使用）で PR #161 を develop base で作成。初回 CI で `static-and-unit` が1件 fail。develop 側で先行 merge 済みの PR #160（`create-local-r2-binding.ts`）が本 PR の `R2BucketBinding` 型変更（`put` 削除・`list` の `prefix` 削除）と semantic conflict していた（git 上は自動 merge 可能だが type error）。
+- `origin/develop` を merge（git conflict なし）した上で `create-local-r2-binding.ts` の余剰 `put` を削除し型を合わせた。Decision `2026-09-15T12-02-48` §1-7（列5=Adapter振る舞いの正本）に基づき、本 PR 側の型を正として修正した。
+- 修正 push 後、CI 4件（static-and-unit ×2 / integration ×2）全て SUCCESS を確認。AgentReview（`copilot-pull-request-reviewer`）は quota 制限で未実行（実質スキップ扱い）。
 
 ### Commits
 
@@ -27,3 +30,6 @@ playback Worker の R2 binding `EpisodeRepository` stub を本実装し、Compos
 - `6cb1155`
 - `1c51eeb`
 - `8a5e366`
+- `61218a0`
+- `360fbd3`（merge origin/develop）
+- `a6d5e7c`
