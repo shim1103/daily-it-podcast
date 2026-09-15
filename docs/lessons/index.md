@@ -1,5 +1,11 @@
 # lessons
 
+- 2026-09-16 [feature/generator-r2-test-peer-scope] test 専用の peer / seam を本番 package へ build tag で撒かない。起動補助は `test/` 配下へ閉じ、本番 Adapter は Composition が使う契約面だけにする  # → layer:terms
+- 2026-09-16 [feature/generator-r2-test-peer-scope] 先行 Decision の gate 条を捨てる判断も ADR である。旧 file は rewrite せず新 file を create して supersede する  # → layer:workflow
+- 2026-09-16 [feature/generator-r2-test-peer-scope] lane / comment の方針文は「やめたこと」の履歴ではなく、今の正（latest policy）だけを書く  # → layer:workflow
+- 2026-09-16 [feature/generator-r2-test-peer-scope] `--split` は file 数ではなく 1 concern・単独 CI 緑・単独 review・単独 revert で切る。「論理的単位」だけで 18 file を1本にしない  # → layer:workflow
+- 2026-09-16 [feature/generator-r2-test-peer-scope] Adapter の error 行列は controllable double（例: httptest）が正。実 local peer は到達確認に寄せ、振る舞い gate と混ぜない  # → layer:terms
+- 2026-09-16 [feature/generator-r2-test-peer-scope] Fake factory の価値は Adapter SU への注入にある。消費者が無い Fake 専用 unit は主張が薄い  # → layer:terms
 - 2026-09-15 [feature/generator-r2-peer-binding-lookup] 1 branch に Writer 本実装と peer/Lookup A を同居させたまま PR すると review 境界が溶ける。完全分離できない依存は stacked PR（後続 base=先行 feature）で許容し、差分の見出しを Decision / Issue / stub に揃える  # → layer:workflow
 - 2026-09-15 [feature/generator-r2-write-adapter] user が「導入して gate する」と言った topic を、旧 Decision の optional / D 表記だけで「今はやらない」と読むな。intent と Decision がズレたら Decision を直し、Audit-only の C Issue を作らない  # → layer:workflow
 - 2026-09-15 [feature/generator-r2-write-adapter] shim が commit を明示していないのに manager が commit すると規約違反になる。無断 commit は revert で戻し、差分は unstaged に残して明示指示を待て。reset --hard は禁止範囲なので使わない  # → layer:workflow
