@@ -1,17 +1,35 @@
+import type { R2BucketBinding } from "../infrastructure/r2/r2-episode-repository.ts";
 import type { PlaybackEnv } from "./runtime-config-bindings.ts";
 import { PlaybackRuntimeConfigError } from "./runtime-config-error.ts";
 
-/** local development / unit test から明示的に選ぶ repository mode。 */
-export type PlaybackRepositoryMode = "in-memory";
+/**
+ * repository の選択 mode。
+ *
+ * `"in-memory"` は local development / unit test から明示的に選ぶ。`"r2"` は明示 mode 切替口。
+ * env に R2 相当 binding が揃っても、指定なしでは自動選択しない（Drive の暗黙 4key 判定とは独立）。
+ */
+export type PlaybackRepositoryMode = "in-memory" | "r2";
 
-/** Composition Root の repository 選択に渡す明示的な local / unit test option。 */
+/** Composition Root の repository 選択に渡す明示的な local / unit test / R2 option。 */
 export type PlaybackRepositoryOptions = {
   mode?: PlaybackRepositoryMode;
 };
 
+/** Drive 4key が全て揃った時だけ得られる env。 */
+type DriveConfiguredEnv = Required<
+  Pick<
+    PlaybackEnv,
+    | "GOOGLE_OAUTH_CLIENT_ID"
+    | "GOOGLE_OAUTH_CLIENT_SECRET"
+    | "GOOGLE_OAUTH_REFRESH_TOKEN"
+    | "DRIVE_FOLDER_ID"
+  >
+>;
+
 export type ValidatedPlaybackEnv =
-  | { mode: "drive"; env: Required<PlaybackEnv> }
-  | { mode: "in-memory"; env: PlaybackEnv };
+  | { mode: "drive"; env: DriveConfiguredEnv }
+  | { mode: "in-memory"; env: PlaybackEnv }
+  | { mode: "r2"; bucket: R2BucketBinding };
 
 function validateClientId(env: PlaybackEnv): string | undefined {
   return env.GOOGLE_OAUTH_CLIENT_ID?.trim() ? undefined : "GOOGLE_OAUTH_CLIENT_ID が未設定です";
@@ -55,8 +73,10 @@ function isExplicitInMemoryMode(env: PlaybackEnv, options: PlaybackRepositoryOpt
  * production相当の env を検証する。設定不備は Worker 内部 Error を throw し、
  * HTTP boundary の mapping は Route Handler へ委譲する。
  *
- * @require env は Worker binding 由来。local / unit test の時だけ mode を明示する
- * @ensure 4 key が有効、または明示的 in-memory mode の時だけ正常終了する
+ * @require env は Worker binding 由来。local / unit test / R2 の時だけ mode を明示する
+ * @ensure 4 key が有効、明示的 in-memory mode、または明示的 r2 mode で bucket binding が揃う時だけ
+ *   正常終了する。R2 は `options.mode === "r2"` を明示した時だけ選ばれ、env の binding 有無だけでは
+ *   自動選択しない（Drive の暗黙 4key 判定と衝突させないため）
  * @invariant `misconfigured` を返さず、secret 値を message に含めない
  */
 export function validatePlaybackEnv(
@@ -65,6 +85,13 @@ export function validatePlaybackEnv(
 ): ValidatedPlaybackEnv {
   if (isExplicitInMemoryMode(env, options)) {
     return { mode: "in-memory", env };
+  }
+
+  if (options.mode === "r2") {
+    if (env.EPISODES === undefined) {
+      throw new PlaybackRuntimeConfigError("EPISODES（R2 binding）が未設定です");
+    }
+    return { mode: "r2", bucket: env.EPISODES };
   }
 
   const missingReasons = [
