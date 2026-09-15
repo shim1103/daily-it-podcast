@@ -23,5 +23,5 @@ echo "integration: generator (go)"
   fi
 )
 
-# why: httptest NI と併存。gate 正 peer は local S3（Decision 2026-09-15T12-02-48）。失敗は skip しない。
+# why: httptest NI（Adapter 振る舞い）と併存。local S3 は peer 到達のみ（Decision 2026-09-16T00-20-08）。失敗は skip しない。
 "$root/scripts/generator/test-r2-local-s3.sh"

@@ -23,8 +23,7 @@ type CompletedEpisodeLookup struct {
 	secretAccessKey string
 	accountID       string
 	bucket          string
-	endpointOverride
-	now func() time.Time
+	now             func() time.Time
 }
 
 // NewCompletedEpisodeLookup は R2 CompletedEpisodeLookup を返す。
@@ -41,20 +40,6 @@ func NewCompletedEpisodeLookup(httpClient *http.Client, accessKeyID, secretAcces
 		bucket:          bucket,
 		now:             time.Now,
 	}
-}
-
-// WithEndpointBase は本番 Account ID host の代わりに使う S3 互換 endpoint base を返す。
-// local S3 gate peer 向け。空のままなら本番 URL。
-//
-// @require base は scheme+host を持つ絶対 URL（trailing slash 可）。
-// @ensure 戻りは endpointBase を持つ別 *CompletedEpisodeLookup。受信者は変更しない。
-func (l *CompletedEpisodeLookup) WithEndpointBase(base string) *CompletedEpisodeLookup {
-	if l == nil {
-		return nil
-	}
-	cp := *l
-	cp.endpointOverride = cp.withBase(base)
-	return &cp
 }
 
 // HasPair は所定空間に date 一致の完成ペアがあるとき true を返す。
@@ -218,16 +203,10 @@ func (l *CompletedEpisodeLookup) getObjectOnce(ctx context.Context, objectName s
 }
 
 func (l *CompletedEpisodeLookup) objectURL(objectName string) (string, error) {
-	if l.endpointBase != "" {
-		return buildObjectURLFromBase(l.endpointBase, l.bucket, objectName)
-	}
 	return buildObjectURL(l.accountID, l.bucket, objectName)
 }
 
 func (l *CompletedEpisodeLookup) listURL(continuation string) (string, error) {
-	if l.endpointBase != "" {
-		return buildListURLFromBase(l.endpointBase, l.bucket, continuation)
-	}
 	if l.accountID == "" || l.bucket == "" {
 		return "", fmt.Errorf("endpoint incomplete")
 	}
