@@ -1,0 +1,41 @@
+# scope: Playback 本番 CD（master push 契機の自動 wrangler deploy）
+# 実物: scripts/playback/deploy.sh → apps/playback npm run deploy（build + wrangler deploy）
+# double: なし（本番 Cloudflare Workers）
+# @require Node（version は apps/playback/.nvmrc）。CLOUDFLARE_API_TOKEN Secret が登録済み。
+# @ensure deploy 入口が exit 0。
+# @invariant 必須 Unit / Integration gate に載せない。generator を触らない。secret 値を log に出さない。
+# @invariant toolchain の wrangler deploy を YAML に直書きしない（npm script 経由）。
+# 判断: docs/decisions/2026-09-15T05-04-17-chore-cd-release-protect-smoke-e2e.md
+name: playback-deploy
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "apps/playback/**"
+  workflow_dispatch:
+
+concurrency:
+  group: playback-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: apps/playback/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/playback/package-lock.json
+
+      - name: 依存を install
+        working-directory: apps/playback
+        run: npm ci
+
+      - name: deploy を実行
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: ./scripts/playback/deploy.sh

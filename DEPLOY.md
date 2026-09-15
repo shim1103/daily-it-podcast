@@ -2,11 +2,19 @@
 
 最終更新: 2026-09-13
 
-**運用 SSOT**（Playback・Generator の継続運用）。地図は `README.md`、層規則は `DESIGN.md`。Reason / Rejected・再発する判断は `docs/decisions/`。進捗は `docs/tasks/todo/*-lane.md`。
+## Scope
+
+本書が持つのは **Playback・Generator の継続運用 SSOT**——deploy 手順、Access・secret・Variable 登録、GHA workflow の一覧と発火条件、rollback。「いつ」「何の値で」「どう動かすか」を扱う。
+
+Non-scope（書かない・写さない）:
+
+- 地図・使い方 → `README.md`
+- 層・依存・技術選定・test 配置の規則 → `DESIGN.md`
+- Reason / Rejected・再発する判断 → `docs/decisions/`
+- 進捗・未決 index → `docs/tasks/todo/*-lane.md`
+- Worker 境界契約（`name` / `main` / assets / route / `observability` の値） → `apps/playback/wrangler.jsonc` / `worker-entry.ts`（本書は参照のみ、値は写さない）
 
 音声の配置契約は mp3（`contracts/episode-layout.md`）。storage の将来方針（R2 完全移行・薄い cache）は Decision `2026-09-13T14-22-55` / `14-23-30`。実施の形は `2026-09-14T11-04-30`。実施順（Issue 単位）は `2026-09-14T12-49-26`（index は `docs/tasks/todo/playback-lane.md`）。**現行 runtime の正本は Drive**。R2 の GHA Variable/Secret と Worker binding 名は先行登録済み（下表）。正本切替・OAuth 削除は列 6–7。登録手順の百科はここに書かない。
-
-Worker 境界契約（`name` / `main` / assets / `/episodes*` / `observability`）の正本は `apps/playback/wrangler.jsonc` と `apps/playback/worker/src/worker-entry.ts`。本書は写さない。
 
 ## 1. Playback 公開形
 
@@ -97,12 +105,16 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 | workflow | 入口 script | いつ | 使う登録 |
 |------|------|------|------|
 | `generator-produce-episode.yml` | `scripts/generator/produce-episode.sh` | 毎日 07:00 JST（cron UTC `0 22 * * *`）+ `workflow_dispatch` | 本番 Secret / Variable |
-| `generator-system.yml` | `scripts/generator/test-system.sh` | 月曜 07:00 JST（cron UTC `0 22 * * 0`）+ `workflow_dispatch` | `TEST_*` |
+| `generator-system.yml` | `scripts/generator/test-system.sh` | master 向け `pull_request` + `workflow_dispatch` | `TEST_*` |
 | `generator-tts-rate.yml` | `scripts/generator/test-tts-rate.sh` | `workflow_dispatch` のみ（cron なし） | `TEST_GEMINI_API_KEY` |
 | `generator-draft-rate.yml` | `scripts/generator/test-draft-rate.sh` | `workflow_dispatch` のみ（cron なし） | `TEST_CURSOR_API_KEY` |
-| `playback-e2e.yml` | `scripts/playback/test-e2e.sh` | 月曜 07:00 JST（cron UTC `0 22 * * 0`）+ `workflow_dispatch` | 下表 `PLAYWRIGHT_*` |
+| `playback-smoke.yml` | `npm run test:smoke`（webServer: `npm run dev:smoke`） | master 向け `pull_request` + `workflow_dispatch` | `TEST_GOOGLE_OAUTH_*` `TEST_DRIVE_FOLDER_ID` |
+| `playback-deploy.yml` | `scripts/playback/deploy.sh` | `apps/playback/**` 変更を含む master への `push` + `workflow_dispatch` | `CLOUDFLARE_API_TOKEN` |
+| `playback-e2e.yml` | `scripts/playback/test-e2e.sh` | `playback-deploy.yml` 成功後（`workflow_run`）+ `workflow_dispatch` | 下表 `PLAYWRIGHT_*` |
 
-必須 Unit / Integration gate には載せない。
+必須 Unit / Integration gate には載せない。`generator-system.yml` / `playback-smoke.yml` は master 向け PR で走り、`playback-deploy.yml` は `apps/playback` 変更を含む master への push で本番 deploy し、`playback-e2e.yml` はその deploy 成功後に `workflow_run` で発火する（deploy 失敗時は E2E を走らせない）。判断: `docs/decisions/2026-09-15T03-51-41` / `2026-09-15T05-36-32` / `2026-09-15T05-04-17`。
+
+`workflow_run` は GitHub 仕様上、**default branch（`master`）に存在する workflow 定義**を見て発火判定する。`playback-deploy.yml` → `playback-e2e.yml` の連鎖は、両 yml が master へ merge されるまで有効化されない（feature branch 上の差分だけでは動かない）。
 
 暦日は JST 運用に合わせる。
 
@@ -141,9 +153,19 @@ env は `TEST_GEMINI_API_KEY` 直読み（本番 `GEMINI_API_KEY` を計測へ�
 
 env は `TEST_CURSOR_API_KEY` 直読み（本番 `CURSOR_API_KEY` を計測へ流さない）。判断: `docs/decisions/2026-09-03T14-45-00` / `14-47-00`。
 
+### Playback smoke（`playback-smoke.yml`）
+
+deploy 前（master 向け PR）に「Access 以外の本当の e2e」を1本で確かめる。判断: `docs/decisions/2026-09-15T05-36-32`。
+
+- 実体は `npm run test:smoke`（Playwright）。webServer は `npm run dev:smoke`（`web/vite.smoke.config.ts`）で、origin は `npm run dev` と同じ localhost:3000。
+- `web/vite.smoke.config.ts` は `createApp()`（override 無し。本番と同じ composition 経路）を、`env` に `generator-system.yml` と同じ `TEST_GOOGLE_OAUTH_*` / `TEST_DRIVE_FOLDER_ID` を注入して呼ぶ。`wrangler dev` は使わない（Hono app の `fetch(req, env)` を Vite dev server 上で直接呼ぶだけで足りる）。
+- TEST Drive folder は `generator-system.yml` が都度書込・削除する運用のため、episode 件数は固定 assert しない。「一覧応答が runtime config error にならないこと」を常時確認し、「episode が 1 件以上あるときだけ選択・再生が例外にならないこと」を追加確認する。credential 未登録なら一覧が `configuration_error`（500）になり smoke は赤くなる。
+
 ### Playback E2E（`PLAYWRIGHT_*`）
 
-OTP 手動・週次 storageState・Drive=Worker。値は repo に書かない。
+OTP 手動・push 時 storageState・Drive=Worker。値は repo に書かない。
+
+`playback-smoke.yml` が一覧・原稿・再生・seek の UI 機能を deploy 前に確認するため、E2E は「Access session を経由して本番 Drive へ実際に到達できるか」の 1 test（一覧表示）だけを持つ。原稿・再生・seek の観測は smoke 側にある。
 
 | GHA 登録名 | 区分 | 意味 |
 |------|------|------|
@@ -187,6 +209,8 @@ Variable / Secret の値変更は Dashboard または `wrangler secret put`。co
 
 ## 8. Playback で採用しないもの
 
-custom domain / Pages+別 Worker / app 内 Access JWT / Service Token・WARP / preview URL 共有 / CD・git hook 自動 deploy / DAST / Dependabot・Renovate
+custom domain / Pages+別 Worker / app 内 Access JWT / Service Token・WARP / preview URL 共有 / DAST / Dependabot・Renovate
 
 Reason / Rejected: `docs/decisions/2026-08-25T17-10-00`（公開境界）、`docs/decisions/2026-09-04T02-04-02`（運用後続の完了境界）。
+
+CD（master push 契機の自動 `wrangler deploy`）は `docs/decisions/2026-09-15T05-04-17` で採用へ転換した。自動 deploy は `playback-deploy.yml`（§5 参照）。手動手順は §6。
