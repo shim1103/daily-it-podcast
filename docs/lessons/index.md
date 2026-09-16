@@ -1,5 +1,9 @@
 # lessons
 
+- 2026-09-16 [feature/r2-smoke-remove-and-migrate] 3-way mergeがconflictを検出せずauto-mergeした結果を無検証で信用しない。片方のbranchで大規模に書き換えたfileは、他方の小さな変更（や削除）と衝突せず見えても、実際には誤った内容（旧版・巻き戻り）で確定することがある。「developがSSoT」でmergeする時は、merge結果のtree全体をdevelopとdiffして完全一致を確認する（`git diff --name-status <develop> <staged-tree>`）まで検証を終えない  # → layer:workflow
+- 2026-09-16 [feature/r2-smoke-remove-and-migrate] shimがGitHub UI等でbase branchへ直接pushした緊急修正（今回はcron時刻変更）は、feature branch経由の通常flowでは検出できずdevelopに伝播しない。release PR（develop→master）作成時にconflictとして初めて表面化する。直接pushはPR review必須化で予防できるが、既に紛れた差分は個別に発見して統合する必要がある  # → layer:workflow
+- 2026-09-16 [feature/r2-smoke-remove-and-migrate] 本番結線を切り替える変更（例: composition rootのmode固定化）は、直接依存するtest（Broad Integration等）だけでなく、同じrouteをDrive credential前提で叩く別CI gate（今回はplayback-smoke.yml）にも波及する。「app.tsを変更した」で影響範囲を確定する前に、`app.ts`をimportする全fileをgrepしてから変更範囲を確定する  # → layer:workflow
+- 2026-09-16 [feature/r2-smoke-remove-and-migrate] support/helper directoryでfakeにだけtestがある状態を見て「不統一」と早合点しない。coverage.includeの対象外なら、fake（Sociable Unitで検証可能）とreal系薄いラッパー（実プロセス起動、Narrow Integrationでのみ検証可能）でtestの有無が分かれるのは設計として正しい。まず`coverage.include`にそのdirが入っているかを確認してから要否を判断する  # → layer:terms
 - 2026-09-16 [feature/r2-smoke-remove-and-migrate] Issue分割は永続的な境界ではない。列を分けた理由（検証手段の違い）が残っていても、片方のScopeが検証可能な状態で完了したら、達成契約が空になったIssueをrelease専用の空箱として残さず、残タスクを隣接Issueへ統合してfileごと削除する。分割は着手時点の判断であり、完了時点で棚卸しし直す  # → layer:workflow
 - 2026-09-16 [feature/r2-smoke-remove-and-migrate] 「移行が完了した」という報告を受けた時、配置（put）操作の完了と、その結果の確認（verify）の完了を同一視しない。userが「まだ正確には移行していない」と言う時、指しているのは大抵確認側の欠落であり、Issue AC も配置と確認を別項目として持つべきサイン  # → layer:terms
 - 2026-09-16 [feature/r2-smoke-remove-and-migrate] user が `git checkout -b {new-branch} from {base}` と明示した時、`git worktree add -b` へ言い換えない。checkout と worktree add は「同じ branch を作る」点で似て見えるが、worktree構造自体を増やすかどうかが違う。指示された command 形をそのまま実行し、worktree化が必要だと判断する場合でも先に確認する  # → layer:workflow
