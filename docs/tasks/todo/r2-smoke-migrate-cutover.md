@@ -29,7 +29,7 @@
 
 1. generator の本番結線を Drive から R2 へ完全置換（`newProduceEpisode` 内の `newGoogleDriveCompletedEpisodeLookup` / `newGoogleDriveWriteEpisode` 呼び出しを `newR2CompletedEpisodeLookup` / `newR2WriteEpisode` へ差し替え）
 2. playback の本番 route を R2 固定へ完全置換（`app.ts` の `createPlaybackControllers` 呼び出しが R2 mode を選ぶよう変更）
-3. `workflow_dispatch` による R2 疎通専用 yml の新規作成（test bucket Put/List/Get、binding read の最小確認。System/E2E とは別 gate）
+3. `workflow_dispatch` による R2 疎通確認（test bucket Put/List/Get、binding read の最小確認。System/E2E とは別 gate）を **一度実行し PASS を確認する**。常設 gate ではないため、確認後は yml・実装（`smoke.go` 等）を削除する
 4. Drive から人手で約 10 episode を prod bucket へ配置（`{id}.json` + `{id}.mp3`）
 5. generator 書込と playback 読取を **分けて本番切替しない**同着 deploy
 6. `DEPLOY.md` の storage 表を R2 前提へ差し替え開始（OAuth 行の削除は次列と整合）
@@ -59,9 +59,9 @@
 
 ## 7. Acceptance Criteria
 
-1. [ ] generator の本番結線が R2 呼び出しへ完全置換されている（Drive 呼び出しが `newProduceEpisode` に残っていない）
-2. [ ] playback の本番 route が R2 mode 固定で `createPlaybackControllers` を呼んでいる
-3. [ ] 疎通用 `workflow_dispatch` が成功している（System/E2E ではない。test bucket 限定）
+1. [x] generator の本番結線が R2 呼び出しへ完全置換されている（Drive 呼び出しが `newProduceEpisode` に残っていない）
+2. [x] playback の本番 route が R2 mode 固定で `createPlaybackControllers` を呼んでいる
+3. [x] 疎通用 `workflow_dispatch` が成功した（System/E2E ではない。test bucket 限定。実行後 yml・実装は削除済み）
 4. [ ] prod に人手移行 ~10 stem の json+mp3 がある
 5. [ ] generator と playback が同着で R2 を正本にしている
 6. [ ] `DEPLOY.md` が R2 切替後の latest に更新されている（OAuth 削除の最終確認は列 7）
@@ -69,7 +69,7 @@
 ## 8. Verification
 
 1. generator/playback の R2 結線 diff（Drive 呼び出しの削除を確認）
-2. dispatch ログ
+2. dispatch 実行ログ（[run 35054835880](https://github.com/shim1103/daily-it-podcast/actions/runs/35054835880)、`TestR2Smoke_roundTripsProbeObject_overPutListGet` PASS）
 3. R2 Dashboard または List での stem 数観測
 4. 本番 hostname での一覧・再生の人手 smoke（正式 E2E は列 7）
 
@@ -84,3 +84,5 @@
 旧 lane 名 `R-r2-cutover` の同着切替達成は本 Issue に吸収した。OAuth 削除は意図的に次へ送る。
 
 Drive→R2 の人手移送は script 化しない（`2026-09-14T12-49-26` / `2026-09-16T10-45-14`）。実行時の具体手順（download 元・一時配置・upload 手段）は本 Issue に固定せず、実行 session の `docs/daily/` に書く。
+
+疎通確認の yml（`generator-r2-smoke.yml`）・実装（`smoke.go` 等）は一度の PASS 確認後に削除した。常設 gate ではなく一過性の疎通確認のため、確認後に残す価値が無い。
