@@ -17,9 +17,11 @@ prev: なし
 3. 一過性の疎通確認実装（yml・smoke.go・関連test・script）を削除した
 4. Drive→R2人手移行対象のzip（test_episodes・episodes）を`/tmp/tests/`・`/tmp/prod/`へ展開した
 5. Issue file（`r2-smoke-migrate-cutover.md`）の削除理由が3箇所（Scope・AC・Notes）に分散していたDRY違反を、新規Decisionへの一元化で解消した
+6. shimがprod/test両bucketへ手動でR2移行を実施（put完了）。stem数・pair整合の確認はまだ行っていない前提で、列6の残タスク（人手移行確認・本番同着deploy・DEPLOY.md更新）を列7（`r2-post-cutover-verify-oauth`）へ統合し、列6のIssue fileを完了削除した
 
 ### Commits
 
 - `4b84935`（masterへのyml単体PR、別branch `feature/generator-r2-smoke-yml-only`）
 - `a603a17`
 - `5fd84ee`
+- `4e08b7b`
