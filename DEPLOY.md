@@ -104,7 +104,7 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 
 | workflow | 入口 script | いつ | 使う登録 |
 |------|------|------|------|
-| `generator-produce-episode.yml` | `scripts/generator/produce-episode.sh` | 毎日 07:00 JST（cron UTC `0 22 * * *`）+ `workflow_dispatch` | 本番 Secret / Variable |
+| `generator-produce-episode.yml` | `scripts/generator/produce-episode.sh` | 毎日 05:00 JST（cron UTC `0 20 * * *`）+ `workflow_dispatch` | 本番 Secret / Variable |
 | `generator-system.yml` | `scripts/generator/test-system.sh` | master 向け `pull_request` + `workflow_dispatch` | `TEST_*` |
 | `generator-tts-rate.yml` | `scripts/generator/test-tts-rate.sh` | `workflow_dispatch` のみ（cron なし） | `TEST_GEMINI_API_KEY` |
 | `generator-draft-rate.yml` | `scripts/generator/test-draft-rate.sh` | `workflow_dispatch` のみ（cron なし） | `TEST_CURSOR_API_KEY` |
