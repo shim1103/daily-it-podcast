@@ -86,8 +86,8 @@ describe("app", () => {
     // When: 一覧 path へ GET する
     await devApp.request(`${origin}${listEpisodesPath}`, {}, emptyEnv);
 
-    // Then: createPlaybackControllers へ override がそのまま渡る
-    expect(createPlaybackControllers).toHaveBeenCalledWith(emptyEnv, undefined, overrides);
+    // Then: createPlaybackControllers へ override と R2 mode 固定がそのまま渡る
+    expect(createPlaybackControllers).toHaveBeenCalledWith(emptyEnv, { mode: "r2" }, overrides);
   });
 
   it("受け取った env をそのまま Composition Root へ渡して Controller を組み立てる", async () => {
@@ -103,8 +103,8 @@ describe("app", () => {
     // When: 一覧 path へ GET する
     await app.request(`${origin}${listEpisodesPath}`, {}, driveEnv);
 
-    // Then: 渡された env がそのまま Composition Root に渡る
-    expect(createPlaybackControllers).toHaveBeenCalledWith(driveEnv, undefined, undefined);
+    // Then: 渡された env と R2 mode 固定で Composition Root に渡る
+    expect(createPlaybackControllers).toHaveBeenCalledWith(driveEnv, { mode: "r2" }, undefined);
   });
 
   it("一覧 GET が成功する時、ListEpisodesResponse schema を満たす JSON を 200 で返す", async () => {

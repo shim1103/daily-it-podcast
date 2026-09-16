@@ -1,0 +1,18 @@
+{
+  "$schema": "../../../playback/node_modules/wrangler/config-schema.json",
+  "name": "generator-r2-local-s3",
+  "main": "worker.js",
+  "compatibility_date": "2026-08-25",
+  "r2_buckets": [
+    {
+      "binding": "EPISODES",
+      "bucket_name": "generator-r2-local-s3",
+      "local_dev": {
+        "experimental_s3_credentials": {
+          "accessKeyId": "local-access-key-id",
+          "secretAccessKey": "local-secret-access-key"
+        }
+      }
+    }
+  ]
+}

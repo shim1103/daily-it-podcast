@@ -1,5 +1,22 @@
 # lessons
 
+- 2026-09-16 [feature/r2-smoke-remove-and-migrate] Issue分割は永続的な境界ではない。列を分けた理由（検証手段の違い）が残っていても、片方のScopeが検証可能な状態で完了したら、達成契約が空になったIssueをrelease専用の空箱として残さず、残タスクを隣接Issueへ統合してfileごと削除する。分割は着手時点の判断であり、完了時点で棚卸しし直す  # → layer:workflow
+- 2026-09-16 [feature/r2-smoke-remove-and-migrate] 「移行が完了した」という報告を受けた時、配置（put）操作の完了と、その結果の確認（verify）の完了を同一視しない。userが「まだ正確には移行していない」と言う時、指しているのは大抵確認側の欠落であり、Issue AC も配置と確認を別項目として持つべきサイン  # → layer:terms
+- 2026-09-16 [feature/r2-smoke-remove-and-migrate] user が `git checkout -b {new-branch} from {base}` と明示した時、`git worktree add -b` へ言い換えない。checkout と worktree add は「同じ branch を作る」点で似て見えるが、worktree構造自体を増やすかどうかが違う。指示された command 形をそのまま実行し、worktree化が必要だと判断する場合でも先に確認する  # → layer:workflow
+- 2026-09-16 [feature/r2-smoke-remove-and-migrate] `gh workflow run <yml>` は `--ref` を指定しないと default branch の tree を checkout する。yml file 名が default branch にあるだけでは、その yml が呼ぶ実装（script・test）が default branch に無ければ `No such file or directory` で落ちる。「file 名が default branch にあれば `--ref` で任意 branch を動かせる」という知識は、`--ref` を明示することが前提であり、無指定運用の代替にはならない  # → layer:platform
+- 2026-09-16 [feature/r2-smoke-migrate-cutover] 委譲 prompt に既存 test 配置例（同種 smoke の dir・命名）の path を明示しないと、executor が新規 file を独立配置し naming-and-layout の集約規則から逸脱する。委譲時は「同種の既存実装はここにある」を具体 path で渡す  # → layer:workflow
+- 2026-09-16 [feature/r2-smoke-migrate-cutover] test 専用の peer / seam を本番 package へ build tag で撒かない、という教訓（`feature/generator-r2-test-peer-scope`）は同一 session 内の別実装（R2 smoke helper）でも再発した。committed lesson の存在は再発防止を保証しない。委譲先の実装完了後、本番 build 対象に test 専用 export が紛れていないか diff で確認する運用が要る  # → layer:terms
+- 2026-09-16 [feature/generator-r2-test-peer-scope] test 専用の peer / seam を本番 package へ build tag で撒かない。起動補助は `test/` 配下へ閉じ、本番 Adapter は Composition が使う契約面だけにする  # → layer:terms
+- 2026-09-16 [feature/generator-r2-test-peer-scope] 先行 Decision の gate 条を捨てる判断も ADR である。旧 file は rewrite せず新 file を create して supersede する  # → layer:workflow
+- 2026-09-16 [feature/generator-r2-test-peer-scope] lane / comment の方針文は「やめたこと」の履歴ではなく、今の正（latest policy）だけを書く  # → layer:workflow
+- 2026-09-16 [feature/generator-r2-test-peer-scope] `--split` は file 数ではなく 1 concern・単独 CI 緑・単独 review・単独 revert で切る。「論理的単位」だけで 18 file を1本にしない  # → layer:workflow
+- 2026-09-16 [feature/generator-r2-test-peer-scope] Adapter の error 行列は controllable double（例: httptest）が正。実 local peer は到達確認に寄せ、振る舞い gate と混ぜない  # → layer:terms
+- 2026-09-16 [feature/generator-r2-test-peer-scope] Fake factory の価値は Adapter SU への注入にある。消費者が無い Fake 専用 unit は主張が薄い  # → layer:terms
+- 2026-09-15 [feature/generator-r2-peer-binding-lookup] 1 branch に Writer 本実装と peer/Lookup A を同居させたまま PR すると review 境界が溶ける。完全分離できない依存は stacked PR（後続 base=先行 feature）で許容し、差分の見出しを Decision / Issue / stub に揃える  # → layer:workflow
+- 2026-09-15 [feature/generator-r2-write-adapter] user が「導入して gate する」と言った topic を、旧 Decision の optional / D 表記だけで「今はやらない」と読むな。intent と Decision がズレたら Decision を直し、Audit-only の C Issue を作らない  # → layer:workflow
+- 2026-09-15 [feature/generator-r2-write-adapter] shim が commit を明示していないのに manager が commit すると規約違反になる。無断 commit は revert で戻し、差分は unstaged に残して明示指示を待て。reset --hard は禁止範囲なので使わない  # → layer:workflow
+- 2026-09-15 [feature/generator-r2-write-adapter] lane の D 行は「まだ Load が別経路」という事実が消えたら即削除する。実装済み差分を残したまま D を置くと、次 session が同じ統合を再設計する  # → layer:workflow
+- 2026-09-15 [feature/generator-r2-write-adapter] Narrow Integration の AC（retry 等）を Sociable Unit に逃がすと Issue の検証契約が壊れる。AC が Narrow と書いたなら Narrow に残す  # → layer:terms
 - 2026-09-13 [feature/playback-now-playing-audio-listenability] user の文末が確認問い（？？／「〜しますよ？」）だけのとき、それを execute / edit 許可と読まない。許可は動詞が明示された指示（execute・書け・commit 等）に限る。確認を実装と取り違えると規約違反の無断 edit になる  # → layer:workflow
 - 2026-09-13 [feature/playback-now-playing-audio-listenability] 「将来やる方針」と「今 Issue 化する実施契約」を混ぜない。方針だけ固まった topic は Decision（と未決細部の lane）に留め、Acceptance が書けないまま C Issue を起こさない。user が「Decision だけ」と明示したら Issue 化案を押し戻す  # → layer:workflow
 - 2026-09-13 [feature/playback-now-playing-audio-listenability] HTTP 境界の共有定数と Infrastructure の配置定数を同一 module から import して揃えようとすると、層ルール（Infra が HTTP contracts を import 禁止）と衝突する。配置の正本は配置契約 doc に置き、HTTP 側と Infra 側はそれぞれがその値を持ち comment で正本を指す  # → layer:terms
@@ -34,7 +51,23 @@
 - 2026-09-14 [feature/playback-audio-mp3-read] HTTP 契約の Content-Type と body の実形式を食い違わせない。test/dev fixture でも MIME に合うバイト列を返す  # → layer:terms
 - 2026-09-14 [feature/playback-audio-mp3-read] base 同期の modify/delete で完了済み Issue file が相手側に残るとき、削除側を維持する。進捗 index だけを済みへ更新する  # → layer:workflow
 - 2026-09-14 [feature/playback-audio-mp3-read] 巨大バイト列の深い等価比較は runner がタイムアウトしうる。配線 test は専用の bytes 比較に寄せ、形式契約は fixture 単体へ閉じる  # → layer:platform
+- 2026-09-14 [feature/generator-textwriter-brief-prompt-update] prompt 本文に閉じる指導文を、定数化された placeholder 契約と同じ test で固定しない。変更頻度が高く、検査対象が二重の SSoT になる  # → layer:terms
+- 2026-09-14 [feature/generator-textwriter-brief-prompt-update] unexported の検証が必要なら同一 package の既存 test file へ足す。package 境界のためだけに専用 file を増やさない  # → layer:terms
+- 2026-09-14 [feature/generator-textwriter-brief-prompt-update] 生成文の「耳で追える語り」と「検証を通す要点列挙」は別人格。後者に寄るなら brief 側でナレーター契約と推測禁止を明示する  # → layer:workflow
+- 2026-09-14 [feature/generator-textwriter-brief-prompt-update] episode title は main topic が分かれば足りる。番組目的の自明な問いかけで伸ばさない。intro の topic 列挙自体は問題にならず、推測過多と聞きにくさが問題になる  # → layer:terms
 - 2026-09-14 [chore/audio-mp3-cutover-migrate] 一度きりの運用入口を production の cmd / internal 本体と同じ置き場へ上げない。gate 外の使い捨て領域（hack 等）へ閉じ、入口 script だけを残す  # → layer:terms
 - 2026-09-14 [chore/audio-mp3-cutover-migrate] local に secret を置けない運用では、変換など secret 不要の作業と Drive 改変を分ける。後者だけ credential 付き workflow に載せる  # → layer:workflow
 - 2026-09-14 [chore/audio-mp3-cutover-migrate] 品質設定を持つ既存 Adapter がある変換を、同じ argv の shell 複製でやり直さない。既存入口へ bytes を渡して戻す  # → layer:terms
 - 2026-09-14 [chore/audio-mp3-cutover-migrate] 「完成ペアのみ」検証は許可 suffix の相互欠落だけでなく、許可外 object の残存も失敗にする。無視すると契約外 file が残る  # → layer:terms
+- 2026-09-15 [chore/orphan-mp3-run] 一度きりの運用入口は達成後に削除する。残置は「次も使うかも」より腐った入口の方が高い。復元は git 履歴で足りる  # → layer:workflow
+- 2026-09-15 [chore/orphan-mp3-run] 既存完成稿の音声だけ作り直すとき、原稿 text は触らず尺（startSec / durationSec）だけを新 TTS timeline へ書き戻す  # → layer:terms
+- 2026-09-15 [chore/orphan-mp3-run] 達成契約 file を消すときは進捗 index（lane）も同じ変更で済みへ移す。file だけ消すと未完了一覧が嘘になる  # → layer:workflow
+- 2026-09-15 [feature/playback-r2-read-adapter] 並行 branch が先に base へ merge され、その成果物が自 branch の変更後の型・契約に依存していると、git 上は自動 merge 可能でも type error として semantic conflict が顕在化する。PR 作成後の CI で初めて検出されることがあるため、base merge 後は必ず typecheck / build まで走らせる  # → layer:workflow
+- 2026-09-15 [feature/playback-r2-read-adapter] rebase の reword で commit message を書き換える時、`GIT_EDITOR=true` は「変更なしで確定」を意味し message は変わらない。BSD sed の `a\` 構文は heredoc 内の改行をエスケープとして吸収し追記に失敗する。確実に書き換えるには sequence editor 側で todo に `exec git commit --amend -F <file>` を注入する  # → layer:workflow
+- 2026-09-15 [chore/cd-release-protect-smoke-e2e] 「Access 以外の本番相当経路が生きているか」を確かめる smoke で、credential 禁止方針を守ろうとして credential 自体を消すと目的を消す。system/e2e と同じ標準形（test 専用 credential で実 service に疎通する）に揃え、経路の生存確認という目的を残したまま credential の真正性だけを test 専用へ落とす  # → layer:terms
+- 2026-09-15 [chore/cd-release-protect-smoke-e2e] secret を扱う入口で「local dev server へ credential を渡してよいか」を検討する前に、そもそも追加の runtime 層（wrangler dev 等）を挟む必要があるか確認する。Hono の `fetch(req, env)` は Node process から直接呼べるため、Workers 専用 runtime を挟まずに test 専用 credential で実 API 疎通できる  # → layer:platform
+- 2026-09-15 [chore/cd-release-protect-smoke-e2e] 実 browser（Playwright）でしか検証できない領域（実 `<audio>` 要素の挙動等）を、happy-dom ベースの Integration が cover していると誤認しない。「実 API に疎通する smoke」と「実 browser で動作する smoke」は別軸の価値であり、片方を足すためにもう片方を消してはいけない  # → layer:terms
+- 2026-09-15 [chore/cd-release-protect-smoke-e2e] dev 用 middleware が Range/HEAD を独自実装している時、まず本番 route handler 自体が既にその処理を持っていないか確認する。中継層が Request header（Range 含む）を転送し忘れていただけなら、透過中継に直すだけで本番と同じ実装がそのまま働く。中継層に実装を足す前に「何が本当に足りないか」を先に切り分ける  # → layer:terms
+- 2026-09-15 [chore/cd-release-protect-smoke-e2e] 新設 workflow の yml は、それが呼ぶ実装（script/config/test）を同じ commit・同じ branch に含めなくても、`gh workflow run <yml> --ref <branch>` で実行時にその branch 側の実装を使って検証できる。yml file 名が default branch に存在しさえすればよく、「yml と実装は同じ PR に無いと動かない」と決めつけない  # → layer:workflow
+- 2026-09-15 [chore/cd-release-protect-smoke-e2e] session 内で確定前の設計変更のたびに新しい Decision file を作ると、1 session で 5 個以上の Decision が生まれ ADR の「1 判断 1 file」原則を壊す。まだ commit・公開していない Decision は、確定するまで新規 CREATE ではなく直前の file を書き直してよい（ADR immutable 原則は commit 済み・公開済みの Decision にのみ適用する）  # → layer:workflow
+- 2026-09-15 [chore/cd-release-protect-smoke-e2e] worktree 間で共有される local branch 参照（例: `master`）は、他 worktree・他 session の操作で気づかず古い/別系統になっていることがある。base branch を跨ぐ操作（PR base 選定・rebase 元の決定）の前に、`origin/<branch>` と local `<branch>` の共通祖先を確認し、食い違いがあれば `origin/<branch>` を正として扱う  # → layer:workflow

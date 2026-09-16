@@ -10,8 +10,8 @@ name: generator-produce-episode
 
 on:
   schedule:
-    # 毎日 19:00 Asia/Tokyo = 10:00 UTC（当日）
-    - cron: "0 10 * * *"
+    # 毎日 05:00 Asia/Tokyo = 20:00 UTC（前日）
+    - cron: "0 20 * * *"
   workflow_dispatch:
 
 jobs:
@@ -40,4 +40,8 @@ jobs:
           GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
           GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
           DRIVE_FOLDER_ID: ${{ vars.DRIVE_FOLDER_ID }}
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: ./scripts/generator/produce-episode.sh

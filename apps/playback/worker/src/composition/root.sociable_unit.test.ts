@@ -6,6 +6,7 @@ import {
 } from "../controllers/fake-use-cases.ts";
 import { GoogleDriveEpisodeRepository } from "../infrastructure/drive/google-drive-episode-repository.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/drive/in-memory-episode-repository.ts";
+import { R2EpisodeRepository } from "../infrastructure/r2/r2-episode-repository.ts";
 import { PlaybackRuntimeConfigError } from "./runtime-config-error.ts";
 import {
   createEpisodeRepository,
@@ -14,6 +15,7 @@ import {
 } from "./root.ts";
 
 const localMode: PlaybackRepositoryMode = "in-memory";
+const r2Mode: PlaybackRepositoryMode = "r2";
 
 describe("createEpisodeRepository", () => {
   it("Drive の env が全て揃う時、GoogleDriveEpisodeRepository を選ぶ", () => {
@@ -119,6 +121,31 @@ describe("createEpisodeRepository", () => {
     // When / Then: 中途半端な設定は runtime config error
     expect(() => createEpisodeRepository(env)).toThrow(
       "GOOGLE_OAUTH_CLIENT_SECRET が未設定です; GOOGLE_OAUTH_REFRESH_TOKEN が未設定です; DRIVE_FOLDER_ID が未設定です",
+    );
+  });
+
+  it("明示的 r2 mode で EPISODES binding がある時、R2EpisodeRepository を選ぶ", () => {
+    // Given: R2 binding を持つ env と明示的な r2 mode
+    const bucket = { get: async () => null, list: async () => ({ objects: [] }) };
+    const env = { EPISODES: bucket };
+
+    // When: repository を組み立てる
+    const got = createEpisodeRepository(env, { mode: r2Mode });
+
+    // Then: R2 Adapter が選ばれる
+    expect(got.kind).toBe("r2");
+    if (got.kind === "r2") {
+      expect(got.repository).toBeInstanceOf(R2EpisodeRepository);
+    }
+  });
+
+  it("明示的 r2 mode で EPISODES binding が無い時、throw する", () => {
+    // Given: R2 binding が無い env と明示的な r2 mode
+    const env = {};
+
+    // When / Then: 未結線を無言 fallback しない
+    expect(() => createEpisodeRepository(env, { mode: r2Mode })).toThrow(
+      PlaybackRuntimeConfigError,
     );
   });
 });

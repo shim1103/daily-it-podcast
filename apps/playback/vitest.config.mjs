@@ -19,9 +19,6 @@ export default defineConfig({
         branches: 100,
         "worker/src/routes/**": { branches: 90 },
         "worker/src/composition/**": { branches: 90 },
-        "worker/src/infrastructure/drive/google-drive-episode-repository.ts": {
-          branches: 90,
-        },
         "worker/src/controllers/map-internal-error.ts": { branches: 90 },
         "web/src/pages/**": { branches: 90 },
         "web/src/view-models/**": { branches: 90 },
@@ -37,12 +34,18 @@ export default defineConfig({
             "web/vite-config.sociable_unit.test.ts",
             "web/src/**/*sociable_unit*.test.ts",
             "worker/src/**/*sociable_unit*.test.ts",
+            // why: C1 Fake（getPlatformProxy を起動しない）。support は製品 coverage 分母外
+            "test/support/**/*sociable_unit*.test.ts",
             // why: secret なし NI を Unit coverage 分母へ算入する（Decision 2026-08-30T16-20-01）
             "test/integration/**/*narrow_integration*.test.ts",
             // why: frontend Broad は真の外部を Stub せず経路がそのまま製品ロジックの実行になるため
             //   Unit coverage 分母へ算入する（Decision 2026-09-04T18-30-00 §5）。worker Broad は
             //   Drive Stub を挟むため分母から外す方針を維持し、frontend の合成入口 file だけを足す
             "test/integration/episode_list_page.broad_integration.test.ts",
+          ],
+          exclude: [
+            // why: getPlatformProxy 実起動は SU/unit に載せない（Decision 2026-09-16T00-20-08）
+            "test/integration/local_r2_binding.narrow_integration.test.ts",
           ],
           passWithNoTests: true,
         },
