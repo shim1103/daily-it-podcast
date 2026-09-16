@@ -9,13 +9,15 @@
 1. 事実: 実施順の正は Decision `2026-09-14T12-49-26`（本 Issue は列 7）。
 2. 事実: 正本切替は列 6（`r2-smoke-migrate-cutover`）済みが前提。
 3. 事実: System は `TEST_*` → test bucket。E2E は本番 hostname + R2 上 fixture。
+4. 事実: 列 6 は composition の呼び出し側（`newProduceEpisode` / 本番 route）だけを R2 へ完全置換し、Drive config・OAuth token 取得コード自体の削除は本 Issue（列 7）に残す（`2026-09-16T10-45-14`）。
 
 ## 3. Canonical Sources
 
 1. 順番: `docs/decisions/2026-09-14T12-49-26-docs-generator-r2-write-details.md`
 2. 実施の形 / error: `2026-09-14T11-04-30` / `11-19-21`
-3. 運用: `DEPLOY.md`
-4. 前段: `r2-smoke-migrate-cutover`
+3. 列 6 結線方式: `2026-09-16T10-45-14`
+4. 運用: `DEPLOY.md`
+5. 前段: `r2-smoke-migrate-cutover`
 
 ## 4. Scope
 

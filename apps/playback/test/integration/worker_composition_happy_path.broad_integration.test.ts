@@ -7,30 +7,20 @@ import {
   ListEpisodesResponseSchema,
   listEpisodesPath,
 } from "../../contracts/index.ts";
+import type { R2BucketBinding } from "../../worker/src/infrastructure/r2/r2-episode-repository.ts";
 import { validAudioBytes } from "../../worker/src/test/fixtures/audio-bytes.ts";
 import workerEntry from "../../worker/src/worker-entry.ts";
 
 /**
  * scope: Broad Integration
- * real: Worker entry・route・Composition Root・Controller・UseCase・GoogleDriveEpisodeRepository
- * double: Drive HTTP（global `fetch` Stub）。真 Google へは行かない
- * precondition: Drive env が揃い production Composition が Drive repository を選ぶ
- * postcondition: list / get audio の成功応答が入口から見える。代表の Drive 失敗は 503 unavailable
- * invariant: PlaybackUseCaseOverrides で use case 直差ししない。secret 実値を assert 失敗文言へ出さない
+ * real: Worker entry・route・Composition Root・Controller・UseCase・R2EpisodeRepository
+ * double: R2 binding（`R2BucketBinding` の in-memory 実装）。真の Cloudflare R2 へは行かない
+ * precondition: 本番route（options.mode: "r2" 固定）が R2 repository を選ぶ
+ * postcondition: list / get audio の成功応答が入口から見える。代表の R2 失敗は 503 unavailable
+ * invariant: PlaybackUseCaseOverrides で use case 直差ししない
  */
 
-const driveEnv = {
-  GOOGLE_OAUTH_CLIENT_ID: "bi-comp-client-id-dummy",
-  GOOGLE_OAUTH_CLIENT_SECRET: "bi-comp-client-secret-dummy",
-  GOOGLE_OAUTH_REFRESH_TOKEN: "bi-comp-refresh-token-dummy",
-  DRIVE_FOLDER_ID: "bi-comp-folder-id-dummy",
-};
-
-const sensitiveValues = Object.values(driveEnv);
-
 const episodeId = "bi-ep-1";
-const jsonFileId = "bi-comp-json-file-id";
-const audioFileId = "bi-comp-audio-file-id";
 
 const manuscriptJson = {
   episodeId,
@@ -44,95 +34,51 @@ const manuscriptJson = {
   },
 };
 
-type DriveFileEntry = { id: string; name: string };
-
-function extractNameFilters(query: string): string[] | undefined {
-  const matches = [...query.matchAll(/name = '([^']*)'/g)];
-  if (matches.length === 0) {
-    return undefined;
-  }
-  return matches.map((match) => match[1] ?? "");
+function bodyOf(bytes: Uint8Array): { arrayBuffer(): Promise<ArrayBuffer> } {
+  return {
+    async arrayBuffer() {
+      const buffer = new ArrayBuffer(bytes.byteLength);
+      new Uint8Array(buffer).set(bytes);
+      return buffer;
+    },
+  };
 }
 
-function createDriveFetchStub(options: {
-  files: DriveFileEntry[];
-  downloads?: Record<string, string | Uint8Array>;
-  tokenStatus?: number;
-}): typeof fetch {
-  const downloads = options.downloads ?? {};
-  const tokenStatus = options.tokenStatus ?? 200;
-  return vi.fn(async (input: RequestInfo | URL) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    if (url === "https://oauth2.googleapis.com/token") {
-      if (tokenStatus !== 200) {
-        return new Response(null, { status: tokenStatus });
-      }
-      return new Response(JSON.stringify({ access_token: "bi-comp-access-token-dummy" }), {
-        status: 200,
-      });
-    }
-    if (url.startsWith("https://www.googleapis.com/drive/v3/files?")) {
-      const parsed = new URL(url);
-      const query = parsed.searchParams.get("q") ?? "";
-      const nameFilters = extractNameFilters(query);
-      const files =
-        nameFilters === undefined
-          ? options.files
-          : options.files.filter((file) => nameFilters.includes(file.name));
-      return new Response(JSON.stringify({ files }), { status: 200 });
-    }
-    const downloadMatch =
-      /^https:\/\/www\.googleapis\.com\/drive\/v3\/files\/([^?]+)\?alt=media$/.exec(url);
-    if (downloadMatch) {
-      const fileId = downloadMatch[1] ?? "";
-      const body = downloads[fileId];
-      if (body === undefined) {
-        return new Response(null, { status: 404 });
-      }
-      if (typeof body === "string") {
-        return new Response(body, { status: 200 });
-      }
-      const copy = new Uint8Array(body);
-      return new Response(copy.buffer, { status: 200 });
-    }
-    throw new Error("Stub 未対応の呼び出し");
-  }) as unknown as typeof fetch;
+function createBucket(overrides: Partial<R2BucketBinding> = {}): R2BucketBinding {
+  return {
+    get: async () => null,
+    list: async () => ({ objects: [] }),
+    ...overrides,
+  };
 }
 
-function installDriveFetchStub(options: Parameters<typeof createDriveFetchStub>[0]): void {
-  vi.stubGlobal("fetch", createDriveFetchStub(options));
-}
-
-function installHappyDriveFetchStub(): void {
-  installDriveFetchStub({
-    files: [
-      { id: jsonFileId, name: `${episodeId}.json` },
-      { id: audioFileId, name: `${episodeId}.mp3` },
-    ],
-    downloads: {
-      [jsonFileId]: JSON.stringify(manuscriptJson),
-      [audioFileId]: validAudioBytes,
+function createHappyBucket(): R2BucketBinding {
+  return createBucket({
+    list: async () => ({ objects: [{ key: `${episodeId}.json` }, { key: `${episodeId}.mp3` }] }),
+    get: async (key) => {
+      if (key === `${episodeId}.json`) {
+        return bodyOf(new TextEncoder().encode(JSON.stringify(manuscriptJson)));
+      }
+      if (key === `${episodeId}.mp3`) {
+        return bodyOf(validAudioBytes);
+      }
+      return null;
     },
   });
 }
 
-function textOmitsSensitiveValues(text: string): boolean {
-  return !sensitiveValues.some((value) => text.includes(value));
-}
-
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
 describe("Playback Worker composition happy path", () => {
-  it("returns 200 list episodes through Worker entry when Drive env is complete", async () => {
-    // Given: Drive env が揃い、Drive HTTP は Stub が成功応答を返す
-    installHappyDriveFetchStub();
+  it("returns 200 list episodes through Worker entry when R2 binding has manuscripts", async () => {
+    // Given: R2 binding double が対象 episode の json を持つ
+    const env = { EPISODES: createHappyBucket() };
     const request = new Request(`https://worker.example${listEpisodesPath}`);
 
     // When: Worker HTTP 入口へ一覧 GET
-    const response = await workerEntry.fetch(request, driveEnv);
+    const response = await workerEntry.fetch(request, env);
 
     // Then: 入口から list 成功が見える（下位 mapping の全 field 一致はしない）
     expect(response.status).toBe(200);
@@ -144,16 +90,15 @@ describe("Playback Worker composition happy path", () => {
     }
     expect(parsed.data.episodes).toHaveLength(1);
     expect(parsed.data.episodes[0]?.body.opening).toEqual({ text: "開始", startSec: 0 });
-    expect(textOmitsSensitiveValues(JSON.stringify(body))).toBe(true);
   });
 
-  it("returns 200 audio bytes through Worker entry when Drive env is complete", async () => {
-    // Given: Drive env が揃い、対象 mp3 が Stub にある
-    installHappyDriveFetchStub();
+  it("returns 200 audio bytes through Worker entry when R2 binding has the mp3", async () => {
+    // Given: R2 binding double が対象 episode の mp3 を持つ
+    const env = { EPISODES: createHappyBucket() };
     const request = new Request(`https://worker.example${episodeAudioPath(episodeId)}`);
 
     // When: Worker HTTP 入口へ音声 GET
-    const response = await workerEntry.fetch(request, driveEnv);
+    const response = await workerEntry.fetch(request, env);
 
     // Then: 入口から audio 成功が見える（bytes 完全一致はしない）
     expect(response.status).toBe(200);
@@ -162,25 +107,26 @@ describe("Playback Worker composition happy path", () => {
     expect(bytes.byteLength).toBeGreaterThan(0);
   });
 
-  it("returns 503 unavailable when Drive token endpoint fails through composition", async () => {
-    // Given: Drive env は揃うが token 取得が非 2xx（合成で初めて見える error 伝播の代表）
+  it("returns 503 unavailable when R2 list fails through composition", async () => {
+    // Given: R2 binding は揃うが list I/O が失敗する（合成で初めて見える error 伝播の代表）
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    installDriveFetchStub({
-      files: [],
-      tokenStatus: 500,
-    });
+    const env = {
+      EPISODES: createBucket({
+        list: async () => {
+          throw new Error("network");
+        },
+      }),
+    };
     const request = new Request(`https://worker.example${listEpisodesPath}`);
 
     // When: Worker HTTP 入口へ一覧 GET
-    const response = await workerEntry.fetch(request, driveEnv);
+    const response = await workerEntry.fetch(request, env);
 
     // Then: 入口から unavailable が見える（config 不足 BI と重複しない）
     expect(response.status).toBe(503);
     const body: unknown = await response.json();
     expect(body).toEqual({ code: "unavailable" });
     expect(ErrorResponseSchema.safeParse(body).success).toBe(true);
-    expect(textOmitsSensitiveValues(JSON.stringify(body))).toBe(true);
-    const logged = JSON.stringify(errorSpy.mock.calls[0]?.[0] ?? null);
-    expect(textOmitsSensitiveValues(logged)).toBe(true);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
   });
 });
