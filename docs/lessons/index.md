@@ -1,5 +1,7 @@
 # lessons
 
+- 2026-09-16 [feature/r2-smoke-remove-and-migrate] user が `git checkout -b {new-branch} from {base}` と明示した時、`git worktree add -b` へ言い換えない。checkout と worktree add は「同じ branch を作る」点で似て見えるが、worktree構造自体を増やすかどうかが違う。指示された command 形をそのまま実行し、worktree化が必要だと判断する場合でも先に確認する  # → layer:workflow
+- 2026-09-16 [feature/r2-smoke-remove-and-migrate] `gh workflow run <yml>` は `--ref` を指定しないと default branch の tree を checkout する。yml file 名が default branch にあるだけでは、その yml が呼ぶ実装（script・test）が default branch に無ければ `No such file or directory` で落ちる。「file 名が default branch にあれば `--ref` で任意 branch を動かせる」という知識は、`--ref` を明示することが前提であり、無指定運用の代替にはならない  # → layer:platform
 - 2026-09-16 [feature/r2-smoke-migrate-cutover] 委譲 prompt に既存 test 配置例（同種 smoke の dir・命名）の path を明示しないと、executor が新規 file を独立配置し naming-and-layout の集約規則から逸脱する。委譲時は「同種の既存実装はここにある」を具体 path で渡す  # → layer:workflow
 - 2026-09-16 [feature/r2-smoke-migrate-cutover] test 専用の peer / seam を本番 package へ build tag で撒かない、という教訓（`feature/generator-r2-test-peer-scope`）は同一 session 内の別実装（R2 smoke helper）でも再発した。committed lesson の存在は再発防止を保証しない。委譲先の実装完了後、本番 build 対象に test 専用 export が紛れていないか diff で確認する運用が要る  # → layer:terms
 - 2026-09-16 [feature/generator-r2-test-peer-scope] test 専用の peer / seam を本番 package へ build tag で撒かない。起動補助は `test/` 配下へ閉じ、本番 Adapter は Composition が使う契約面だけにする  # → layer:terms
