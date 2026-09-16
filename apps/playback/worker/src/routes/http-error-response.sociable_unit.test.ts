@@ -21,8 +21,9 @@ describe("createHttpErrorResponse", () => {
     // When: HTTP Error Response を作る
     const got = createHttpErrorResponse(error, "req-1");
 
-    // Then: 400 と契約 code のみ
+    // Then: 400・契約 code・保存不可
     expect(got.status).toBe(400);
+    expect(got.headers.get("Cache-Control")).toBe("no-store");
     expect(await got.json()).toEqual({ code: "validation_error" });
   });
 
@@ -93,8 +94,9 @@ describe("createHttpErrorResponse", () => {
     // When: HTTP Error Response を作る
     const got = createHttpErrorResponse(error, "req-1");
 
-    // Then: 500 と empty body
+    // Then: 500・empty body・保存不可
     expect(got.status).toBe(500);
+    expect(got.headers.get("Cache-Control")).toBe("no-store");
     expect(await got.text()).toBe("");
   });
 

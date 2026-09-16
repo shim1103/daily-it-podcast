@@ -1,4 +1,5 @@
 import type { PlaybackHttpErrorCode } from "../../../contracts/index.ts";
+import { noStoreCacheHeaders } from "./cache-policy.ts";
 
 type ExternalErrorName =
   | "ValidationError"
@@ -75,10 +76,13 @@ export function createHttpErrorResponse(error: unknown, requestId: string): Resp
   if (error instanceof Error && isMappedExternalErrorName(error.name)) {
     const mapped = externalHttpErrorMapping[error.name];
     console.error(toErrorLogPayload(error, requestId));
-    return Response.json({ code: mapped.code }, { status: mapped.status });
+    return Response.json(
+      { code: mapped.code },
+      { status: mapped.status, headers: noStoreCacheHeaders },
+    );
   }
 
   logUnmappedError(error, requestId);
   // why: 未知 Error は契約外のため、unavailable へ誤分類せず契約 enum を捏造しない。
-  return new Response(null, { status: 500 });
+  return new Response(null, { status: 500, headers: noStoreCacheHeaders });
 }

@@ -12,6 +12,9 @@
   "observability": {
     "enabled": true
   },
+  "cache": {
+    "enabled": true
+  },
   "preview_urls": false,
   "r2_buckets": [
     {
