@@ -28,8 +28,7 @@ deploy・Access・GHA 運用の正: `DEPLOY.md`
 ### 未完了（storage 順・Decision `2026-09-14T12-49-26`）
 
 1. `playback-r2-read-adapter.md` — 列 5。R2 binding 読取 **Adapter 振る舞い**本実装（local binding infra は C1 済み）
-2. `r2-smoke-migrate-cutover.md` — 列 6（共有）。疎通・人手移行・R2 同着切替
-3. `r2-post-cutover-verify-oauth.md` — 列 7（共有）。System/E2E・OAuth 削除
+2. `r2-post-cutover-verify-oauth.md` — 列 6-7（共有）。旧列 6 の残タスク（人手移行確認・本番同着 deploy・DEPLOY.md 更新）を吸収し、System/E2E 緑化・OAuth 削除まで統合
 
 ### 実施順 index（Issue file 単位）
 
@@ -42,8 +41,7 @@ deploy・Access・GHA 運用の正: `DEPLOY.md`
 | 4b | `generator-r2-completed-episode-lookup` | generator lane。Lookup 振る舞い。Adapter NI は httptest |
 | 4c | `generator-r2-test-peer-scope` | C1=infra。**済み**（達成契約 file 削除済み）。local S3 peer 到達 + `getPlatformProxy`（`2026-09-16T00-20-08`） |
 | 5 | `playback-r2-read-adapter` | 本 lane。**behavior**（infra は 4c） |
-| 6 | `r2-smoke-migrate-cutover` | 旧 `R-r2-cutover` の切替達成を吸収。登録手順は書かない |
-| 7 | `r2-post-cutover-verify-oauth` | System/E2E 後に OAuth 削除 |
+| 6-7 | `r2-post-cutover-verify-oauth` | 旧列 6（`r2-smoke-migrate-cutover`。結線切替は develop merge 済み、疎通確認 PASS 済みで完了削除）の残タスクを吸収。System/E2E 後に OAuth 削除 |
 
 R2 登録は完了済み（列に含めない）。R2 Adapter NI の正 peer は Decision `2026-09-16T00-20-08`（本番口は `11-04-30`）。
 
