@@ -10,7 +10,7 @@ import (
 )
 
 // newR2WriteEpisode は R2 を保存先とする UseCase を組み立てる結線口である。
-// 現行 newProduceEpisode は Drive を正本として結線する。本番切替は列 6。
+// newProduceEpisode は本結線口を正本として使う（列 6 で Drive から完全置換済み）。
 //
 // @require httpClient != nil。cfg は config.Load で検証済みの R2Config（Config.R2）。
 // @ensure 戻りは validation 後にだけ raw adapter を呼ぶ。
@@ -26,7 +26,7 @@ func newR2WriteEpisode(httpClient *http.Client, cfg config.R2Config) *applicatio
 }
 
 // newR2CompletedEpisodeLookup は R2 を照会先とする Port 実装を組み立てる結線口である。
-// 現行 newProduceEpisode は Drive を正本として結線する。本番切替は列 6 で Writer と同着。
+// newProduceEpisode は本結線口を正本として使う（列 6 で Writer と同着で完全置換済み）。
 //
 // @require httpClient != nil。cfg は config.Load で検証済みの R2Config（Config.R2）。
 // @ensure 戻りは非 nil の port.CompletedEpisodeLookup。

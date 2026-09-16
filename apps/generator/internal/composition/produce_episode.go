@@ -24,7 +24,7 @@ func newProduceEpisode(cfg config.Config, logw *delivery.LogWriter) *application
 		newTechCrunchItemSource(httpClient),
 		newCloudWatchItemSource(httpClient),
 	))
-	lookup := newGoogleDriveCompletedEpisodeLookup(httpClient, cfg.Drive)
+	lookup := newR2CompletedEpisodeLookup(httpClient, cfg.R2)
 	// logw は port.FallbackReporter / port.ProgressReporter を満たす。application 用 callback の
 	// 組み立ては delivery.LogWriter が持ち、Composition は結線だけ行う。
 	textWriter := manuscript.NewTextWriter(
@@ -34,7 +34,7 @@ func newProduceEpisode(cfg config.Config, logw *delivery.LogWriter) *application
 	)
 	speech := newGeminiSpeechSynthesizer(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini)
 	encode := newFFmpegWAVToMP3Encoder()
-	writeEpisode := newGoogleDriveWriteEpisode(httpClient, cfg.Drive)
+	writeEpisode := newR2WriteEpisode(httpClient, cfg.R2)
 	return application.NewProduceEpisode(fetch, lookup, textWriter, speech, encode, writeEpisode, newEpisodeID, appruntime.DisplayLocation(), logw)
 }
 
