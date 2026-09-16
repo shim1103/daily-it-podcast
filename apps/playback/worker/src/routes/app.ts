@@ -17,8 +17,8 @@ import { mapRuntimeConfigErrorToExternal } from "./runtime-config-error-mapping.
  * Playback worker の Hono instance を組み立てる。
  *
  * @require なし
- * @ensure useCaseOverrides を渡す時は各 route が Composition Root へそのまま渡す。
- *   省略時は production 相当（env のみ）で Controller を組み立てる
+ * @ensure 各 route は options として { mode: "r2" } を固定で Composition Root へ渡す。
+ *   useCaseOverrides を渡す時はその override も併せてそのまま渡す
  * @invariant route 定義・Error 写像は production 用の `app` と同一のまま複製しない
  */
 export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
@@ -28,7 +28,7 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
     .get(listEpisodesPath, async (c) => {
       const { listEpisodesController } = createPlaybackControllers(
         c.env,
-        undefined,
+        { mode: "r2" },
         useCaseOverrides,
       );
       const input: unknown = {};
@@ -36,7 +36,11 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
       return Response.json(body, { status: 200 });
     })
     .get(episodeAudioRoutePath, async (c) => {
-      const { getAudioController } = createPlaybackControllers(c.env, undefined, useCaseOverrides);
+      const { getAudioController } = createPlaybackControllers(
+        c.env,
+        { mode: "r2" },
+        useCaseOverrides,
+      );
       const input: unknown = { episodeId: c.req.param("episodeId") };
       const bytes = await getAudioController(input);
       return createAudioResponse(bytes, c.req.header("Range") ?? null);
