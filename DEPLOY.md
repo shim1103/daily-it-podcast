@@ -108,7 +108,7 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 | `generator-system.yml` | `scripts/generator/test-system.sh` | master 向け `pull_request` + `workflow_dispatch` | `TEST_*` |
 | `generator-tts-rate.yml` | `scripts/generator/test-tts-rate.sh` | `workflow_dispatch` のみ（cron なし） | `TEST_GEMINI_API_KEY` |
 | `generator-draft-rate.yml` | `scripts/generator/test-draft-rate.sh` | `workflow_dispatch` のみ（cron なし） | `TEST_CURSOR_API_KEY` |
-| `playback-smoke.yml` | `npm run test:smoke`（webServer: `npm run dev:smoke`） | master 向け `pull_request` + `workflow_dispatch` | `TEST_GOOGLE_OAUTH_*` `TEST_DRIVE_FOLDER_ID` |
+| `playback-smoke.yml` | `npm run test:smoke`（webServer: `npm run dev:smoke`） | master 向け `pull_request` + `workflow_dispatch` | `CLOUDFLARE_API_TOKEN` `TEST_R2_ACCOUNT_ID` |
 | `playback-deploy.yml` | `scripts/playback/deploy.sh` | `apps/playback/**` 変更を含む master への `push` + `workflow_dispatch` | `CLOUDFLARE_API_TOKEN` |
 | `playback-e2e.yml` | `scripts/playback/test-e2e.sh` | `playback-deploy.yml` 成功後（`workflow_run`）+ `workflow_dispatch` | 下表 `PLAYWRIGHT_*` |
 
@@ -158,8 +158,8 @@ env は `TEST_CURSOR_API_KEY` 直読み（本番 `CURSOR_API_KEY` を計測へ�
 deploy 前（master 向け PR）に「Access 以外の本当の e2e」を1本で確かめる。判断: `docs/decisions/2026-09-15T05-36-32`。
 
 - 実体は `npm run test:smoke`（Playwright）。webServer は `npm run dev:smoke`（`web/vite.smoke.config.ts`）で、origin は `npm run dev` と同じ localhost:3000。
-- `web/vite.smoke.config.ts` は `createApp()`（override 無し。本番と同じ composition 経路）を、`env` に `generator-system.yml` と同じ `TEST_GOOGLE_OAUTH_*` / `TEST_DRIVE_FOLDER_ID` を注入して呼ぶ。`wrangler dev` は使わない（Hono app の `fetch(req, env)` を Vite dev server 上で直接呼ぶだけで足りる）。
-- TEST Drive folder は `generator-system.yml` が都度書込・削除する運用のため、episode 件数は固定 assert しない。「一覧応答が runtime config error にならないこと」を常時確認し、「episode が 1 件以上あるときだけ選択・再生が例外にならないこと」を追加確認する。credential 未登録なら一覧が `configuration_error`（500）になり smoke は赤くなる。
+- `web/vite.smoke.config.ts` は `createApp()`（override 無し。本番と同じ composition 経路）を、`env.EPISODES` に実 TEST R2 binding（`test/support/create-remote-test-r2-binding.ts`、`getPlatformProxy` の `remoteBindings: true`、bucket は `daily-it-podcast-dev`）を注入して呼ぶ。`wrangler dev` は使わない（Hono app の `fetch(req, env)` を Vite dev server 上で直接呼ぶだけで足りる）。実 Cloudflare 認証（`CLOUDFLARE_API_TOKEN` / `TEST_R2_ACCOUNT_ID`）が必要。
+- TEST bucket は episode 件数を固定 assert しない。「一覧応答が runtime config error にならないこと」を常時確認し、「episode が 1 件以上あるときだけ選択・再生が例外にならないこと」を追加確認する。credential 未登録なら一覧が `configuration_error`（500）になり smoke は赤くなる。
 
 ### Playback E2E（`PLAYWRIGHT_*`）
 

@@ -1,0 +1,12 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "playback-smoke-r2-peer",
+  "main": "remote-test-r2-worker.js",
+  "compatibility_date": "2026-08-25",
+  "r2_buckets": [
+    {
+      "binding": "EPISODES",
+      "bucket_name": "daily-it-podcast-dev"
+    }
+  ]
+}

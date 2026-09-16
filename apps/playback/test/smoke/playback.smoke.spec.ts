@@ -3,20 +3,19 @@ import { expect, test } from "@playwright/test";
 /**
  * scope: Playback smoke（Access 以外の本当の e2e。deploy 前・gate 外）
  * real: Vite dev server 上で動く Hono app 一式（route・controller・use-case・composition root・
- *   GoogleDriveEpisodeRepository）。TEST 専用 Google OAuth / Drive credential で実 Google API・
- *   実 Drive へ疎通する。
+ *   R2EpisodeRepository）。実 TEST R2 bucket（daily-it-podcast-dev）へ getPlatformProxy の
+ *   remoteBindings で疎通する。
  * double: なし。Access のみ持たない（origin が localhost のため Cloudflare Access を経由しない）。
- * @require TEST_GOOGLE_OAUTH_* / TEST_DRIVE_FOLDER_ID が web/vite.smoke.config.ts 経由で
+ * @require 実 Cloudflare 認証（`CLOUDFLARE_API_TOKEN` 等）が web/vite.smoke.config.ts 経由で
  *   process.env にある（無ければ Worker 側が Runtime Config Error を返す）。
- * @ensure 一覧 API が成功応答を返し、一覧 root が描画される。TEST Drive folder は
- *   generator-system.yml の System test が都度書込・削除する運用のため、件数を固定 assert しない
+ * @ensure 一覧 API が成功応答を返し、一覧 root が描画される。TEST bucket は件数を固定 assert しない
  *   （0 件でも成功応答なら良い）。episode が 1 件以上あるときだけ、選択・再生・seek の操作が
  *   落ちないことを確認する。
  * 判断: docs/decisions/2026-09-15T05-36-32-chore-cd-release-protect-smoke-e2e.md
  */
-test.describe("playback smoke (real Drive via TEST credential)", () => {
+test.describe("playback smoke (real TEST R2 binding)", () => {
   test("list responds successfully without a runtime config error", async ({ page }) => {
-    // Given: TEST credential 経由の実 Drive 一覧
+    // Given: 実 TEST R2 binding 経由の一覧
     // When: 一覧 root を開く
     await page.goto("/");
 
