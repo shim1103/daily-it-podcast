@@ -1,4 +1,5 @@
 import { episodeAudioContentType } from "../../../contracts/index.ts";
+import { audioCacheHeaders, noStoreCacheHeaders } from "./cache-policy.ts";
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   const buffer = bytes.buffer;
@@ -64,7 +65,11 @@ export function createAudioResponse(bytes: Uint8Array, rangeHeader: string | nul
   if (range.kind === "unsatisfiable") {
     return new Response(null, {
       status: 416,
-      headers: { ...headers, "Content-Range": `bytes */${bytes.length}` },
+      headers: {
+        ...headers,
+        ...noStoreCacheHeaders,
+        "Content-Range": `bytes */${bytes.length}`,
+      },
     });
   }
   if (range.kind === "satisfiable") {
@@ -73,6 +78,7 @@ export function createAudioResponse(bytes: Uint8Array, rangeHeader: string | nul
       status: 206,
       headers: {
         ...headers,
+        ...audioCacheHeaders,
         "Content-Range": `bytes ${range.start}-${range.end}/${bytes.length}`,
         "Content-Length": String(slice.length),
       },
@@ -81,6 +87,6 @@ export function createAudioResponse(bytes: Uint8Array, rangeHeader: string | nul
 
   return new Response(toArrayBuffer(bytes), {
     status: 200,
-    headers,
+    headers: { ...headers, ...audioCacheHeaders },
   });
 }

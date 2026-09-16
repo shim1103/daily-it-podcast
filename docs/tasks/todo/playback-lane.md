@@ -45,12 +45,11 @@ deploy・Access・GHA 運用の正: `DEPLOY.md`
 
 R2 登録は完了済み（列に含めない）。R2 Adapter NI の正 peer は Decision `2026-09-16T00-20-08`（本番口は `11-04-30`）。
 
-### 未決 index（D）
+### 未完了実測 index（D）
 
 | topic | 概要 |
 |---|---|
-| 薄い cache の細部 | 方針は `2026-09-13T14-23-30`。未決: header 具体値・edge 設定・Access 下 browser cache 実測 |
-| Access 下 audio の browser HTTP cache | 未実測。DevTools で確認が次 |
+| Access 下の二段 cache | 方針は `2026-09-16T19-45-00`。本番 deploy 後に音声の `Cf-Cache-Status: MISS` → `HIT`、DevToolsのbrowser memory/disk cache、未認証requestがcache hitせずAccessで止まることを実測する |
 
 ### 方針 index
 
@@ -58,5 +57,5 @@ R2 登録は完了済み（列に含めない）。R2 Adapter NI の正 peer は
 
 1. 音声の保存・配信形式は **mp3**（`contracts/episode-layout.md` / `2026-09-13T13-40-29`）
 2. 着手順: mp3 → R2 → 薄い cache（`2026-09-13T13-41-00`）。Issue 分割は `2026-09-14T12-49-26`
-3. 現行 storage runtime は Drive。R2 方針 `14-22-55`・実施の形 `11-04-30`・error `11-19-21`。cache は R2 後（`14-23-30`）
+3. 現行 storage runtime は Drive。R2 方針 `14-22-55`・実施の形 `11-04-30`・error `11-19-21`。cache は R2 後（`14-23-30`）、具体方針は`2026-09-16T19-45-00`
 4. generator 書込とは runtime 共有しない（読取専用）

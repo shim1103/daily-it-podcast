@@ -10,6 +10,7 @@ import {
   type PlaybackUseCaseOverrides,
 } from "../composition/root.ts";
 import { createAudioResponse } from "./audio-response.ts";
+import { episodeListCacheHeaders } from "./cache-policy.ts";
 import { createHttpErrorResponse } from "./http-error-response.ts";
 import { mapRuntimeConfigErrorToExternal } from "./runtime-config-error-mapping.ts";
 
@@ -33,7 +34,7 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
       );
       const input: unknown = {};
       const body = await listEpisodesController(input);
-      return Response.json(body, { status: 200 });
+      return Response.json(body, { status: 200, headers: episodeListCacheHeaders });
     })
     .get(episodeAudioRoutePath, async (c) => {
       const { getAudioController } = createPlaybackControllers(
