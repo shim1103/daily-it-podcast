@@ -1,5 +1,7 @@
 # lessons
 
+- 2026-09-16 [feature/r2-smoke-migrate-cutover] 委譲 prompt に既存 test 配置例（同種 smoke の dir・命名）の path を明示しないと、executor が新規 file を独立配置し naming-and-layout の集約規則から逸脱する。委譲時は「同種の既存実装はここにある」を具体 path で渡す  # → layer:workflow
+- 2026-09-16 [feature/r2-smoke-migrate-cutover] test 専用の peer / seam を本番 package へ build tag で撒かない、という教訓（`feature/generator-r2-test-peer-scope`）は同一 session 内の別実装（R2 smoke helper）でも再発した。committed lesson の存在は再発防止を保証しない。委譲先の実装完了後、本番 build 対象に test 専用 export が紛れていないか diff で確認する運用が要る  # → layer:terms
 - 2026-09-16 [feature/generator-r2-test-peer-scope] test 専用の peer / seam を本番 package へ build tag で撒かない。起動補助は `test/` 配下へ閉じ、本番 Adapter は Composition が使う契約面だけにする  # → layer:terms
 - 2026-09-16 [feature/generator-r2-test-peer-scope] 先行 Decision の gate 条を捨てる判断も ADR である。旧 file は rewrite せず新 file を create して supersede する  # → layer:workflow
 - 2026-09-16 [feature/generator-r2-test-peer-scope] lane / comment の方針文は「やめたこと」の履歴ではなく、今の正（latest policy）だけを書く  # → layer:workflow
