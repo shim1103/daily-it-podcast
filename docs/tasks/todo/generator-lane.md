@@ -29,8 +29,7 @@
 
 ### 未完了
 
-1. `r2-smoke-migrate-cutover.md` — 列 6（共有）
-2. `r2-post-cutover-verify-oauth.md` — 列 7（共有）
+1. `r2-post-cutover-verify-oauth.md` — 列 6-7（共有）。旧列 6（`r2-smoke-migrate-cutover`）の結線切替・疎通確認は完了削除し、残タスクを吸収
 
 storage 実施順の正は Decision `2026-09-14T12-49-26` / `playback-lane.md` の実施順 index。R2 Adapter NI の正 peer は `2026-09-16T00-20-08`（本番口は `11-04-30`）。
 
