@@ -293,6 +293,16 @@ test_playback_nvmrc_declares_node_version() {
   fi
 }
 
+test_generator_system_defaults_to_one_topic() {
+  local workflow="$root/.github/workflows/generator-system.yml"
+  if ! grep -A4 'topic_count:' "$workflow" | grep -Fq 'default: "1"'; then
+    fail "generator-system の既定 topic 数が 1 ではない: $workflow" || return
+  fi
+  if ! grep -Fq 'SYSTEM_TEST_TOPIC_COUNT: ${{ inputs.topic_count }}' "$workflow"; then
+    fail "generator-system が topic_count を System test へ渡さない: $workflow" || return
+  fi
+}
+
 test_per_system_entries_are_executable_when_layout_is_split
 test_root_composers_name_per_system_scripts_when_delegating
 test_root_composer_does_not_invoke_toolchain_directly
@@ -306,3 +316,4 @@ test_condition_coverage_report_is_local_and_documented
 test_gha_calls_same_scripts_as_hooks
 test_generator_go_modules_use_pinned_toolchain
 test_playback_nvmrc_declares_node_version
+test_generator_system_defaults_to_one_topic

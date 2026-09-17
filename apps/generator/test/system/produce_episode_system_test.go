@@ -31,7 +31,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -39,27 +38,8 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/composition"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/config"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
 )
-
-// systemTestTopicCountEnv は system-test 実行時に topic 数を注入する環境変数名。
-const systemTestTopicCountEnv = "SYSTEM_TEST_TOPIC_COUNT"
-
-// systemTestTopicCount は環境変数から topic 数を読む。未設定または parse 失敗時は
-// 本番と同じ constants.DraftTopicCountTarget を使う（system-test を「topic 数を絞った
-// 節約実行」に限定しない後方互換のデフォルト）。
-func systemTestTopicCount() int {
-	raw := strings.TrimSpace(os.Getenv(systemTestTopicCountEnv))
-	if raw == "" {
-		return constants.DraftTopicCountTarget
-	}
-	n, err := strconv.Atoi(raw)
-	if err != nil || n <= 0 {
-		return constants.DraftTopicCountTarget
-	}
-	return n
-}
 
 // systemConfigEnvKeys は ProduceEpisode を組むのに要る process env の全 key。
 // 1 つでも空なら System 全体通しは実行できない。
