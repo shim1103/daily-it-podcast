@@ -3,6 +3,8 @@ package composition
 import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/manuscript"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	speechapp "github.com/shim1103/daily-it-podcast/apps/generator/internal/application/speech"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/config"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
 	appruntime "github.com/shim1103/daily-it-podcast/apps/generator/internal/runtime"
@@ -32,7 +34,14 @@ func newProduceEpisode(cfg config.Config, logw *delivery.LogWriter) *application
 		newGeminiTextWriter(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini),
 		logw,
 	)
-	speech := newGeminiSpeechSynthesizer(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini)
+	// why: TTS も TextWriter と同型の合成 layer 経由にする（Decision 2026-09-16T11-41-59）。
+	//      2 つ目の fallback source 追加は別 task。今回は 1 要素のみ。
+	speech := speechapp.NewSpeechSynthesizer(
+		[]port.SpeechSynthesizer{
+			newGeminiSpeechSynthesizer(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini),
+		},
+		logw,
+	)
 	encode := newFFmpegWAVToMP3Encoder()
 	writeEpisode := newR2WriteEpisode(httpClient, cfg.R2)
 	return application.NewProduceEpisode(fetch, lookup, textWriter, speech, encode, writeEpisode, newEpisodeID, appruntime.DisplayLocation(), logw)

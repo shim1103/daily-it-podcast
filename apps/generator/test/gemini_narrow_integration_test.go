@@ -46,7 +46,7 @@ func newGeminiSynthesizerWithProxy(t *testing.T, apiKey string, handler http.Han
 			},
 		},
 	}
-	return gemini.NewSpeechSynthesizer(httpClient, apiKey), probe
+	return gemini.NewSpeechSynthesizer(httpClient, apiKey, gemini.TierFree), probe
 }
 
 func isWAVFixture(data []byte) bool {

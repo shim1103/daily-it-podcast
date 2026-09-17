@@ -18,12 +18,13 @@ var _ port.SpeechSynthesizer = (*SpeechSynthesizer)(nil)
 
 // synthesizeBudget と maxAttempts の関係:
 //   - MaxAttempts   : 1 セグメントが連続で消費してよい上限（暴走ガード）。
-//   - SynthesizeBudget: 1 度の SynthesizeAll 全体で許す合計上限（RPD ガード）。
-//     各セグメントは min(MaxAttempts, 残予算) 回まで。
+//   - SynthesizeBudget/SynthesizeBudgetPaid: 1 度の SynthesizeAll 全体で許す合計上限（RPD ガード）。
+//     tier ごとに synthesizeBudget() が値を選ぶ。各セグメントは min(MaxAttempts, 残予算) 回まで。
 
 type SpeechSynthesizer struct {
 	client         *http.Client
 	apiKey         string
+	tier           Tier
 	backoffSleepFn func(time.Duration) // why: test の並列実行と共存するため package global に置かない
 	lastCallAt     time.Time
 	nowFn          func() time.Time
@@ -40,22 +41,29 @@ type SpeechSynthesizer struct {
 // 「1 episode 分の TTS 呼び出し群」を束ねて管理するのは Adapter の責務。
 // @require texts の各要素は trim 後に非空。朗読本文のみ。
 // @ensure 成功時は len(texts) と同数の非空・最小尺 WAV を返す（結合しない）。
-// @ensure 呼び出し全体で Gemini 呼び出し合計を SynthesizeBudget 回以内へ抑える。
+// @ensure 失敗時もそれまでに合成できた分の audios（部分成功）を err と併せて返す。呼び出し側の
 //
-//	1 セグメントは min(MaxAttempts, 残予算) 回まで。合計が SynthesizeBudget へ達したら以降のセグメントは即 error。
+//	fallback 合成 layer（application/speech）が、この部分成功分を保持しつつ残りを次 source へ渡す。
+//
+// @ensure 呼び出し全体で Gemini 呼び出し合計を synthesizeBudget() 回以内へ抑える
+//
+//	（TierFree なら SynthesizeBudget、TierPaid なら SynthesizeBudgetPaid）。
+//	1 セグメントは min(MaxAttempts, 残予算) 回まで。合計が上限へ達したら以降のセグメントは即 error。
+//
+// @ensure 恒久的失敗を検知した場合、fetchPCM が確定した分類に従い port.ErrSourceExhausted を wrap した error を返す。
 func (s *SpeechSynthesizer) SynthesizeAll(ctx context.Context, texts []string) ([]models.SpeechAudio, error) {
 	if s == nil || s.client == nil {
 		return nil, infraErr("synthesize", fmt.Errorf("client is nil"))
 	}
 
+	budget := s.synthesizeBudget()
 	audios := make([]models.SpeechAudio, 0, len(texts))
 	callsSpent := 0
 	for i, text := range texts {
-		remaining := SynthesizeBudget - callsSpent
+		remaining := budget - callsSpent
 		if remaining <= 0 {
-			// why: ここへ来る前に必ず 1 セグメント以上を消費している。合計予算が尽きた。
-			return nil, infraErr("synthesize_budget", fmt.Errorf(
-				"gemini call budget exhausted at segment %d/%d: spent %d of %d", i+1, len(texts), callsSpent, SynthesizeBudget))
+			return audios, infraErr("synthesize_budget", fmt.Errorf(
+				"gemini call budget exhausted at segment %d/%d: spent %d of %d", i+1, len(texts), callsSpent, budget))
 		}
 		maxAttempts := MaxAttempts
 		if remaining < maxAttempts {
@@ -64,11 +72,23 @@ func (s *SpeechSynthesizer) SynthesizeAll(ctx context.Context, texts []string) (
 		audio, used, err := s.synthesizeOne(ctx, text, maxAttempts)
 		callsSpent += used
 		if err != nil {
-			return nil, err
+			return audios, err
 		}
 		audios = append(audios, audio)
 	}
 	return audios, nil
+}
+
+// synthesizeBudget は s.tier に応じた SynthesizeAll 全体の呼び出し合計上限を返す。
+//
+// @ensure TierPaid のときは SynthesizeBudgetPaid、それ以外（TierFree 含む）は SynthesizeBudget を返す。
+func (s *SpeechSynthesizer) synthesizeBudget() int {
+	switch s.tier {
+	case TierPaid:
+		return SynthesizeBudgetPaid
+	default:
+		return SynthesizeBudget
+	}
 }
 
 // sameGeminiOp は 2 つの error がともに *adaptererror.Error で Source と Op がともに一致するかを返す。
