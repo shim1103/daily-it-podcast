@@ -123,11 +123,15 @@ def render() -> Path:
         with Cluster("Generator (Go + GHA cron)"):
             actions = Custom("GitHub Actions", gha_icon)
             go_cli = Go("Go CLI\n(ProduceEpisode)")
-            # why: 原稿は Cursor Cloud Agents が第一経路。枯渇時は Gemini へ fallback する
-            #   （text_writer fallback）。どちらも「原稿」を作るので両方を原稿経路として描く。
-            cursor_api = Custom("Cursor Cloud Agents\n(primary)", cursor_icon)
-            gemini_text = Custom("Gemini\n(fallback)", gemini_icon)
-            gemini_tts = Custom("Gemini TTS", gemini_icon)
+            # why: 原稿は Gemini free 枠が第一経路。枯渇時は Cursor Cloud Agents へ、
+            #   さらに枯渇したら Gemini paid 枠（SPARE_GEMINI_API_KEY）へ fallback する
+            #   （Decision 2026-09-16T00-39-21）。TTS も同じ Gemini free→paid の 2 段。
+            #   Gemini node は primary（free）と Spare（paid, final fallback）で 2 role を持つため
+            #   1 node に統合し、fallback 方向を dashed edge で示す。
+            gemini_text = Custom("Gemini\n(free, primary)", gemini_icon)
+            cursor_api = Custom("Cursor Cloud Agents\n(fallback)", cursor_icon)
+            gemini_spare = Custom("Gemini\n(paid, final fallback)", gemini_icon)
+            gemini_tts = Custom("Gemini TTS\n(free, primary)", gemini_icon)
             ffmpeg = Go("ffmpeg Adapter")
 
         # why: R2 は Workers isolate の外（Cloudflare 側が持つ独立した storage service）。
@@ -164,9 +168,14 @@ def render() -> Path:
         #   内訳は Sources Cluster の node 名で示す。
         hn >> Edge(label="fetch (5 sources)") >> go_cli
         actions >> Edge(label="cron / manual") >> go_cli
-        go_cli >> Edge(label="draft") >> cursor_api
-        go_cli >> Edge(label="fallback", style="dashed") >> gemini_text
+        # why: 原稿 fallback は Gemini free → Cursor → Gemini paid の 3 段（Decision 2026-09-16T00-39-21）。
+        go_cli >> Edge(label="draft") >> gemini_text
+        gemini_text >> Edge(label="fallback on exhaustion", style="dashed") >> cursor_api
+        cursor_api >> Edge(label="fallback on exhaustion", style="dashed") >> gemini_spare
+        # why: TTS fallback は Gemini free → Gemini paid の 2 段。TextWriter 側と同じ
+        #   SPARE_GEMINI_API_KEY を使うため fallback 先の node（gemini_spare）を共有する。
         go_cli >> Edge(label="TTS") >> gemini_tts
+        gemini_tts >> Edge(label="fallback on exhaustion", style="dashed") >> gemini_spare
         go_cli >> Edge(label="encode") >> ffmpeg
         go_cli >> Edge(label="save (S3 API, over Internet)") >> r2
 
