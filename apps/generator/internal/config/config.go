@@ -9,7 +9,7 @@ type CursorConfig struct {
 //
 // @invariant APIKeyは音声生成（TTS）が、SpareAPIKeyは原稿fallback（generateContent）が使う。
 // 別keyに分けるのは、両者を同一free-tier枠へ相乗りさせるとfallback発火時に
-// HTTP 429（rate limit）へ到達するため（docs/tasks/todo/generator-lane.md D表）。
+// HTTP 429（rate limit）へ到達するため（Decision 2026-09-09T10-00-00）。
 type GeminiConfig struct {
 	APIKey      Secret
 	SpareAPIKey Secret

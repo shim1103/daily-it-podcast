@@ -23,7 +23,7 @@ Non-scope（書かない・写さない）:
 | `apps/playback/web` | 一覧・再生・原稿表示 | `worker` の HTTP のみ |
 | `apps/playback/worker` | R2 読取 BFF | R2 binding（入場境界は `DEPLOY.md`） |
 
-禁止: `playback` ↔ `generator` の直接依存。二系統の runtime は互いに import しない。つながるのは共有 storage 上の file だけ（形の正本は repo 根 `contracts/`）。**現行 runtime の storage は Cloudflare R2**（書込・読取とも）。方針・実施の形・実施順は Decision `2026-09-13T14-22-55` / `2026-09-14T11-04-30` / `12-49-26`。
+禁止: `playback` ↔ `generator` の直接依存。二系統の runtime は互いに import しない。つながるのは共有 storage 上の file だけ（形の正本は repo 根 `contracts/`）。**現行 runtime の storage は Cloudflare R2**（書込・読取とも）。
 
 例外: `apps/playback/web` の production runtime（`src/`）は `worker` の HTTP のみ。dev-only（`web/vite.config.ts` middleware）に限り `worker` Composition Root を import して dummy backend を local 起動できる。production HTTP 入口（`worker/src/routes/app.ts`、`worker/src/worker-entry.ts`）は変更しない。
 
@@ -51,7 +51,7 @@ Non-scope（書かない・写さない）:
 
 `playback/web` は Vite + TypeScript + React + Pico.css classless。`playback/worker` 入口は Hono、型同期は Hono RPC。Next.js / shadcn / TanStack は使わない。
 
-依存は内側へ。Composition Root だけが全層を結線する。未完了 index は `docs/tasks/todo/*-lane.md`。
+依存は内側へ。Composition Root だけが全層を結線する。未完了 index は `docs/tasks/todo/lane.md`。
 
 `generator` Entities は generator に閉じる。言語横断の共有 Domain 型 module は作らない。UI / agent が共有して読む形は `contracts/`。
 
@@ -75,7 +75,7 @@ repo 根 `contracts/` は **配置表現**の SSOT（現行は R2 object 上の�
 | 情報取得 | 公式 API / RSS の複数源（HackerNews・Lobsters・Publickey・TechCrunch・クラウド Watch）。Port は `ItemSource`。源ごとに専用 Adapter、facade なし（RSS 汎用 Adapter も作らない）。GET+retry / HTML 正規化の共有は `infrastructure/httpget`（Decision `2026-09-14T13-06-11`）。源 NI は controllable peer（`httptest` + DialTLS）。本番直撃の接続確認は gate 外 cache suite（Decision `2026-09-14T15-05-00`）。複数源 merge は Composition の composite。Application は源個数を知らない。`SourceItem` 形は Decision `2026-09-13T17-14-00`（正本は `models/source_item.go`）。写像を固定する方針は `2026-09-13T17-14-10`（表の正本は各 Adapter）。採用源は `2026-09-13T15-08-55` |
 | 原稿 | Gemini generateContent（primary）→ Cursor Cloud Agents REST → Gemini generateContent（paid, final fallback）。Port は `TextWriter`（sources 配列を順に試す合成 layer）。Adapter は `manuscript/geminiapi` / `manuscript/cursorapi`。fallback 順序は Decision `2026-09-16T00-39-21` |
 | TTS | Gemini generateContent（primary）→ Gemini generateContent（paid, final fallback）。Port は `SpeechSynthesizer`（同型の合成 layer、部分成功保持）。Decision `2026-09-16T00-39-21` / `2026-09-16T11-41-59` |
-| Storage | Cloudflare R2（S3 互換 API。**現行**。方針 `2026-09-13T14-22-55`・実施の形 `2026-09-14T11-04-30`・実施順 `2026-09-14T12-49-26`。薄い配信 cache は別 Decision `2026-09-13T14-23-30`） |
+| Storage | Cloudflare R2（S3 互換 API）。薄い配信 cache の未完了実測は `docs/tasks/todo/lane.md` |
 
 `generator/internal/config` が startup で process environment を一度だけ読み、検証済み capability Config を Composition へ渡す。HTTP Adapter は `*http.Client` と必要な capability config / credential だけを受け取る。保存元・environment key は知らない。
 
