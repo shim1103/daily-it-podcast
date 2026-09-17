@@ -89,3 +89,6 @@
 - 2026-09-17 [feature/generator-credential-fallback-decision] stacked PR で先行 branch の草案に含まれる記述を切り出す時、base（develop）側で既に撤去済みの機能に言及していないか必ず突き合わせる。突き合わせを怠ると矛盾した記述を新規 Decision として固定してしまう  # → layer:workflow
 - 2026-09-17 [feature/generator-workflow-fallback-wiring] stacked PR chain の前段（base）が merge されると、GitHub は後続 PR の base branch を自動的に merge 先（develop 等）へ切り替える。この切り替えを知らずに local branch から push すると、remote 側で発生した merge commit と衝突し `git push` が `fetch first` で reject される。stacked PR 運用中は、push 前に `gh pr view <番号> --json baseRefName` で base の現在値を確認する習慣を持つ  # → layer:workflow
 - 2026-09-17 [feature/generator-workflow-fallback-wiring] GitHub Actions workflow が `disabled_manually` 状態のとき、yml の trigger 定義（`on:` 節）をどう変えても実行されない。`gh api -X PUT repos/{owner}/{repo}/actions/workflows/{id}/enable` で明示的に再有効化する操作が別途必要で、yml の commit だけでは有効化されない  # → layer:platform
+- 2026-09-17 [develop] Adapterが返すsource枯渇の意味を、credentialの課金区分やfallback配列内の位置で変えない。Adapterはそのsourceが利用不能という事実だけを返し、次sourceの有無と最終error化は合成layerが決める  # → layer:terms
+- 2026-09-17 [develop] 長期branchからrelease branchへのmerge commitはrelease側だけに作られる。base最新必須の保護下では、release直後にrelease branchを長期branchへ同期しないと、次PRが内容差分なしでもout-of-dateになる  # → layer:workflow
+- 2026-09-17 [develop] workflow完了を起点にCDを連鎖する構成では、検証用manual dispatchと直後のrelease pushが同じ連鎖を二重発火させる。追加runを起動する前に、後続commit・PRが同じ起点workflowを発火するか確認して実行順を決める  # → layer:workflow
