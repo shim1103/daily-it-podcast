@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 )
 
@@ -150,6 +151,30 @@ func TestSynthesizeOne_retriesTooManyRequests_thenSucceeds(t *testing.T) {
 	}
 	if len(rt.calls) != 2 {
 		t.Fatalf("call count = %d, want 2", len(rt.calls))
+	}
+}
+
+func TestSynthesizeOne_wrapsSourceExhausted_when429RetriesAreExhausted(t *testing.T) {
+	for _, tier := range []Tier{TierFree, TierPaid} {
+		t.Run(fmt.Sprintf("tier_%d", tier), func(t *testing.T) {
+			// Given: 同じ429が続き、retryを使い切る
+			synth, rt := newFakeSynthesizer(
+				fakeClientResponse{status: http.StatusTooManyRequests, body: jsonBody(t, map[string]any{"error": "RESOURCE_EXHAUSTED"})},
+				fakeClientResponse{status: http.StatusTooManyRequests, body: jsonBody(t, map[string]any{"error": "RESOURCE_EXHAUSTED"})},
+			)
+			synth.tier = tier
+
+			// When
+			_, err := synth.synthTestOne(context.Background(), "429使い切り")
+
+			// Then
+			if !errors.Is(err, port.ErrSourceExhausted) {
+				t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v", err)
+			}
+			if len(rt.calls) != 2 {
+				t.Fatalf("call count = %d、期待値 = 2", len(rt.calls))
+			}
+		})
 	}
 }
 

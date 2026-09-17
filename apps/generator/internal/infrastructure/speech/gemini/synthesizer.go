@@ -50,7 +50,8 @@ type SpeechSynthesizer struct {
 //	（TierFree なら SynthesizeBudget、TierPaid なら SynthesizeBudgetPaid）。
 //	1 セグメントは min(MaxAttempts, 残予算) 回まで。合計が上限へ達したら以降のセグメントは即 error。
 //
-// @ensure 恒久的失敗を検知した場合、fetchPCM が確定した分類に従い port.ErrSourceExhausted を wrap した error を返す。
+// @ensure 恒久的失敗、または429 retryの使い切りを検知した場合、Tierに関係なく
+// port.ErrSourceExhausted を wrapしたerrorを返す。
 func (s *SpeechSynthesizer) SynthesizeAll(ctx context.Context, texts []string) ([]models.SpeechAudio, error) {
 	if s == nil || s.client == nil {
 		return nil, infraErr("synthesize", fmt.Errorf("client is nil"))

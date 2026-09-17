@@ -29,9 +29,11 @@ type pcmFetchRetryKind int
 const (
 	// pcmRetryNone は再試行しない（400 系、恒久的失敗を含む）。
 	pcmRetryNone pcmFetchRetryKind = iota
-	// pcmRetryTransient は Do error / 429 / 503 / 5xx / decode 失敗。synthesizeOne 側の
+	// pcmRetryTransient は Do error / 503 / 5xx / decode 失敗。synthesizeOne 側の
 	// consecutiveSameOp 判定で打ち切りを制御する（fetchPCM 自身は回数を数えない）。
 	pcmRetryTransient
+	// pcmRetryRateLimited は 429。retry 打ち切り時に source 枯渇へ分類する。
+	pcmRetryRateLimited
 )
 
 // fetchPCM は 1 回の Interactions API 呼び出しを実行し、(PCM, 再試行方針, 追加待ち, error) を返す。
@@ -86,7 +88,9 @@ func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]
 				infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw))))
 		}
 		return nil, pcmRetryNone, 0, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
-	case res.StatusCode == http.StatusTooManyRequests, res.StatusCode == http.StatusServiceUnavailable:
+	case res.StatusCode == http.StatusTooManyRequests:
+		return nil, pcmRetryRateLimited, retryAfter, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
+	case res.StatusCode == http.StatusServiceUnavailable:
 		return nil, pcmRetryTransient, retryAfter, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
 	case res.StatusCode >= 500:
 		return nil, pcmRetryTransient, retryAfter, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))

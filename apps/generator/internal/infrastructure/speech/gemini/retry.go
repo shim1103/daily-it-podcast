@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
@@ -45,7 +46,7 @@ func (s *SpeechSynthesizer) synthesizeOne(ctx context.Context, text string, maxA
 			}
 			return models.SpeechAudio{Content: wav}, calls, nil
 		}
-		retryable := kind == pcmRetryTransient
+		retryable := kind == pcmRetryTransient || kind == pcmRetryRateLimited
 		// why: 同種 error（同じ *adaptererror.Error.Op）が retryable のまま 2 回連続したら、
 		//      その本文に対しては決定論的に失敗しているとみなし打ち切る（Decision 2026-09-02T13-56-00）。
 		//      Op が変われば連続数はリセットする。
@@ -56,6 +57,9 @@ func (s *SpeechSynthesizer) synthesizeOne(ctx context.Context, text string, maxA
 		}
 		lastErr = err
 		if !retryable || attempt == maxAttempts || consecutiveSameOp >= 2 {
+			if kind == pcmRetryRateLimited {
+				lastErr = fmt.Errorf("%w: %w", port.ErrSourceExhausted, lastErr)
+			}
 			return models.SpeechAudio{}, calls, lastErr
 		}
 		wait := s.retryDelay(attempt)

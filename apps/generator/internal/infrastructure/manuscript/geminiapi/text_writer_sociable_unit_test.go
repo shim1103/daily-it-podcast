@@ -555,7 +555,7 @@ func TestWrite_doesNotRetryTwice_whenBodyReadInterruptionPersists(t *testing.T) 
 	}
 }
 
-func TestWrite_retriesOn429_untilMaxAttemptsThenInfraError(t *testing.T) {
+func TestWrite_wrapsSourceExhausted_afterTierFreeUsesAll429Attempts(t *testing.T) {
 	t.Parallel()
 
 	// Given: 429 を MaxAttempts 回返し続ける
@@ -571,14 +571,41 @@ func TestWrite_retriesOn429_untilMaxAttemptsThenInfraError(t *testing.T) {
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
 
-	// Then: 上限到達で *adaptererror.Error、待ち観測は MaxAttempts-1 回、call は MaxAttempts 回
+	// Then: 上限到達で次 source へ切替可能な番兵と *adaptererror.Error、待ち観測は MaxAttempts-1 回、call は MaxAttempts 回
 	assertGeminiInfraErrorOp(t, err, "http_status")
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v", err)
+	}
 	assertDraftEqual(t, got, models.ManuscriptDraft{})
 	if len(rt.calls) != MaxAttempts {
 		t.Fatalf("call count = %d, want %d", len(rt.calls), MaxAttempts)
 	}
 	if len(spy.waits) != MaxAttempts-1 {
 		t.Fatalf("sleep count = %d, want %d", len(spy.waits), MaxAttempts-1)
+	}
+}
+
+func TestWrite_wrapsSourceExhausted_afterTierPaidUsesAll429Attempts(t *testing.T) {
+	t.Parallel()
+
+	// Given: paid source が 429 を MaxAttempts 回返し続ける
+	responses := make([]fakeClientResponse, 0, MaxAttempts)
+	for i := 0; i < MaxAttempts; i++ {
+		responses = append(responses, fakeClientResponse{
+			status: http.StatusTooManyRequests,
+			body:   `{"error":"rate limited"}`,
+		})
+	}
+	w, _, _ := newFakeTextWriterWithSleepSpy(responses...)
+	w.tier = TierPaid
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
+
+	// Then: source の位置に依存せず切替用番兵と Infrastructure Error を返す
+	assertGeminiInfraErrorOp(t, err, "http_status")
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v", err)
 	}
 }
 
