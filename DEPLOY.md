@@ -68,18 +68,13 @@ process env の正本は `apps/generator/internal/config/names.go`。`GENERATOR_
 | `R2_ACCESS_KEY_ID` | Secret |
 | `R2_SECRET_ACCESS_KEY` | Secret |
 
-GitHub Actions（Settings → Secrets and variables → Actions）:
+GitHub Actions（Settings → Secrets and variables → Actions）の `TEST_` 接頭辞は、**値が本番と異なる** credential/variable にのみ付ける（Decision `2026-09-16T00-39-21`）。値が本番と同一の `CURSOR_API_KEY` / `SPARE_GEMINI_API_KEY` / `R2_ACCOUNT_ID` は test workflow も本番登録名をそのまま使う。値が本番と異なるのは `TEST_GEMINI_API_KEY` / `TEST_R2_BUCKET` / `TEST_R2_ACCESS_KEY_ID` / `TEST_R2_SECRET_ACCESS_KEY` のみ。
 
-| 用途 | 登録名 |
-|------|------|
-| 本番 | process env と同名 |
-| test（System） | `TEST_` + 同名 |
-
-workflow が test 登録名を process env 名へ写す。Generator は `TEST_` を知らない。
+workflow ごとの credential 一覧・fallback 順序は Decision `2026-09-16T00-39-21` §1-1 の表を正とする。
 
 R2 key は上表（値は書かない）。本番 write/lookup の Composition 結線は R2 固定（Decision `2026-09-14T12-49-26`）。
 
-`GEMINI_API_KEY` は TTS、`SPARE_GEMINI_API_KEY` は原稿 fallback（Gemini generateContent）。分ける理由は `GeminiConfig`（`internal/config/config.go`）の invariant を正とする。System test は両方を要求する。
+`GEMINI_API_KEY` は TextWriter/TTS 共通の primary（free）、`CURSOR_API_KEY` は TextWriter の 2 段目 fallback、`SPARE_GEMINI_API_KEY` は TextWriter/TTS 共通の final fallback（paid）。fallback 順序の理由は `GeminiConfig`（`internal/config/config.go`）の invariant と Decision `2026-09-16T00-39-21` を正とする。
 
 credential 付き実 operation は GHA runner のみ。通常 local / Integration gate は実 service を呼ばず local secret を持たない。
 
@@ -90,7 +85,7 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 | `generator-produce-episode.yml` | `scripts/generator/produce-episode.sh` | 毎日 05:00 JST（cron UTC `0 20 * * *`）+ `workflow_dispatch` | 本番 Secret / Variable |
 | `generator-system.yml` | `scripts/generator/test-system.sh` | master 向け `pull_request` + `workflow_dispatch` | `TEST_*` |
 | `generator-tts-rate.yml` | `scripts/generator/test-tts-rate.sh` | `workflow_dispatch` のみ（cron なし） | `TEST_GEMINI_API_KEY` |
-| `generator-draft-rate.yml` | `scripts/generator/test-draft-rate.sh` | `workflow_dispatch` のみ（cron なし） | `TEST_CURSOR_API_KEY` |
+| `generator-draft-rate.yml` | `scripts/generator/test-draft-rate.sh` | `workflow_dispatch` のみ（cron なし） | `CURSOR_API_KEY` |
 | `playback-smoke.yml` | `npm run test:smoke`（webServer: `npm run dev:smoke`） | master 向け `pull_request` + `workflow_dispatch` | `CLOUDFLARE_API_TOKEN` `TEST_R2_ACCOUNT_ID` |
 | `playback-deploy.yml` | `scripts/playback/deploy.sh` | `apps/playback/**` 変更を含む master への `push` + `workflow_dispatch` | `CLOUDFLARE_API_TOKEN` |
 | `playback-e2e.yml` | `scripts/playback/test-e2e.sh` | `playback-deploy.yml` 成功後（`workflow_run`）+ `workflow_dispatch` | 下表 `PLAYWRIGHT_*` |
@@ -107,8 +102,8 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 
 `-tags=system` の system test を **1 回ずつ通すだけ**。「壊れていないか」だけを測り、PASS 率は定常で測らない。1 回でも FAIL なら run が赤。判断: `docs/decisions/2026-09-03T14-45-00` / `16-30-00`。
 
-- 実体は `TestProduceEpisodeSystem`（`//go:build system`）1 本。`composition.NewProduceEpisodeFromEnv` → `Run` を 1 度通し、実 3 情報源 → Cursor API 原稿 → Gemini TTS → R2 書込 の疎通と通し経路の R2 実到達を見る。Fetch 窓に SourceItem 0 件だった日は `no_source_items` Domain Error で PASS 扱い（fetch は疎通しており system は壊れていない）。他の error は system 故障として赤。
-- 必要 credential は config 契約の全 key（`TEST_CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` / `TEST_SPARE_GEMINI_API_KEY` / `TEST_R2_*`）。1 つでも欠けたら Skip。
+- 実体は `TestProduceEpisodeSystem`（`//go:build system`）1 本。`composition.NewProduceEpisodeFromEnvWithTopicCount`（`SYSTEM_TEST_TOPIC_COUNT` で topic 数を任意指定できる。未指定時は本番と同じ `DraftTopicCountTarget`）→ `Run` を 1 度通し、実 5 情報源 → 原稿（Gemini→Cursor→Gemini fallback）→ Gemini TTS（fallback）→ R2 書込 の疎通と通し経路の R2 実到達を見る。Fetch 窓に SourceItem 0 件だった日は `no_source_items` Domain Error で PASS 扱い（fetch は疎通しており system は壊れていない）。他の error は system 故障として赤。
+- 必要 credential は config 契約の全 key（`CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` / `SPARE_GEMINI_API_KEY` / `TEST_R2_*`）。1 つでも欠けたら Skip。
 - 本 workflow は一時的に無効化している（`disabled_manually`）。master 向け PR のたびに実 credential 付き system test が走る運用負荷が高いため。再有効化は `gh api -X PUT repos/{owner}/{repo}/actions/workflows/{id}/enable`。
 - cron の 1 回通しが **2 週連続で落ちたら** bug 扱いで Issue 化する。1 週だけの赤は provider 起因として再 `workflow_dispatch` する。
 - 赤になったら故障区間に応じて `generator-tts-rate.yml`（TTS 側）/ `generator-draft-rate.yml`（Cursor 原稿側）を手動 dispatch して切り分ける。
@@ -135,7 +130,7 @@ env は `TEST_GEMINI_API_KEY` 直読み（本番 `GEMINI_API_KEY` を計測へ�
 - `*cursorapi.Error` の `Op=="do"`（API へ到達すらできない環境要因）はその回を分母から除外する。全回が除外なら Skip。
 - dispatch 例: `gh workflow run generator-draft-rate.yml -f runs=5 [-f prompt_variant=a -f pass_threshold=]`。
 
-env は `TEST_CURSOR_API_KEY` 直読み（本番 `CURSOR_API_KEY` を計測へ流さない）。判断: `docs/decisions/2026-09-03T14-45-00` / `14-47-00`。
+env は `CURSOR_API_KEY` 直読み（値が本番と同一のため`TEST_` 接頭辞を持たない。Decision `2026-09-16T00-39-21`）。判断: `docs/decisions/2026-09-03T14-45-00` / `14-47-00` / `2026-09-16T00-39-21`。
 
 ### Playback smoke（`playback-smoke.yml`）
 
