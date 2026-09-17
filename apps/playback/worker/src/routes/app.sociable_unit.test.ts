@@ -109,8 +109,12 @@ describe("app", () => {
     // When: 一覧 path へ GET する
     const got = await app.request(`${origin}${listEpisodesPath}`, {}, emptyEnv);
 
-    // Then: 200 と契約 schema
+    // Then: 200・契約 schema・短い二段 cache
     expect(got.status).toBe(200);
+    expect(got.headers.get("Cache-Control")).toBe("public, max-age=60");
+    expect(got.headers.get("Cloudflare-CDN-Cache-Control")).toBe(
+      "public, max-age=300, stale-while-revalidate=60",
+    );
     const body: unknown = await got.json();
     expect(ListEpisodesResponseSchema.safeParse(body).success).toBe(true);
   });

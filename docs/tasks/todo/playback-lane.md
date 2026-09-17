@@ -46,12 +46,11 @@ deploy・Access・GHA 運用の正: `DEPLOY.md`
 
 R2 登録は完了済み。R2 Adapter NI の正 peer は Decision `2026-09-16T00-20-08`（本番口は `11-04-30`）。
 
-### 未決 index（D）
+### 未完了実測 index（D）
 
 | topic | 概要 |
 |---|---|
-| 薄い cache の細部 | 方針は `2026-09-13T14-23-30`。未決: header 具体値・edge 設定・Access 下 browser cache 実測 |
-| Access 下 audio の browser HTTP cache | 未実測。DevTools で確認が次 |
+| Access 下の二段 cache | 方針は `2026-09-16T19-45-00`。本番 deploy 後に音声の `Cf-Cache-Status: MISS` → `HIT`、DevToolsのbrowser memory/disk cache、未認証requestがcache hitせずAccessで止まることを実測する |
 
 ### 方針 index
 
