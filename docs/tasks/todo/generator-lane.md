@@ -2,7 +2,7 @@
 
 参照: docs/daily/2026-08-15T16-23-06-develop.md
 
-取得 → Cursor Cloud Agents REST 原稿 → Gemini TTS → Drive 書込を Go CLI + GHA で通す。
+取得 → Cursor Cloud Agents REST 原稿 → Gemini TTS → R2 書込を Go CLI + GHA で通す。
 
 未完了の達成契約は `docs/tasks/todo/generator-*.md` が正。本 lane は進捗 index のみ。依存順は各 task file の Dependencies を正とする。
 
@@ -23,13 +23,14 @@
 10. ConcatWAV 後 ffmpeg で mp3 化し Drive へ書く — Port `WAVToMP3Encoder` の ffmpeg Adapter 本実装と `ProduceEpisode` 結線。deploy は playback lane `R-mp3-cutover`（読取と同着）。判断は Decision `2026-09-13T16-32-57` / `17-38-37`
 11. `httpget` helper・5 源 Narrow（controllable peer）・接続 cache（CI 外）— Decision `2026-09-14T13-06-11` / `15-05-00`
 12. mp3 同着切替 + wav 一括 + fixture（`audio-mp3-cutover-migrate`。達成契約 file 削除済み）。prod Drive は `{json,mp3}` のみ。`playback-e2e` PASS
-13. R2 `EpisodeWriter` 本実装・結線口（列 4）。達成契約 file 削除済み。本番正本は Drive のまま（列 6 で切替）。`R2_*` は `config.Load` 必須
-14. R2 `CompletedEpisodeLookup` 振る舞い本実装。達成契約 file 削除済み。本番結線は列 6 で Writer と同着。Adapter NI の正 peer は httptest（Decision `2026-09-16T00-20-08`）
+13. R2 `EpisodeWriter` 本実装・結線口（列 4）。達成契約 file 削除済み
+14. R2 `CompletedEpisodeLookup` 振る舞い本実装。達成契約 file 削除済み。Adapter NI の正 peer は httptest（Decision `2026-09-16T00-20-08`）
 15. R2 test peer infra（C1）。local S3 は peer 到達 Verification、playback は `getPlatformProxy` infra。達成契約 file 削除済み（Decision `2026-09-16T00-20-08`）
+16. R2 本番同着切替・Google OAuth / Drive codebase 削除（`r2-post-cutover-verify-oauth`。達成契約 file 削除済み）。generator 本番正本は R2。`config.Load` から Drive field 削除済み
 
 ### 未完了
 
-1. `r2-post-cutover-verify-oauth.md` — 列 6-7（共有）。旧列 6（`r2-smoke-migrate-cutover`）の結線切替・疎通確認は完了削除し、残タスクを吸収
+（storage 移行は完了。次の未完了項目は無し）
 
 storage 実施順の正は Decision `2026-09-14T12-49-26` / `playback-lane.md` の実施順 index。R2 Adapter NI の正 peer は `2026-09-16T00-20-08`（本番口は `11-04-30`）。
 

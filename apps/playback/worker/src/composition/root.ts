@@ -6,8 +6,7 @@ import type { GetAudioController } from "../controllers/get-audio-controller.ts"
 import { createGetAudioController } from "../controllers/get-audio-controller.ts";
 import type { ListEpisodesController } from "../controllers/list-episodes-controller.ts";
 import { createListEpisodesController } from "../controllers/list-episodes-controller.ts";
-import { GoogleDriveEpisodeRepository } from "../infrastructure/drive/google-drive-episode-repository.ts";
-import { InMemoryEpisodeRepository } from "../infrastructure/drive/in-memory-episode-repository.ts";
+import { InMemoryEpisodeRepository } from "../infrastructure/in-memory/in-memory-episode-repository.ts";
 import { R2EpisodeRepository } from "../infrastructure/r2/r2-episode-repository.ts";
 import { validatePlaybackEnv, type PlaybackRepositoryOptions } from "./runtime-config.ts";
 import type { PlaybackEnv } from "./runtime-config-bindings.ts";
@@ -27,7 +26,7 @@ export type PlaybackControllers = {
 /**
  * local development / unit test 用に use case 一式を丸ごと差し替える override。
  *
- * @invariant repository 解決（`createEpisodeRepository`）を経由しない。env の Drive 設定不足を無視する
+ * @invariant repository 解決（`createEpisodeRepository`）を経由しない。mode 未指定を無視する
  */
 export type PlaybackUseCaseOverrides = {
   useCases: {
@@ -40,46 +39,23 @@ export type PlaybackUseCaseOverrides = {
  * env から `EpisodeRepository` を選ぶ結果。
  */
 export type EpisodeRepositorySelection =
-  | { kind: "drive"; repository: EpisodeRepository }
   | { kind: "in-memory"; repository: EpisodeRepository }
   | { kind: "r2"; repository: EpisodeRepository };
 
 /**
  * env から `EpisodeRepository` を選ぶ。
  *
- * @require env は Cloudflare Workers native secrets/vars（`.env` は読まない）
- * @ensure OAuth 値と DRIVE_FOLDER_ID が全て揃う時は "drive"、明示的 local / unit test mode の時は
- *   "in-memory"、明示的 `options.mode === "r2"` の時は "r2"。設定不足は runtime config module が throw
- *   する
- * @invariant env に R2 binding が存在するだけでは "r2" を自動選択しない（Drive の暗黙 4key 判定を
- *   変更しないため、mode の明示指定が必須）
+ * @require env は Cloudflare Workers native secrets/vars（`.env` は読まない）。mode は呼び出し側が
+ *   常に明示する
+ * @ensure 明示的 `options.mode === "in-memory"` の時は "in-memory"、明示的
+ *   `options.mode === "r2"` の時は "r2"。mode 未指定・設定不足は runtime config module が throw する
+ * @invariant mode の明示指定が必須で、env の中身から暗黙に解決しない
  */
 export function createEpisodeRepository(
   env: PlaybackEnv,
   options: PlaybackRepositoryOptions = {},
 ): EpisodeRepositorySelection {
   const validated = validatePlaybackEnv(env, options);
-
-  if (validated.mode === "drive") {
-    const {
-      GOOGLE_OAUTH_CLIENT_ID: clientId,
-      GOOGLE_OAUTH_CLIENT_SECRET: clientSecret,
-      GOOGLE_OAUTH_REFRESH_TOKEN: refreshToken,
-      DRIVE_FOLDER_ID: folderId,
-    } = validated.env;
-
-    return {
-      kind: "drive",
-      // why: global fetch を直渡しする。呼び出し側（GoogleDriveEpisodeRepository.request）が
-      //   free function として呼ぶため、method 呼び出しによる Illegal invocation は起きない。
-      //   ラッパ `(input, init) => fetch(...)` は unit で到達不能な dead branch になるので置かない。
-      repository: new GoogleDriveEpisodeRepository({
-        fetch,
-        oauth: { clientId, clientSecret, refreshToken },
-        folderId,
-      }),
-    };
-  }
 
   if (validated.mode === "r2") {
     return { kind: "r2", repository: new R2EpisodeRepository({ bucket: validated.bucket }) };
@@ -94,7 +70,7 @@ export function createEpisodeRepository(
  * @require env は Cloudflare Workers native secrets/vars
  * @ensure useCaseOverrides がある時は repository 解決を経由せず、渡された use case を Controller
  *   へ直結する。無い時は従来通り repository を選べれば Controller 一式を返し、設定不足は throw する
- * @invariant useCaseOverrides は既存の Drive / in-memory 分岐（`createEpisodeRepository`）を変更しない
+ * @invariant useCaseOverrides は既存の in-memory / r2 分岐（`createEpisodeRepository`）を変更しない
  */
 export function createPlaybackControllers(
   env: PlaybackEnv,

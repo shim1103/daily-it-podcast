@@ -26,8 +26,8 @@ from pathlib import Path
 CUSTOM_NODE_NAMES: tuple[str, ...] = (
     "cloudflare-workers",
     "cloudflare-access",
+    "cloudflare-r2",
     "cursor",
-    "google-drive",
     "gemini",
     "hono",
     "github-actions",
@@ -51,10 +51,9 @@ def render() -> Path:
     """
     from diagrams import Cluster, Diagram, Edge
     from diagrams.custom import Custom
-    from diagrams.onprem.client import Users
+    from diagrams.onprem.client import Client
     from diagrams.programming.language import Go, TypeScript
     from diagrams.programming.framework import React
-    from diagrams.saas.cdn import Cloudflare
 
     from icons import icon_path, rasterize
 
@@ -75,8 +74,8 @@ def render() -> Path:
 
     workers_icon = str(rasterize(icon_path("cloudflare-workers")))
     access_icon = str(rasterize(icon_path("cloudflare-access")))
+    r2_icon = str(rasterize(icon_path("cloudflare-r2")))
     cursor_icon = str(rasterize(icon_path("cursor")))
-    drive_icon = str(rasterize(icon_path("google-drive")))
     gemini_icon = str(rasterize(icon_path("gemini")))
     hono_icon = str(rasterize(icon_path("hono")))
     gha_icon = str(rasterize(icon_path("github-actions")))
@@ -97,17 +96,18 @@ def render() -> Path:
         edge_attr=edge_attr,
         outformat="png",
     ):
-        user = Users("Listener")
+        # why: single-user app。複数人 icon（Users）ではなく 1 人の Client node にする。
+        user = Client("User (Browser)")
 
         # why: SourceItem を返す 5 Adapter（DESIGN / Decision 2026-09-13T15-08-55）。
-        #   ITmedia 単源ではない。JSON API と feed（Atom/RSS/RDF）を並べる。
-        with Cluster("Sources → SourceItem"):
-            hn = Custom("Hacker News\n(Firebase JSON)", hn_icon)
-            lobsters = Custom("Lobsters\n(hottest JSON)", lobsters_icon)
-            publickey = Custom("Publickey\n(Atom)", publickey_icon)
-            techcrunch = Custom("TechCrunch\n(RSS 2.0)", techcrunch_icon)
-            cloudwatch = Custom("クラウド Watch\n(RDF)", cloudwatch_icon)
-            # why: 5 源は対等な並列取得。invisible edge で同一 rank に寄せる。
+        #   ITmedia 単源ではない。JSON API と feed（Atom/RSS/RDF）を並べる。図では
+        #   Go CLI への矢印を 1 本へ集約し、内訳は node 名だけで示す。
+        with Cluster("Sources"):
+            hn = Custom("Hacker News", hn_icon)
+            lobsters = Custom("Lobsters", lobsters_icon)
+            publickey = Custom("Publickey", publickey_icon)
+            techcrunch = Custom("TechCrunch", techcrunch_icon)
+            cloudwatch = Custom("Cloud Watch", cloudwatch_icon)
             (
                 hn
                 - Edge(style="invis")
@@ -121,57 +121,65 @@ def render() -> Path:
             )
 
         with Cluster("Generator (Go + GHA cron)"):
-            actions = Custom("GitHub Actions\n(cron / manual)", gha_icon)
-            # why: ConcatWAV / Timeline は Application 内製。外へ出さない。
+            actions = Custom("GitHub Actions", gha_icon)
             go_cli = Go("Go CLI\n(ProduceEpisode)")
             # why: 原稿は Cursor Cloud Agents が第一経路。枯渇時は Gemini へ fallback する
             #   （text_writer fallback）。どちらも「原稿」を作るので両方を原稿経路として描く。
-            cursor_api = Custom("Cursor Cloud Agents\n(Script, primary)", cursor_icon)
-            gemini_text = Custom("Gemini\n(Script, fallback)", gemini_icon)
-            gemini_tts = Custom("Gemini TTS\n(segment WAV)", gemini_icon)
-            # why: WAV→mp3 は Port（WAVToMP3Encoder）経由の Infra Adapter。save はしない。
-            ffmpeg = Go("ffmpeg Adapter\n(EncodeWAVToMP3)")
+            cursor_api = Custom("Cursor Cloud Agents\n(primary)", cursor_icon)
+            gemini_text = Custom("Gemini\n(fallback)", gemini_icon)
+            gemini_tts = Custom("Gemini TTS", gemini_icon)
+            ffmpeg = Go("ffmpeg Adapter")
 
-        drive = Custom("Google Drive\n({id}.json + {id}.mp3)", drive_icon)
+        # why: R2 は Workers isolate の外（Cloudflare 側が持つ独立した storage service）。
+        #   generator からは S3 互換 API（Internet 経由）、playback からは Worker binding
+        #   （Cloudflare 内部、Internet を経由しない）という異なる経路で同じ bucket へ到達する
+        #   ため、isolate を持つ Playback Cluster の外に独立 node として置く。
+        with Cluster("Cloudflare"):
+            r2 = Custom("R2\n({id}.json + {id}.mp3)", r2_icon)
 
-        with Cluster("Playback (Cloudflare) — TypeScript"):
-            access = Custom("Cloudflare Access\n(OAuth 2.0 access control)", access_icon)
-            cdn = Cloudflare("DNS / CDN")
-            # why: web / worker / contracts すべて TS。contracts の zod schema と hc<AppType> の
-            #   型共有が構成の要なので、generator 側の Go node と対称に言語 node を 1 個置く。
-            ts = TypeScript("TypeScript\n(contracts type sharing)")
-            with Cluster("Playback UI"):
-                vite = Custom("Vite\n(bundle build / serve)", vite_icon)
-                react = React("React\n(rendering, playback control)")
-                vite >> Edge(label="bundle", style="dashed") >> react
-            with Cluster("Workers (Drive proxy BFF)"):
-                workers = Custom("Cloudflare Workers\n(execution runtime)", workers_icon)
-                # why: Hono の route は 2 本。/episodes は RPC client（hc<AppType>）が叩く JSON、
-                #   /episodes/:id/audio は素の HTTP GET（audio/mpeg・Range 部分応答）で RPC を経由しない。
-                hono = Custom("Hono\n(routes: RPC + audio GET)", hono_icon)
+            with Cluster("Playback — TypeScript"):
+                # why: Access が TLS 終端・認証を行い、assets 配信か Worker 起動かを Edge 側で
+                #   振り分ける。この Edge routing 自体は runtime 図の主題ではないため 1 node に畳む。
+                access = Custom("Cloudflare Edge\n(TLS, Access auth, routing)", access_icon)
 
-        # 生成フロー
-        # why: ConcatWAV は Go CLI（ProduceEpisode）内。TTS→ffmpeg 直結や ffmpeg の save は描かない。
-        hn >> Edge(label="List") >> go_cli
-        lobsters >> Edge(label="List") >> go_cli
-        publickey >> Edge(label="List") >> go_cli
-        techcrunch >> Edge(label="List") >> go_cli
-        cloudwatch >> Edge(label="List") >> go_cli
+                # why: contracts の zod schema と hc<AppType> の型共有が React ↔ Hono の構成の要。
+                #   generator 側の Go node と対称に言語 node を 1 個置き、両側へ type edge を引く。
+                ts = TypeScript("TypeScript\n(contracts type sharing)")
+
+                # why: Vite は build time のみ動く。実行時 runtime には存在しないため、
+                #   React（source）→ Vite（build）→ static assets の順で生成物と分けて描く。
+                react = React("React")
+                assets = Custom("Static assets\n(built by Vite)", vite_icon)
+                react >> Edge(label="build", style="dashed") >> assets
+
+                with Cluster("Worker isolate"):
+                    # why: Workers は isolate を提供する runtime、Hono はその isolate 内で動く
+                    #   1つの Worker app。親子関係を Cluster 内包含で示す。
+                    workers = Custom("Cloudflare Workers\n(V8 isolate)", workers_icon)
+                    hono = Custom("Hono (Worker app)", hono_icon)
+                    workers - Edge(style="invis") - hono
+
+        # generator flow
+        # why: 5 source はいずれも Go CLI が List で読む対等な Adapter。矢印は 1 本に集約し、
+        #   内訳は Sources Cluster の node 名で示す。
+        hn >> Edge(label="fetch (5 sources)") >> go_cli
         actions >> Edge(label="cron / manual") >> go_cli
-        go_cli >> Edge(label="generate script") >> cursor_api
-        go_cli >> Edge(label="fallback on exhaustion", style="dashed") >> gemini_text
-        go_cli >> Edge(label="TTS → segment WAV") >> gemini_tts
-        go_cli >> Edge(label="EncodeWAVToMP3") >> ffmpeg
-        go_cli >> Edge(label="save (OAuth 2.0)") >> drive
+        go_cli >> Edge(label="draft") >> cursor_api
+        go_cli >> Edge(label="fallback", style="dashed") >> gemini_text
+        go_cli >> Edge(label="TTS") >> gemini_tts
+        go_cli >> Edge(label="encode") >> ffmpeg
+        go_cli >> Edge(label="save (S3 API, over Internet)") >> r2
 
-        # 再生フロー
-        user >> Edge(label="access") >> access >> cdn >> vite
+        # playback flow
+        user >> Edge(label="HTTPS") >> access
+        access >> Edge(label="static") >> assets
+        access >> Edge(label="dynamic") >> workers
         ts >> Edge(label="type", style="dotted") >> react
         ts >> Edge(label="type", style="dotted") >> hono
-        react >> Edge(label="list JSON (Hono RPC)") >> hono
-        react >> Edge(label="audio MP3 / Range (HTTP GET)") >> hono
-        workers >> Edge(label="execute", style="dashed") >> hono
-        hono >> Edge(label="Drive read (OAuth 2.0)") >> drive
+        assets >> Edge(label="RPC / audio (HTTP)") >> hono
+        # why: Worker binding は Cloudflare 内部の直結 API。fetch() の Internet 呼び出しではない
+        #   ため、generator の save edge（実線・Internet 経由）と区別して太線で描く。
+        hono >> Edge(label="R2 binding (no Internet hop)", penwidth="2") >> r2
 
     return Path(str(_OUTPUT) + ".png")
 

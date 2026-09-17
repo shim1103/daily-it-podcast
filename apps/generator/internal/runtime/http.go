@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// httpTimeout は Drive / OAuth / 情報源 Adapter が共有する Client の全体 timeout である。
+// httpTimeout は R2 / 情報源 Adapter が共有する Client の全体 timeout である。
 const httpTimeout = 30 * time.Second
 
 // HTTPClient は短い request/response の HTTP Adapter が共有する *http.Client を返す。

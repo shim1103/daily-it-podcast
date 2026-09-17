@@ -1,5 +1,9 @@
 # lessons
 
+- 2026-09-17 [feature/r2-post-cutover-verify-oauth] 型ガード関数の維持に固執して、判定ロジックを2関数（`isXxx` + `describeXxxMismatch`）に分けると、呼び出し側が両方呼んで同じ判定を2回実行する無駄が生まれる。TypeScriptで判定結果と失敗理由を両方返したい時は、型ガードを諦めてtagged union（`{valid: true, body} | {valid: false, cause}`）を1関数で返す設計にする。「型ガードを保つ」という制約自体がKISSの誤用（見た目の単純さのために実行効率と設計の単純さを犠牲にする）になっていないか疑う  # → layer:terms
+- 2026-09-17 [feature/r2-post-cutover-verify-oauth] `undefined`/`null`を「値が存在しない」と「判定に失敗した/しなかった」の両方の意味で使う関数は、Null多義性禁止に抵触する。「一致した（理由なし）」を表すのに`string | undefined`を使わず、成功/失敗を型で区別するtagged unionにする  # → layer:terms
+- 2026-09-17 [feature/r2-post-cutover-verify-oauth] アーキテクチャ図を大幅に書き直す時、削除される要素を明示的に洗い出さずに再構築すると、以前の版にあった重要な情報（型共有の矢印、フレームワークのicon等）が理由なく消える。書き直し前後で「前の版にあったが今回消えた要素」を意図的にdiffし、消してよいか一つずつ判断する  # → layer:workflow
+- 2026-09-17 [feature/r2-post-cutover-verify-oauth] user がアーキテクチャの技術的な仕組み（Workers isolateとR2の関係、binding vs S3互換API、TLS終端の主体等）を問い返してきた時、それは単なる確認ではなく図の不正確さの指摘であることが多い。技術的に正確な位置づけ（isolateの外にあるstorage、Internet越しかどうか）を裏付け（Decision等）から確認してから図を直す  # → layer:terms
 - 2026-09-16 [feature/r2-smoke-remove-and-migrate] Issue分割は永続的な境界ではない。列を分けた理由（検証手段の違い）が残っていても、片方のScopeが検証可能な状態で完了したら、達成契約が空になったIssueをrelease専用の空箱として残さず、残タスクを隣接Issueへ統合してfileごと削除する。分割は着手時点の判断であり、完了時点で棚卸しし直す  # → layer:workflow
 - 2026-09-16 [feature/r2-smoke-remove-and-migrate] 「移行が完了した」という報告を受けた時、配置（put）操作の完了と、その結果の確認（verify）の完了を同一視しない。userが「まだ正確には移行していない」と言う時、指しているのは大抵確認側の欠落であり、Issue AC も配置と確認を別項目として持つべきサイン  # → layer:terms
 - 2026-09-16 [feature/r2-smoke-remove-and-migrate] user が `git checkout -b {new-branch} from {base}` と明示した時、`git worktree add -b` へ言い換えない。checkout と worktree add は「同じ branch を作る」点で似て見えるが、worktree構造自体を増やすかどうかが違う。指示された command 形をそのまま実行し、worktree化が必要だと判断する場合でも先に確認する  # → layer:workflow

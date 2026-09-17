@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NotFoundError, UnavailableError } from "../../../contracts/index.ts";
 import { EpisodeContentError } from "../entities/errors/episode-content-error.ts";
-import { DriveError } from "../infrastructure/drive/drive-error.ts";
+import { R2Error } from "../infrastructure/r2/r2-error.ts";
 import { mapInternalErrorToExternal } from "./map-internal-error.ts";
 
 describe("mapInternalErrorToExternal", () => {
@@ -17,9 +17,9 @@ describe("mapInternalErrorToExternal", () => {
     expect(got.cause).toBe(internal);
   });
 
-  it("DriveError の時、UnavailableError に cause を付ける", () => {
+  it("R2Error の時、UnavailableError に cause を付ける", () => {
     // Given: Infrastructure 失敗
-    const internal = new DriveError("Drive 読取に失敗");
+    const internal = new R2Error("R2 読取に失敗");
 
     // When: Internal を External へ写す
     const got = mapInternalErrorToExternal(internal);
