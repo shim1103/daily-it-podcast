@@ -77,3 +77,4 @@
 - 2026-09-15 [chore/cd-release-protect-smoke-e2e] worktree 間で共有される local branch 参照（例: `master`）は、他 worktree・他 session の操作で気づかず古い/別系統になっていることがある。base branch を跨ぐ操作（PR base 選定・rebase 元の決定）の前に、`origin/<branch>` と local `<branch>` の共通祖先を確認し、食い違いがあれば `origin/<branch>` を正として扱う  # → layer:workflow
 - 2026-09-16 [feature/playback-audio-cache] Worker entrypoint全体のcacheを有効にすると、明示headerが無いdefault-cacheable responseもheuristicに保存され得る。特定routeだけをcacheしたい時も、同じentrypointの動的response・error responseへ保存可否を明示し、暗黙のTTLへ任せない  # → layer:platform
 - 2026-09-16 [feature/playback-audio-cache] edge cacheがRange requestを処理するruntimeでは、cold miss時にRangeを除いたfull responseを保存し、edgeがclient向けPartial Contentを生成できる。applicationのRange実装はcache無効時のfallback契約として残し、edge保存対象をPartial Contentへ限定しない  # → layer:platform
+- 2026-09-17 [feature/generator-credential-fallback-decision] stacked PR で先行 branch の草案に含まれる記述を切り出す時、base（develop）側で既に撤去済みの機能に言及していないか必ず突き合わせる。突き合わせを怠ると矛盾した記述を新規 Decision として固定してしまう  # → layer:workflow
