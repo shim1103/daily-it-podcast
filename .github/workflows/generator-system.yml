@@ -14,8 +14,11 @@ on:
     branches: [master]
   workflow_dispatch:
 
-# why: TEST_DRIVE_FOLDER_ID は書込・検証・削除を1 runで完結する設計（Decision 2026-08-30T16-23-00）。
-#   pull_request 化で同時実行頻度が上がるため、同一 folder への競合を避けて直列化する。
+# why: 旧 Drive 用の直列化理由（test 用 Drive folder の書込・検証・削除を1 runで完結する設計。
+#   Decision 2026-08-30T16-23-00）は Google OAuth / Drive 実装の撤去により成立しなくなった。
+#   R2 側は produce_episode_system_test.go の @invariant により同 stem upsert で残骸許容・cleanup なしの
+#   設計であり、同一 test 用 R2 bucket への並行書込が競合する根拠は現状確認できていない。
+#   ただし直列化を外すことは挙動変更になるため、確信が持てるまでは concurrency 自体は保持する。
 concurrency:
   group: generator-system
   cancel-in-progress: false
@@ -39,10 +42,6 @@ jobs:
           CURSOR_API_KEY: ${{ secrets.TEST_CURSOR_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_API_KEY }}
           SPARE_GEMINI_API_KEY: ${{ secrets.TEST_SPARE_GEMINI_API_KEY }}
-          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.TEST_GOOGLE_OAUTH_CLIENT_SECRET }}
-          GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.TEST_GOOGLE_OAUTH_REFRESH_TOKEN }}
-          GOOGLE_OAUTH_CLIENT_ID: ${{ vars.TEST_GOOGLE_OAUTH_CLIENT_ID }}
-          DRIVE_FOLDER_ID: ${{ vars.TEST_DRIVE_FOLDER_ID }}
           R2_ACCOUNT_ID: ${{ vars.TEST_R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ vars.TEST_R2_BUCKET }}
           R2_ACCESS_KEY_ID: ${{ secrets.TEST_R2_ACCESS_KEY_ID }}
