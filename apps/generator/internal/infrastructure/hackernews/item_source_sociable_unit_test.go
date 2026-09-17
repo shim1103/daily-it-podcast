@@ -92,7 +92,7 @@ func (rt *stubRoundTripper) itemCalls(id int) int {
 }
 
 func newStubListItemSource(rt *stubRoundTripper) *hackernews.ListItemSource {
-	return hackernews.NewListItemSource(&http.Client{Transport: rt})
+	return hackernews.NewListItemSource(&http.Client{Transport: rt}, hackernews.MaxStoriesScanned)
 }
 
 // storyJSON は type=="story" の item JSON を組む helper。
@@ -307,7 +307,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidJSON(t *t
 
 	t.Run("client nil", func(t *testing.T) {
 		// @given client を持たない ListItemSource
-		source := hackernews.NewListItemSource(nil)
+		source := hackernews.NewListItemSource(nil, hackernews.MaxStoriesScanned)
 
 		// @when
 		got, err := source.List(context.Background(), since)
@@ -545,7 +545,7 @@ func TestList_retriesOnceOnTransientError_whenSecondAttemptSucceeds(t *testing.T
 			}, nil
 		},
 	}
-	source := hackernews.NewListItemSource(&http.Client{Transport: transientRT})
+	source := hackernews.NewListItemSource(&http.Client{Transport: transientRT}, hackernews.MaxStoriesScanned)
 
 	// @when
 	got, err := source.List(context.Background(), since)
@@ -673,6 +673,39 @@ func TestList_stopsScanningAfterCollectingMaxStoriesScanned_whenEnoughStoriesInW
 	}
 }
 
+func TestList_stopsScanningAtMaxItems_whenMaxItemsBelowMaxStoriesScanned(t *testing.T) {
+	// @given topstories が MaxStoriesScanned 件。全 id を window 内 story として仕込む。
+	// maxItems は MaxStoriesScanned より小さい値を渡す
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	unix := since.Add(time.Hour).Unix()
+	total := hackernews.MaxStoriesScanned
+	ids := make([]int, 0, total)
+	for i := 0; i < total; i++ {
+		ids = append(ids, 5000+i)
+	}
+	rt := newStubRoundTripper()
+	rt.setTopStories(ids...)
+	for _, id := range ids {
+		rt.setItem(id, storyJSON(id, unix, "story", "本文", ""))
+	}
+	maxItems := hackernews.MaxStoriesScanned - 2
+	source := hackernews.NewListItemSource(&http.Client{Transport: rt}, maxItems)
+
+	// @when
+	got, err := source.List(context.Background(), since)
+
+	// @then 結果は maxItems 件で打ち切る
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != maxItems {
+		t.Fatalf("len(got) = %d, want %d", len(got), maxItems)
+	}
+	if rt.itemCalls(ids[maxItems]) != 0 {
+		t.Fatalf("story fetched after maxItems reached (calls=%d)", rt.itemCalls(ids[maxItems]))
+	}
+}
+
 func TestList_collectsWindowStoriesBeyondFirstMaxStoriesScanned_whenTopStoriesExceedsLimit(t *testing.T) {
 	// @given topstories 先頭 5 件は window 外、その後ろに window 内 story を MaxStoriesScanned+2 件仕込む
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
@@ -768,7 +801,7 @@ func TestList_failsAfterRetry_whenSecondTopStoriesAttemptAlsoFails(t *testing.T)
 			}, nil
 		},
 	}
-	source := hackernews.NewListItemSource(&http.Client{Transport: rt})
+	source := hackernews.NewListItemSource(&http.Client{Transport: rt}, hackernews.MaxStoriesScanned)
 
 	// @when
 	got, err := source.List(context.Background(), since)
@@ -799,7 +832,7 @@ func TestList_returnsInfrastructureError_whenResponseBodyReadFails(t *testing.T)
 			}, nil
 		},
 	}
-	source := hackernews.NewListItemSource(&http.Client{Transport: rt})
+	source := hackernews.NewListItemSource(&http.Client{Transport: rt}, hackernews.MaxStoriesScanned)
 
 	// @when
 	got, err := source.List(context.Background(), since)

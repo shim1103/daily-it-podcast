@@ -68,7 +68,7 @@ func (rt *stubRoundTripper) setFeedResponse(res stubClientResponse) {
 }
 
 func newStubListItemSource(rt *stubRoundTripper) *techcrunch.ListItemSource {
-	return techcrunch.NewListItemSource(&http.Client{Transport: rt})
+	return techcrunch.NewListItemSource(&http.Client{Transport: rt}, techcrunch.MaxStoriesScanned)
 }
 
 // rssItemFixture は RSS item XML を組むための入力。
@@ -252,6 +252,38 @@ func TestList_stopsAfterCollectingMaxStoriesScanned_whenEnoughItemsInWindow(t *t
 	}
 }
 
+func TestList_stopsScanningAtMaxItems_whenMaxItemsBelowMaxStoriesScanned(t *testing.T) {
+	// @given window 内 item を MaxStoriesScanned 件持つ RSS double。
+	// maxItems は MaxStoriesScanned より小さい値を渡す
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	total := techcrunch.MaxStoriesScanned
+	items := make([]rssItemFixture, 0, total)
+	for i := 0; i < total; i++ {
+		items = append(items, rssItemFixture{
+			title:       fmt.Sprintf("記事%d", i),
+			link:        fmt.Sprintf("https://techcrunch.com/%d/", i),
+			description: "説明",
+			pubDate:     formatRFC1123Z(since.Add(time.Duration(i+1) * time.Minute)),
+			guid:        fmt.Sprintf("guid-%d", i),
+		})
+	}
+	rt := newStubRoundTripper()
+	rt.setFeed(rssXML(items...))
+	maxItems := techcrunch.MaxStoriesScanned - 2
+	source := techcrunch.NewListItemSource(&http.Client{Transport: rt}, maxItems)
+
+	// @when
+	got, err := source.List(context.Background(), since)
+
+	// @then 結果は maxItems 件で打ち切る
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != maxItems {
+		t.Fatalf("len(got) = %d, want %d", len(got), maxItems)
+	}
+}
+
 func TestList_returnsNonNilEmptySlice_whenNothingInWindow(t *testing.T) {
 	// @given 全 item が since より古い double
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
@@ -292,7 +324,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 
 	t.Run("client nil", func(t *testing.T) {
 		// @given client を持たない ListItemSource
-		source := techcrunch.NewListItemSource(nil)
+		source := techcrunch.NewListItemSource(nil, techcrunch.MaxStoriesScanned)
 
 		// @when
 		got, err := source.List(context.Background(), since)
@@ -367,7 +399,7 @@ func TestList_retriesOnceOnTransientError_whenSecondAttemptSucceeds(t *testing.T
 			}, nil
 		},
 	}
-	source := techcrunch.NewListItemSource(&http.Client{Transport: transientRT})
+	source := techcrunch.NewListItemSource(&http.Client{Transport: transientRT}, techcrunch.MaxStoriesScanned)
 
 	// @when
 	got, err := source.List(context.Background(), since)
