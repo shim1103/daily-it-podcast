@@ -1,18 +1,23 @@
 # scope: Generator System（credential 付き・gate 外）
 # 実物: scripts/generator/test-system.sh
-# double: なし（test 専用 credential）
-# @require Go（version は apps/generator/go.mod）。test 用 TEST_* Secrets / Variables が登録済み。ffmpeg が使える runner。
+# double: なし（credential は値が本番と異なるものだけ TEST_* を維持し、値が同一のものは本番 Secrets / Variables を使う）
+# @require Go（version は apps/generator/go.mod）。test 用 TEST_* Secrets / Variables および CURSOR_API_KEY / SPARE_GEMINI_API_KEY / R2_ACCOUNT_ID が登録済み。ffmpeg が使える runner。
 # @ensure System 入口が exit 0。$GITHUB_STEP_SUMMARY に top-level test の pass/total。
-# @invariant 必須 Unit / Integration gate に載せない。全 credential は TEST_*（本番 Secrets / Variables を使わない。Decision 2026-09-03T14-45-00）。playback を触らない。
+# @invariant 必須 Unit / Integration gate に載せない。credential は値が本番と異なるものだけ TEST_* を維持し、値が同一のものは本番 Secrets / Variables へ統合する（Decision 2026-09-16T00-39-21）。playback を触らない。
 # @invariant toolchain の go test を YAML に直書きしない。secret 値を log に出さない。
-# 判断: docs/decisions/2026-08-30T11-56-01 / 2026-08-30T12-49-00 / 2026-08-30T12-49-01 / 2026-08-30T16-23-00 / 2026-09-03T14-45-00 / 2026-09-15T03-51-41
-# 判断: pull_request・dispatch とも -tags=system の全 System test を実行する（実行対象パターン切替なし）。rate 計測は generator-tts-rate.yml / generator-draft-rate.yml へ分離（ratemeasure tag）。
+# 判断: docs/decisions/2026-08-30T11-56-01 / 2026-08-30T12-49-00 / 2026-08-30T12-49-01 / 2026-08-30T16-23-00 / 2026-09-03T14-45-00 / 2026-09-15T03-51-41 / 2026-09-16T00-39-21 / 2026-09-17T10-36-05 / 2026-09-17T14-30-00
+# 判断: push・dispatch とも -tags=system の全 System test を実行する（実行対象パターン切替なし）。rate 計測は generator-tts-rate.yml / generator-draft-rate.yml へ分離（ratemeasure tag）。master push 契機の CD 連鎖（generator-system → playback-deploy → playback-e2e）の起点は本 workflow が持つ（Decision 2026-09-17T14-30-00）。
 name: generator-system
 
 on:
-  pull_request:
+  push:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      topic_count:
+        description: "System test の topic 数（未指定なら本番と同じ DraftTopicCountTarget を使う）"
+        required: false
+        default: ""
 
 # why: 旧 Drive 用の直列化理由（test 用 Drive folder の書込・検証・削除を1 runで完結する設計。
 #   Decision 2026-08-30T16-23-00）は Google OAuth / Drive 実装の撤去により成立しなくなった。
@@ -39,13 +44,14 @@ jobs:
 
       - name: System Test を実行
         env:
-          CURSOR_API_KEY: ${{ secrets.TEST_CURSOR_API_KEY }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_API_KEY }}
-          SPARE_GEMINI_API_KEY: ${{ secrets.TEST_SPARE_GEMINI_API_KEY }}
-          R2_ACCOUNT_ID: ${{ vars.TEST_R2_ACCOUNT_ID }}
+          SPARE_GEMINI_API_KEY: ${{ secrets.SPARE_GEMINI_API_KEY }}
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ vars.TEST_R2_BUCKET }}
           R2_ACCESS_KEY_ID: ${{ secrets.TEST_R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.TEST_R2_SECRET_ACCESS_KEY }}
+          SYSTEM_TEST_TOPIC_COUNT: ${{ inputs.topic_count }}
         run: ./scripts/generator/test-system.sh
 
       - name: PASS 率を summary へ

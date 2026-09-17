@@ -58,10 +58,12 @@ func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter
 		logw,
 	)
 	// why: TTS も TextWriter と同型の合成 layer 経由にする（Decision 2026-09-16T11-41-59）。
-	//      2 つ目の fallback source 追加は別 task。今回は 1 要素のみ。
+	//      fallback 順序は GEMINI_API_KEY(free) → SPARE_GEMINI_API_KEY(paid, final) で固定する
+	//      （Decision 2026-09-16T00-39-21）。
 	speech := speechapp.NewSpeechSynthesizer(
 		[]port.SpeechSynthesizer{
-			newGeminiSpeechSynthesizer(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini),
+			newGeminiSpeechSynthesizerPrimary(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini),
+			newGeminiSpeechSynthesizerSpare(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini),
 		},
 		logw,
 	)
