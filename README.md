@@ -12,7 +12,7 @@ This file answers **"what is this repo, where do I start."** It is the map, not 
 | Deploy, Access, GHA operation, secret registration | `DEPLOY.md` |
 | R2 file contracts（配置。音声 mp3） | `contracts/` |
 | Playback HTTP contracts | `apps/playback/contracts/` |
-| Open-work index | `docs/tasks/todo/*-lane.md` |
+| Open-work index | `docs/tasks/todo/lane.md` |
 | Recurring decisions | `docs/decisions/` |
 
 Non-scope: technology choices, layer boundaries, credential registration, workflow schedules. This file never restates values owned by the tables above; it links to them.
