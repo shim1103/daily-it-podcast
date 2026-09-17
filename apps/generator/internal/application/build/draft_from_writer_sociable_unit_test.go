@@ -53,12 +53,13 @@ func buildWireJSON(topicCount int) string {
 //   - intro / closing   朗読 field max-1 rune（range 内。境界付近を突く）
 //   - topic.title       見出し max-1 rune（range 内）
 //   - topic.preface     朗読 field min rune（range 内）
-//   - topic.detail      朗読 field min rune（range 内）
+//   - topic.detail      朗読 field min rune + 不足分の均等 pad（range 内）
 //
-// topic 数 max のとき合計対象は intro + closing + Σ_topics(preface + detail)。
-// topic.preface / topic.detail を min に取るのは、topic 数 max × field max だと合計が
-// DraftTotalCharsMax を超えるため。合計が range 内に収まることは
-// TestBuildWireJSON_producesValidWire_whenTopicCountIsMax が保証する。
+// topic 数 target のとき合計対象は intro + closing + Σ_topics(preface + detail)。
+// field を max に寄せると合計が DraftTotalCharsMax を超えるため preface/detail は min を基準にする。
+// intro/closing/preface を min に寄せただけだと DraftTotalCharsMin に届かないため、
+// 不足分を topic 数で割って各 topic.detail へ均等に足す。合計が range 内に収まることは
+// TestBuildWireJSON_producesValidWire が保証する。
 func buildWireJSONWith(topicCount int, ov wireOverride) string {
 	title := jaRunes(constants.DraftTitleMaxLen - 1)
 	intro := jaField(constants.DraftIntroMaxLen - 1)
@@ -74,12 +75,21 @@ func buildWireJSONWith(topicCount int, ov wireOverride) string {
 		closing = *ov.closing
 	}
 
+	detailRunes := constants.DraftTopicDetailMinLen
+	if topicCount > 0 {
+		baseTotal := (constants.DraftIntroMaxLen - 1) + (constants.DraftClosingMaxLen - 1) +
+			topicCount*(constants.DraftTopicPrefaceMinLen+constants.DraftTopicDetailMinLen)
+		if shortfall := constants.DraftTotalCharsMin - baseTotal; shortfall > 0 {
+			detailRunes += (shortfall + topicCount - 1) / topicCount // 切り上げで必ず min 以上に届かせる
+		}
+	}
+
 	topics := make([]string, 0, topicCount)
 	for i := 0; i < topicCount; i++ {
 		topics = append(topics, topicJSON(
 			constants.DraftTopicTitleMaxLen-1,
 			constants.DraftTopicPrefaceMinLen,
-			constants.DraftTopicDetailMinLen,
+			detailRunes,
 		))
 	}
 	return `{"title":"` + title + `","intro":"` + intro +
@@ -93,9 +103,9 @@ func strPtr(s string) *string {
 }
 
 // validWire は Acceptance を満たす標準 wire を返す（全 field range・total range とも満たす）。
-// fixture が実際に valid であることは TestBuildWireJSON_producesValidWire_whenTopicCountIsMax が保証する。
+// fixture が実際に valid であることは TestBuildWireJSON_producesValidWire が保証する。
 func validWire() string {
-	return buildWireJSON(constants.DraftTopicCountMax)
+	return buildWireJSON(constants.DraftTopicCountTarget)
 }
 
 // assertInvalidDraft は err が invalid_manuscript_draft の Domain Error で cause 非空であることを確認する。
@@ -115,18 +125,18 @@ func assertInvalidDraft(t *testing.T, err error) {
 
 // --- fixture 自己検証 ---
 
-func TestBuildWireJSON_producesValidWire_whenTopicCountIsMax(t *testing.T) {
+func TestBuildWireJSON_producesValidWire(t *testing.T) {
 	t.Parallel()
 
-	// Given: buildWireJSON が生成する最大 topic 数の wire
-	raw := buildWireJSON(constants.DraftTopicCountMax)
+	// Given: buildWireJSON が生成する target topic 数の wire
+	raw := buildWireJSON(constants.DraftTopicCountTarget)
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
-	// Then: 全 field range・topic 数 range・total range を満たし error なし
+	// Then: 全 field range・topic 数一致・total range を満たし error なし
 	if err != nil {
-		t.Fatalf("buildWireJSON(DraftTopicCountMax): fixture が valid でない: %v", err)
+		t.Fatalf("buildWireJSON(DraftTopicCountTarget): fixture が valid でない: %v", err)
 	}
 }
 
@@ -139,7 +149,7 @@ func TestManuscriptDraftFromWriterOutput_returnsDraft_whenWireIsValid(t *testing
 	raw := validWire()
 
 	// When: parse する
-	got, err := build.ManuscriptDraftFromWriterOutput(raw)
+	got, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: error なし
 	if err != nil {
@@ -150,8 +160,8 @@ func TestManuscriptDraftFromWriterOutput_returnsDraft_whenWireIsValid(t *testing
 		t.Fatalf("ManuscriptDraftFromWriterOutput: field 転記漏れ: %+v", got)
 	}
 	// Then: topic 数が一致する
-	if len(got.Topics) != constants.DraftTopicCountMax {
-		t.Fatalf("ManuscriptDraftFromWriterOutput: topic 数 = %d, want %d", len(got.Topics), constants.DraftTopicCountMax)
+	if len(got.Topics) != constants.DraftTopicCountTarget {
+		t.Fatalf("ManuscriptDraftFromWriterOutput: topic 数 = %d, want %d", len(got.Topics), constants.DraftTopicCountTarget)
 	}
 	// Then: topic field も転記される
 	for i, tp := range got.Topics {
@@ -168,7 +178,7 @@ func TestManuscriptDraftFromWriterOutput_acceptsWire_whenWrappedInCodeFence(t *t
 	raw := "```json\n" + validWire() + "\n```"
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: error なし
 	if err != nil {
@@ -183,7 +193,7 @@ func TestManuscriptDraftFromWriterOutput_acceptsWire_whenProsePrecedesJSONObject
 	raw := "了解しました。以下が原稿です。\n" + validWire()
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: 先頭散文を落として wire として受理する
 	if err != nil {
@@ -200,7 +210,7 @@ func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenJSONI
 	raw := `{"title": "あ。", "intro":`
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: invalid_manuscript_draft の Domain Error
 	if err == nil {
@@ -216,7 +226,7 @@ func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenWireI
 	raw := "   "
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: invalid_manuscript_draft の Domain Error
 	if err == nil {
@@ -229,12 +239,12 @@ func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenNarra
 	t.Parallel()
 
 	// Given: 朗読 field の intro を日本語 rune のみ（末尾句点なし）へ上書きした wire
-	raw := buildWireJSONWith(constants.DraftTopicCountMax, wireOverride{
+	raw := buildWireJSONWith(constants.DraftTopicCountTarget, wireOverride{
 		intro: strPtr(jaRunes(constants.DraftIntroTarget)),
 	})
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: invalid_manuscript_draft の Domain Error
 	if err == nil {
@@ -247,12 +257,12 @@ func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenNarra
 	t.Parallel()
 
 	// Given: 朗読 field の intro を ASCII 英字のみ + 句点 へ上書きした wire
-	raw := buildWireJSONWith(constants.DraftTopicCountMax, wireOverride{
+	raw := buildWireJSONWith(constants.DraftTopicCountTarget, wireOverride{
 		intro: strPtr(strings.Repeat("a", constants.DraftIntroTarget-1) + string(constants.DraftSentenceSuffixRune)),
 	})
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: invalid_manuscript_draft の Domain Error
 	if err == nil {
@@ -265,12 +275,12 @@ func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenNarra
 	t.Parallel()
 
 	// Given: 朗読 field の intro を空白のみへ上書きした wire
-	raw := buildWireJSONWith(constants.DraftTopicCountMax, wireOverride{
+	raw := buildWireJSONWith(constants.DraftTopicCountTarget, wireOverride{
 		intro: strPtr("    "),
 	})
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: invalid_manuscript_draft の Domain Error
 	if err == nil {
@@ -283,12 +293,12 @@ func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenHeadi
 	t.Parallel()
 
 	// Given: 見出し field の title を空白のみへ上書きした wire（見出しも非空必須）
-	raw := buildWireJSONWith(constants.DraftTopicCountMax, wireOverride{
+	raw := buildWireJSONWith(constants.DraftTopicCountTarget, wireOverride{
 		title: strPtr("    "),
 	})
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: invalid_manuscript_draft の Domain Error
 	if err == nil {
@@ -301,12 +311,12 @@ func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenHeadi
 	t.Parallel()
 
 	// Given: 見出し field の title を ASCII 英字のみへ上書きした wire（見出しも日本語必須）
-	raw := buildWireJSONWith(constants.DraftTopicCountMax, wireOverride{
+	raw := buildWireJSONWith(constants.DraftTopicCountTarget, wireOverride{
 		title: strPtr(strings.Repeat("a", constants.DraftTitleTargetLen)),
 	})
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: invalid_manuscript_draft の Domain Error
 	if err == nil {
@@ -319,12 +329,12 @@ func TestManuscriptDraftFromWriterOutput_acceptsHeadingField_whenItLacksSentence
 	t.Parallel()
 
 	// Given: 見出し field の title を日本語 rune のみ（末尾句点なし・range 内）にした wire
-	raw := buildWireJSONWith(constants.DraftTopicCountMax, wireOverride{
+	raw := buildWireJSONWith(constants.DraftTopicCountTarget, wireOverride{
 		title: strPtr(jaRunes(constants.DraftTitleTargetLen)),
 	})
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: 見出しは末尾句点を課されないため error なし
 	if err != nil {
@@ -334,30 +344,14 @@ func TestManuscriptDraftFromWriterOutput_acceptsHeadingField_whenItLacksSentence
 
 // --- 境界: topic 数 ---
 
-func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenTopicCountBelowMin(t *testing.T) {
+func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenTopicCountNotEqualToTarget(t *testing.T) {
 	t.Parallel()
 
-	// Given: topic 数を下限 - 1 にした wire
-	raw := buildWireJSON(constants.DraftTopicCountMin - 1)
+	// Given: topic 数を target からずらした wire（topic 数は固定値のみを受理する）
+	raw := buildWireJSON(constants.DraftTopicCountTarget - 1)
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
-
-	// Then: invalid_manuscript_draft の Domain Error
-	if err == nil {
-		t.Fatalf("ManuscriptDraftFromWriterOutput: error を期待したが nil")
-	}
-	assertInvalidDraft(t, err)
-}
-
-func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenTopicCountAboveMax(t *testing.T) {
-	t.Parallel()
-
-	// Given: topic 数を上限 + 1 にした wire
-	raw := buildWireJSON(constants.DraftTopicCountMax + 1)
-
-	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: invalid_manuscript_draft の Domain Error
 	if err == nil {
@@ -372,12 +366,12 @@ func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenTitle
 	t.Parallel()
 
 	// Given: title の rune 数を下限 - 1 にした wire（見出しなので句点なし日本語）
-	raw := buildWireJSONWith(constants.DraftTopicCountMax, wireOverride{
+	raw := buildWireJSONWith(constants.DraftTopicCountTarget, wireOverride{
 		title: strPtr(jaRunes(constants.DraftTitleMinLen - 1)),
 	})
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: invalid_manuscript_draft の Domain Error
 	if err == nil {
@@ -390,12 +384,12 @@ func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenTitle
 	t.Parallel()
 
 	// Given: title の rune 数を上限 + 1 にした wire（見出しなので句点なし日本語）
-	raw := buildWireJSONWith(constants.DraftTopicCountMax, wireOverride{
+	raw := buildWireJSONWith(constants.DraftTopicCountTarget, wireOverride{
 		title: strPtr(jaRunes(constants.DraftTitleMaxLen + 1)),
 	})
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: invalid_manuscript_draft の Domain Error
 	if err == nil {
@@ -410,12 +404,12 @@ func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenClosi
 	t.Parallel()
 
 	// Given: closingSummary の rune 数を下限 - 1 にした wire
-	raw := buildWireJSONWith(constants.DraftTopicCountMax, wireOverride{
+	raw := buildWireJSONWith(constants.DraftTopicCountTarget, wireOverride{
 		closing: strPtr(jaField(constants.DraftClosingMinLen - 2)), // rune 数 = Min-1
 	})
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: invalid_manuscript_draft の Domain Error
 	if err == nil {
@@ -428,12 +422,12 @@ func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenClosi
 	t.Parallel()
 
 	// Given: closingSummary の rune 数を上限 + 1 にした wire
-	raw := buildWireJSONWith(constants.DraftTopicCountMax, wireOverride{
+	raw := buildWireJSONWith(constants.DraftTopicCountTarget, wireOverride{
 		closing: strPtr(jaField(constants.DraftClosingMaxLen)), // rune 数 = Max+1
 	})
 
 	// When: parse する
-	_, err := build.ManuscriptDraftFromWriterOutput(raw)
+	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 
 	// Then: invalid_manuscript_draft の Domain Error
 	if err == nil {

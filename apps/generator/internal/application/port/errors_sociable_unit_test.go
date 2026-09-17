@@ -38,3 +38,43 @@ func TestErrSourceExhausted_doesNotMatchUnrelatedError(t *testing.T) {
 		t.Fatal("無関係な error が ErrSourceExhausted と一致した")
 	}
 }
+
+func TestLastAttempt_Error_returnsBuildErrMessage_whenBuildErrNonNil(t *testing.T) {
+	t.Parallel()
+
+	// Given: BuildErr が非 nil な LastAttempt
+	attempt := port.LastAttempt{Raw: "raw response", BuildErr: errors.New("invalid draft")}
+
+	// Then: BuildErr のメッセージを含む
+	want := "previous attempt rejected: invalid draft"
+	if got := attempt.Error(); got != want {
+		t.Fatalf("Error() = %q, want %q", got, want)
+	}
+}
+
+func TestLastAttempt_Error_doesNotPanic_whenBuildErrNil(t *testing.T) {
+	t.Parallel()
+
+	// Given: BuildErr が nil な zero value の LastAttempt
+	attempt := port.LastAttempt{}
+
+	// Then: panic せず固定文言を返す
+	want := "previous attempt rejected: (no build error)"
+	if got := attempt.Error(); got != want {
+		t.Fatalf("Error() = %q, want %q", got, want)
+	}
+}
+
+func TestBuildRejectionBriefWithoutRaw_embedsReasonWithoutRaw(t *testing.T) {
+	t.Parallel()
+
+	// Given: brief と rejection 理由
+	brief := "本文の要約から原稿を書いて"
+	reason := "invalid draft"
+
+	// Then: Prefix/Middle/Suffix で reason を挟む（raw は挟まない）
+	want := brief + port.RejectionPrefixText + port.RejectionMiddleText + reason + port.RejectionSuffixText
+	if got := port.BuildRejectionBriefWithoutRaw(brief, reason); got != want {
+		t.Fatalf("BuildRejectionBriefWithoutRaw() = %q, want %q", got, want)
+	}
+}

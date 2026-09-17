@@ -17,7 +17,24 @@ const (
 )
 
 // MaxAttempts は 429 応答に対する最大試行数。無限 retry を防ぐ。cursorapi と同値。
+// why: TextWriter 用 model の AI Studio 実測 RPD=100〜500（free）は現状の 1 日 1 回 produce 運用
+//
+//	では枯渇しにくく、gemini（TTS）の RPD=10 のような「1 episode で焼き切る」動機が無い。
+//	tier による値の調整は現時点で必要性が薄いため、Tier は geminiapi.Tier として保持のみ行い、
+//	この値（および TextWriterMaxAttempts）に tier ごとの差分は付けない（YAGNI）。
 const MaxAttempts = 4
+
+// TextWriterMaxAttempts は ManuscriptDraft 検証失敗（invalid-draft）時の Write 内部 retry 上限。
+// LLM 出力の rune 数・topic 数揺れを吸収する。429 応答用の MaxAttempts とは別物。
+// why: application/produce_episode.go にあった旧値をそのまま維持する（Decision 2026-09-16T11-41-26 §1-6）。
+const TextWriterMaxAttempts = 5
+
+// textWriterHTTPTimeout は generateContent 呼び出し全体（invalid-draft retry を含む Write 1 回）の
+// *http.Client timeout である。
+// why: TTS 側 httpCallTimeout（5分。実測で 120s でも長文朗読が timeout した経緯: run 33310692613）を
+//
+//	参考に、TextWriter は将来複数回 fetch を含みうる分だけ長く 10 分を確保する。
+const textWriterHTTPTimeout = 10 * time.Minute
 
 // MaxRetryAfter は Retry-After header 由来の待ち時間の上限。異常値・DoS 回避。
 const MaxRetryAfter = 30 * time.Second

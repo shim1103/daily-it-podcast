@@ -15,13 +15,14 @@ import (
 // ManuscriptDraftFromWriterOutput は TextWriter 戻り string（JSON wire）を ManuscriptDraft へ解釈する。
 //
 // @require raw は trim 後に非空。wire 形の正本は entities/models.WriterOutput。
+// @require expectedTopicCount は wire が持つべき topic 数（本番は constants.DraftTopicCountTarget）。
 // @ensure 成功時は ManuscriptDraft（Title 含む）。失敗時は Domain Error（Op = invalid_manuscript_draft）。
-// @ensure Domain Rule の正本は entities/constants/manuscript_draft_limits.go（unmarshal 後に検証）。
+// @ensure Domain Rule の正本は entities/constants/manuscript_draft_limits.go（unmarshal 後に検証）。topic 数一致・全体文字数 range は expectedTopicCount に基づく。
 // @ensure 全体文字数の合計対象は intro / closingSummary / 各 topic の preface・detail。
 // @ensure title / topic.title は朗読されない見出しで合計対象外、末尾句点も課さない（非空 + 日本語含有 + rune 数 range のみ）。
 // @ensure 朗読 field の rune 数 range は秒数正本 entities/constants/manuscript_draft_seconds.go × CharsPerSecond の畳み込み。
 // @invariant Infrastructure・vendor envelope を知らない。wire 前処理は code fence strip と先頭 prose 除去のみ。
-func ManuscriptDraftFromWriterOutput(raw string) (models.ManuscriptDraft, error) {
+func ManuscriptDraftFromWriterOutput(raw string, expectedTopicCount int) (models.ManuscriptDraft, error) {
 	body := extractJSONObject(stripJSONCodeFence(strings.TrimSpace(raw)))
 	if body == "" {
 		return models.ManuscriptDraft{}, draftErr("wire is empty")
@@ -32,7 +33,7 @@ func ManuscriptDraftFromWriterOutput(raw string) (models.ManuscriptDraft, error)
 		return models.ManuscriptDraft{}, errors.DomainErr(errors.OpInvalidManuscriptDraft, err)
 	}
 
-	if err := validateWriterOutput(wire); err != nil {
+	if err := validateWriterOutput(wire, expectedTopicCount); err != nil {
 		return models.ManuscriptDraft{}, err
 	}
 
@@ -109,8 +110,9 @@ func isASCIILabelLine(s string) bool {
 }
 
 // validateWriterOutput は manuscript_draft_limits の定数どおりに wire を検証する。
+// topic 数一致・全体文字数 range は expectedTopicCount に基づく。
 // 失敗はすべて Domain Error（Op = invalid_manuscript_draft）。
-func validateWriterOutput(w models.WriterOutput) error {
+func validateWriterOutput(w models.WriterOutput, expectedTopicCount int) error {
 	if err := validateHeadingField("title", w.Title, constants.DraftTitleMinLen, constants.DraftTitleMaxLen); err != nil {
 		return err
 	}
@@ -118,8 +120,8 @@ func validateWriterOutput(w models.WriterOutput) error {
 		return err
 	}
 
-	if n := len(w.Topics); n < constants.DraftTopicCountMin || n > constants.DraftTopicCountMax {
-		return draftErr(fmt.Sprintf("topic count %d is out of range [%d, %d]", n, constants.DraftTopicCountMin, constants.DraftTopicCountMax))
+	if n := len(w.Topics); n != expectedTopicCount {
+		return draftErr(fmt.Sprintf("topic count %d does not equal %d", n, expectedTopicCount))
 	}
 
 	for i, tp := range w.Topics {
@@ -138,7 +140,7 @@ func validateWriterOutput(w models.WriterOutput) error {
 		return err
 	}
 
-	return validateTotalChars(w)
+	return validateTotalChars(w, expectedTopicCount)
 }
 
 // validateNarrationField は朗読 field（intro / closingSummary / topic.preface / topic.detail）の
@@ -195,18 +197,20 @@ func checkHeadingBasics(name, value string) error {
 	return nil
 }
 
-// validateTotalChars は合計対象 field の rune 合計を DraftTotalCharsMin〜Max で検証する。
+// validateTotalChars は合計対象 field の rune 合計を、expectedTopicCount に基づく
+// 全体文字数 range（constants.TotalCharsMinFor/MaxFor）で検証する。
 // 合計対象は intro + closingSummary + Σ_topics(preface + detail)。
 // title / topic.title は朗読されない見出しなので合計に入れない。
-func validateTotalChars(w models.WriterOutput) error {
+func validateTotalChars(w models.WriterOutput, expectedTopicCount int) error {
 	total := utf8.RuneCountInString(strings.TrimSpace(w.Intro)) +
 		utf8.RuneCountInString(strings.TrimSpace(w.ClosingSummary))
 	for _, tp := range w.Topics {
 		total += utf8.RuneCountInString(strings.TrimSpace(tp.Preface))
 		total += utf8.RuneCountInString(strings.TrimSpace(tp.Detail))
 	}
-	if total < constants.DraftTotalCharsMin || total > constants.DraftTotalCharsMax {
-		return draftErr(fmt.Sprintf("total rune count %d is out of range [%d, %d]", total, constants.DraftTotalCharsMin, constants.DraftTotalCharsMax))
+	min, max := constants.TotalCharsMinFor(expectedTopicCount), constants.TotalCharsMaxFor(expectedTopicCount)
+	if total < min || total > max {
+		return draftErr(fmt.Sprintf("total rune count %d is out of range [%d, %d]", total, min, max))
 	}
 	return nil
 }
