@@ -17,8 +17,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/geminiapi"
 )
+
+// buildManuscriptDraftFromFragment は narrow integration test 用の buildFn。raw 断片をそのまま
+// ManuscriptDraft.Title へ格納し、Write が buildFn の戻りをそのまま透過することだけを確認する。
+func buildManuscriptDraftFromFragment(raw string) (models.ManuscriptDraft, error) {
+	return models.ManuscriptDraft{Title: raw}, nil
+}
 
 type geminiManuscriptNarrowProbe struct {
 	method   string
@@ -49,7 +56,7 @@ func newGeminiTextWriterWithProxy(t *testing.T, apiKey string, handler http.Hand
 			},
 		},
 	}
-	return geminiapi.NewTextWriter(httpClient, apiKey), probe
+	return geminiapi.NewTextWriter(httpClient, apiKey, geminiapi.TierFree), probe
 }
 
 // geminiManuscriptNarrowBody は generateContent 成功応答（candidates + finishReason: STOP + 非空 text）の fixture を組む。
@@ -77,14 +84,15 @@ func TestGeminiTextWriter_deliversPostWithAPIKeyHeader_whenUpstreamSucceeds(t *t
 	})
 
 	// When: Write する
-	got, err := writer.Write(context.Background(), "本文の要約から原稿を書いて")
+	got, err := writer.Write(context.Background(), "本文の要約から原稿を書いて", buildManuscriptDraftFromFragment)
 
-	// Then: upstream は POST を受け、x-goog-api-key に実値が届き、非空断片が返る。key は URL query に出ない
+	// Then: upstream は POST を受け、x-goog-api-key に実値が届き、buildFn が受け取った raw 断片が
+	// そのまま draft へ透過する。key は URL query に出ない
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
-	if got != fragment {
-		t.Fatalf("Write() = %q, want %q", got, fragment)
+	if got.Title != fragment {
+		t.Fatalf("Write() draft.Title = %q, want %q", got.Title, fragment)
 	}
 	if probe.method != http.MethodPost {
 		t.Fatalf("method = %q, want %q", probe.method, http.MethodPost)
@@ -107,7 +115,7 @@ func TestGeminiTextWriter_excludesDummySecretFromErrorMessage_whenUpstreamFails(
 	})
 
 	// When: Write する
-	_, err := writer.Write(context.Background(), "narrow error message テスト")
+	_, err := writer.Write(context.Background(), "narrow error message テスト", buildManuscriptDraftFromFragment)
 
 	// Then: error は返るが、dummy secret 実値は error message に出ない
 	if err == nil {

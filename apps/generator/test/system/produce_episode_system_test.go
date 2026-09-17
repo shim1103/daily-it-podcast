@@ -1,8 +1,9 @@
 //go:build system
 
 // Scope: System（e2e 1 回通し）
-// 実物: composition.NewProduceEpisodeFromEnv で結線した本番 UseCase が、
+// 実物: composition.NewProduceEpisodeFromEnvWithTopicCount で結線した UseCase（本番と同じ結線だが、
 //
+//	topic 数だけ環境変数 SYSTEM_TEST_TOPIC_COUNT 由来）が、
 //	実 5 情報源（HackerNews / Lobsters / Publickey / TechCrunch / クラウド Watch）→ 実 Cursor Cloud Agents API 原稿 →
 //	実 Gemini TTS → 実 R2 書込 を 1 度だけ通す。
 //
@@ -30,6 +31,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -37,8 +39,27 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/composition"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/config"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
 )
+
+// systemTestTopicCountEnv は system-test 実行時に topic 数を注入する環境変数名。
+const systemTestTopicCountEnv = "SYSTEM_TEST_TOPIC_COUNT"
+
+// systemTestTopicCount は環境変数から topic 数を読む。未設定または parse 失敗時は
+// 本番と同じ constants.DraftTopicCountTarget を使う（system-test を「topic 数を絞った
+// 節約実行」に限定しない後方互換のデフォルト）。
+func systemTestTopicCount() int {
+	raw := strings.TrimSpace(os.Getenv(systemTestTopicCountEnv))
+	if raw == "" {
+		return constants.DraftTopicCountTarget
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return constants.DraftTopicCountTarget
+	}
+	return n
+}
 
 // systemConfigEnvKeys は ProduceEpisode を組むのに要る process env の全 key。
 // 1 つでも空なら System 全体通しは実行できない。
@@ -69,9 +90,9 @@ func TestProduceEpisodeSystem_runsEndToEndOnce_whenAllCredentialsPresent(t *test
 	// Given: config 契約の全 key（1 つでも欠けたら Skip）
 	requireSystemConfigEnv(t)
 
-	uc, err := composition.NewProduceEpisodeFromEnv(delivery.NewLogWriter(os.Stderr))
+	uc, err := composition.NewProduceEpisodeFromEnvWithTopicCount(systemTestTopicCount(), delivery.NewLogWriter(os.Stderr))
 	if err != nil {
-		t.Fatalf("NewProduceEpisodeFromEnv: %v", err)
+		t.Fatalf("NewProduceEpisodeFromEnvWithTopicCount: %v", err)
 	}
 
 	// ctx timeout: Cursor draft（数分）+ TTS topic+2 束（数分）+ R2 書込。余裕を持って 35 分。

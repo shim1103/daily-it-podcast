@@ -1,7 +1,7 @@
 //go:build system && ratemeasure
 
 // Scope: System（原稿 API draft の prompt 精度 PASS 率計測。dispatch 専用。api で cursor / gemini を選ぶ）
-// 実物: DRAFT_RATE_API=cursor なら cursorapi.TextWriter が実 TEST_CURSOR_API_KEY で Cloud Agents API（api.cursor.com）、
+// 実物: DRAFT_RATE_API=cursor なら cursorapi.TextWriter が実 CURSOR_API_KEY で Cloud Agents API（api.cursor.com）、
 //
 //	DRAFT_RATE_API=gemini なら geminiapi.TextWriter が実 TEST_GEMINI_API_KEY で generateContent
 //	（generativelanguage.googleapis.com）を叩く。1 dispatch = 1 API（両方同時には測らない）。
@@ -12,12 +12,14 @@
 //	runs 回直列に通し、valid Draft が返る率を計測する（Decision 2026-09-03T14-47-00 / 2026-09-08T07-40-00）。
 //	*adaptererror.Error の Op=="do"（API へ到達すらできない環境要因）はその回を分母から除外する。
 //
-// @require 選んだ API の key env（TEST_CURSOR_API_KEY / TEST_GEMINI_API_KEY）が process env にある（欠けたら Skip）。
+// @require 選んだ API の key env（CURSOR_API_KEY / TEST_GEMINI_API_KEY）が process env にある（欠けたら Skip）。
 //
 //	本番 env 名（config.*APIKeyEnv）は読まない。Cursor CLI の `agent` binary は要らない（HTTP API 移行済み）。
 //
 // @ensure pass/(pass+fail) >= pass_threshold で緑、下回れば t.Fatalf。api・variant・文字数・環境 skip 回数を Logf。
-// @invariant 既定 -tags=system では compile されない（ratemeasure tag）。local に secret を置かない。本番 key が計測へ流れない（TEST_ 直読み）。
+// @invariant 既定 -tags=system では compile されない（ratemeasure tag）。local に secret を置かない。
+//
+//	cursor 段は CURSOR_API_KEY（本番と共用、値が同一）を直読みする（Decision 2026-09-16T00-39-21-feature-generator-textwriter-adapter-fallback）。
 package system
 
 import (
@@ -34,6 +36,7 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/build"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorapi"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/geminiapi"
@@ -73,7 +76,7 @@ func resolveDraftAPITarget(t *testing.T, api string) draftAPITarget {
 	case "", "cursor":
 		return draftAPITarget{
 			name:   "cursor",
-			keyEnv: "TEST_CURSOR_API_KEY",
+			keyEnv: "CURSOR_API_KEY",
 			newWriter: func(apiKey string) port.TextWriter {
 				return cursorapi.NewTextWriter(&http.Client{}, apiKey)
 			},
@@ -83,7 +86,7 @@ func resolveDraftAPITarget(t *testing.T, api string) draftAPITarget {
 			name:   "gemini",
 			keyEnv: "TEST_GEMINI_API_KEY",
 			newWriter: func(apiKey string) port.TextWriter {
-				return geminiapi.NewTextWriter(&http.Client{}, apiKey)
+				return geminiapi.NewTextWriter(&http.Client{}, apiKey, geminiapi.TierFree)
 			},
 		}
 	default:
@@ -149,7 +152,7 @@ func TestDraftRate_measuresPassRate_overNRuns(t *testing.T) {
 	template := resolveBriefTemplate(t, variant)
 
 	// Given: 固定擬似ソースから組んだ brief（seedSourceItems / draftTotalRunes は system_shared_test.go）
-	brief, err := build.ComposeBriefWithTemplate(seedSourceItems(), template)
+	brief, err := build.ComposeBriefWithTemplate(seedSourceItems(), template, constants.DraftTopicCountTarget)
 	if err != nil {
 		t.Fatalf("ComposeBriefWithTemplate: %v", err)
 	}
@@ -165,7 +168,13 @@ func TestDraftRate_measuresPassRate_overNRuns(t *testing.T) {
 	var sizes []int
 	for i := 1; i <= runs; i++ {
 		start := time.Now()
-		raw, err := tw.Write(ctx, brief)
+		// why: Write は buildFn の戻りだけを返し raw を外へ出さない。draft parse の
+		// FAIL/PASS を raw 単位で区別するため、buildFn 内で raw を横取りする。
+		var raw string
+		draft, err := tw.Write(ctx, brief, func(r string) (models.ManuscriptDraft, error) {
+			raw = r
+			return build.ManuscriptDraftFromWriterOutput(r, constants.DraftTopicCountTarget)
+		})
 		elapsed := time.Since(start).Seconds()
 		if err != nil {
 			if isEnvUnreachable(err) {
@@ -174,13 +183,7 @@ func TestDraftRate_measuresPassRate_overNRuns(t *testing.T) {
 				continue
 			}
 			fail++
-			t.Logf("run %d/%d: FAIL（Write error: %v）所要 %.1fs", i, runs, err, elapsed)
-			continue
-		}
-		draft, err := build.ManuscriptDraftFromWriterOutput(raw)
-		if err != nil {
-			fail++
-			t.Logf("run %d/%d: FAIL（draft parse: %v）所要 %.1fs", i, runs, err, elapsed)
+			t.Logf("run %d/%d: FAIL（Write/draft parse error: %v）所要 %.1fs raw=%q", i, runs, err, elapsed, raw)
 			continue
 		}
 		pass++

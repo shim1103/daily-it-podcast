@@ -29,8 +29,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/geminiapi"
 )
+
+// identityDraft は raw をそのまま Title へ格納する buildFn。疎通 smoke は原稿品質を見ないため、
+// ManuscriptDraftFromWriterOutput の validation を経由せず raw の非空だけを確認すれば足りる。
+func identityDraft(raw string) (models.ManuscriptDraft, error) {
+	return models.ManuscriptDraft{Title: raw}, nil
+}
 
 func TestGeminiAPISmoke_returnsFragment_overOneCall(t *testing.T) {
 	// Given: 実 TEST_GEMINI_API_KEY（欠けたら Skip = 環境要因、smoke 対象外）
@@ -45,22 +52,22 @@ func TestGeminiAPISmoke_returnsFragment_overOneCall(t *testing.T) {
 
 	// Given: 実 generateContent 経由の TextWriter（TEST_ から読んだ apiKey を直接渡す）。
 	// why: Client.Timeout は置かない。1 呼び出しの全体上限は ctx。
-	tw := geminiapi.NewTextWriter(&http.Client{}, apiKey)
+	tw := geminiapi.NewTextWriter(&http.Client{}, apiKey, geminiapi.TierFree)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	// When: Write を 1 回だけ通す
 	start := time.Now()
-	fragment, err := tw.Write(ctx, brief)
+	draft, err := tw.Write(ctx, brief, identityDraft)
 	elapsed := time.Since(start).Seconds()
 
 	// Then: err == nil かつ非空断片（Gemini から req が 1 往復して返った）
 	if err != nil {
 		t.Fatalf("Write() error = %v（実 generateContent 疎通失敗）所要 %.1fs", err, elapsed)
 	}
-	if strings.TrimSpace(fragment) == "" {
+	if strings.TrimSpace(draft.Title) == "" {
 		t.Fatalf("Write() が空断片を返した（疎通はしたが text が空）所要 %.1fs", elapsed)
 	}
-	t.Logf("geminiapi 疎通 OK（断片 %d 文字）所要 %.1fs", len([]rune(fragment)), elapsed)
+	t.Logf("geminiapi 疎通 OK（断片 %d 文字）所要 %.1fs", len([]rune(draft.Title)), elapsed)
 }
