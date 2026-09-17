@@ -80,3 +80,4 @@
 - 2026-09-17 [feature/generator-tts-fallback] コメントで「stub」「簡易実装」と明示された判定ロジックは、そのまま実装完了として提示しない。素朴な文字列走査で代替した外部 API のエラー分類は、その API の公式スキーマに基づく正式な parse へ置き換えてから完了報告する  # → layer:terms
 - 2026-09-17 [feature/generator-tts-fallback] 同一障害を review が複数回指摘するのは、1 回目の修正委任が指摘箇所を機械的にしか読まず、同型の重複コードを別 case にも残したサイン。2 回目の委任では「同じ問題が他の分岐に残っていないか」を明示して差分を再検証させる  # → layer:workflow
 - 2026-09-17 [feature/generator-tts-fallback] 並行実行させた複数 agent の一部が「no progress for Nsec」で stall 扱いになっても、report 送信直前で止まっただけでファイル変更自体は完了していることがある。stall 表示だけで失敗と断定せず、git status・build・test で実態を確認してから再実行の要否を決める  # → layer:workflow
+- 2026-09-17 [feature/generator-credential-fallback-decision] stacked PR で先行 branch の草案に含まれる記述を切り出す時、base（develop）側で既に撤去済みの機能に言及していないか必ず突き合わせる。突き合わせを怠ると矛盾した記述を新規 Decision として固定してしまう  # → layer:workflow
