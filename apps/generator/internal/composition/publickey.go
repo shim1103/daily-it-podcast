@@ -10,7 +10,7 @@ import (
 // newPublickeyItemSource は Publickey Adapter を組み立てる。
 //
 // @require httpClient != nil。
-// @ensure 戻りは port.ItemSource。
-func newPublickeyItemSource(httpClient *http.Client) port.ItemSource {
-	return publickey.NewListItemSource(httpClient)
+// @ensure 戻りは port.ItemSource。maxItems はそのまま Adapter へ渡す。
+func newPublickeyItemSource(httpClient *http.Client, maxItems int) port.ItemSource {
+	return publickey.NewListItemSource(httpClient, maxItems)
 }

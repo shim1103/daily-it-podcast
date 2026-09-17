@@ -62,7 +62,7 @@ func newHackerNewsListItemSourceWithProxy(t *testing.T, handler http.HandlerFunc
 			},
 		},
 	}
-	return hackernews.NewListItemSource(httpClient), probe
+	return hackernews.NewListItemSource(httpClient, hackernews.MaxStoriesScanned), probe
 }
 
 func TestHackerNewsListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucceeds(t *testing.T) {

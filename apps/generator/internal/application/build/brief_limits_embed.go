@@ -8,8 +8,14 @@ import (
 )
 
 // embedManuscriptDraftLimits は TextWriterBriefPrompt 内の数値 placeholder を
-// manuscript_draft_limits の定数で置換する。
-func embedManuscriptDraftLimits(prompt string) string {
+// manuscript_draft_limits の定数で置換する。topicCount に依存する placeholder
+// （{{TOPIC_COUNT_TARGET}} / {{TOTAL_*}} / {{TOTAL_MINUTES_*}}）は
+// manuscript_draft_seconds.go / manuscript_draft_limits.go の *For 関数から topicCount で導出する。
+//
+// @require topicCount >= 0。
+// @ensure 戻りは prompt の数値 placeholder をすべて置換した文字列（{{SOURCES}} / {{JSON_EXAMPLE}} は残す）。
+func embedManuscriptDraftLimits(prompt string, topicCount int) string {
+	totalMinSec, totalMaxSec := constants.TotalMinSecFor(topicCount), constants.TotalMaxSecFor(topicCount)
 	replacer := strings.NewReplacer(
 		"{{TITLE_MIN}}", strconv.Itoa(constants.DraftTitleMinLen),
 		"{{TITLE_MAX}}", strconv.Itoa(constants.DraftTitleMaxLen),
@@ -35,15 +41,13 @@ func embedManuscriptDraftLimits(prompt string) string {
 		"{{DETAIL_MAX}}", strconv.Itoa(constants.DraftTopicDetailMaxLen),
 		"{{DETAIL_TARGET}}", strconv.Itoa(constants.DraftTopicDetailTarget),
 
-		"{{TOPIC_COUNT_MIN}}", strconv.Itoa(constants.DraftTopicCountMin),
-		"{{TOPIC_COUNT_MAX}}", strconv.Itoa(constants.DraftTopicCountMax),
-		"{{TOPIC_COUNT_TARGET}}", strconv.Itoa(constants.DraftTopicCountTarget),
+		"{{TOPIC_COUNT_TARGET}}", strconv.Itoa(topicCount),
 
-		"{{TOTAL_MIN}}", strconv.Itoa(constants.DraftTotalCharsMin),
-		"{{TOTAL_MAX}}", strconv.Itoa(constants.DraftTotalCharsMax),
-		"{{TOTAL_TARGET}}", strconv.Itoa(constants.DraftTotalCharsTarget),
-		"{{TOTAL_MINUTES_MIN}}", strconv.Itoa(constants.DraftTotalMinSec/60),
-		"{{TOTAL_MINUTES_MAX}}", strconv.Itoa(constants.DraftTotalMaxSec/60),
+		"{{TOTAL_MIN}}", strconv.Itoa(constants.TotalCharsMinFor(topicCount)),
+		"{{TOTAL_MAX}}", strconv.Itoa(constants.TotalCharsMaxFor(topicCount)),
+		"{{TOTAL_TARGET}}", strconv.Itoa(constants.TotalCharsTargetFor(topicCount)),
+		"{{TOTAL_MINUTES_MIN}}", strconv.Itoa(totalMinSec/60),
+		"{{TOTAL_MINUTES_MAX}}", strconv.Itoa(totalMaxSec/60),
 	)
 	return replacer.Replace(prompt)
 }

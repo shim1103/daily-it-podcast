@@ -72,8 +72,8 @@ func TestFormat_printsConfigKindWithoutOp_whenErrorIsConfigErrorsBundle(t *testi
 func TestFormat_printsInfrastructureKindAndOp_whenErrorIsAdapterError(t *testing.T) {
 	t.Parallel()
 
-	// Given: Driven Adapter の Infrastructure Error（source は代表として gdrive）
-	err := adaptererror.New("gdrive", "write", errors.New("quota"))
+	// Given: Driven Adapter の Infrastructure Error（source は代表として r2）
+	err := adaptererror.New("r2", "write", errors.New("quota"))
 
 	// When: External 表現へ写す
 	got := delivery.Format(err)

@@ -91,7 +91,7 @@ func (rt *stubRoundTripper) storyCalls(shortID string) int {
 }
 
 func newStubListItemSource(rt *stubRoundTripper) *lobsters.ListItemSource {
-	return lobsters.NewListItemSource(&http.Client{Transport: rt})
+	return lobsters.NewListItemSource(&http.Client{Transport: rt}, lobsters.MaxStoriesScanned)
 }
 
 type hottestEntry struct {
@@ -323,7 +323,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidJSON(t *t
 
 	t.Run("client nil", func(t *testing.T) {
 		// @given client を持たない ListItemSource
-		source := lobsters.NewListItemSource(nil)
+		source := lobsters.NewListItemSource(nil, lobsters.MaxStoriesScanned)
 
 		// @when
 		got, err := source.List(context.Background(), since)
@@ -510,6 +510,41 @@ func TestList_stopsScanningAfterCollectingMaxStoriesScanned_whenEnoughStoriesInW
 	}
 }
 
+func TestList_stopsScanningAtMaxItems_whenMaxItemsBelowMaxStoriesScanned(t *testing.T) {
+	// @given hottest が MaxStoriesScanned 件。全 story を window 内として仕込む。
+	// maxItems は MaxStoriesScanned より小さい値を渡す
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	createdAt := since.Add(time.Hour).Format(time.RFC3339)
+	total := lobsters.MaxStoriesScanned
+	entries := make([]hottestEntry, 0, total)
+	for i := 0; i < total; i++ {
+		shortID := fmt.Sprintf("cap%02d", i)
+		entries = append(entries, hottestEntry{ShortID: shortID, CreatedAt: createdAt})
+	}
+	rt := newStubRoundTripper()
+	rt.setHottest(entries...)
+	for _, e := range entries {
+		rt.setStory(e.ShortID, storyJSON(e.ShortID, createdAt, "u", "story", "本文", "", "https://lobste.rs/s/"+e.ShortID, ""))
+	}
+	maxItems := lobsters.MaxStoriesScanned - 2
+	source := lobsters.NewListItemSource(&http.Client{Transport: rt}, maxItems)
+
+	// @when
+	got, err := source.List(context.Background(), since)
+
+	// @then 結果は maxItems 件で打ち切る
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != maxItems {
+		t.Fatalf("len(got) = %d, want %d", len(got), maxItems)
+	}
+	droppedID := entries[maxItems].ShortID
+	if rt.storyCalls(droppedID) != 0 {
+		t.Fatalf("story %q fetched after maxItems reached (calls=%d)", droppedID, rt.storyCalls(droppedID))
+	}
+}
+
 func TestList_retriesOnceOnTransientError_whenSecondAttemptSucceeds(t *testing.T) {
 	// @given hottest.json が 1 回目 5xx、2 回目成功を返す double
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
@@ -549,7 +584,7 @@ func TestList_retriesOnceOnTransientError_whenSecondAttemptSucceeds(t *testing.T
 			return nil, fmt.Errorf("sequenceRoundTripper: unexpected path %q", req.URL.Path)
 		},
 	}
-	source := lobsters.NewListItemSource(&http.Client{Transport: transientRT})
+	source := lobsters.NewListItemSource(&http.Client{Transport: transientRT}, lobsters.MaxStoriesScanned)
 
 	// @when
 	got, err := source.List(context.Background(), since)

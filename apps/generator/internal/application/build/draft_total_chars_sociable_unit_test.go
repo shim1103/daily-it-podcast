@@ -44,8 +44,8 @@ func TestValidateTotalChars_returnsNil_whenTotalEqualsMin(t *testing.T) {
 	// Given: 全朗読 field の rune 合計が DraftTotalCharsMin ちょうどの WriterOutput
 	w := writerOutputWithTotalRunes(constants.DraftTotalCharsMin)
 
-	// When: validateTotalChars を呼ぶ
-	err := validateTotalChars(w)
+	// When: 本番 topic 数で validateTotalChars を呼ぶ
+	err := validateTotalChars(w, constants.DraftTopicCountTarget)
 
 	// Then: error なし
 	if err != nil {
@@ -59,8 +59,8 @@ func TestValidateTotalChars_returnsNil_whenTotalEqualsMax(t *testing.T) {
 	// Given: 全朗読 field の rune 合計が DraftTotalCharsMax ちょうどの WriterOutput
 	w := writerOutputWithTotalRunes(constants.DraftTotalCharsMax)
 
-	// When: validateTotalChars を呼ぶ
-	err := validateTotalChars(w)
+	// When: 本番 topic 数で validateTotalChars を呼ぶ
+	err := validateTotalChars(w, constants.DraftTopicCountTarget)
 
 	// Then: error なし
 	if err != nil {
@@ -76,8 +76,8 @@ func TestValidateTotalChars_returnsInvalidManuscriptDraft_whenTotalBelowMin(t *t
 	// Given: 全朗読 field の rune 合計が DraftTotalCharsMin - 1 の WriterOutput
 	w := writerOutputWithTotalRunes(constants.DraftTotalCharsMin - 1)
 
-	// When: validateTotalChars を呼ぶ
-	err := validateTotalChars(w)
+	// When: 本番 topic 数で validateTotalChars を呼ぶ
+	err := validateTotalChars(w, constants.DraftTopicCountTarget)
 
 	// Then: invalid_manuscript_draft の Domain Error
 	if err == nil {
@@ -92,14 +92,51 @@ func TestValidateTotalChars_returnsInvalidManuscriptDraft_whenTotalAboveMax(t *t
 	// Given: 全朗読 field の rune 合計が DraftTotalCharsMax + 1 の WriterOutput
 	w := writerOutputWithTotalRunes(constants.DraftTotalCharsMax + 1)
 
-	// When: validateTotalChars を呼ぶ
-	err := validateTotalChars(w)
+	// When: 本番 topic 数で validateTotalChars を呼ぶ
+	err := validateTotalChars(w, constants.DraftTopicCountTarget)
 
 	// Then: invalid_manuscript_draft の Domain Error
 	if err == nil {
 		t.Fatalf("validateTotalChars: error を期待したが nil")
 	}
 	assertTotalCharsRejected(t, err)
+}
+
+// --- topicCount 引数化の反応確認 ---
+
+// TestValidateTotalChars_usesTopicCountArgument_forRangeSelection は、
+// validateTotalChars の range が expectedTopicCount 引数から導出され、
+// constants.DraftTotalCharsMin/Max という DraftTopicCountTarget 固定値を
+// 直接参照し続けているだけではないことを固定する。
+func TestValidateTotalChars_usesTopicCountArgument_forRangeSelection(t *testing.T) {
+	t.Parallel()
+
+	const smallTopicCount = 1
+
+	// Given: topic 数 1 前提の全体文字数下限ちょうどの WriterOutput
+	// （DraftTotalCharsMin は topic 数 5 前提の値なので、topic 数 1 の下限とは異なる）
+	smallMin := constants.TotalCharsMinFor(smallTopicCount)
+	if smallMin >= constants.DraftTotalCharsMin {
+		t.Fatalf("前提が崩れている: TotalCharsMinFor(%d)=%d は DraftTotalCharsMin=%d 未満であるべき", smallTopicCount, smallMin, constants.DraftTotalCharsMin)
+	}
+	w := writerOutputWithTotalRunes(smallMin)
+
+	// When: topic 数 1 を渡して validateTotalChars を呼ぶ
+	err := validateTotalChars(w, smallTopicCount)
+
+	// Then: topic 数 1 の range では下限ちょうどなので error なし
+	if err != nil {
+		t.Fatalf("validateTotalChars: topicCount=%d の下限ちょうどで予期しない error: %v", smallTopicCount, err)
+	}
+
+	// When: 同じ WriterOutput を DraftTopicCountTarget（5）の range で検証する
+	errWithTargetCount := validateTotalChars(w, constants.DraftTopicCountTarget)
+
+	// Then: topic 数 5 の下限には届かないため invalid になる（range が引数依存で切り替わっている証拠）
+	if errWithTargetCount == nil {
+		t.Fatalf("validateTotalChars: topicCount=%d では下限未達のはずが error なし", constants.DraftTopicCountTarget)
+	}
+	assertTotalCharsRejected(t, errWithTargetCount)
 }
 
 // helper 健全性: writerOutputWithTotalRunes の rune 合計が引数に一致することを保証する。

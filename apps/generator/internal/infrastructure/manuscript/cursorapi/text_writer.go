@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpdiag"
 )
 
@@ -53,25 +54,76 @@ func ctxSleep(ctx context.Context, d time.Duration) {
 	}
 }
 
-// Write は brief から Cloud Agents（毎回 create → SSE 終端 result.text）で原稿断片を得る。
+// Write は brief から Cloud Agents で原稿断片を得て、buildFn で ManuscriptDraft へ解釈する。
+// invalid-draft retry（最大 TextWriterMaxAttempts 回）は同一 agent への follow-up run で行う：
+// 1 回目は createAgent（agent と run を同時 create）、2 回目以降は同じ agentId へ createRun で
+// rejection 理由だけを新しい prompt として送る（brief 全体は再送しない。§follow-up run の brief 設計）。
+// 前回生成した raw 本文も follow-up run では送らない：Cloud Agents の run は同一 agent 内の会話継続であり、
+// 前回の agent 出力は Cursor 側が会話履歴として既に保持している。そのため raw を再送する必要がなく、
+// rejection 理由だけを新しい prompt として渡せば agent は自分の前回出力を踏まえて修正できる
+// （毎回 brief 全体を再送する必要がある geminiapi の stateless generateContent とは前提が異なる）。
 //
-// @require brief は trim 後に非空。
-// @ensure 成功時は非空 text 断片を返す。失敗時は *adaptererror.Error、断片は空。
-// @invariant create（POST /v1/agents）は no-repo・非 retry。SSE 取得は idempotent GET として Do error / 5xx を 1 回、429 を MaxAttempts まで backoff で再試行する。SSE 途中断は再 stream しない。secret 実値は error へ出さない。
-func (w *TextWriter) Write(ctx context.Context, brief string) (string, error) {
+// @require brief は trim 後に非空。buildFn は非 nil。
+// @ensure 成功時は buildFn が返す非 nil な models.ManuscriptDraft を返す。
+// @ensure createAgent / createRun / streamResult が返す retry しない error は、直前 attempt で
+//
+//	buildFn が invalid と判定していれば（lastRaw/lastBuildErr が揃っていれば）port.LastAttempt を
+//	fmt.Errorf("%w: %w", err, port.LastAttempt{...}) の chain に含めて返す。直前 attempt が
+//	無ければ error をそのまま透過する。
+//
+// @ensure buildFn が TextWriterMaxAttempts 回とも error を返したら、最後の error を
+//
+//	fmt.Errorf("%w: %w: %w", port.ErrDraftRejected, lastErr, port.LastAttempt{...}) で wrap して返す。
+//
+// @invariant createAgent（POST /v1/agents）は no-repo・非 retry。createRun（POST /v1/agents/{id}/runs）も
+//
+//	同一 agentId への追加会話なので非 idempotent・非 retry。SSE 取得は idempotent GET として
+//	Do error / 5xx を 1 回、429 を MaxAttempts まで backoff で再試行する。SSE 途中断は再 stream
+//	しない。secret 実値は error へ出さない。buildFn 呼び出しは 1 attempt につき高々 1 回。
+func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(string) (models.ManuscriptDraft, error)) (models.ManuscriptDraft, error) {
 	if w == nil || w.client == nil {
-		return "", infraErr("build_request", fmt.Errorf("client is nil"))
+		return models.ManuscriptDraft{}, infraErr("build_request", fmt.Errorf("client is nil"))
 	}
 	trimmed := strings.TrimSpace(brief)
 	if trimmed == "" {
-		return "", infraErr("validate_brief", fmt.Errorf("brief is empty after trim"))
+		return models.ManuscriptDraft{}, infraErr("validate_brief", fmt.Errorf("brief is empty after trim"))
 	}
 
-	agentID, runID, err := w.createAgent(ctx, trimmed)
-	if err != nil {
-		return "", err
+	var agentID string
+	var lastErr error
+	var lastRaw string
+	var lastBuildErr error
+	for attempt := 1; attempt <= TextWriterMaxAttempts; attempt++ {
+		var runID string
+		var err error
+		if attempt == 1 {
+			agentID, runID, err = w.createAgent(ctx, trimmed)
+		} else {
+			runID, err = w.createRun(ctx, agentID, port.RejectionMiddleText+lastBuildErr.Error()+port.RejectionSuffixText)
+		}
+		if err != nil {
+			if lastBuildErr != nil {
+				err = fmt.Errorf("%w: %w", err, port.LastAttempt{Raw: lastRaw, BuildErr: lastBuildErr})
+			}
+			return models.ManuscriptDraft{}, err
+		}
+
+		raw, err := w.streamResult(ctx, agentID, runID)
+		if err != nil {
+			if lastBuildErr != nil {
+				err = fmt.Errorf("%w: %w", err, port.LastAttempt{Raw: lastRaw, BuildErr: lastBuildErr})
+			}
+			return models.ManuscriptDraft{}, err
+		}
+		draft, err := buildFn(raw)
+		if err == nil {
+			return draft, nil
+		}
+		lastErr = err
+		lastRaw = raw
+		lastBuildErr = err
 	}
-	return w.streamResult(ctx, agentID, runID)
+	return models.ManuscriptDraft{}, fmt.Errorf("%w: %w: %w", port.ErrDraftRejected, lastErr, port.LastAttempt{Raw: lastRaw, BuildErr: lastBuildErr})
 }
 
 type createAgentRequest struct {
@@ -107,40 +159,9 @@ func (w *TextWriter) createAgent(ctx context.Context, brief string) (string, str
 		return "", "", infraErr("marshal_request", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, APIBaseURL+AgentsPath, bytes.NewReader(body))
+	raw, err := w.postJSON(ctx, APIBaseURL+AgentsPath, body, "create_status")
 	if err != nil {
-		return "", "", infraErr("build_request", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set(AuthorizationHeader, BearerTokenPrefix+w.apiKey)
-
-	res, err := w.client.Do(req)
-	if err != nil {
-		return "", "", infraErr("do", err)
-	}
-	defer func() { _ = res.Body.Close() }()
-
-	raw, err := io.ReadAll(res.Body)
-	if err != nil {
-		return "", "", infraErr("read_body", err)
-	}
-	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
-		// why: System 失敗の切り分けに理由本文が要る。secret は Authorization header にしか
-		//      載せないので body 全体を bounded で出しても credential は漏れない。
-		createErr := infraErr("create_status", fmt.Errorf("create status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
-		// why: 401/403 は API key / subscription の失効。400 + usage_limit_exceeded は
-		//      Background Agent の利用枠喪失（run 34132953055 で実証。Decision 2026-09-07T23-30-00）。
-		//      どちらも「Cursor から原稿を取れない」状態なので、別の取得元へ切り替えてよい合図として
-		//      vendor 非依存の番兵で wrap する。呼び出し側は errors.Is(err, port.ErrSourceExhausted)
-		//      だけを見て、wrap した Infrastructure Error の中身は知らない。それ以外の 400（malformed request 等）は
-		//      wrap せず赤で止める。error JSON は struct で parse せず code 文字列の存在だけを見る。
-		exhausted := res.StatusCode == http.StatusUnauthorized ||
-			res.StatusCode == http.StatusForbidden ||
-			(res.StatusCode == http.StatusBadRequest && bytes.Contains(raw, []byte("usage_limit_exceeded")))
-		if exhausted {
-			return "", "", fmt.Errorf("%w: %w", port.ErrSourceExhausted, createErr)
-		}
-		return "", "", createErr
+		return "", "", err
 	}
 
 	var parsed createAgentResponse
@@ -153,6 +174,86 @@ func (w *TextWriter) createAgent(ctx context.Context, brief string) (string, str
 		return "", "", infraErr("parse_create", fmt.Errorf("agent id or run id is missing"))
 	}
 	return agentID, runID, nil
+}
+
+type createRunRequest struct {
+	Prompt promptText `json:"prompt"`
+}
+
+type createRunResponse struct {
+	ID string `json:"id"`
+}
+
+// createRun は既存 agentID へ follow-up prompt を送り、新しい runId を返す。
+// why: createAgent と同じく非 idempotent（同一 agent への追加会話）なので再試行しない。model は
+//
+//	agent create 時に確定済みなので follow-up run では送らない（Create A Run は既存 agent への
+//	追加 prompt のみを受け取る）。
+func (w *TextWriter) createRun(ctx context.Context, agentID, prompt string) (string, error) {
+	body, err := json.Marshal(createRunRequest{Prompt: promptText{Text: prompt}})
+	if err != nil {
+		return "", infraErr("marshal_request", err)
+	}
+
+	raw, err := w.postJSON(ctx, fmt.Sprintf(RunsPathTemplate, APIBaseURL+AgentsPath, agentID), body, "create_run_status")
+	if err != nil {
+		return "", err
+	}
+
+	var parsed createRunResponse
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return "", infraErr("parse_create_run", err)
+	}
+	runID := strings.TrimSpace(parsed.ID)
+	if runID == "" {
+		return "", infraErr("parse_create_run", fmt.Errorf("run id is missing"))
+	}
+	return runID, nil
+}
+
+// postJSON は no-repo create 系 POST（createAgent / createRun）に共通の実行・status 判定を行い、
+// 成功時は応答 body を返す。
+// why: createAgent と createRun は「非 idempotent なので再試行しない」「401/403/400+usage_limit_exceeded は
+//
+//	ErrSourceExhausted で wrap する」という判定が完全に同型（Decision 2026-09-07T23-30-00）。
+//	op だけを呼び分けて Infrastructure Error の切り分け粒度を保つ。
+func (w *TextWriter) postJSON(ctx context.Context, url string, body []byte, op string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, infraErr("build_request", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(AuthorizationHeader, BearerTokenPrefix+w.apiKey)
+
+	res, err := w.client.Do(req)
+	if err != nil {
+		return nil, infraErr("do", err)
+	}
+	defer func() { _ = res.Body.Close() }()
+
+	raw, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, infraErr("read_body", err)
+	}
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
+		// why: System 失敗の切り分けに理由本文が要る。secret は Authorization header にしか
+		//      載せないので body 全体を bounded で出しても credential は漏れない。
+		createErr := infraErr(op, fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
+		// why: 401/403 は API key / subscription の失効。400 + usage_limit_exceeded は
+		//      Background Agent の利用枠喪失（run 34132953055 で実証。Decision 2026-09-07T23-30-00）。
+		//      どちらも「Cursor から原稿を取れない」状態なので、別の取得元へ切り替えてよい合図として
+		//      vendor 非依存の番兵で wrap する。呼び出し側は errors.Is(err, port.ErrSourceExhausted)
+		//      だけを見て、wrap した Infrastructure Error の中身は知らない。それ以外の 400（malformed request 等）は
+		//      wrap せず赤で止める。error JSON は struct で parse せず code 文字列の存在だけを見る。
+		exhausted := res.StatusCode == http.StatusUnauthorized ||
+			res.StatusCode == http.StatusForbidden ||
+			(res.StatusCode == http.StatusBadRequest && bytes.Contains(raw, []byte("usage_limit_exceeded")))
+		if exhausted {
+			return nil, fmt.Errorf("%w: %w", port.ErrSourceExhausted, createErr)
+		}
+		return nil, createErr
+	}
+	return raw, nil
 }
 
 // streamRetryKind は stream 取得失敗の再試行方針。

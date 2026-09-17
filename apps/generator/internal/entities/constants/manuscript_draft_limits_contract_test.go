@@ -17,35 +17,39 @@ func narrationFieldSumChars(introChars, closingChars, prefaceChars, detailChars,
 	return introChars + closingChars + topicCount*(prefaceChars+detailChars)
 }
 
-func TestManuscriptDraftLimits_minConfigSumWithinTotalMax(t *testing.T) {
+func TestManuscriptDraftLimits_minConfigSumWithinTotalMaxFor(t *testing.T) {
 	t.Parallel()
 
-	// Given: 全朗読 field を下限・topic 数も下限にした最小構成
-	minSum := narrationFieldSumChars(
-		DraftIntroMinLen, DraftClosingMinLen,
-		DraftTopicPrefaceMinLen, DraftTopicDetailMinLen,
-		DraftTopicCountMin,
-	)
+	// Given: topicCount を固定値付近で振り、全朗読 field を下限にした最小構成
+	for _, topicCount := range []int{1, DraftTopicCountTarget, DraftTopicCountTarget * 2} {
+		minSum := narrationFieldSumChars(
+			DraftIntroMinLen, DraftClosingMinLen,
+			DraftTopicPrefaceMinLen, DraftTopicDetailMinLen,
+			topicCount,
+		)
 
-	// Then: 最小構成でも全体上限以下に収まる（収まらないと valid な draft を作れない）
-	if minSum > DraftTotalCharsMax {
-		t.Fatalf("最小構成の合計 %d が DraftTotalCharsMax %d を超える。field 下限か topic 数下限か total 上限が不整合", minSum, DraftTotalCharsMax)
+		// Then: 最小構成でも全体上限以下に収まる（収まらないと valid な draft を作れない）
+		if max := TotalCharsMaxFor(topicCount); minSum > max {
+			t.Fatalf("topicCount=%d: 最小構成の合計 %d が TotalCharsMaxFor %d を超える。field 下限か total 上限が不整合", topicCount, minSum, max)
+		}
 	}
 }
 
-func TestManuscriptDraftLimits_maxConfigSumReachesTotalMin(t *testing.T) {
+func TestManuscriptDraftLimits_maxConfigSumReachesTotalMinFor(t *testing.T) {
 	t.Parallel()
 
-	// Given: 全朗読 field を上限・topic 数も上限にした最大構成
-	maxSum := narrationFieldSumChars(
-		DraftIntroMaxLen, DraftClosingMaxLen,
-		DraftTopicPrefaceMaxLen, DraftTopicDetailMaxLen,
-		DraftTopicCountMax,
-	)
+	// Given: topicCount を固定値付近で振り、全朗読 field を上限にした最大構成
+	for _, topicCount := range []int{1, DraftTopicCountTarget, DraftTopicCountTarget * 2} {
+		maxSum := narrationFieldSumChars(
+			DraftIntroMaxLen, DraftClosingMaxLen,
+			DraftTopicPrefaceMaxLen, DraftTopicDetailMaxLen,
+			topicCount,
+		)
 
-	// Then: 最大構成で全体下限以上に届く（届かないと valid な draft を作れない）
-	if maxSum < DraftTotalCharsMin {
-		t.Fatalf("最大構成の合計 %d が DraftTotalCharsMin %d に届かない。field 上限か topic 数上限か total 下限が不整合", maxSum, DraftTotalCharsMin)
+		// Then: 最大構成で全体下限以上に届く（届かないと valid な draft を作れない）
+		if min := TotalCharsMinFor(topicCount); maxSum < min {
+			t.Fatalf("topicCount=%d: 最大構成の合計 %d が TotalCharsMinFor %d に届かない。field 上限か total 下限が不整合", topicCount, maxSum, min)
+		}
 	}
 }
 
@@ -71,15 +75,6 @@ func TestManuscriptDraftLimits_totalCharsBoundsAscend(t *testing.T) {
 	// Then: Min < Target < Max（typo や逆転の検出）
 	if !(DraftTotalCharsMin < DraftTotalCharsTarget && DraftTotalCharsTarget < DraftTotalCharsMax) {
 		t.Fatalf("全体文字数の順序が壊れている: Min=%d Target=%d Max=%d", DraftTotalCharsMin, DraftTotalCharsTarget, DraftTotalCharsMax)
-	}
-}
-
-func TestManuscriptDraftLimits_topicCountBoundsAscend(t *testing.T) {
-	t.Parallel()
-
-	// Then: Min < Target < Max
-	if !(DraftTopicCountMin < DraftTopicCountTarget && DraftTopicCountTarget < DraftTopicCountMax) {
-		t.Fatalf("topic 数の順序が壊れている: Min=%d Target=%d Max=%d", DraftTopicCountMin, DraftTopicCountTarget, DraftTopicCountMax)
 	}
 }
 

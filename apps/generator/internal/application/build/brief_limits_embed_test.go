@@ -14,8 +14,8 @@ func TestEmbedManuscriptDraftLimits_replacesNumericPlaceholdersButKeepsDynamicOn
 
 	// Given: 本番で実際に渡る TextWriterBriefPrompt（数値 placeholder と
 	// 動的 placeholder {{SOURCES}} / {{JSON_EXAMPLE}} を両方含む）
-	// When: 数値 placeholder を埋める
-	got := embedManuscriptDraftLimits(constants.TextWriterBriefPrompt)
+	// When: 本番 topic 数で数値 placeholder を埋める
+	got := embedManuscriptDraftLimits(constants.TextWriterBriefPrompt, constants.DraftTopicCountTarget)
 
 	// Then: 数値 placeholder は個別に消え、動的 placeholder は残る
 	for _, ph := range []string{"{{TITLE_MIN}}", "{{PREFACE_MAX}}", "{{TOTAL_TARGET}}", "{{TOTAL_MINUTES_MIN}}", "{{TOTAL_MINUTES_MAX}}"} {
@@ -42,14 +42,14 @@ func TestEmbedManuscriptDraftLimits_leavesNoNumericPlaceholder_whenTemplateLists
 		"{{TOPIC_TITLE_MIN}}", "{{TOPIC_TITLE_MAX}}", "{{TOPIC_TITLE_TARGET}}",
 		"{{PREFACE_MIN}}", "{{PREFACE_MAX}}", "{{PREFACE_TARGET}}",
 		"{{DETAIL_MIN}}", "{{DETAIL_MAX}}", "{{DETAIL_TARGET}}",
-		"{{TOPIC_COUNT_MIN}}", "{{TOPIC_COUNT_MAX}}", "{{TOPIC_COUNT_TARGET}}",
+		"{{TOPIC_COUNT_TARGET}}",
 		"{{TOTAL_MIN}}", "{{TOTAL_MAX}}", "{{TOTAL_TARGET}}",
 		"{{TOTAL_MINUTES_MIN}}", "{{TOTAL_MINUTES_MAX}}",
 	}
 	template := strings.Join(numericPlaceholders, " ")
 
-	// When: 数値 placeholder を埋める
-	got := embedManuscriptDraftLimits(template)
+	// When: 本番 topic 数で数値 placeholder を埋める
+	got := embedManuscriptDraftLimits(template, constants.DraftTopicCountTarget)
 
 	// Then: 列挙した数値 placeholder が全て消えている
 	if strings.Contains(got, "{{") || strings.Contains(got, "}}") {
@@ -62,11 +62,11 @@ func TestEmbedManuscriptDraftLimits_leavesNoNumericPlaceholder_whenTemplateLists
 func TestLoadWriterOutputExampleJSON_returnsRaw_whenValid(t *testing.T) {
 	t.Parallel()
 
-	// Given: embed 済みの WriterOutput JSON 平文
+	// Given: embed 済みの WriterOutput JSON 平文（topic 数は固定 DraftTopicCountTarget 件）
 	raw := strings.TrimSpace(writerOutputExampleJSON)
 
 	// When: 読込と正当性検査をする
-	got, err := loadWriterOutputExampleJSON(raw)
+	got, err := loadWriterOutputExampleJSON(raw, constants.DraftTopicCountTarget)
 
 	// Then: error なしで同一 JSON が返り、ManuscriptDraftFromWriterOutput も通る
 	if err != nil {
@@ -75,7 +75,7 @@ func TestLoadWriterOutputExampleJSON_returnsRaw_whenValid(t *testing.T) {
 	if got != raw {
 		t.Fatal("戻り JSON が入力と異なる")
 	}
-	if _, err := ManuscriptDraftFromWriterOutput(got); err != nil {
+	if _, err := ManuscriptDraftFromWriterOutput(got, constants.DraftTopicCountTarget); err != nil {
 		t.Fatalf("ManuscriptDraftFromWriterOutput: %v", err)
 	}
 }
@@ -90,7 +90,7 @@ func TestLoadWriterOutputExampleJSON_returnsValidationErrorAsIs_whenInvalid(t *t
 	wantErr := mustManuscriptDraftErrForExampleLoad(t, raw)
 
 	// When: 読込検査する
-	_, gotErr := loadWriterOutputExampleJSON(raw)
+	_, gotErr := loadWriterOutputExampleJSON(raw, constants.DraftTopicCountTarget)
 
 	// Then: ManuscriptDraftFromWriterOutput と同じ Domain Error がそのまま返る
 	if gotErr == nil {
@@ -101,7 +101,7 @@ func TestLoadWriterOutputExampleJSON_returnsValidationErrorAsIs_whenInvalid(t *t
 
 func mustManuscriptDraftErrForExampleLoad(t *testing.T, raw string) error {
 	t.Helper()
-	_, err := ManuscriptDraftFromWriterOutput(raw)
+	_, err := ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
 	if err == nil {
 		t.Fatal("ManuscriptDraftFromWriterOutput が error を返さなかった")
 	}

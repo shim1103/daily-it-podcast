@@ -8,14 +8,26 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 )
+
+// Scope: Sociable Unit
+// 実物: cursorapi.TextWriter（Cursor Cloud Agents Adapter）
+// Double: http.RoundTripper の Spy（fakeRoundTripper）。backoffSleepFn は待ちを観測する sleepSpy。
+// buildFn は Stub（valid/invalid を呼び出し回数で切り替える）。
+//
+// retry 方針: 1 回目は createAgent（POST /v1/agents）で agent と run を同時 create。buildFn が
+// invalid を返したら 2 回目以降は同じ agentId へ createRun（POST /v1/agents/{id}/runs）で
+// follow-up run を送り、新しい runId の stream から再取得する（TextWriterMaxAttempts 回まで）。
+// stream 取得の 429/5xx/Do error retry は既存の streamResult 方針のまま。
 
 // fakeClientCall は fakeRoundTripper が観測した request 1 件分。
 type fakeClientCall struct {
@@ -92,12 +104,43 @@ func newFakeTextWriterWithSleepSpy(responses ...fakeClientResponse) (*TextWriter
 	return w, rt, spy
 }
 
+// alwaysValidBuildFn は常に valid と判定する Stub。retry させたくない test で使う。
+func alwaysValidBuildFn(raw string) (models.ManuscriptDraft, error) {
+	return models.ManuscriptDraft{Title: raw}, nil
+}
+
+// rejectNTimesBuildFn は先頭 n 回を invalid（rejectErr）と判定し、n+1 回目以降を valid とする Stub。
+// invalid-draft retry ループが buildFn の判定に従って正しく回数を切り替えることを検証する。
+func rejectNTimesBuildFn(n int, rejectErr error) func(string) (models.ManuscriptDraft, error) {
+	calls := 0
+	return func(raw string) (models.ManuscriptDraft, error) {
+		calls++
+		if calls <= n {
+			return models.ManuscriptDraft{}, rejectErr
+		}
+		return models.ManuscriptDraft{Title: raw}, nil
+	}
+}
+
+// alwaysInvalidBuildFn は常に invalid と判定する Stub。retry 上限到達を検証する test で使う。
+func alwaysInvalidBuildFn(rejectErr error) func(string) (models.ManuscriptDraft, error) {
+	return func(string) (models.ManuscriptDraft, error) {
+		return models.ManuscriptDraft{}, rejectErr
+	}
+}
+
 // createAgentBody は create 応答の fixture を組む。
 func createAgentBody(agentID, runID string) string {
 	raw, _ := json.Marshal(map[string]any{
 		"agent": map[string]any{"id": agentID, "status": "ACTIVE"},
 		"run":   map[string]any{"id": runID, "agentId": agentID, "status": "CREATING"},
 	})
+	return string(raw)
+}
+
+// createRunBody は follow-up run create 応答の fixture を組む。
+func createRunBody(runID string) string {
+	raw, _ := json.Marshal(map[string]any{"id": runID, "status": "CREATING"})
 	return string(raw)
 }
 
@@ -173,9 +216,9 @@ func assertCursorInfraErrorOp(t *testing.T, err error, wantOp string) {
 	}
 }
 
-func TestWrite_returnsFragment_whenCreateThenStreamSucceeds(t *testing.T) {
+func TestWrite_returnsDraft_whenCreateThenStreamSucceeds(t *testing.T) {
 
-	// Given: create 成功と、終端 result に非空 text を持つ SSE を返す Client Stub
+	// Given: create 成功と、終端 result に非空 text を持つ SSE を返す Client Stub。buildFn は常に valid
 	const fragment = "本日の IT ニュース原稿の断片"
 	w, rt := newFakeTextWriter(
 		fakeClientResponse{status: http.StatusOK, body: createAgentBody("bc-1", "run-1")},
@@ -183,14 +226,14 @@ func TestWrite_returnsFragment_whenCreateThenStreamSucceeds(t *testing.T) {
 	)
 
 	// When: Write する
-	got, err := w.Write(context.Background(), "本文の要約から原稿を書いて")
+	got, err := w.Write(context.Background(), "本文の要約から原稿を書いて", alwaysValidBuildFn)
 
-	// Then: 非空断片が返り、create は POST、stream は GET で叩かれる
+	// Then: buildFn が返す draft が返り、create は POST、stream は GET で叩かれる
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
-	if got != fragment {
-		t.Fatalf("Write() = %q, want %q", got, fragment)
+	if got.Title != fragment {
+		t.Fatalf("Write().Title = %q, want %q", got.Title, fragment)
 	}
 	if len(rt.calls) != 2 {
 		t.Fatalf("call count = %d, want 2", len(rt.calls))
@@ -236,15 +279,143 @@ func TestWrite_returnsInfraError_whenBriefEmptyAfterTrim(t *testing.T) {
 	w, rt := newFakeTextWriter()
 
 	// When: Write する
-	got, err := w.Write(context.Background(), "  \t\n  ")
+	got, err := w.Write(context.Background(), "  \t\n  ", alwaysValidBuildFn)
 
-	// Then: validate_brief 系 Infra Error、断片空、Client は呼ばれない
+	// Then: validate_brief 系 Infra Error、draft ゼロ値、Client は呼ばれない
 	assertCursorInfraErrorOp(t, err, "validate_brief")
-	if got != "" {
-		t.Fatalf("fragment = %q, want empty", got)
+	if !reflect.DeepEqual(got, models.ManuscriptDraft{}) {
+		t.Fatalf("draft = %+v, want zero value", got)
 	}
 	if len(rt.calls) != 0 {
 		t.Fatalf("call count = %d, want 0", len(rt.calls))
+	}
+}
+
+func TestWrite_sendsFollowUpRun_whenBuildFnRejectsFirstAttempt(t *testing.T) {
+
+	// Given: create 成功 → 1 回目 stream は invalid 判定される断片 → follow-up run create 成功
+	//        → 2 回目 stream で valid な断片
+	rejectErr := errors.New("topics count is 2, want 3")
+	w, rt := newFakeTextWriter(
+		fakeClientResponse{status: http.StatusOK, body: createAgentBody("bc-1", "run-1")},
+		successStreamResponse("1 回目の断片"),
+		fakeClientResponse{status: http.StatusOK, body: createRunBody("run-2")},
+		successStreamResponse("2 回目の断片"),
+	)
+
+	// When: Write する（buildFn は 1 回目だけ reject）
+	got, err := w.Write(context.Background(), "原稿を書いて", rejectNTimesBuildFn(1, rejectErr))
+
+	// Then: 2 回目の断片で valid になり、agentId は変えず createRun（POST .../v1/agents/bc-1/runs）を叩く
+	if err != nil {
+		t.Fatalf("Write() error = %v, want nil", err)
+	}
+	if got.Title != "2 回目の断片" {
+		t.Fatalf("Write().Title = %q, want %q", got.Title, "2 回目の断片")
+	}
+	if len(rt.calls) != 4 {
+		t.Fatalf("call count = %d, want 4 (create, stream, createRun, stream)", len(rt.calls))
+	}
+	if rt.calls[2].Method != http.MethodPost {
+		t.Fatalf("createRun method = %q, want POST", rt.calls[2].Method)
+	}
+	if rt.calls[2].URL != APIBaseURL+AgentsPath+"/bc-1/runs" {
+		t.Fatalf("createRun URL = %q, want %q", rt.calls[2].URL, APIBaseURL+AgentsPath+"/bc-1/runs")
+	}
+	if !strings.Contains(rt.calls[3].URL, "/v1/agents/bc-1/runs/run-2/stream") {
+		t.Fatalf("2nd stream URL = %q, want .../v1/agents/bc-1/runs/run-2/stream", rt.calls[3].URL)
+	}
+	var runReqBody map[string]any
+	if err := json.Unmarshal(rt.calls[2].Body, &runReqBody); err != nil {
+		t.Fatalf("decode createRun request: %v", err)
+	}
+	prompt, _ := runReqBody["prompt"].(map[string]any)
+	promptText, _ := prompt["text"].(string)
+	// why: follow-up run は agent との会話継続なので、rejection 理由だけを新しい prompt として送る
+	//      （brief 全体は含めない。§follow-up run の brief 設計）。
+	if strings.Contains(promptText, "原稿を書いて") {
+		t.Fatalf("createRun prompt.text = %q は元 brief を含んではならない", promptText)
+	}
+	if !strings.Contains(promptText, rejectErr.Error()) {
+		t.Fatalf("createRun prompt.text = %q, want rejection reason %q を含む", promptText, rejectErr.Error())
+	}
+	if _, hasModel := runReqBody["model"]; hasModel {
+		t.Fatalf("createRun request has model field, want follow-up run without model override")
+	}
+}
+
+func TestWrite_wrapsDraftRejected_whenBuildFnRejectsAllAttempts(t *testing.T) {
+
+	// Given: create 成功後、毎回 stream は成功するが buildFn は毎回 invalid と判定する
+	rejectErr := errors.New("json is malformed")
+	responses := []fakeClientResponse{
+		{status: http.StatusOK, body: createAgentBody("bc-1", "run-1")},
+		successStreamResponse("断片1"),
+	}
+	for i := 2; i <= TextWriterMaxAttempts; i++ {
+		responses = append(responses,
+			fakeClientResponse{status: http.StatusOK, body: createRunBody(fmt.Sprintf("run-%d", i))},
+			successStreamResponse(fmt.Sprintf("断片%d", i)),
+		)
+	}
+	w, rt := newFakeTextWriter(responses...)
+
+	// When: Write する
+	got, err := w.Write(context.Background(), "原稿を書いて", alwaysInvalidBuildFn(rejectErr))
+
+	// Then: TextWriterMaxAttempts 回使い切って port.ErrDraftRejected で wrap、LastAttempt を辿れる
+	if !errors.Is(err, port.ErrDraftRejected) {
+		t.Fatalf("errors.Is(err, port.ErrDraftRejected) が false: %v", err)
+	}
+	if !reflect.DeepEqual(got, models.ManuscriptDraft{}) {
+		t.Fatalf("draft = %+v, want zero value", got)
+	}
+	var lastAttempt port.LastAttempt
+	if !errors.As(err, &lastAttempt) {
+		t.Fatalf("errors.As(err, &port.LastAttempt{}) が false: %v", err)
+	}
+	if lastAttempt.Raw != fmt.Sprintf("断片%d", TextWriterMaxAttempts) {
+		t.Fatalf("LastAttempt.Raw = %q, want %q", lastAttempt.Raw, fmt.Sprintf("断片%d", TextWriterMaxAttempts))
+	}
+	if !errors.Is(lastAttempt.BuildErr, rejectErr) {
+		t.Fatalf("LastAttempt.BuildErr = %v, want %v", lastAttempt.BuildErr, rejectErr)
+	}
+	// create 1 回 + (stream + createRun) を繰り返し、最後は createRun なしで stream のみ
+	// = 1 (create) + TextWriterMaxAttempts (stream) + (TextWriterMaxAttempts-1) (createRun)
+	wantCalls := 1 + TextWriterMaxAttempts + (TextWriterMaxAttempts - 1)
+	if len(rt.calls) != wantCalls {
+		t.Fatalf("call count = %d, want %d", len(rt.calls), wantCalls)
+	}
+}
+
+func TestWrite_returnsLastAttempt_whenCreateRunFailsAfterFirstRejection(t *testing.T) {
+
+	// Given: create 成功 → 1 回目 stream は invalid 判定される断片 → createRun が 5xx を返し続ける
+	rejectErr := errors.New("topics count is 2, want 3")
+	w, rt := newFakeTextWriter(
+		fakeClientResponse{status: http.StatusOK, body: createAgentBody("bc-1", "run-1")},
+		successStreamResponse("1 回目の断片"),
+		fakeClientResponse{status: http.StatusInternalServerError, body: `{"error":"internal"}`},
+	)
+
+	// When: Write する
+	got, err := w.Write(context.Background(), "原稿を書いて", rejectNTimesBuildFn(1, rejectErr))
+
+	// Then: createRun は非 idempotent なので再試行せず即座に Infra Error。直前 attempt の
+	//       LastAttempt（断片・rejectErr）を chain へ持ち越す
+	assertCursorInfraErrorOp(t, err, "create_run_status")
+	if !reflect.DeepEqual(got, models.ManuscriptDraft{}) {
+		t.Fatalf("draft = %+v, want zero value", got)
+	}
+	var lastAttempt port.LastAttempt
+	if !errors.As(err, &lastAttempt) {
+		t.Fatalf("errors.As(err, &port.LastAttempt{}) が false: %v", err)
+	}
+	if lastAttempt.Raw != "1 回目の断片" {
+		t.Fatalf("LastAttempt.Raw = %q, want %q", lastAttempt.Raw, "1 回目の断片")
+	}
+	if len(rt.calls) != 3 {
+		t.Fatalf("call count = %d, want 3", len(rt.calls))
 	}
 }
 
@@ -264,12 +435,12 @@ func TestWrite_retriesStreamOn429_untilMaxAttemptsThenInfraError(t *testing.T) {
 	w, rt := newFakeTextWriter(responses...)
 
 	// When: Write する
-	got, err := w.Write(context.Background(), "原稿を書いて")
+	got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 	// Then: 上限到達で Infra Error、stream 取得は MaxAttempts 回
 	assertCursorInfraErrorOp(t, err, "stream_status")
-	if got != "" {
-		t.Fatalf("fragment = %q, want empty", got)
+	if !reflect.DeepEqual(got, models.ManuscriptDraft{}) {
+		t.Fatalf("draft = %+v, want zero value", got)
 	}
 	streamCalls := len(rt.calls) - 1
 	if streamCalls != MaxAttempts {
@@ -287,14 +458,14 @@ func TestWrite_retriesStreamOn429_thenSucceeds(t *testing.T) {
 	)
 
 	// When: Write する
-	got, err := w.Write(context.Background(), "原稿を書いて")
+	got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 	// Then: 2 回目の stream 取得で非空断片
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
-	if got != "再試行後の断片" {
-		t.Fatalf("Write() = %q, want %q", got, "再試行後の断片")
+	if got.Title != "再試行後の断片" {
+		t.Fatalf("Write().Title = %q, want %q", got.Title, "再試行後の断片")
 	}
 	if len(rt.calls) != 3 {
 		t.Fatalf("call count = %d, want 3", len(rt.calls))
@@ -311,14 +482,14 @@ func TestWrite_retriesStreamOnce_whenDoErrorThenSucceeds(t *testing.T) {
 	)
 
 	// When: Write する
-	got, err := w.Write(context.Background(), "原稿を書いて")
+	got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 	// Then: +1 即再試行で 2 回目成功、呼び出しは create + stream 2 回
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
-	if got != "Do error 復帰後の断片" {
-		t.Fatalf("Write() = %q", got)
+	if got.Title != "Do error 復帰後の断片" {
+		t.Fatalf("Write().Title = %q", got.Title)
 	}
 	if len(rt.calls) != 3 {
 		t.Fatalf("call count = %d, want 3", len(rt.calls))
@@ -335,14 +506,14 @@ func TestWrite_retriesStreamOnce_whenStatus5xxThenSucceeds(t *testing.T) {
 	)
 
 	// When: Write する
-	got, err := w.Write(context.Background(), "原稿を書いて")
+	got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 	// Then: +1 即再試行で 2 回目成功
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
-	if got != "5xx 復帰後の断片" {
-		t.Fatalf("Write() = %q", got)
+	if got.Title != "5xx 復帰後の断片" {
+		t.Fatalf("Write().Title = %q", got.Title)
 	}
 	if len(rt.calls) != 3 {
 		t.Fatalf("call count = %d, want 3", len(rt.calls))
@@ -359,12 +530,12 @@ func TestWrite_doesNotRetryStreamTwice_whenStatus5xxPersists(t *testing.T) {
 	)
 
 	// When: Write する
-	got, err := w.Write(context.Background(), "原稿を書いて")
+	got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 	// Then: 即再試行は 1 回だけ（stream 取得は 2 回）で Infra Error
 	assertCursorInfraError(t, err)
-	if got != "" {
-		t.Fatalf("fragment = %q, want empty", got)
+	if !reflect.DeepEqual(got, models.ManuscriptDraft{}) {
+		t.Fatalf("draft = %+v, want zero value", got)
 	}
 	if len(rt.calls) != 3 {
 		t.Fatalf("call count = %d, want 3 (create + stream x2)", len(rt.calls))
@@ -380,12 +551,12 @@ func TestWrite_doesNotRetryCreate_whenStatus5xx(t *testing.T) {
 	})
 
 	// When: Write する
-	got, err := w.Write(context.Background(), "原稿を書いて")
+	got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 	// Then: 非 idempotent なので再試行しない（呼び出し 1 回）で Infra Error
 	assertCursorInfraErrorOp(t, err, "create_status")
-	if got != "" {
-		t.Fatalf("fragment = %q, want empty", got)
+	if !reflect.DeepEqual(got, models.ManuscriptDraft{}) {
+		t.Fatalf("draft = %+v, want zero value", got)
 	}
 	if len(rt.calls) != 1 {
 		t.Fatalf("call count = %d, want 1", len(rt.calls))
@@ -402,7 +573,7 @@ func TestWrite_includesResponseBodySnippet_whenCreateStatusNotOK(t *testing.T) {
 	})
 
 	// When: Write する
-	_, err := w.Write(context.Background(), "原稿を書いて")
+	_, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 	// Then: create_status Infra Error に応答 body の snippet が載る（System 失敗の切り分け用）
 	assertCursorInfraErrorOp(t, err, "create_status")
@@ -424,12 +595,12 @@ func TestWrite_returnsInfraError_whenResultTextEmpty(t *testing.T) {
 	)
 
 	// When: Write する
-	got, err := w.Write(context.Background(), "原稿を書いて")
+	got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 	// Then: 非 retry の Infra Error（stream 取得は 1 回だけ）
 	assertCursorInfraErrorOp(t, err, "empty_text")
-	if got != "" {
-		t.Fatalf("fragment = %q, want empty", got)
+	if !reflect.DeepEqual(got, models.ManuscriptDraft{}) {
+		t.Fatalf("draft = %+v, want zero value", got)
 	}
 	if len(rt.calls) != 2 {
 		t.Fatalf("call count = %d, want 2", len(rt.calls))
@@ -449,18 +620,18 @@ func TestWrite_returnsInfraError_whenRunTerminatedWithError(t *testing.T) {
 	)
 
 	// When: Write する
-	got, err := w.Write(context.Background(), "原稿を書いて")
+	got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 	// Then: run 終端 error は非 retry の Infra Error
 	assertCursorInfraErrorOp(t, err, "run_status")
-	if got != "" {
-		t.Fatalf("fragment = %q, want empty", got)
+	if !reflect.DeepEqual(got, models.ManuscriptDraft{}) {
+		t.Fatalf("draft = %+v, want zero value", got)
 	}
 }
 
 func TestWrite_excludesAPIKeyFromErrorMessage_whenCreateFails(t *testing.T) {
 
-	// Given: create が 401 を返す。fake key の実値を error に出してはならない
+	// Given: create が 401 を返す。fake key の実値は error に出てはならない
 	const apiKey = "cursor-secret-must-not-leak"
 	rt := &fakeRoundTripper{responses: []fakeClientResponse{
 		{status: http.StatusUnauthorized, body: `{"error":"unauthorized"}`},
@@ -468,7 +639,7 @@ func TestWrite_excludesAPIKeyFromErrorMessage_whenCreateFails(t *testing.T) {
 	w := newTextWriter(&http.Client{Transport: rt}, apiKey, func(context.Context, time.Duration) {})
 
 	// When: Write する
-	_, err := w.Write(context.Background(), "原稿を書いて")
+	_, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 	// Then: error は返るが apiKey 実値は message に出ない
 	if err == nil {
@@ -491,12 +662,12 @@ func TestWrite_doesNotRetryCreate_whenClientErrorStatus(t *testing.T) {
 			})
 
 			// When: Write する
-			got, err := w.Write(context.Background(), "原稿を書いて")
+			got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
-			// Then: 非 retry の Infra Error、断片空、呼び出しは 1 回だけ
+			// Then: 非 retry の Infra Error、draft ゼロ値、呼び出しは 1 回だけ
 			assertCursorInfraErrorOp(t, err, "create_status")
-			if got != "" {
-				t.Fatalf("fragment = %q, want empty", got)
+			if !reflect.DeepEqual(got, models.ManuscriptDraft{}) {
+				t.Fatalf("draft = %+v, want zero value", got)
 			}
 			if len(rt.calls) != 1 {
 				t.Fatalf("call count = %d, want 1", len(rt.calls))
@@ -514,7 +685,7 @@ func TestWrite_wrapsSourceExhausted_whenCreateStatusIs401Or403(t *testing.T) {
 			w, _ := newFakeTextWriter(fakeClientResponse{status: status, body: `{"error":"denied"}`})
 
 			// When: Write する
-			_, err := w.Write(context.Background(), "原稿を書いて")
+			_, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 			// Then: vendor 非依存の番兵で wrap され、中身は *adaptererror.Error のまま辿れる
 			if !errors.Is(err, port.ErrSourceExhausted) {
@@ -532,13 +703,33 @@ func TestWrite_wrapsSourceExhausted_whenCreateStatusIs400WithUsageLimitExceeded(
 	w, _ := newFakeTextWriter(fakeClientResponse{status: http.StatusBadRequest, body: body})
 
 	// When: Write する
-	_, err := w.Write(context.Background(), "原稿を書いて")
+	_, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 	// Then: 401/403 と同じく番兵で wrap され、中身は *adaptererror.Error のまま辿れる
 	if !errors.Is(err, port.ErrSourceExhausted) {
 		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) が false: %v", err)
 	}
 	assertCursorInfraErrorOp(t, err, "create_status")
+}
+
+func TestWrite_wrapsSourceExhausted_whenCreateRunStatusIs401Or403(t *testing.T) {
+
+	// Given: create 成功 → 1 回目は invalid 判定 → follow-up run（createRun）が 401 を返す
+	rejectErr := errors.New("topics count is 2, want 3")
+	w, _ := newFakeTextWriter(
+		fakeClientResponse{status: http.StatusOK, body: createAgentBody("bc-1", "run-1")},
+		successStreamResponse("1 回目の断片"),
+		fakeClientResponse{status: http.StatusUnauthorized, body: `{"error":"unauthorized"}`},
+	)
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて", rejectNTimesBuildFn(1, rejectErr))
+
+	// Then: createAgent と同じ判定基準（vendor 非依存の番兵）を createRun にも適用する
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) が false: %v", err)
+	}
+	assertCursorInfraErrorOp(t, err, "create_run_status")
 }
 
 func TestWrite_doesNotWrapSourceExhausted_whenCreateStatusIsNot401Or403(t *testing.T) {
@@ -550,7 +741,7 @@ func TestWrite_doesNotWrapSourceExhausted_whenCreateStatusIsNot401Or403(t *testi
 			w, _ := newFakeTextWriter(fakeClientResponse{status: status, body: `{"error":"x"}`})
 
 			// When: Write する
-			_, err := w.Write(context.Background(), "原稿を書いて")
+			_, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 			// Then: 番兵で wrap しない
 			if errors.Is(err, port.ErrSourceExhausted) {
@@ -572,12 +763,12 @@ func TestWrite_doesNotRetryStream_whenClientErrorStatus(t *testing.T) {
 			)
 
 			// When: Write する
-			got, err := w.Write(context.Background(), "原稿を書いて")
+			got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
-			// Then: 非 retry の Infra Error、断片空、呼び出しは create + stream の 2 回だけ
+			// Then: 非 retry の Infra Error、draft ゼロ値、呼び出しは create + stream の 2 回だけ
 			assertCursorInfraErrorOp(t, err, "stream_status")
-			if got != "" {
-				t.Fatalf("fragment = %q, want empty", got)
+			if !reflect.DeepEqual(got, models.ManuscriptDraft{}) {
+				t.Fatalf("draft = %+v, want zero value", got)
 			}
 			if len(rt.calls) != 2 {
 				t.Fatalf("call count = %d, want 2", len(rt.calls))
@@ -602,12 +793,12 @@ func TestWrite_doesNotReStream_whenBodyEndsBeforeResultEvent(t *testing.T) {
 	)
 
 	// When: Write する
-	got, err := w.Write(context.Background(), "原稿を書いて")
+	got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 	// Then: parse_sse Infra Error。再 stream しない（呼び出しは create + stream の 2 回だけ）
 	assertCursorInfraErrorOp(t, err, "parse_sse")
-	if got != "" {
-		t.Fatalf("fragment = %q, want empty", got)
+	if !reflect.DeepEqual(got, models.ManuscriptDraft{}) {
+		t.Fatalf("draft = %+v, want zero value", got)
 	}
 	if len(rt.calls) != 2 {
 		t.Fatalf("call count = %d, want 2", len(rt.calls))
@@ -644,14 +835,14 @@ func TestWrite_clampsRetryAfter_whenHeaderValueExceedsMax(t *testing.T) {
 	)
 
 	// When: Write する
-	got, err := w.Write(context.Background(), "原稿を書いて")
+	got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
 	// Then: 成功断片が返り、待ち時間は MaxRetryAfter でクランプされる
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
-	if got != "クランプ後の断片" {
-		t.Fatalf("Write() = %q", got)
+	if got.Title != "クランプ後の断片" {
+		t.Fatalf("Write().Title = %q", got.Title)
 	}
 	if len(spy.waits) != 1 {
 		t.Fatalf("sleep count = %d, want 1", len(spy.waits))

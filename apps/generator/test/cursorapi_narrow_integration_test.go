@@ -16,8 +16,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/cursorapi"
 )
+
+// buildDraftFromFragment は narrow integration test 用の buildFn。raw 断片をそのまま
+// ManuscriptDraft.Title へ格納し、Write が buildFn の戻りをそのまま透過することだけを確認する。
+func buildDraftFromFragment(raw string) (models.ManuscriptDraft, error) {
+	return models.ManuscriptDraft{Title: raw}, nil
+}
 
 type cursorNarrowProbe struct {
 	createMethod string
@@ -83,14 +90,15 @@ func TestCursorTextWriter_deliversCreateAndStream_whenUpstreamSucceeds(t *testin
 	})
 
 	// When: Write する
-	got, err := writer.Write(context.Background(), "本文の要約から原稿を書いて")
+	got, err := writer.Write(context.Background(), "本文の要約から原稿を書いて", buildDraftFromFragment)
 
-	// Then: upstream は POST(create) と GET(stream) を受け、Authorization に実値が届き、非空断片が返る
+	// Then: upstream は POST(create) と GET(stream) を受け、Authorization に実値が届き、
+	// buildFn が受け取った raw 断片がそのまま draft へ透過する
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
-	if got != fragment {
-		t.Fatalf("Write() = %q, want %q", got, fragment)
+	if got.Title != fragment {
+		t.Fatalf("Write() draft.Title = %q, want %q", got.Title, fragment)
 	}
 	if probe.createMethod != http.MethodPost {
 		t.Fatalf("create method = %q, want POST", probe.createMethod)
@@ -116,7 +124,7 @@ func TestCursorTextWriter_excludesDummySecretFromErrorMessage_whenUpstreamFails(
 	})
 
 	// When: Write する
-	_, err := writer.Write(context.Background(), "narrow error message テスト")
+	_, err := writer.Write(context.Background(), "narrow error message テスト", buildDraftFromFragment)
 
 	// Then: error は返るが dummy secret 実値は error message に出ない
 	if err == nil {

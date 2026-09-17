@@ -29,7 +29,7 @@ func TestComposeBriefWithTemplate_embedsGivenTemplate_whenCustomPromptProvided(t
 		"# Source\n{{SOURCES}}\n# Example\n{{JSON_EXAMPLE}}\n独自マーカー_XYZ"
 
 	// When: 任意 template で brief を組む
-	got, err := build.ComposeBriefWithTemplate(tunableSeedItems(), template)
+	got, err := build.ComposeBriefWithTemplate(tunableSeedItems(), template, constants.DraftTopicCountTarget)
 
 	// Then: 数値 placeholder と動的 placeholder がすべて埋まり、template 固有文字列が残る
 	if err != nil {
@@ -56,7 +56,7 @@ func TestComposeBriefWithTemplate_matchesComposeBrief_whenDefaultTemplateGiven(t
 	items := tunableSeedItems()
 
 	// When: 既定 template を明示的に渡した場合と ComposeBrief の出力を比べる
-	viaTemplate, err := build.ComposeBriefWithTemplate(items, constants.TextWriterBriefPrompt)
+	viaTemplate, err := build.ComposeBriefWithTemplate(items, constants.TextWriterBriefPrompt, constants.DraftTopicCountTarget)
 	if err != nil {
 		t.Fatalf("ComposeBriefWithTemplate(default): %v", err)
 	}

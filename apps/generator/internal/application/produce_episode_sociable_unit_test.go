@@ -19,28 +19,22 @@ import (
 
 // --- Test Double ---
 
-// stubWriter は TextWriter の Stub。返す string と error を制御し、呼ばれた回数を記録する。
-// outs が非空なら呼び出し順に返し、尽きたら最後の要素を繰り返す。
+// stubWriter は TextWriter の Stub。raw wire JSON（out）と error を制御し、呼ばれた回数を記録する。
+// Run が buildFn に渡す build.ManuscriptDraftFromWriterOutput をそのまま呼び出し側から受け取り、
+// out を渡して draft へ解釈させる（Run が retry を持たない新設計：invalid-draft retry は
+// TextWriter 実装側の責務であり、この Stub は 1 回の解釈結果をそのまま返す）。
 type stubWriter struct {
 	out   string
-	outs  []string
 	err   error
 	calls int
 }
 
-func (s *stubWriter) Write(_ context.Context, _ string) (string, error) {
+func (s *stubWriter) Write(_ context.Context, _ string, buildFn func(string) (models.ManuscriptDraft, error)) (models.ManuscriptDraft, error) {
 	s.calls++
 	if s.err != nil {
-		return "", s.err
+		return models.ManuscriptDraft{}, s.err
 	}
-	if n := len(s.outs); n > 0 {
-		i := s.calls - 1
-		if i >= n {
-			i = n - 1
-		}
-		return s.outs[i], nil
-	}
-	return s.out, nil
+	return buildFn(s.out)
 }
 
 // spySynth は SpeechSynthesizer の Spy。SynthesizeAll が受け取った texts 束と呼び出し回数を記録し、
@@ -168,6 +162,36 @@ func newHarness(t *testing.T, segDurationSec float64) *harness {
 		fixedEpisodeIDFunc,
 		testDisplayLocation,
 		progress,
+		constants.DraftTopicCountTarget,
+	)
+	return &harness{uc: uc, source: source, lookup: lookup, writer: writer, synth: synth, encode: encode, episw: episw, progress: progress}
+}
+
+// newHarnessWithTopicCount は newHarness の topicCount 可変版。wire は topicCount 件の
+// topic を持つ valid JSON で組む（newHarness 既定の validWireTopicCount 固定とは独立に、
+// Run が uc.topicCount を使って buildFn を呼ぶことを検証するための harness）。
+func newHarnessWithTopicCount(t *testing.T, topicCount int) *harness {
+	t.Helper()
+	source := &fakeItemSource{items: []models.SourceItem{
+		{SourceID: "x", OccurredAt: time.Date(2026, 8, 30, 10, 0, 0, 0, time.UTC), Summary: "item_id: a1"},
+	}}
+	lookup := &fakeCompletedEpisodeLookup{}
+	writer := &stubWriter{out: buildValidWireJSONWithTopicCount(topicCount)}
+	synth := &spySynth{wav: fixedWavOfDuration(t, 1.0)}
+	encode := &stubEncoder{}
+	episw := &fakeEpisodeWriter{}
+	progress := &spyProgress{}
+	uc := application.NewProduceEpisode(
+		application.NewFetchSourceItems(source),
+		lookup,
+		writer,
+		synth,
+		encode,
+		application.NewWriteEpisode(episw),
+		fixedEpisodeIDFunc,
+		testDisplayLocation,
+		progress,
+		topicCount,
 	)
 	return &harness{uc: uc, source: source, lookup: lookup, writer: writer, synth: synth, encode: encode, episw: episw, progress: progress}
 }
@@ -529,6 +553,56 @@ func TestProduceEpisodeRun_setsTopicStartSecFromCumulativeSegmentDurationsWithSi
 	}
 }
 
+// --- topicCount 反映 ---
+
+func TestProduceEpisodeRun_writesEpisodeWithConfiguredTopicCount_whenWireTopicCountMatchesUseCaseTopicCount(t *testing.T) {
+	t.Parallel()
+
+	// Given: UseCase の topicCount = 3、wire も 3 topic
+	const topicCount = 3
+	h := newHarnessWithTopicCount(t, topicCount)
+	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
+
+	// When: Run を呼ぶ
+	_, err := h.uc.Run(context.Background(), now)
+
+	// Then: 成功し、manuscript の topic 数は UseCase の topicCount と一致する
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	m := unmarshalManuscript(t, h.episw.manuscript)
+	if len(m.Body.Topics) != topicCount {
+		t.Fatalf("body.topics count = %d, want %d", len(m.Body.Topics), topicCount)
+	}
+}
+
+func TestProduceEpisodeRun_returnsInvalidManuscriptDraft_whenWireTopicCountDiffersFromUseCaseTopicCount(t *testing.T) {
+	t.Parallel()
+
+	// Given: UseCase の topicCount = 3 だが wire は固定 validWireTopicCount 件
+	// （validWireTopicCount == constants.DraftTopicCountTarget であり 3 と異なる前提）
+	const topicCount = 3
+	if validWireTopicCount == topicCount {
+		t.Fatalf("test 前提が崩れている: validWireTopicCount(%d) == topicCount(%d)", validWireTopicCount, topicCount)
+	}
+	h := newHarnessWithTopicCount(t, topicCount)
+	h.writer.out = buildValidWireJSON() // validWireTopicCount 件の wire（topicCount と不一致）
+	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
+
+	// When: Run を呼ぶ
+	_, err := h.uc.Run(context.Background(), now)
+
+	// Then: buildFn（build.ManuscriptDraftFromWriterOutput(raw, uc.topicCount)）が
+	// topic 数不一致を検出し、Op = invalid_manuscript_draft で失敗する
+	var de *domainerrors.Error
+	if !errors.As(err, &de) || de.Op != domainerrors.OpInvalidManuscriptDraft {
+		t.Fatalf("err = %v, want Domain Error Op = %q", err, domainerrors.OpInvalidManuscriptDraft)
+	}
+	if h.episw.calls != 0 {
+		t.Fatalf("WriteEpisode calls = %d, want 0", h.episw.calls)
+	}
+}
+
 // --- 異常系 ---
 
 func TestProduceEpisodeRun_returnsNoSourceItemsWithoutWriting_whenFetchReturnsEmpty(t *testing.T) {
@@ -603,83 +677,26 @@ func TestProduceEpisodeRun_returnsErrorWithoutWriting_whenTextWriterFails(t *tes
 func TestProduceEpisodeRun_returnsInvalidManuscriptDraftWithoutWriting_whenWriterOutputIsInvalid(t *testing.T) {
 	t.Parallel()
 
-	// Given: TextWriter が壊れた JSON を返す
+	// Given: TextWriter が壊れた JSON を返す（invalid-draft retry は TextWriter 実装側の責務であり
+	// Run 自体は持たないため、stubWriter は 1 回 buildFn を呼ぶだけで invalid 判定を確定させる）
 	h := newHarness(t, 1.0)
 	h.writer.out = `{"title": "あ", "intro":`
 
 	// When: Run を呼ぶ
 	_, err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
 
-	// Then: 上限まで再試行したうえで Op = invalid_manuscript_draft。Speech/WriteEpisode は呼ばれない
+	// Then: buildFn（build.ManuscriptDraftFromWriterOutput）の Op = invalid_manuscript_draft がそのまま伝播する。
+	// TextWriter は 1 回だけ呼ばれ、Speech/WriteEpisode は呼ばれない
 	var de *domainerrors.Error
 	if !errors.As(err, &de) || de.Op != domainerrors.OpInvalidManuscriptDraft {
 		t.Fatalf("err = %v, want Domain Error Op = %q", err, domainerrors.OpInvalidManuscriptDraft)
 	}
-	if h.writer.calls != application.TextWriterMaxAttempts {
-		t.Fatalf("TextWriter calls = %d, want %d", h.writer.calls, application.TextWriterMaxAttempts)
+	if h.writer.calls != 1 {
+		t.Fatalf("TextWriter calls = %d, want 1", h.writer.calls)
 	}
 	if h.synth.calls != 0 || h.episw.calls != 0 {
 		t.Fatalf("downstream was called: synth=%d episw=%d", h.synth.calls, h.episw.calls)
 	}
-}
-
-func TestProduceEpisodeRun_retriesTextWriter_whenFirstDraftInvalidThenValid(t *testing.T) {
-	t.Parallel()
-
-	// Given: 1 回目は壊れた wire、2 回目は valid wire
-	h := newHarness(t, 1.0)
-	seq := &seqWriter{outs: []string{`{"title": "あ", "intro":`, buildValidWireJSON()}}
-	h.uc = application.NewProduceEpisode(
-		application.NewFetchSourceItems(h.source),
-		h.lookup,
-		seq,
-		h.synth,
-		h.encode,
-		application.NewWriteEpisode(h.episw),
-		fixedEpisodeIDFunc,
-		testDisplayLocation,
-		h.progress,
-	)
-
-	// When: Run を呼ぶ
-	_, err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))
-
-	// Then: 2 回目で成功し WriteEpisode 1 回。2 回目 brief に前回 reject 理由が入る
-	if err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if seq.calls != 2 {
-		t.Fatalf("TextWriter calls = %d, want 2", seq.calls)
-	}
-	if h.episw.calls != 1 {
-		t.Fatalf("WriteEpisode calls = %d, want 1", h.episw.calls)
-	}
-	if len(seq.briefs) < 2 {
-		t.Fatalf("briefs = %d, want >= 2", len(seq.briefs))
-	}
-	if !strings.Contains(seq.briefs[1], "Previous attempt rejected") {
-		t.Fatalf("2 回目 brief に reject 理由が無い: %q", seq.briefs[1])
-	}
-	if !strings.Contains(seq.briefs[1], "invalid_manuscript_draft") && !strings.Contains(seq.briefs[1], "looking for beginning") {
-		t.Fatalf("2 回目 brief に前回 error 本文が無い: %q", seq.briefs[1])
-	}
-}
-
-// seqWriter は呼び出し順に out を返し、受け取った brief を記録する。
-type seqWriter struct {
-	outs   []string
-	briefs []string
-	calls  int
-}
-
-func (s *seqWriter) Write(_ context.Context, brief string) (string, error) {
-	s.briefs = append(s.briefs, brief)
-	i := s.calls
-	s.calls++
-	if i >= len(s.outs) {
-		i = len(s.outs) - 1
-	}
-	return s.outs[i], nil
 }
 
 func TestProduceEpisodeRun_returnsErrorWithoutWriting_whenSynthesizeFails(t *testing.T) {
