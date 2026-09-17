@@ -1,12 +1,12 @@
 # scope: Generator 原稿 API draft prompt 精度 PASS 率計測（dispatch 専用・gate 外・api で cursor / gemini を選ぶ）
 # 実物: scripts/generator/test-draft-rate.sh → go test -tags="system ratemeasure" TestDraftRate
-# double: なし（test 専用 credential TEST_CURSOR_API_KEY / TEST_GEMINI_API_KEY）
-# @require Go（version は apps/generator/go.mod）。選んだ api の Secret が登録済み（cursor→TEST_CURSOR_API_KEY / gemini→TEST_GEMINI_API_KEY）。
+# double: なし（credential は CURSOR_API_KEY（本番と共用、値が同一） / test 専用 TEST_GEMINI_API_KEY）
+# @require Go（version は apps/generator/go.mod）。選んだ api の Secret が登録済み（cursor→CURSOR_API_KEY / gemini→TEST_GEMINI_API_KEY）。
 #          Cursor CLI の `agent` install は不要（Cloud Agents HTTP API 移行済み。Decision 2026-09-03T17-03-33）。
 # @ensure draft-rate 入口が exit 0（valid 率が閾値以上）。$GITHUB_STEP_SUMMARY に api / pass/total と各回文字数。
-# @invariant 必須 Unit / Integration gate に載せない。cron を持たない（draft 1 回が数分）。本番 Secrets を使わない。
-# @invariant toolchain の go test を YAML に直書きしない。secret 値を log に出さない。Op=do（環境経由）は分母から除外。Cursor install step を持たない。1 dispatch = 1 API。
-# 判断: docs/decisions/2026-09-03T14-45-00 / 2026-09-03T14-47-00 / 2026-09-03T17-03-33 / 2026-09-08T07-40-00
+# @invariant 必須 Unit / Integration gate に載せない。cron を持たない（draft 1 回が数分）。本番 Secrets のうち CURSOR_API_KEY のみ使う（値が本番と同一のため。Decision 2026-09-16T00-39-21）。それ以外の本番 Secrets は使わない。
+# @invariant toolchain の go test を YAML に直書きしない。secret 値を log に出さない。Op=do（環境経由）は分母から除外。Cursor install step を持たない。1 dispatch = 1 API。fallback UseCase（manuscript.TextWriter）を経由しない単体 API 計測のため、SPARE_GEMINI_API_KEY は渡さない。
+# 判断: docs/decisions/2026-09-03T14-45-00 / 2026-09-03T14-47-00 / 2026-09-03T17-03-33 / 2026-09-08T07-40-00 / 2026-09-16T00-39-21
 name: generator-draft-rate
 
 on:
@@ -46,7 +46,7 @@ jobs:
 
       - name: draft rate 計測を実行
         env:
-          TEST_CURSOR_API_KEY: ${{ secrets.TEST_CURSOR_API_KEY }}
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
           TEST_GEMINI_API_KEY: ${{ secrets.TEST_GEMINI_API_KEY }}
           DRAFT_RATE_API: ${{ inputs.api }}
           DRAFT_RATE_RUNS: ${{ inputs.runs }}
