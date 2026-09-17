@@ -6,7 +6,7 @@ import { mapRuntimeConfigErrorToExternal } from "./runtime-config-error-mapping.
 describe("mapRuntimeConfigErrorToExternal", () => {
   it("PlaybackRuntimeConfigError の時、ConfigurationError へ変換し診断を cause へ残す", () => {
     // Given: runtime config が不正だった内部 Error
-    const internal = new PlaybackRuntimeConfigError("DRIVE_FOLDER_ID が未設定です");
+    const internal = new PlaybackRuntimeConfigError("EPISODES（R2 binding）が未設定です");
 
     // When: 外部向け Error へ変換する
     const got = mapRuntimeConfigErrorToExternal(internal);

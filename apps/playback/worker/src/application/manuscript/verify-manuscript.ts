@@ -6,7 +6,7 @@ import { ManuscriptSchema } from "./manuscript-schema.ts";
 /**
  * Driven Adapter が取得した生 payload を、schema 適合かつ stem 一致の検証済み原稿へ変換する。
  *
- * schema 適合・stem 一致・不正 JSON の判定「本体」。Google Drive / in-memory どちらの Adapter
+ * schema 適合・stem 一致・不正 JSON の判定「本体」。R2 / in-memory どちらの Adapter
  * からも呼ばれる純関数で、副作用も Port 依存も持たない。
  *
  * 複合失敗時の判定順: schema 適合を先に判定し、通過後に stem 一致を判定する。よって schema

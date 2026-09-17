@@ -1,7 +1,7 @@
 # Episode 配置契約
 
 Generator が書き、Playback（BFF）が読む。載る成果物は音声と原稿 JSON のみ。
-storage 実装（現行 Google Drive / 将来 R2）はこの file に書かない。
+storage 実装（現行 Cloudflare R2）はこの file に書かない。
 
 ## このファイルの責務
 

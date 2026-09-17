@@ -8,33 +8,25 @@ import (
 
 // dummy* はformat制約（前後にwhitespaceなし・非空）だけ満たすtest用の値である。
 const (
-	dummyCursorAPIKey            = "cursor-key"
-	dummyGeminiAPIKey            = "gemini-key"
-	dummySpareGeminiAPIKey       = "spare-gemini-key"
-	dummyGoogleOAuthClientID     = "google-client-id"
-	dummyGoogleOAuthClientSecret = "google-client-secret"
-	dummyGoogleOAuthRefreshToken = "google-refresh-token"
-	dummyDriveFolderID           = "drive-folder-id"
-	dummyR2AccessKeyID           = "r2-access-key"
-	dummyR2SecretAccessKey       = "r2-secret-access-key"
-	dummyR2AccountID             = "r2-account-id"
-	dummyR2Bucket                = "r2-bucket"
+	dummyCursorAPIKey      = "cursor-key"
+	dummyGeminiAPIKey      = "gemini-key"
+	dummySpareGeminiAPIKey = "spare-gemini-key"
+	dummyR2AccessKeyID     = "r2-access-key"
+	dummyR2SecretAccessKey = "r2-secret-access-key"
+	dummyR2AccountID       = "r2-account-id"
+	dummyR2Bucket          = "r2-bucket"
 )
 
 // fullValidEnv は全 key へ有効値を持つenv mapである。
 func fullValidEnv() map[string]string {
 	return map[string]string{
-		CursorAPIKeyEnv:            dummyCursorAPIKey,
-		GeminiAPIKeyEnv:            dummyGeminiAPIKey,
-		SpareGeminiAPIKeyEnv:       dummySpareGeminiAPIKey,
-		GoogleOAuthClientIDEnv:     dummyGoogleOAuthClientID,
-		GoogleOAuthClientSecretEnv: dummyGoogleOAuthClientSecret,
-		GoogleOAuthRefreshTokenEnv: dummyGoogleOAuthRefreshToken,
-		DriveFolderIDEnv:           dummyDriveFolderID,
-		R2AccessKeyIDEnv:           dummyR2AccessKeyID,
-		R2SecretAccessKeyEnv:       dummyR2SecretAccessKey,
-		R2AccountIDEnv:             dummyR2AccountID,
-		R2BucketEnv:                dummyR2Bucket,
+		CursorAPIKeyEnv:      dummyCursorAPIKey,
+		GeminiAPIKeyEnv:      dummyGeminiAPIKey,
+		SpareGeminiAPIKeyEnv: dummySpareGeminiAPIKey,
+		R2AccessKeyIDEnv:     dummyR2AccessKeyID,
+		R2SecretAccessKeyEnv: dummyR2SecretAccessKey,
+		R2AccountIDEnv:       dummyR2AccountID,
+		R2BucketEnv:          dummyR2Bucket,
 	}
 }
 
@@ -67,18 +59,6 @@ func TestLoad_returnsConfigMatchingContract_whenAllInputsValid(t *testing.T) {
 	}
 	if cfg.Gemini.SpareAPIKey.Reveal() != dummySpareGeminiAPIKey {
 		t.Fatal("Gemini.SpareAPIKey が投入値と一致しない")
-	}
-	if cfg.Drive.GoogleOAuthClientID != dummyGoogleOAuthClientID {
-		t.Fatal("Drive.GoogleOAuthClientID が投入値と一致しない")
-	}
-	if cfg.Drive.GoogleOAuthClientSecret.Reveal() != dummyGoogleOAuthClientSecret {
-		t.Fatal("Drive.GoogleOAuthClientSecret が投入値と一致しない")
-	}
-	if cfg.Drive.GoogleOAuthRefreshToken.Reveal() != dummyGoogleOAuthRefreshToken {
-		t.Fatal("Drive.GoogleOAuthRefreshToken が投入値と一致しない")
-	}
-	if cfg.Drive.FolderID != dummyDriveFolderID {
-		t.Fatal("Drive.FolderID が投入値と一致しない")
 	}
 	if cfg.R2.AccessKeyID.Reveal() != dummyR2AccessKeyID {
 		t.Fatal("R2.AccessKeyID が投入値と一致しない")
@@ -266,10 +246,6 @@ func TestLoad_aggregatesViolationsInConfigFieldOrder_whenAllKeysMissing(t *testi
 		CursorAPIKeyEnv,
 		GeminiAPIKeyEnv,
 		SpareGeminiAPIKeyEnv,
-		GoogleOAuthClientIDEnv,
-		GoogleOAuthClientSecretEnv,
-		GoogleOAuthRefreshTokenEnv,
-		DriveFolderIDEnv,
 		R2AccessKeyIDEnv,
 		R2SecretAccessKeyEnv,
 		R2AccountIDEnv,
@@ -406,7 +382,7 @@ func TestLoad_returnsNoConfigValues_whenAnySingleViolationExists(t *testing.T) {
 
 	// Given: 1 keyだけ無効なenv
 	env := fullValidEnv()
-	delete(env, DriveFolderIDEnv)
+	delete(env, R2BucketEnv)
 
 	// When: Loadする
 	cfg, err := Load(lookupFrom(env))
@@ -417,9 +393,6 @@ func TestLoad_returnsNoConfigValues_whenAnySingleViolationExists(t *testing.T) {
 	}
 	if cfg.Cursor.APIKey != nil || cfg.Gemini.APIKey != nil || cfg.Gemini.SpareAPIKey != nil {
 		t.Fatal("violation時にSecret fieldが組み立てられた")
-	}
-	if cfg.Drive.GoogleOAuthClientID != "" || cfg.Drive.FolderID != "" {
-		t.Fatal("violation時にstring fieldが組み立てられた")
 	}
 	if cfg.R2.AccessKeyID != nil || cfg.R2.SecretAccessKey != nil || cfg.R2.AccountID != "" || cfg.R2.Bucket != "" {
 		t.Fatal("violation時に R2 fieldが組み立てられた")

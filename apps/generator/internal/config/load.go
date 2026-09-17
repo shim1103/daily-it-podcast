@@ -5,8 +5,6 @@ import (
 )
 
 // configField は Config の field 順（Cursor.APIKey → Gemini.APIKey → Gemini.SpareAPIKey →
-// Drive.GoogleOAuthClientID → Drive.GoogleOAuthClientSecret →
-// Drive.GoogleOAuthRefreshToken → Drive.FolderID →
 // R2.AccessKeyID → R2.SecretAccessKey → R2.AccountID → R2.Bucket）に対応する。
 type configField int
 
@@ -14,10 +12,6 @@ const (
 	fieldCursorAPIKey configField = iota
 	fieldGeminiAPIKey
 	fieldSpareGeminiAPIKey
-	fieldGoogleOAuthClientID
-	fieldGoogleOAuthClientSecret
-	fieldGoogleOAuthRefreshToken
-	fieldDriveFolderID
 	fieldR2AccessKeyID
 	fieldR2SecretAccessKey
 	fieldR2AccountID
@@ -26,17 +20,13 @@ const (
 )
 
 var configFieldKeys = [configFieldCount]string{
-	fieldCursorAPIKey:            CursorAPIKeyEnv,
-	fieldGeminiAPIKey:            GeminiAPIKeyEnv,
-	fieldSpareGeminiAPIKey:       SpareGeminiAPIKeyEnv,
-	fieldGoogleOAuthClientID:     GoogleOAuthClientIDEnv,
-	fieldGoogleOAuthClientSecret: GoogleOAuthClientSecretEnv,
-	fieldGoogleOAuthRefreshToken: GoogleOAuthRefreshTokenEnv,
-	fieldDriveFolderID:           DriveFolderIDEnv,
-	fieldR2AccessKeyID:           R2AccessKeyIDEnv,
-	fieldR2SecretAccessKey:       R2SecretAccessKeyEnv,
-	fieldR2AccountID:             R2AccountIDEnv,
-	fieldR2Bucket:                R2BucketEnv,
+	fieldCursorAPIKey:      CursorAPIKeyEnv,
+	fieldGeminiAPIKey:      GeminiAPIKeyEnv,
+	fieldSpareGeminiAPIKey: SpareGeminiAPIKeyEnv,
+	fieldR2AccessKeyID:     R2AccessKeyIDEnv,
+	fieldR2SecretAccessKey: R2SecretAccessKeyEnv,
+	fieldR2AccountID:       R2AccountIDEnv,
+	fieldR2Bucket:          R2BucketEnv,
 }
 
 // Load はprocess environmentを一度だけ読み、検証済みConfigを構築する。
@@ -68,12 +58,6 @@ func Load(lookup LookupEnv) (Config, error) {
 		Gemini: GeminiConfig{
 			APIKey:      newSecret(values[fieldGeminiAPIKey]),
 			SpareAPIKey: newSecret(values[fieldSpareGeminiAPIKey]),
-		},
-		Drive: DriveConfig{
-			GoogleOAuthClientID:     values[fieldGoogleOAuthClientID],
-			GoogleOAuthClientSecret: newSecret(values[fieldGoogleOAuthClientSecret]),
-			GoogleOAuthRefreshToken: newSecret(values[fieldGoogleOAuthRefreshToken]),
-			FolderID:                values[fieldDriveFolderID],
 		},
 		R2: R2Config{
 			AccessKeyID:     newSecret(values[fieldR2AccessKeyID]),

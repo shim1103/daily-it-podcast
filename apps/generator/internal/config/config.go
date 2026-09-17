@@ -15,14 +15,6 @@ type GeminiConfig struct {
 	SpareAPIKey Secret
 }
 
-// DriveConfig はGoogle Drive保存に必要なconfigである。
-type DriveConfig struct {
-	GoogleOAuthClientID     string
-	GoogleOAuthClientSecret Secret
-	GoogleOAuthRefreshToken Secret
-	FolderID                string
-}
-
 // R2Config は Cloudflare R2（S3 互換）保存に必要なconfigである。
 // 本番 write/lookup の結線切替は列 6。Load では他 capability と同様に必須として検証する。
 type R2Config struct {
@@ -40,6 +32,5 @@ type R2Config struct {
 type Config struct {
 	Cursor CursorConfig
 	Gemini GeminiConfig
-	Drive  DriveConfig
 	R2     R2Config
 }

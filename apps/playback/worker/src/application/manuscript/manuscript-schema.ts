@@ -19,7 +19,7 @@ type ManuscriptParseResult = { success: true; data: EpisodeManuscript } | { succ
 /**
  * 原稿 JSON を検証する（repo 根 `contracts/manuscript.schema.json` が正）。
  *
- * schema 適合・stem 一致・不正 JSON の判定は Google Drive という具体 platform に依存しない
+ * schema 適合・stem 一致・不正 JSON の判定は特定 storage platform に依存しない
  * 純粋な判断のため、Application 層に置く。
  *
  * @ensure 適合時は `{ success: true, data }`、不適合時は `{ success: false }`（失敗理由は持たない）

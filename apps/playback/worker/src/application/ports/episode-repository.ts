@@ -15,7 +15,7 @@ export type RawManuscriptEntry = {
  * 所定 object 空間の原稿 json / 音声を「取得したまま返す」Driven Port。schema 検証・stem 一致判定は
  * 一切しない（generator の `port.ItemSource` / `port.EpisodeWriter` の read 方向鏡像）。
  *
- * 実装（Drive / R2 / InMemory）は真の外部境界の I/O だけを担う。schema 適合・stem 一致・
+ * 実装（R2 / InMemory）は真の外部境界の I/O だけを担う。schema 適合・stem 一致・
  * 不正 JSON・音声欠落の判定は use-case（`application/use-cases/*`）が `application/manuscript` の
  * 純関数を使って行う。
  *
