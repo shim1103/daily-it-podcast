@@ -10,7 +10,7 @@ This file answers **"what is this repo, where do I start."** It is the map, not 
 |------|------|
 | Layers, dependencies, technology choices, test layout | `DESIGN.md` |
 | Deploy, Access, GHA operation, secret registration | `DEPLOY.md` |
-| Drive file contracts（配置。音声 mp3） | `contracts/` |
+| R2 file contracts（配置。音声 mp3） | `contracts/` |
 | Playback HTTP contracts | `apps/playback/contracts/` |
 | Open-work index | `docs/tasks/todo/*-lane.md` |
 | Recurring decisions | `docs/decisions/` |
@@ -19,7 +19,7 @@ Non-scope: technology choices, layer boundaries, credential registration, workfl
 
 ## Shape
 
-Generation and playback are separate systems, connected only by files on shared storage (currently personal Google Drive; migration direction in `DESIGN.md` §1). Episodes are never generated through the UI.
+Generation and playback are separate systems, connected only by files on shared storage (Cloudflare R2). Episodes are never generated through the UI.
 
 ```text
 Generator (Go + GitHub Actions cron)
@@ -42,7 +42,7 @@ apps/playback/web/       # Vite UI
 apps/playback/worker/    # BFF
 apps/generator/          # Go CLI
 apps/diagrams/           # runtime diagram (code-first)
-contracts/               # representation on Drive (SSOT)
+contracts/               # representation on R2 (SSOT)
 .github/workflows/
 ```
 
