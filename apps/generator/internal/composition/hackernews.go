@@ -10,7 +10,7 @@ import (
 // newHackerNewsItemSource は Hacker News Adapter を組み立てる。
 //
 // @require httpClient != nil。
-// @ensure 戻りは port.ItemSource。
-func newHackerNewsItemSource(httpClient *http.Client) port.ItemSource {
-	return hackernews.NewListItemSource(httpClient)
+// @ensure 戻りは port.ItemSource。maxItems はそのまま Adapter へ渡す。
+func newHackerNewsItemSource(httpClient *http.Client, maxItems int) port.ItemSource {
+	return hackernews.NewListItemSource(httpClient, maxItems)
 }
