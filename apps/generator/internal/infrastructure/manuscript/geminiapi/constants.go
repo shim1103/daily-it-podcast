@@ -20,8 +20,8 @@ const (
 // why: TextWriter 用 model の AI Studio 実測 RPD=100〜500（free）は現状の 1 日 1 回 produce 運用
 //
 //	では枯渇しにくく、gemini（TTS）の RPD=10 のような「1 episode で焼き切る」動機が無い。
-//	tier による値の調整は現時点で必要性が薄いため、Tier は geminiapi.Tier として保持のみ行い、
-//	この値（および TextWriterMaxAttempts）に tier ごとの差分は付けない（YAGNI）。
+//	tier による値の調整は行わず、この値（および TextWriterMaxAttempts）に
+//	tier ごとの差分は付けない。
 const MaxAttempts = 4
 
 // TextWriterMaxAttempts は ManuscriptDraft 検証失敗（invalid-draft）時の Write 内部 retry 上限。

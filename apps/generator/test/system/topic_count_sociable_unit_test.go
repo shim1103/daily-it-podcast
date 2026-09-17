@@ -1,3 +1,5 @@
+//go:build !system
+
 package system
 
 import "testing"
