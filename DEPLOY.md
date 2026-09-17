@@ -102,7 +102,7 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 
 `-tags=system` の system test を **1 回ずつ通すだけ**。「壊れていないか」だけを測り、PASS 率は定常で測らない。1 回でも FAIL なら run が赤。master push 契機の CD 連鎖（§5 冒頭）の起点であり、成功しないと `playback-deploy.yml` が発火しない。判断: `docs/decisions/2026-09-03T14-45-00` / `16-30-00` / `2026-09-17T14-30-00`。
 
-- 実体は `TestProduceEpisodeSystem`（`//go:build system`）1 本。`composition.NewProduceEpisodeFromEnvWithTopicCount`（`SYSTEM_TEST_TOPIC_COUNT` で topic 数を任意指定できる。未指定時は本番と同じ `DraftTopicCountTarget`）→ `Run` を 1 度通し、実 5 情報源 → 原稿（Gemini→Cursor→Gemini fallback）→ Gemini TTS（fallback）→ R2 書込 の疎通と通し経路の R2 実到達を見る。Fetch 窓に SourceItem 0 件だった日は `no_source_items` Domain Error で PASS 扱い（fetch は疎通しており system は壊れていない）。他の error は system 故障として赤。
+- 実体は `TestProduceEpisodeSystem`（`//go:build system`）1 本。`composition.NewProduceEpisodeFromEnvWithTopicCount`（`SYSTEM_TEST_TOPIC_COUNT` で topic 数を任意指定できる。未指定時は疎通確認用の 1 topic）→ `Run` を 1 度通し、実 5 情報源 → 原稿（Gemini→Cursor→Gemini fallback）→ Gemini TTS（fallback）→ R2 書込 の疎通と通し経路の R2 実到達を見る。Fetch 窓に SourceItem 0 件だった日は `no_source_items` Domain Error で PASS 扱い（fetch は疎通しており system は壊れていない）。他の error は system 故障として赤。
 - 必要 credential は config 契約の全 key（`CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` / `SPARE_GEMINI_API_KEY` / `TEST_R2_*`）。1 つでも欠けたら Skip。
 - cron の 1 回通しが **2 週連続で落ちたら** bug 扱いで Issue 化する。1 週だけの赤は provider 起因として再 `workflow_dispatch` する。
 - 赤になったら故障区間に応じて `generator-tts-rate.yml`（TTS 側）/ `generator-draft-rate.yml`（Cursor 原稿側）を手動 dispatch して切り分ける。CD 連鎖が止まる（`playback-deploy.yml` が発火しない）ので、切り分けを優先する。
