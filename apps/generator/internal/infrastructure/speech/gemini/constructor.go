@@ -17,8 +17,8 @@ type Tuning struct {
 //
 // @require httpClient != nil
 // @ensure apiKey は x-goog-api-key header にだけ使い、保存元の知識は持たない。
-func NewSpeechSynthesizer(httpClient *http.Client, apiKey string) *SpeechSynthesizer {
-	return NewSpeechSynthesizerWithTuning(httpClient, apiKey, Tuning{})
+func NewSpeechSynthesizer(httpClient *http.Client, apiKey string, tier Tier) *SpeechSynthesizer {
+	return NewSpeechSynthesizerWithTuning(httpClient, apiKey, tier, Tuning{})
 }
 
 // NewSpeechSynthesizerWithTuning は待機系パラメータを注入できる constructor。
@@ -27,8 +27,9 @@ func NewSpeechSynthesizer(httpClient *http.Client, apiKey string) *SpeechSynthes
 // @require httpClient != nil
 // @ensure tuning のゼロ値 field は既定値（defaultCallGap / defaultRetryBackoffBase / defaultRetryBackoffMax）へフォールバックする。
 // @ensure Tuning{} を渡した場合の挙動は NewSpeechSynthesizer と同一。
-func NewSpeechSynthesizerWithTuning(httpClient *http.Client, apiKey string, tuning Tuning) *SpeechSynthesizer {
+func NewSpeechSynthesizerWithTuning(httpClient *http.Client, apiKey string, tier Tier, tuning Tuning) *SpeechSynthesizer {
 	s := newSpeechSynthesizerForTest(httpClient, apiKey, time.Sleep)
+	s.tier = tier
 	s.callGap = firstNonZeroDuration(tuning.CallGap, defaultCallGap)
 	s.retryBackoffBase = firstNonZeroDuration(tuning.RetryBackoffBase, defaultRetryBackoffBase)
 	s.retryBackoffMax = firstNonZeroDuration(tuning.RetryBackoffMax, defaultRetryBackoffMax)

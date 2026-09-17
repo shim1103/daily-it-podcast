@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 )
 
@@ -80,6 +81,94 @@ func TestFetchPCM_includesResponseBodySnippet_whenClientErrorStatus(t *testing.T
 	}
 	if !strings.Contains(err.Error(), reason) {
 		t.Fatalf("error message %q does not carry response body reason %q", err.Error(), reason)
+	}
+}
+
+// TestFetchPCM_wrapsSourceExhausted_whenStatusUnauthorized は
+// 401 応答を port.ErrSourceExhausted で wrap して返すことを検証する（Decision 2026-09-16T13-06-32 §1-4：
+// 枯渇分類は fetch 時点で確定する）。
+func TestFetchPCM_wrapsSourceExhausted_whenStatusUnauthorized(t *testing.T) {
+	// Given: 401 応答
+	synth, rt := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusUnauthorized,
+		body:   jsonBody(t, map[string]any{"error": map[string]any{"status": "UNAUTHENTICATED"}}),
+	})
+
+	// When: Synthesize する
+	_, err := synth.synthTestOne(context.Background(), "認証切れ")
+
+	// Then: port.ErrSourceExhausted を wrap した error。retry しない
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("error = %v, want errors.Is(err, port.ErrSourceExhausted) == true", err)
+	}
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1（枯渇は retry しない）", len(rt.calls))
+	}
+}
+
+// TestFetchPCM_wrapsSourceExhausted_whenStatusForbidden は
+// 403 応答を port.ErrSourceExhausted で wrap して返すことを検証する。
+func TestFetchPCM_wrapsSourceExhausted_whenStatusForbidden(t *testing.T) {
+	// Given: 403 応答
+	synth, rt := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusForbidden,
+		body:   jsonBody(t, map[string]any{"error": map[string]any{"status": "PERMISSION_DENIED"}}),
+	})
+
+	// When: Synthesize する
+	_, err := synth.synthTestOne(context.Background(), "権限なし")
+
+	// Then: port.ErrSourceExhausted を wrap した error。retry しない
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("error = %v, want errors.Is(err, port.ErrSourceExhausted) == true", err)
+	}
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1（枯渇は retry しない）", len(rt.calls))
+	}
+}
+
+// TestFetchPCM_wrapsSourceExhausted_whenStatusBadRequestWithQuotaExceeded は
+// 400 応答の body が quota_exceeded 相当を示す場合、port.ErrSourceExhausted を wrap することを検証する。
+func TestFetchPCM_wrapsSourceExhausted_whenStatusBadRequestWithQuotaExceeded(t *testing.T) {
+	// Given: 400 応答。body の error.code が公式仕様どおり quota_exceeded
+	synth, rt := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusBadRequest,
+		body:   jsonBody(t, map[string]any{"error": map[string]any{"code": "quota_exceeded"}}),
+	})
+
+	// When: Synthesize する
+	_, err := synth.synthTestOne(context.Background(), "quota 切れ")
+
+	// Then: port.ErrSourceExhausted を wrap した error。retry しない
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("error = %v, want errors.Is(err, port.ErrSourceExhausted) == true", err)
+	}
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1（枯渇は retry しない）", len(rt.calls))
+	}
+}
+
+// TestFetchPCM_doesNotWrapSourceExhausted_whenStatusBadRequestWithoutQuotaExceeded は
+// 400 応答の body が quota_exceeded 相当を示さない場合、port.ErrSourceExhausted を wrap しないことを検証する。
+func TestFetchPCM_doesNotWrapSourceExhausted_whenStatusBadRequestWithoutQuotaExceeded(t *testing.T) {
+	// Given: 400 応答。body の error.code は通常の invalid argument
+	synth, rt := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusBadRequest,
+		body:   jsonBody(t, map[string]any{"error": map[string]any{"code": "invalid_argument"}}),
+	})
+
+	// When: Synthesize する
+	_, err := synth.synthTestOne(context.Background(), "普通の 400")
+
+	// Then: port.ErrSourceExhausted ではない通常の Infrastructure Error。retry しない
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("error = %v, want errors.Is(err, port.ErrSourceExhausted) == false（quota_exceeded を含まない 400）", err)
+	}
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(rt.calls))
 	}
 }
 
@@ -246,6 +335,42 @@ func TestDecodePCM_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
 	}
 	if len(rt.calls) != 2 {
 		t.Fatalf("call count = %d, want 2（同種 2 連続打ち切り）", len(rt.calls))
+	}
+}
+
+func TestQuotaExceeded_returnsTrue_whenErrorCodeIsQuotaExceeded(t *testing.T) {
+	t.Parallel()
+
+	// Given: 公式仕様どおりの flat 構造で error.code が quota_exceeded
+	raw := jsonBody(t, map[string]any{"error": map[string]any{"code": "quota_exceeded", "message": "quota exceeded"}})
+
+	// Then: true
+	if !quotaExceeded(raw) {
+		t.Fatalf("quotaExceeded(%s) = false, want true", raw)
+	}
+}
+
+func TestQuotaExceeded_returnsFalse_whenErrorCodeDiffers(t *testing.T) {
+	t.Parallel()
+
+	// Given: error.code が quota_exceeded ではない
+	raw := jsonBody(t, map[string]any{"error": map[string]any{"code": "invalid_argument"}})
+
+	// Then: false
+	if quotaExceeded(raw) {
+		t.Fatalf("quotaExceeded(%s) = true, want false", raw)
+	}
+}
+
+func TestQuotaExceeded_returnsFalse_whenBodyInvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	// Given: JSON として parse できない body
+	raw := []byte("not-json")
+
+	// Then: false（parse 失敗を quota_exceeded と誤判定しない）
+	if quotaExceeded(raw) {
+		t.Fatal("quotaExceeded(invalid JSON) = true, want false")
 	}
 }
 

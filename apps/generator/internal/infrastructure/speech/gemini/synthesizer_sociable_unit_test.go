@@ -15,7 +15,7 @@ func TestSynthesizeAll_returnsInfrastructureError_whenClientNil(t *testing.T) {
 	t.Parallel()
 
 	// Given: nil client
-	synth := NewSpeechSynthesizer(nil, "gemini-edge-key")
+	synth := NewSpeechSynthesizer(nil, "gemini-edge-key", TierFree)
 
 	// When: SynthesizeAll する
 	_, err := synth.SynthesizeAll(context.Background(), []string{"本文"})
@@ -99,10 +99,13 @@ func TestSynthesizeAll_returnsError_whenTextEmpty(t *testing.T) {
 // 各セグメントが「retry してから成功」で呼び出しを積み上げ、合計が SynthesizeBudget へ達したら
 // 以降のセグメントは Client を呼ばず即 error を返すことを検証する（残予算はセグメント横断）。
 func TestSynthesizeAll_consumesBudgetAcrossSegments_thenErrorsWhenExhausted(t *testing.T) {
-	// Given: 各セグメントは「do error → 503 → 成功」の 3 呼び出しで成功する（Op 交互なので連続打ち切り回避）。
-	//        3 呼び出し × 5 セグメント = 15 = SynthesizeBudget。6 本目で予算切れ。
-	const callsPerSegment = 3
+	// Given: 各セグメントは「503 → 成功」の 2 呼び出しで成功する。
+	//        2 呼び出し × 5 セグメント = 10 = SynthesizeBudget。6 本目で予算切れ。
+	const callsPerSegment = 2
 	const fullSegments = SynthesizeBudget / callsPerSegment // 5
+	if fullSegments*callsPerSegment != SynthesizeBudget {
+		t.Fatalf("SynthesizeBudget = %d が callsPerSegment = %d で割り切れない。この test の前提が崩れている", SynthesizeBudget, callsPerSegment)
+	}
 	texts := make([]string, fullSegments+1)
 	for i := range texts {
 		texts[i] = fmt.Sprintf("セグメント%d", i)
@@ -111,7 +114,6 @@ func TestSynthesizeAll_consumesBudgetAcrossSegments_thenErrorsWhenExhausted(t *t
 	var responses []fakeClientResponse
 	for seg := 0; seg < fullSegments; seg++ {
 		responses = append(responses,
-			fakeClientResponse{err: fmt.Errorf("connection reset")},
 			fakeClientResponse{status: http.StatusServiceUnavailable, body: jsonBody(t, map[string]any{"error": "UNAVAILABLE"})},
 			fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
 		)
@@ -191,6 +193,56 @@ func TestSynthesizeAll_capsSingleSegmentAtMaxAttempts_whenBudgetRemains(t *testi
 	}
 	if len(rt.calls) != 2 {
 		t.Fatalf("call count = %d, want 2（1 本目の同種 2 連続打ち切りで即 return）", len(rt.calls))
+	}
+}
+
+// TestSynthesizeAll_consumesPaidBudget_whenTierPaid は TierPaid を渡した SpeechSynthesizer が
+// SynthesizeBudget ではなく SynthesizeBudgetPaid を合計上限として使うことを検証する。
+func TestSynthesizeAll_consumesPaidBudget_whenTierPaid(t *testing.T) {
+	// Given: SynthesizeBudget（free 上限）を超える本数の text。すべて 1 回で成功する。
+	texts := make([]string, SynthesizeBudget+1)
+	for i := range texts {
+		texts[i] = fmt.Sprintf("セグメント%d", i)
+	}
+	responses := make([]fakeClientResponse, len(texts))
+	for i := range responses {
+		responses[i] = fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))}
+	}
+	synth, rt := newFakeSynthesizer(responses...)
+	synth.tier = TierPaid
+
+	// When: SynthesizeAll する
+	got, err := synth.SynthesizeAll(context.Background(), texts)
+
+	// Then: free budget（SynthesizeBudget）を超えても成功する。呼び出し回数は texts と同数
+	if err != nil {
+		t.Fatalf("SynthesizeAll: %v", err)
+	}
+	if len(got) != len(texts) {
+		t.Fatalf("audios = %d, want %d", len(got), len(texts))
+	}
+	if len(rt.calls) != len(texts) {
+		t.Fatalf("call count = %d, want %d（TierPaid は SynthesizeBudgetPaid まで許す）", len(rt.calls), len(texts))
+	}
+}
+
+// TestSynthesizeBudget_returnsPaidBudget_whenTierPaid は synthesizeBudget() の tier 分岐そのものを検証する。
+func TestSynthesizeBudget_returnsPaidBudget_whenTierPaid(t *testing.T) {
+	t.Parallel()
+
+	// Given: tier だけが異なる 2 つの SpeechSynthesizer
+	free := &SpeechSynthesizer{tier: TierFree}
+	paid := &SpeechSynthesizer{tier: TierPaid}
+
+	// Then: TierFree は SynthesizeBudget、TierPaid は SynthesizeBudgetPaid
+	if got := free.synthesizeBudget(); got != SynthesizeBudget {
+		t.Fatalf("free.synthesizeBudget() = %d, want %d", got, SynthesizeBudget)
+	}
+	if got := paid.synthesizeBudget(); got != SynthesizeBudgetPaid {
+		t.Fatalf("paid.synthesizeBudget() = %d, want %d", got, SynthesizeBudgetPaid)
+	}
+	if SynthesizeBudgetPaid != SynthesizeBudget*2 {
+		t.Fatalf("SynthesizeBudgetPaid = %d, want %d（free の 2 倍）", SynthesizeBudgetPaid, SynthesizeBudget*2)
 	}
 }
 
