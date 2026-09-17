@@ -6,8 +6,9 @@
 # @invariant 必須 Unit / Integration gate に載せない。Service Token で Access を迂回しない。generator を触らない。
 # @invariant toolchain の playwright test を YAML に直書きしない。secret 値を log に出さない。
 # @invariant playback-deploy（wrangler deploy）の成功後にのみ発火する。push 直後の即時実行はしない
-#   （edge 反映の遅延を待つ）。
-# 登録の正: DEPLOY.md「Playback E2E 登録」。判断: docs/decisions/2026-08-30T16-20-00 / 2026-08-30T16-20-03 / 2026-09-15T03-51-41 / 2026-09-15T05-36-32 / 2026-09-15T05-04-17
+#   （edge 反映の遅延を待つ）。CD 連鎖全体は master push → generator-system → playback-deploy → 本
+#   workflow の順（Decision 2026-09-17T14-30-00）。
+# 登録の正: DEPLOY.md「Playback E2E 登録」。判断: docs/decisions/2026-08-30T16-20-00 / 2026-08-30T16-20-03 / 2026-09-15T03-51-41 / 2026-09-15T05-36-32 / 2026-09-15T05-04-17 / 2026-09-17T14-30-00
 name: playback-e2e
 
 on:
