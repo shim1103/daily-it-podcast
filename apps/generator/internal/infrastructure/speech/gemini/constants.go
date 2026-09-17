@@ -16,14 +16,20 @@ const (
 // why: 同種 error 2 連続で打ち切るので、実効上限は「異なる Op が交互 = 3 回」程度。
 //
 //	1 セグメントの暴走で SynthesizeBudget 全部を食わせない二段構えの内側（Decision 2026-09-02T13-56-00）。
+//	RPM とは独立した閾値のため、callGap 短縮（Decision 2026-09-16T11-41-59）でも値は据え置く。
 const MaxAttempts = 3
 
-// SynthesizeBudget は 1 度の SynthesizeAll 呼び出し全体で許す Gemini 呼び出しの合計上限。
-// why: 無料枠 RPD=15 を 1 episode で焼き切らないため、セグメント単位の MaxAttempts ではなく
+// SynthesizeBudget は TierFree での 1 度の SynthesizeAll 呼び出し全体で許す Gemini 呼び出しの合計上限。
+// why: AI Studio 実測 RPD=10（gemini-3.1-flash-tts-preview）を 1 episode で焼き切らないため、
 //
-//	呼び出し群の合計で絞る。SynthesizeAll は残予算をセグメント横断で消費し、
-//	各セグメントは min(MaxAttempts, 残予算) 回まで。合計が SynthesizeBudget へ達したら以降のセグメントは即 error。
-const SynthesizeBudget = 15
+//	セグメント単位の MaxAttempts ではなく呼び出し群の合計で絞る（Decision 2026-09-16T11-41-59）。
+const SynthesizeBudget = 10
+
+// SynthesizeBudgetPaid は TierPaid での SynthesizeBudget。
+// why: paid tier の正確な RPM/RPD は Google 公式ドキュメント上に静的な数値が存在せず未実測。
+//
+//	保守的な暫定値として free の 2 倍に留める。実測後に見直すこと。
+const SynthesizeBudgetPaid = SynthesizeBudget * 2
 
 // 429 / 503 / 5xx 再試行の待機の既定値。
 // why: 20s 起点でも System で 429 が尽きる（run 33314746860, ~476s）。60s 起点・上限 3m へ。
@@ -36,8 +42,11 @@ const (
 )
 
 // defaultCallGap は client.Do どうしの最小間隔（成功・失敗を問わない）の既定値。
-// why: 無料枠 3 RPM = 20s 間隔に合わせ、連続 segment の 429 を防ぐ（Decision 2026-09-02T13-56-00）。
-const defaultCallGap = 20 * time.Second
+// why: AI Studio 実測 RPM=10（gemini-3.1-flash-tts-preview）を根拠に callGap = 60/RPM = 6s へ
+//
+//	改める（Decision 2026-09-16T11-41-59）。旧 20s は無料枠 3 RPM 前提（Decision 2026-09-02T13-56-00）
+//	だったが、実測値と乖離していたため式ごと差し替える。RPM が変われば 60/RPM を計算し直すこと。
+const defaultCallGap = 6 * time.Second
 
 // httpCallTimeout は Gemini TTS 1 呼び出しの Client 全体 timeout である。
 // why: 120s でも長文朗読で awaiting headers が切れた（run 33310692613）。

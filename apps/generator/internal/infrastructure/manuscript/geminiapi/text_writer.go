@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpdiag"
 )
 
@@ -23,6 +24,7 @@ var _ port.TextWriter = (*TextWriter)(nil)
 type TextWriter struct {
 	client         *http.Client
 	apiKey         string
+	tier           Tier
 	backoffSleepFn func(context.Context, time.Duration) // why: test の並列実行と共存するため package global に置かない
 }
 
@@ -31,17 +33,35 @@ type TextWriter struct {
 // @require apiKey は Composition で検証済み。
 // @ensure 戻りは port.TextWriter。apiKey は APIKeyHeader にだけ使う。
 // @ensure client == nil のとき Write は geminiErr("build_request") を返す。
-func NewTextWriter(client *http.Client, apiKey string) *TextWriter {
-	return newTextWriter(client, apiKey, ctxSleep)
+// @ensure httpClient には textWriterHTTPTimeout を付けた shallow copy を使う（引数の Client は変更しない）。
+func NewTextWriter(client *http.Client, apiKey string, tier Tier) *TextWriter {
+	return newTextWriter(withCallTimeout(client), apiKey, tier, ctxSleep)
 }
 
 // newTextWriter は backoff の sleep 関数を差し込める内部 constructor。
 // why: NewTextWriter は本番の ctxSleep を固定し、test は待ちを観測する fake を渡す（cursorapi と同型）。
-func newTextWriter(client *http.Client, apiKey string, backoffSleepFn func(context.Context, time.Duration)) *TextWriter {
+func newTextWriter(client *http.Client, apiKey string, tier Tier, backoffSleepFn func(context.Context, time.Duration)) *TextWriter {
 	if backoffSleepFn == nil {
 		backoffSleepFn = ctxSleep
 	}
-	return &TextWriter{client: client, apiKey: apiKey, backoffSleepFn: backoffSleepFn}
+	return &TextWriter{client: client, apiKey: apiKey, tier: tier, backoffSleepFn: backoffSleepFn}
+}
+
+// withCallTimeout は httpClient の shallow copy に textWriterHTTPTimeout を付けて返す。
+// why: 1 Write 呼び出し（invalid-draft retry を含む）の上限は vendor 固有制約なので、
+//
+//	timeout を持たない Composition 側の Client には頼らず Adapter が付け直す（gemini TTS の
+//	withCallTimeout と同型）。
+//
+// @ensure httpClient == nil のときは nil を返す。
+// @ensure 非 nil のときは textWriterHTTPTimeout を持つ別 *http.Client（引数は変更しない）。
+func withCallTimeout(httpClient *http.Client) *http.Client {
+	if httpClient == nil {
+		return nil
+	}
+	c := *httpClient
+	c.Timeout = textWriterHTTPTimeout
+	return &c
 }
 
 // ctxSleep は ctx が先に切れたらそちらを優先して待ちを中断する。
@@ -54,24 +74,59 @@ func ctxSleep(ctx context.Context, d time.Duration) {
 	}
 }
 
-// Write は brief から generateContent 1 回で原稿断片を得る。
+// Write は brief から invalid-draft retry（最大 TextWriterMaxAttempts 回）で valid な ManuscriptDraft を得る。
 //
-// @require brief は trim 後に非空。
-// @ensure 成功時は非空 text 断片を返す。失敗時は *adaptererror.Error、断片は空。
+// @require brief は trim 後に非空。buildFn は非 nil。
+// @ensure 成功時は buildFn が返す非 nil な models.ManuscriptDraft を返す。
+// @ensure generateContent 自体が retry しない error を返してループを抜けるとき、直前 attempt で
+//
+//	buildFn が invalid と判定していれば（lastRaw/lastBuildErr が揃っていれば）、その情報を
+//	port.LastAttempt として fmt.Errorf("%w: %w", err, port.LastAttempt{...}) の chain に含めて返す。
+//	直前 attempt が無ければ error をそのまま透過する。
+//
+// @ensure buildFn が TextWriterMaxAttempts 回とも error を返したら、最後の error を
+//
+//	fmt.Errorf("%w: %w: %w", port.ErrDraftRejected, lastErr, port.LastAttempt{...}) で wrap して返す。
+//	2 回目以降の試行は port.BuildRejectionBrief で前回の raw response と rejection 理由を
+//	区別可能な形で brief へ埋め込む。
+//
 // @invariant generateContent は idempotent（同 body は同じ生成試行・副作用なし）。client.Do error / 5xx を 1 回、429 を MaxAttempts まで backoff で再試行する。401 / 403 / その他 4xx、finishReason が STOP 以外、空 text、parse 失敗は再試行しない。secret 実値を error へ出さない。model は ModelID 固定。
-func (w *TextWriter) Write(ctx context.Context, brief string) (string, error) {
+func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(string) (models.ManuscriptDraft, error)) (models.ManuscriptDraft, error) {
 	if w == nil || w.client == nil {
-		return "", geminiErr("build_request", fmt.Errorf("client is nil"))
+		return models.ManuscriptDraft{}, geminiErr("build_request", fmt.Errorf("client is nil"))
 	}
 	trimmed := strings.TrimSpace(brief)
 	if trimmed == "" {
-		return "", geminiErr("validate_brief", fmt.Errorf("brief is empty after trim"))
+		return models.ManuscriptDraft{}, geminiErr("validate_brief", fmt.Errorf("brief is empty after trim"))
 	}
-	return w.generateContent(ctx, trimmed)
+
+	attemptBrief := trimmed
+	var lastErr error
+	var lastRaw string
+	var lastBuildErr error
+	for attempt := 1; attempt <= TextWriterMaxAttempts; attempt++ {
+		raw, err := w.generateContent(ctx, attemptBrief)
+		if err != nil {
+			if lastBuildErr != nil {
+				err = fmt.Errorf("%w: %w", err, port.LastAttempt{Raw: lastRaw, BuildErr: lastBuildErr})
+			}
+			return models.ManuscriptDraft{}, err
+		}
+		draft, err := buildFn(raw)
+		if err == nil {
+			return draft, nil
+		}
+		lastErr = err
+		lastRaw = raw
+		lastBuildErr = err
+		attemptBrief = port.BuildRejectionBrief(trimmed, lastRaw, lastBuildErr.Error())
+	}
+	return models.ManuscriptDraft{}, fmt.Errorf("%w: %w: %w", port.ErrDraftRejected, lastErr, port.LastAttempt{Raw: lastRaw, BuildErr: lastBuildErr})
 }
 
 type generateContentRequest struct {
 	Contents []requestContent `json:"contents"`
+	Tools    []requestTool    `json:"tools,omitempty"`
 }
 
 type requestContent struct {
@@ -80,6 +135,25 @@ type requestContent struct {
 
 type requestPart struct {
 	Text string `json:"text"`
+}
+
+// requestTool は generateContent の tools 配列 1 要素。
+// why: Gemini API v1beta generateContent の tools は {"type": "..."} 形式ではなく、tool 種別名を
+//
+//	key に持つ object（値は空 object）。ai.google.dev/gemini-api/docs/generate-content/url-context・
+//	generate-content/google-search の REST curl 例で確認した実際の schema に合わせる
+//	（{"type": "url_context"} 形式は新しい Interactions API 専用で generateContent には使えない）。
+type requestTool struct {
+	URLContext   *struct{} `json:"url_context,omitempty"`
+	GoogleSearch *struct{} `json:"google_search,omitempty"`
+}
+
+// generateContentTools は毎回送る tools 配列。モデルが自律的に検索するか、prompt 中の URL を
+// 深掘りするかを判断できるよう url_context と google_search の両方を常に有効にする
+// （Decision: HackerNews 等の source URL は既に prompt にあるので、深掘りの要否判断はモデルに委ねる）。
+var generateContentTools = []requestTool{
+	{URLContext: &struct{}{}},
+	{GoogleSearch: &struct{}{}},
 }
 
 type generateContentResponse struct {
@@ -116,6 +190,7 @@ const (
 func (w *TextWriter) generateContent(ctx context.Context, brief string) (string, error) {
 	body, err := json.Marshal(generateContentRequest{
 		Contents: []requestContent{{Parts: []requestPart{{Text: brief}}}},
+		Tools:    generateContentTools,
 	})
 	if err != nil {
 		return "", geminiErr("marshal_request", err)

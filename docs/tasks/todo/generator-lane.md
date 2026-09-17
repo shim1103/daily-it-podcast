@@ -2,34 +2,23 @@
 
 参照: docs/daily/2026-08-15T16-23-06-develop.md
 
-取得 → Cursor Cloud Agents REST 原稿 → Gemini TTS → Drive 書込を Go CLI + GHA で通す。
+取得 → 原稿（Gemini/Cursor fallback）→ Gemini TTS（fallback）→ R2 書込を Go CLI + GHA で通す。
 
 未完了の達成契約は `docs/tasks/todo/generator-*.md` が正。本 lane は進捗 index のみ。依存順は各 task file の Dependencies を正とする。
 
 ### 済み（要約）
 
-1. `ProduceEpisode.Run` / Broad Integration / error 3 層 / 本番 produce workflow
-2. 情報源3 Adapter（HackerNews / Lobsters / ITmedia）を composite `ItemSource` へ結線。Broad Integration が3源 double で緑
-3. 原稿 TextWriter を Cursor CLI から Cloud Agents REST（`manuscript/cursorapi`）へ移行。`commandlaunch` / `processenv` / CLI install を廃止
-4. System e2e 1 回通し（`TestProduceEpisodeSystem`）と dispatch 専用 test（`TestGeminiTTSRate` / `TestDraftRate` / `TestGeminiAPISmoke`）を配置
-
-### 済み（要約・続き）
-
-5. System — `generator-system.yml` suite 本体・`TEST_*` 登録・e2e 1 回通しの実 dispatch 確認（run 33857369881 PASS、Drive 実到達、episodeId `8ff4177b-26fe-4036-ab7b-d2a4e9e7639d`）。運用方針は `DEPLOY.md` §5
-6. 原稿 TextWriter fallback 本実装 — `manuscript.TextWriter`（`errors.Is(port.ErrSourceExhausted)` で高々 1 回切替）/ `geminiapi.TextWriter`（generateContent 1 回 + retry）を SU / Narrow 込みで実装。切替 trigger は `cursorapi` create の 401/403 と 400 + `usage_limit_exceeded`。`generator-system.yml` run 34133797530 で fallback 経路の e2e を実証（Cursor 400 → Gemini 原稿 → Drive 到達）。判断は Decision `2026-09-07T19-06-00` / `2026-09-07T23-30-00`
-7. `geminiapi` 実 API 疎通 smoke — `generator-geminiapi-smoke.yml`（dispatch 専用、`TEST_GEMINI_API_KEY`）。yml は master（PR #135）、test は `system && ratemeasure` tag で gate 外。`--ref <fallback 実装 branch>` で回す
-8. `generator-draft-rate` を `api`（cursor | gemini）入力化。gemini の default prompt を 9/10 まで調整（数値 range 不変、指導文のみ）。判断・実測は Decision `2026-09-08T07-40-00`
-9. 原稿 fallback の Gemini key を TTS と分離 — `GeminiConfig.SpareAPIKey`（`SPARE_GEMINI_API_KEY`）を新設し `newGeminiTextWriter` だけをそれへ。TTS は `GEMINI_API_KEY` 据え置き。GHA は本番 `SPARE_GEMINI_API_KEY` / System `TEST_SPARE_GEMINI_API_KEY`。`generator-system.yml` run 34298458327 で config 変更 + fallback 実切替の e2e を実証。判断は Decision `2026-09-09T10-00-00`
-10. ConcatWAV 後 ffmpeg で mp3 化し Drive へ書く — Port `WAVToMP3Encoder` の ffmpeg Adapter 本実装と `ProduceEpisode` 結線。deploy は playback lane `R-mp3-cutover`（読取と同着）。判断は Decision `2026-09-13T16-32-57` / `17-38-37`
-11. `httpget` helper・5 源 Narrow（controllable peer）・接続 cache（CI 外）— Decision `2026-09-14T13-06-11` / `15-05-00`
-12. mp3 同着切替 + wav 一括 + fixture（`audio-mp3-cutover-migrate`。達成契約 file 削除済み）。prod Drive は `{json,mp3}` のみ。`playback-e2e` PASS
-13. R2 `EpisodeWriter` 本実装・結線口（列 4）。達成契約 file 削除済み。本番正本は Drive のまま（列 6 で切替）。`R2_*` は `config.Load` 必須
-14. R2 `CompletedEpisodeLookup` 振る舞い本実装。達成契約 file 削除済み。本番結線は列 6 で Writer と同着。Adapter NI の正 peer は httptest（Decision `2026-09-16T00-20-08`）
-15. R2 test peer infra（C1）。local S3 は peer 到達 Verification、playback は `getPlatformProxy` infra。達成契約 file 削除済み（Decision `2026-09-16T00-20-08`）
+1. `ProduceEpisode.Run` 本実装・5 情報源 Adapter を composite `ItemSource` へ結線
+2. 原稿 TextWriter を Cursor Cloud Agents REST（`manuscript/cursorapi`）へ移行
+3. System e2e 1 回通し・rate 計測 dispatch（`generator-system.yml` / `generator-tts-rate.yml` / `generator-draft-rate.yml`）を配置
+4. ConcatWAV 後 ffmpeg で mp3 化する Adapter を実装・結線
+5. `httpget` helper・source Narrow・接続 cache を整備
+6. Storage を Google Drive から Cloudflare R2 へ完全移行（`EpisodeWriter` / `CompletedEpisodeLookup` 本実装、Drive codebase 削除）
+7. TextWriter/TTS の model 切り替え fallback 本実装 — 原稿は `GEMINI_API_KEY`(free)→`CURSOR_API_KEY`→`SPARE_GEMINI_API_KEY`(paid, final) の 3 段、TTS は `GEMINI_API_KEY`(free)→`SPARE_GEMINI_API_KEY`(paid, final) の 2 段。system-test は `SYSTEM_TEST_TOPIC_COUNT` で topic 数を任意指定できる。判断は Decision `2026-09-16T00-39-21` / `2026-09-16T11-41-59` / `2026-09-17T10-36-05`
 
 ### 未完了
 
-1. `r2-post-cutover-verify-oauth.md` — 列 6-7（共有）。旧列 6（`r2-smoke-migrate-cutover`）の結線切替・疎通確認は完了削除し、残タスクを吸収
+（storage 移行は完了。次の未完了項目は無し）
 
 storage 実施順の正は Decision `2026-09-14T12-49-26` / `playback-lane.md` の実施順 index。R2 Adapter NI の正 peer は `2026-09-16T00-20-08`（本番口は `11-04-30`）。
 
@@ -39,23 +28,12 @@ storage 実施順の正は Decision `2026-09-14T12-49-26` / `playback-lane.md` �
 
 | topic | 概要 |
 |---|---|
-| Prompt / limits 文案・数値 | 尺モデルは確定済み（正は `entities/constants/manuscript_draft_seconds.go` / `manuscript_draft_limits.go`）。topic 数 6/8/10・全体尺 14/16/18 分へ一度伸ばしたが、本番 produce run 34209712652 が gemini fallback 経路で HTTP 429 で失敗したため旧尺（topic 3/5/7・全体 8/10/12 分）へ戻した。済み 9 で原稿 fallback の key を TTS と分離（`SPARE_GEMINI_API_KEY`）したので TTS 消費との食い合いは解消。尺を再度伸ばすなら残るのは `SPARE_GEMINI_API_KEY` 単独の TPM/RPD で足りるかの実測、または有料 tier 手当て |
-| 本番 produce workflow_dispatch（key 分離後）| 済み 9 の変更を本番 `generator-produce-episode.yml` で通す確認が未実施。session 当日は本番 Gemini 枠が 429 中だったため見送り。次の枠回復日に `gh workflow run generator-produce-episode.yml --ref feature/generator-gemini-key-spare`（または merge 後 master）で 1 回回す。本番 `SPARE_GEMINI_API_KEY` の GHA 登録は shim 済み前提 |
-| 挨拶文案 | Opening/Closing 定数は date placeholder 入り template で確定。実運用での文言微調整のみ残 |
 | composite の source またぎ sort | 情報源で `OccurredAt` 順の混在が起きる。dedup は `SourceID` が全源で異なるため不要。時系列 sort を Application/Composition のどちらで持つかは別判断（事実: 現状は登録順 concat のみ） |
-| TextWriter prompt の P1/P2 | purpose1/purpose2 の書き分け・選出 Workflow・target 狙い・draft meta 禁止は `constants.TextWriterBriefPrompt` へ実装済み（正本は Decision `2026-09-13T15-08-55` / `17-14-00`）。残るのは `generator-draft-rate` で cursor / gemini の PASS 率再測（済み 8 の cursor 影響行と接続） |
 | Links 件数→UseCase 先 fetch | `SourceBody.Links` 件数を見て TextWriter fetch 上限前に Application が先 fetch するかは未決。Adapter HTML scrape はしない（`14-41-02`） |
 | 議論 comment のスレッド深掘り | HN / Lobsters は 1 階層のみ取得（上限は Adapter 定数）。ネストした議論を辿るかは未決 |
 | TextWriter の web_fetch / url_context 実測 | `Detail.Links` / `Discourse.Links` を Cloud Agents / Gemini 経路が実際に fetch できるか・件数上限は未実測 |
 | no-repo 原稿品質・token・job timeout | Cloud Agents no-repo が ask 相当の断片になるか、Pro 日次消費、SSE 待ちが GHA job に収まるかは未実測 |
-| TTS rate 実 dispatch | `TestGeminiTTSRate` が実 API でまだ走っていない。1 度 dispatch して尺帯ごとの PASS 率・所要を台帳化する |
-| `interactionResponse.Status` | 現状未使用。`status != "completed"` の扱いは未決 |
-| gemini prompt 修正の cursor 影響 | 済み 8 の prompt 修正が cursor 側 PASS 率を落としていないか未確認（`generator-draft-rate -f api=cursor` 再 dispatch）|
-| Cursor 枯渇 error code の網羅 | 番兵 wrap は 401/403 と 400 + `usage_limit_exceeded` のみ（Decision `2026-09-07T23-30-00`）。`billing_*` 等の別 code が出たら都度 Decision を継ぐ |
-| Gemini fallback 発火の観測 | 現状 `delivery.LogWriter.Fallback("manuscript_source_switched")` の `generator: category=fallback event=...` 1 行のみ。切り替え成功時は原稿が出るので痕跡が薄い。GHA run summary への出力 / Drive metadata への provenance / 構造化 log 基盤の導入は未決 |
 | Gemini free-tier RPD の実運用値 | 公称 RPD≈1,000 だが実測で下振れ報告あり。1 日 1 回 produce + draft retry 最大 5 でも問題ないはずだが未確認 |
-| Cursor 復帰の運用気づき | 毎回 primary（Cursor）を先に試すので枠復活後は自動で戻るが、「毎日 Gemini に落ちている」状態を運用が能動的に気づく手段は未整備 |
-| GHA / local への `ffmpeg` 配備 | encode 済み後も runner 配備の実測が残る場合のみ。未実測なら残置 |
 
 ### 方針 index
 

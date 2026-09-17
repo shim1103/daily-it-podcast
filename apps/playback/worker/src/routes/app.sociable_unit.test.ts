@@ -91,20 +91,15 @@ describe("app", () => {
   });
 
   it("受け取った env をそのまま Composition Root へ渡して Controller を組み立てる", async () => {
-    // Given: Drive の env を模した値
+    // Given: 任意の binding を模した値
     vi.mocked(listEpisodesController).mockResolvedValue(validList);
-    const driveEnv = {
-      GOOGLE_OAUTH_CLIENT_ID: "client-id",
-      GOOGLE_OAUTH_CLIENT_SECRET: "client-secret",
-      GOOGLE_OAUTH_REFRESH_TOKEN: "refresh-token",
-      DRIVE_FOLDER_ID: "folder-id",
-    };
+    const boundEnv = { EPISODES: { get: async () => null, list: async () => ({ objects: [] }) } };
 
     // When: 一覧 path へ GET する
-    await app.request(`${origin}${listEpisodesPath}`, {}, driveEnv);
+    await app.request(`${origin}${listEpisodesPath}`, {}, boundEnv);
 
     // Then: 渡された env と R2 mode 固定で Composition Root に渡る
-    expect(createPlaybackControllers).toHaveBeenCalledWith(driveEnv, { mode: "r2" }, undefined);
+    expect(createPlaybackControllers).toHaveBeenCalledWith(boundEnv, { mode: "r2" }, undefined);
   });
 
   it("一覧 GET が成功する時、ListEpisodesResponse schema を満たす JSON を 200 で返す", async () => {
@@ -114,8 +109,12 @@ describe("app", () => {
     // When: 一覧 path へ GET する
     const got = await app.request(`${origin}${listEpisodesPath}`, {}, emptyEnv);
 
-    // Then: 200 と契約 schema
+    // Then: 200・契約 schema・短い二段 cache
     expect(got.status).toBe(200);
+    expect(got.headers.get("Cache-Control")).toBe("public, max-age=60");
+    expect(got.headers.get("Cloudflare-CDN-Cache-Control")).toBe(
+      "public, max-age=300, stale-while-revalidate=60",
+    );
     const body: unknown = await got.json();
     expect(ListEpisodesResponseSchema.safeParse(body).success).toBe(true);
   });
@@ -201,9 +200,7 @@ describe("app", () => {
   it("runtime config の内部 Error を configuration_error へ変換し、診断を cause へ残す", async () => {
     // Given: Composition Root が設定不足を内部 Error として throw する
     vi.mocked(createPlaybackControllers).mockImplementationOnce(() => {
-      throw new PlaybackRuntimeConfigError(
-        "GOOGLE_OAUTH_CLIENT_SECRET が未設定です; DRIVE_FOLDER_ID が未設定です",
-      );
+      throw new PlaybackRuntimeConfigError("EPISODES（R2 binding）が未設定です");
     });
 
     // When: 一覧 path へ GET する
@@ -222,7 +219,7 @@ describe("app", () => {
         message: "設定を確認できません",
         cause: {
           name: "PlaybackRuntimeConfigError",
-          message: "GOOGLE_OAUTH_CLIENT_SECRET が未設定です; DRIVE_FOLDER_ID が未設定です",
+          message: "EPISODES（R2 binding）が未設定です",
         },
       }),
     );

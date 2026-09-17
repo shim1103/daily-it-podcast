@@ -92,7 +92,7 @@ Source の各 item は summary / detail / detail_link / discourse / discourse_li
 - 文字数: {{INTRO_MIN}}〜{{INTRO_MAX}} 文字（目安 {{INTRO_TARGET}}）
 
 # topics
-- 件数: {{TOPIC_COUNT_MIN}}〜{{TOPIC_COUNT_MAX}}（目安 {{TOPIC_COUNT_TARGET}}）
+- 件数: {{TOPIC_COUNT_TARGET}} 件
 - Purpose1 / Purpose2 はそれぞれ目安件数の半数ほど。選出と draft の手順は # Workflow に従う
 
 # topic title
@@ -123,7 +123,7 @@ Workflow 7 で次をすべて真にする。偽なら該当 step へ戻る。
 完了条件:
 - title / intro / closingSummary / 各 topic.title / 各 topic.preface / 各 topic.detail がすべて指定範囲内で、かつ各目安の付近（下限帯で止めない）
 - 合計が {{TOTAL_MIN}}〜{{TOTAL_MAX}} 文字で、目安 {{TOTAL_TARGET}} 付近
-- topics が {{TOPIC_COUNT_MIN}}〜{{TOPIC_COUNT_MAX}} 件（目安 {{TOPIC_COUNT_TARGET}}、Purpose1 と Purpose2 はそれぞれ半数ほど）
+- topics が {{TOPIC_COUNT_TARGET}} 件（Purpose1 と Purpose2 はそれぞれ半数ほど）
 - Purpose1 選出 item は detail_link を必ず見る（あれば fetch。無ければ detail 本文のみ。どちらも空の選出は禁止）。Purpose2 選出 item は discourse_link を必ず見る（同上）
 - 全 field が日本語で、各文が「。」で終わる（title / topic.title は句点なし）
 - title / intro / topic.title / topic.preface / closingSummary に改行が 0 個、topic.detail の改行は 0 個か 1 個

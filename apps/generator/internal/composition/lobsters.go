@@ -10,7 +10,7 @@ import (
 // newLobstersItemSource は Lobsters Adapter を組み立てる。
 //
 // @require httpClient != nil。
-// @ensure 戻りは port.ItemSource。
-func newLobstersItemSource(httpClient *http.Client) port.ItemSource {
-	return lobsters.NewListItemSource(httpClient)
+// @ensure 戻りは port.ItemSource。maxItems はそのまま Adapter へ渡す。
+func newLobstersItemSource(httpClient *http.Client, maxItems int) port.ItemSource {
+	return lobsters.NewListItemSource(httpClient, maxItems)
 }

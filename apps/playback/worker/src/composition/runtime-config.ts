@@ -5,8 +5,8 @@ import { PlaybackRuntimeConfigError } from "./runtime-config-error.ts";
 /**
  * repository の選択 mode。
  *
- * `"in-memory"` は local development / unit test から明示的に選ぶ。`"r2"` は明示 mode 切替口。
- * env に R2 相当 binding が揃っても、指定なしでは自動選択しない（Drive の暗黙 4key 判定とは独立）。
+ * `"in-memory"` は local development / unit test から明示的に選ぶ。`"r2"` は本番 Adapter。
+ * mode は常に明示指定が必須で、env の中身から暗黙に解決しない。
  */
 export type PlaybackRepositoryMode = "in-memory" | "r2";
 
@@ -15,75 +15,24 @@ export type PlaybackRepositoryOptions = {
   mode?: PlaybackRepositoryMode;
 };
 
-/** Drive 4key が全て揃った時だけ得られる env。 */
-type DriveConfiguredEnv = Required<
-  Pick<
-    PlaybackEnv,
-    | "GOOGLE_OAUTH_CLIENT_ID"
-    | "GOOGLE_OAUTH_CLIENT_SECRET"
-    | "GOOGLE_OAUTH_REFRESH_TOKEN"
-    | "DRIVE_FOLDER_ID"
-  >
->;
-
 export type ValidatedPlaybackEnv =
-  | { mode: "drive"; env: DriveConfiguredEnv }
   | { mode: "in-memory"; env: PlaybackEnv }
   | { mode: "r2"; bucket: R2BucketBinding };
-
-function validateClientId(env: PlaybackEnv): string | undefined {
-  return env.GOOGLE_OAUTH_CLIENT_ID?.trim() ? undefined : "GOOGLE_OAUTH_CLIENT_ID が未設定です";
-}
-
-function validateClientSecret(env: PlaybackEnv): string | undefined {
-  return env.GOOGLE_OAUTH_CLIENT_SECRET?.trim()
-    ? undefined
-    : "GOOGLE_OAUTH_CLIENT_SECRET が未設定です";
-}
-
-function validateRefreshToken(env: PlaybackEnv): string | undefined {
-  return env.GOOGLE_OAUTH_REFRESH_TOKEN?.trim()
-    ? undefined
-    : "GOOGLE_OAUTH_REFRESH_TOKEN が未設定です";
-}
-
-function validateFolderId(env: PlaybackEnv): string | undefined {
-  return env.DRIVE_FOLDER_ID?.trim() ? undefined : "DRIVE_FOLDER_ID が未設定です";
-}
-
-function configuredValue(value: string | undefined, key: string): string {
-  /* v8 ignore next 3 -- 呼び出し前に missingReasons で同条件を検証済みのため、この分岐は実行時に到達しない。型上 string | undefined のままの value を narrow するための防御 */
-  if (!value?.trim()) {
-    throw new PlaybackRuntimeConfigError(`${key} が未設定です`);
-  }
-  return value;
-}
-
-function isExplicitInMemoryMode(env: PlaybackEnv, options: PlaybackRepositoryOptions): boolean {
-  return (
-    options.mode === "in-memory" &&
-    env.GOOGLE_OAUTH_CLIENT_ID === undefined &&
-    env.GOOGLE_OAUTH_CLIENT_SECRET === undefined &&
-    env.GOOGLE_OAUTH_REFRESH_TOKEN === undefined &&
-    env.DRIVE_FOLDER_ID === undefined
-  );
-}
 
 /**
  * production相当の env を検証する。設定不備は Worker 内部 Error を throw し、
  * HTTP boundary の mapping は Route Handler へ委譲する。
  *
- * @require env は Worker binding 由来。local / unit test / R2 の時だけ mode を明示する
- * @ensure 4 key が有効、明示的 in-memory mode、または明示的 r2 mode で bucket binding が揃う時だけ
- *   正常終了する。R2 は `options.mode === "r2"` を明示した時だけ選ばれ、env の binding 有無だけでは
- *   自動選択しない（Drive の暗黙 4key 判定と衝突させないため）
- * @invariant `misconfigured` を返さず、secret 値を message に含めない
+ * @require env は Worker binding 由来。mode は呼び出し側が常に明示する
+ * @ensure `options.mode === "in-memory"` または `options.mode === "r2"` かつ bucket binding が
+ *   揃う時だけ正常終了する。mode 未指定は throw する（無言 fallback をしない）
+ * @invariant secret 値を message に含めない
  */
 export function validatePlaybackEnv(
   env: PlaybackEnv,
   options: PlaybackRepositoryOptions = {},
 ): ValidatedPlaybackEnv {
-  if (isExplicitInMemoryMode(env, options)) {
+  if (options.mode === "in-memory") {
     return { mode: "in-memory", env };
   }
 
@@ -94,32 +43,7 @@ export function validatePlaybackEnv(
     return { mode: "r2", bucket: env.EPISODES };
   }
 
-  const missingReasons = [
-    validateClientId(env),
-    validateClientSecret(env),
-    validateRefreshToken(env),
-    validateFolderId(env),
-  ].filter((reason): reason is string => reason !== undefined);
-
-  if (missingReasons.length > 0) {
-    throw new PlaybackRuntimeConfigError(
-      `Playback runtime config が不正です: ${missingReasons.join("; ")}`,
-    );
-  }
-
-  return {
-    mode: "drive",
-    env: {
-      GOOGLE_OAUTH_CLIENT_ID: configuredValue(env.GOOGLE_OAUTH_CLIENT_ID, "GOOGLE_OAUTH_CLIENT_ID"),
-      GOOGLE_OAUTH_CLIENT_SECRET: configuredValue(
-        env.GOOGLE_OAUTH_CLIENT_SECRET,
-        "GOOGLE_OAUTH_CLIENT_SECRET",
-      ),
-      GOOGLE_OAUTH_REFRESH_TOKEN: configuredValue(
-        env.GOOGLE_OAUTH_REFRESH_TOKEN,
-        "GOOGLE_OAUTH_REFRESH_TOKEN",
-      ),
-      DRIVE_FOLDER_ID: configuredValue(env.DRIVE_FOLDER_ID, "DRIVE_FOLDER_ID"),
-    },
-  };
+  throw new PlaybackRuntimeConfigError(
+    'Playback runtime config が不正です: mode が未指定です（"in-memory" または "r2" を明示してください）',
+  );
 }

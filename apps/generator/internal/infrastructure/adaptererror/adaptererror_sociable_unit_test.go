@@ -9,14 +9,14 @@ func TestError_formatsSourceOpCause_whenCausePresent(t *testing.T) {
 	t.Parallel()
 
 	// Given: source / op / 原因つきの Infrastructure Error
-	err := New("gdrive", "write", errors.New("quota"))
+	err := New("r2", "write", errors.New("quota"))
 
 	// When: 文字列表現を採る
 	got := err.Error()
 
 	// Then: "<source>: <op>: <原因>" 形式
-	if got != "gdrive: write: quota" {
-		t.Fatalf("Error() = %q, want %q", got, "gdrive: write: quota")
+	if got != "r2: write: quota" {
+		t.Fatalf("Error() = %q, want %q", got, "r2: write: quota")
 	}
 }
 

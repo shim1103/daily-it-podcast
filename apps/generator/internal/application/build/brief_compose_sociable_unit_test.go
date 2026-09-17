@@ -130,7 +130,7 @@ func TestComposeBrief_embedsJSONExampleThatPassesManuscriptDraftFromWriterOutput
 	jsonExample := extractJSONExample(t, got)
 
 	// Then: ManuscriptDraftFromWriterOutput が成功する
-	draft, err := build.ManuscriptDraftFromWriterOutput(jsonExample)
+	draft, err := build.ManuscriptDraftFromWriterOutput(jsonExample, constants.DraftTopicCountTarget)
 	if err != nil {
 		t.Fatalf("JSON_EXAMPLE が ManuscriptDraftFromWriterOutput を通らない: %v\njson: %s", err, jsonExample)
 	}

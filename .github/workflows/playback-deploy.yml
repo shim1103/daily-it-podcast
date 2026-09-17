@@ -1,18 +1,19 @@
-# scope: Playback 本番 CD（master push 契機の自動 wrangler deploy）
+# scope: Playback 本番 CD（generator-system 成功契機の自動 wrangler deploy）
 # 実物: scripts/playback/deploy.sh → apps/playback npm run deploy（build + wrangler deploy）
 # double: なし（本番 Cloudflare Workers）
-# @require Node（version は apps/playback/.nvmrc）。CLOUDFLARE_API_TOKEN Secret が登録済み。
+# @require Node（version は apps/playback/.nvmrc）。CLOUDFLARE_API_TOKEN Secret が登録済み。generator-system.yml が成功済み。
 # @ensure deploy 入口が exit 0。
 # @invariant 必須 Unit / Integration gate に載せない。generator を触らない。secret 値を log に出さない。
 # @invariant toolchain の wrangler deploy を YAML に直書きしない（npm script 経由）。
-# 判断: docs/decisions/2026-09-15T05-04-17-chore-cd-release-protect-smoke-e2e.md
+# @invariant generator-system（master push 契機）の成功後にのみ発火する。generator-system が失敗した master push では deploy しない。
+# 判断: docs/decisions/2026-09-15T05-04-17-chore-cd-release-protect-smoke-e2e.md / 2026-09-17T14-30-00
 name: playback-deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: [generator-system]
     branches: [master]
-    paths:
-      - "apps/playback/**"
+    types: [completed]
   workflow_dispatch:
 
 concurrency:
@@ -21,9 +22,12 @@ concurrency:
 
 jobs:
   deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-node@v5
         with:

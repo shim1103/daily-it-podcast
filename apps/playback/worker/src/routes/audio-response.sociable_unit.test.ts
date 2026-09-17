@@ -15,6 +15,10 @@ describe("createAudioResponse", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe(episodeAudioContentType);
     expect(response.headers.get("Accept-Ranges")).toBe("bytes");
+    expect(response.headers.get("Cache-Control")).toBe("public, max-age=86400");
+    expect(response.headers.get("Cloudflare-CDN-Cache-Control")).toBe(
+      "public, max-age=604800, stale-if-error=86400",
+    );
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(
       new Uint8Array([0x52, 0x49, 0x46, 0x46]),
     );
@@ -48,6 +52,10 @@ describe("createAudioResponse", () => {
     expect(response.headers.get("Content-Range")).toBe("bytes 2-3/6");
     expect(response.headers.get("Content-Length")).toBe("2");
     expect(response.headers.get("Accept-Ranges")).toBe("bytes");
+    expect(response.headers.get("Cache-Control")).toBe("public, max-age=86400");
+    expect(response.headers.get("Cloudflare-CDN-Cache-Control")).toBe(
+      "public, max-age=604800, stale-if-error=86400",
+    );
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([0x12, 0x13]));
   });
 
@@ -74,6 +82,8 @@ describe("createAudioResponse", () => {
     // Then: 416・Content-Range で総サイズを伝える
     expect(response.status).toBe(416);
     expect(response.headers.get("Content-Range")).toBe("bytes */6");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.headers.has("Cloudflare-CDN-Cache-Control")).toBe(false);
   });
 
   it("Range の終端が開始位置より小さい（逆順）時は、開始位置 1 byte だけを返す", async () => {

@@ -24,12 +24,29 @@ export type R2BucketBinding = {
   list(): Promise<{ objects: Array<{ key: string }> }>;
 };
 
-function isR2ObjectBodyLike(value: unknown): value is R2ObjectBodyLike {
-  return (
-    value !== null &&
-    typeof value === "object" &&
-    typeof (value as { arrayBuffer?: unknown }).arrayBuffer === "function"
-  );
+/** `checkR2ObjectBodyLike` の判定結果。成功と失敗を型で識別する（Null多義性禁止）。 */
+type R2ObjectBodyLikeCheck =
+  | { valid: true; body: R2ObjectBodyLike }
+  | { valid: false; cause: string };
+
+/**
+ * value が `R2ObjectBodyLike` の形状を満たすか 1 回の走査で判定し、満たさない時は
+ * 値そのものを含めない構造的な理由も併せて返す。
+ *
+ * @require value は null ではない（呼び出し元 `get()` が null を先に弾く）
+ * @ensure value が形状を満たす時は `{ valid: true, body: value }` を返す
+ * @ensure 満たさない時は `{ valid: false, cause }` を返す。cause は「何が期待と違ったか」を表す
+ * @invariant cause に value 自体（実値）を含めない
+ */
+function checkR2ObjectBodyLike(value: unknown): R2ObjectBodyLikeCheck {
+  const actualType = typeof value;
+  if (actualType !== "object") {
+    return { valid: false, cause: `value が object 型ではなく ${actualType} 型だった` };
+  }
+  if (typeof (value as { arrayBuffer?: unknown }).arrayBuffer !== "function") {
+    return { valid: false, cause: "value.arrayBuffer が function ではなかった" };
+  }
+  return { valid: true, body: value as R2ObjectBodyLike };
 }
 
 /**
@@ -39,10 +56,10 @@ function isR2ObjectBodyLike(value: unknown): value is R2ObjectBodyLike {
  * 返す。schema 適合・stem 一致・不正 JSON・mp3 欠落の判定はしない（use-case が行う）。
  *
  * why: R2 binding は HTTP ではなく Workers runtime の JS 関数呼び出し契約であり、controllable な
- * local listener へ実送信する Narrow Integration の手法（`GoogleDriveEpisodeRepository` 参照）が
- * 使えない。実 binding runtime（Miniflare）を挟む案は wrangler の transitive dependency への
- * phantom import と内部限定 API 依存を伴い costに見合わないため採らず、Sociable Unit Test
- * （`r2-episode-repository.sociable_unit.test.ts`）1本へ寄せる。
+ * local listener へ実送信する Narrow Integration の手法が使えない。実 binding runtime（Miniflare）
+ * を挟む案は wrangler の transitive dependency への phantom import と内部限定 API 依存を伴い cost に
+ * 見合わないため採らず、Sociable Unit Test（`r2-episode-repository.sociable_unit.test.ts`）1本へ
+ * 寄せる。
  *
  * @require deps.bucket は Worker の R2 binding（配置契約は `contracts/episode-layout.md`）
  * @ensure R2 I/O 自体の失敗（list・get の例外・非 null だが不正形状の応答）は R2Error を throw する
@@ -123,10 +140,11 @@ export class R2EpisodeRepository implements EpisodeRepository {
     if (body === null) {
       return null;
     }
-    if (!isR2ObjectBodyLike(body)) {
-      throw new R2Error("R2 object の応答形式が不正");
+    const checked = checkR2ObjectBodyLike(body);
+    if (!checked.valid) {
+      throw new R2Error(`R2 object の応答形式が不正: ${checked.cause}`);
     }
-    return body;
+    return checked.body;
   }
 
   private async readBytes(body: R2ObjectBodyLike): Promise<Uint8Array> {

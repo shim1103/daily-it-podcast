@@ -34,7 +34,7 @@
 - intro と closingSummary もそれぞれ {{INTRO_MIN}} / {{CLOSING_MIN}} 文字以上を必ず確保する。目安に近い長さで書く
 
 # topics
-- 件数: {{TOPIC_COUNT_MIN}}〜{{TOPIC_COUNT_MAX}}（目安 {{TOPIC_COUNT_TARGET}}）
+- 件数: {{TOPIC_COUNT_TARGET}} 件
 
 # topic title
 - 何の話かが一目で分かる簡潔な題名（釣りタイトルにしない）
@@ -62,7 +62,7 @@
 この JSON は機械で parse・検証される。1 つでも文字数 range や件数を外すと不合格となり、書き直しを求められる。提出する JSON について、次を 1 つずつ数えて確認してから出力する。
 - title は {{TITLE_MIN}}〜{{TITLE_MAX}} 文字か（末尾に句点を付けていないか）
 - intro は {{INTRO_MIN}}〜{{INTRO_MAX}} 文字か、「。」で終わるか
-- topics は {{TOPIC_COUNT_MIN}}〜{{TOPIC_COUNT_MAX}} 件か
+- topics は {{TOPIC_COUNT_TARGET}} 件か
 - 各 topic.title は {{TOPIC_TITLE_MIN}}〜{{TOPIC_TITLE_MAX}} 文字か（末尾句点なし）
 - 各 topic.preface は {{PREFACE_MIN}}〜{{PREFACE_MAX}} 文字か、「。」で終わるか
 - 各 topic.detail は {{DETAIL_MIN}}〜{{DETAIL_MAX}} 文字か、「。」で終わるか。目安 {{DETAIL_TARGET}} 文字を超えているか

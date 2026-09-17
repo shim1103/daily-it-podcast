@@ -24,33 +24,33 @@ deploy・Access・GHA 運用の正: `DEPLOY.md`
 11. 音声保存・配信の契約を mp3 へ（A）と Decision（`2026-09-13T13-40-29` / `13-41-00` / encode `16-32-57` / runtime 工場 `17-38-37`）。generator 側は encode Port + ffmpeg Adapter 本実装・`ProduceEpisode` 結線済み
 12. playback 読取・HTTP・dev fake を mp3 契約へ揃え（`playback-audio-mp3-read`。達成契約 file 削除済み）
 13. mp3 同着切替 + wav 一括 + fixture（`audio-mp3-cutover-migrate`。達成契約 file 削除済み）。安定 fixture README は `.mp3`。`playback-e2e` PASS
+14. playback R2 binding 読取 Adapter 本実装（`playback-r2-read-adapter`。達成契約 file 削除済み）
+15. R2 本番同着切替・OAuth/Drive codebase 削除（`r2-post-cutover-verify-oauth`。達成契約 file 削除済み）。generator/playback とも本番 storage は R2。deploy・E2E PASS 済み（run `35069730564` / `35069779630`）
 
-### 未完了（storage 順・Decision `2026-09-14T12-49-26`）
+### 未完了
 
-1. `playback-r2-read-adapter.md` — 列 5。R2 binding 読取 **Adapter 振る舞い**本実装（local binding infra は C1 済み）
-2. `r2-post-cutover-verify-oauth.md` — 列 6-7（共有）。旧列 6 の残タスク（人手移行確認・本番同着 deploy・DEPLOY.md 更新）を吸収し、System/E2E 緑化・OAuth 削除まで統合
+（storage 移行は完了。次の未完了項目は無し）
 
-### 実施順 index（Issue file 単位）
+### 実施順 index（Issue file 単位、履歴）
 
 | 列 | Issue file | 備考 |
 |---|---|---|
 | 1 | `generator-audio-mp3-encode-write` | **済み**（達成契約 file 削除済み） |
 | 2 | `playback-audio-mp3-read` | **済み**（達成契約 file 削除済み） |
 | 3 | `audio-mp3-cutover-migrate` | **済み**（達成契約 file 削除済み） |
-| 4 | `generator-r2-write-adapter` | generator lane。**Writer 済み**（達成契約 file 削除済み） |
-| 4b | `generator-r2-completed-episode-lookup` | generator lane。Lookup 振る舞い。Adapter NI は httptest |
-| 4c | `generator-r2-test-peer-scope` | C1=infra。**済み**（達成契約 file 削除済み）。local S3 peer 到達 + `getPlatformProxy`（`2026-09-16T00-20-08`） |
-| 5 | `playback-r2-read-adapter` | 本 lane。**behavior**（infra は 4c） |
-| 6-7 | `r2-post-cutover-verify-oauth` | 旧列 6（`r2-smoke-migrate-cutover`。結線切替は develop merge 済み、疎通確認 PASS 済みで完了削除）の残タスクを吸収。System/E2E 後に OAuth 削除 |
+| 4 | `generator-r2-write-adapter` | generator lane。**済み**（達成契約 file 削除済み） |
+| 4b | `generator-r2-completed-episode-lookup` | generator lane。**済み**（達成契約 file 削除済み） |
+| 4c | `generator-r2-test-peer-scope` | C1=infra。**済み**（達成契約 file 削除済み） |
+| 5 | `playback-r2-read-adapter` | **済み**（達成契約 file 削除済み） |
+| 6-7 | `r2-post-cutover-verify-oauth` | **済み**（達成契約 file 削除済み）。本番同着切替・OAuth/Drive codebase 削除完了 |
 
-R2 登録は完了済み（列に含めない）。R2 Adapter NI の正 peer は Decision `2026-09-16T00-20-08`（本番口は `11-04-30`）。
+R2 登録は完了済み。R2 Adapter NI の正 peer は Decision `2026-09-16T00-20-08`（本番口は `11-04-30`）。
 
-### 未決 index（D）
+### 未完了実測 index（D）
 
 | topic | 概要 |
 |---|---|
-| 薄い cache の細部 | 方針は `2026-09-13T14-23-30`。未決: header 具体値・edge 設定・Access 下 browser cache 実測 |
-| Access 下 audio の browser HTTP cache | 未実測。DevTools で確認が次 |
+| Access 下の二段 cache | 方針は `2026-09-16T19-45-00`。本番 deploy 後に音声の `Cf-Cache-Status: MISS` → `HIT`、DevToolsのbrowser memory/disk cache、未認証requestがcache hitせずAccessで止まることを実測する |
 
 ### 方針 index
 
@@ -58,5 +58,5 @@ R2 登録は完了済み（列に含めない）。R2 Adapter NI の正 peer は
 
 1. 音声の保存・配信形式は **mp3**（`contracts/episode-layout.md` / `2026-09-13T13-40-29`）
 2. 着手順: mp3 → R2 → 薄い cache（`2026-09-13T13-41-00`）。Issue 分割は `2026-09-14T12-49-26`
-3. 現行 storage runtime は Drive。R2 方針 `14-22-55`・実施の形 `11-04-30`・error `11-19-21`。cache は R2 後（`14-23-30`）
+3. 現行 storage runtime は R2（書込・読取とも）。方針 `14-22-55`・実施の形 `11-04-30`・error `11-19-21`。cache は次（`14-23-30`）
 4. generator 書込とは runtime 共有しない（読取専用）

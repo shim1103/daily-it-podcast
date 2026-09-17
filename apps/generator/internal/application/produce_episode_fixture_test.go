@@ -6,6 +6,7 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 )
@@ -28,24 +29,37 @@ func jaSentence(n int) string {
 }
 
 // validWireTopicCount は buildValidWireJSON が常に用いる topic 数。
-// DraftTopicCountMax にすると各朗読 field を min 長のままでも合計文字数が total range の
-// 下限を満たせる（Min-1 等の逸脱を避けつつ「複数 topic」の性質も持つ）。
-const validWireTopicCount = constants.DraftTopicCountMax
+// topic 数は固定値のみを受理するため DraftTopicCountTarget を使う。
+const validWireTopicCount = constants.DraftTopicCountTarget
 
 // buildValidWireJSON は ManuscriptDraftFromWriterOutput の検証を通る wire JSON を組む。
 // 各朗読 field は min 長ちょうど。topic 数は validWireTopicCount。
 // title / preface / detail に topic ごとの識別 suffix を入れ、Run が topic 順を保つことを test 側で識別できるようにする。
 func buildValidWireJSON() string {
+	return buildValidWireJSONWithTopicCount(validWireTopicCount)
+}
+
+// buildValidWireJSONWithTopicCount は buildValidWireJSON の topic 数可変版。
+// topicCount 件の topic を持つ、ManuscriptDraftFromWriterOutput(raw, topicCount) の検証を通る wire JSON を返す。
+func buildValidWireJSONWithTopicCount(topicCount int) string {
 	introRunes := constants.DraftIntroMinLen - 1     // + prefix でちょうど min
 	closingRunes := constants.DraftClosingMinLen - 1 // 同上
 	prefaceRunes := constants.DraftTopicPrefaceMinLen - 5
-	// why: preface / detail 下限を下げたあと、各 field を min 付近にすると total 下限に届かない。
-	// detail を足して total min を満たす（validateTotalChars を fixture が通るための調整）。
-	detailPad := 40
-	detailRunes := constants.DraftTopicDetailMinLen - 6 + detailPad
+	detailRunes := constants.DraftTopicDetailMinLen - 6
 
-	topics := make([]wireTopic, validWireTopicCount)
-	for i := 0; i < validWireTopicCount; i++ {
+	// why: 各 field を min 付近にすると total 下限に届かないことがある。不足分を
+	// topic 数で割って detail へ均等に足す（validateTotalChars を fixture が通るための調整）。
+	// prefix（"まえおき" 等）は rune 数で数える（len はバイト数のため使わない）。
+	prefixOverhead := utf8.RuneCountInString("どうにゅう") + utf8.RuneCountInString("まとめ") +
+		topicCount*(utf8.RuneCountInString("まえおき")+utf8.RuneCountInString("しょうさい")+2)
+	baseTotal := (introRunes + 1) + (closingRunes + 1) + prefixOverhead +
+		topicCount*((prefaceRunes+1)+(detailRunes+1))
+	if shortfall := constants.TotalCharsMinFor(topicCount) - baseTotal; shortfall > 0 {
+		detailRunes += (shortfall + topicCount - 1) / topicCount // 切り上げで必ず min 以上に届かせる
+	}
+
+	topics := make([]wireTopic, topicCount)
+	for i := 0; i < topicCount; i++ {
 		suffix := string(rune('０' + i)) // 全角数字 1 rune で識別
 		topics[i] = wireTopic{
 			Title:   jaRunes(constants.DraftTopicTitleMinLen-1) + suffix,

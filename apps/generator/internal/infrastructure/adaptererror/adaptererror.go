@@ -6,7 +6,7 @@ package adaptererror
 import domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
 
 // Error は "<Source>: <Op>: <原因>" 形式の Infrastructure Error。
-// Source は発生源（"gdrive" / "cursorapi" 等）、Op は操作、Err は原因。
+// Source は発生源（"r2" / "cursorapi" 等）、Op は操作、Err は原因。
 type Error struct {
 	Source string
 	Op     string

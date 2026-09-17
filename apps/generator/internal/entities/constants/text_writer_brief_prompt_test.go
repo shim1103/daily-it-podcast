@@ -21,7 +21,7 @@ func TestTextWriterBriefPrompt_hasAllNumericPlaceholders(t *testing.T) {
 		"{{TOPIC_TITLE_MIN}}", "{{TOPIC_TITLE_MAX}}", "{{TOPIC_TITLE_TARGET}}",
 		"{{PREFACE_MIN}}", "{{PREFACE_MAX}}", "{{PREFACE_TARGET}}",
 		"{{DETAIL_MIN}}", "{{DETAIL_MAX}}", "{{DETAIL_TARGET}}",
-		"{{TOPIC_COUNT_MIN}}", "{{TOPIC_COUNT_MAX}}", "{{TOPIC_COUNT_TARGET}}",
+		"{{TOPIC_COUNT_TARGET}}",
 		"{{TOTAL_MIN}}", "{{TOTAL_MAX}}", "{{TOTAL_TARGET}}",
 		"{{TOTAL_MINUTES_MIN}}", "{{TOTAL_MINUTES_MAX}}",
 	}

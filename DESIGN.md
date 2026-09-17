@@ -1,6 +1,6 @@
 # DESIGN
 
-最終更新: 2026-09-14
+最終更新: 2026-09-16
 
 ## Scope
 
@@ -10,7 +10,7 @@ Non-scope（書かない・写さない）:
 
 - 地図・使い方 → `README.md`
 - deploy・Access・GHA 運用・secret 登録・workflow 一覧 → `DEPLOY.md`
-- 配置表現（Drive file契約） → `contracts/`（音声拡張子の正は `episode-layout.md`）
+- 配置表現（R2 object契約） → `contracts/`（音声拡張子の正は `episode-layout.md`）
 - runtime 構成図 → `apps/diagrams/runtime.png`（code-first、生成元は `apps/diagrams/runtime.py`）
 - 再発する判断の Reason / Rejected → `docs/decisions/`
 - Playback UI の concept・視覚言語 → `docs/decisions/`
@@ -19,11 +19,11 @@ Non-scope（書かない・写さない）:
 
 | 系 | 責務 | 依存してよいもの |
 |----|------|------------------|
-| `apps/generator` | 取得 → 原稿 → TTS → Drive 書込 | 外部 API / CLI（Infrastructure） |
+| `apps/generator` | 取得 → 原稿 → TTS → R2 書込 | 外部 API / CLI（Infrastructure） |
 | `apps/playback/web` | 一覧・再生・原稿表示 | `worker` の HTTP のみ |
-| `apps/playback/worker` | Drive 読取 BFF | Drive API（入場境界は `DEPLOY.md`） |
+| `apps/playback/worker` | R2 読取 BFF | R2 binding（入場境界は `DEPLOY.md`） |
 
-禁止: `playback` ↔ `generator` の直接依存。二系統の runtime は互いに import しない。つながるのは共有 storage 上の file だけ（形の正本は repo 根 `contracts/`）。**現行 runtime の storage は Google Drive**。将来 R2 へ完全移行する方針・実施の形・実施順は Decision `2026-09-13T14-22-55` / `2026-09-14T11-04-30` / `12-49-26`（DEPLOY latest の切替は列 6–7 後）。
+禁止: `playback` ↔ `generator` の直接依存。二系統の runtime は互いに import しない。つながるのは共有 storage 上の file だけ（形の正本は repo 根 `contracts/`）。**現行 runtime の storage は Cloudflare R2**（書込・読取とも）。方針・実施の形・実施順は Decision `2026-09-13T14-22-55` / `2026-09-14T11-04-30` / `12-49-26`。
 
 例外: `apps/playback/web` の production runtime（`src/`）は `worker` の HTTP のみ。dev-only（`web/vite.config.ts` middleware）に限り `worker` Composition Root を import して dummy backend を local 起動できる。production HTTP 入口（`worker/src/routes/app.ts`、`worker/src/worker-entry.ts`）は変更しない。
 
@@ -57,13 +57,13 @@ Non-scope（書かない・写さない）:
 
 ### `contracts/` の読み手
 
-repo 根 `contracts/` は **配置表現**の SSOT（現行は Drive folder 上の命名。音声は mp3）。`apps/playback/contracts/`（HTTP）とは別物。
+repo 根 `contracts/` は **配置表現**の SSOT（現行は R2 object 上の命名。音声は mp3）。`apps/playback/contracts/`（HTTP）とは別物。
 
 | 層 | repo 根 `contracts/` |
 |----|----------------------|
 | generator **Application** | import する |
-| playback worker **Infrastructure**（Drive 読取） | import する |
-| generator **Infrastructure**（Drive 保存） | import しない |
+| playback worker **Infrastructure**（R2 読取） | import する |
+| generator **Infrastructure**（R2 保存） | import しない |
 | Entities / Composition Root / cmd / playback web | import しない |
 
 禁止: field 手写し・Adapter 隣 snapshot。配置は `contracts/episode-layout.md`。
@@ -73,19 +73,19 @@ repo 根 `contracts/` は **配置表現**の SSOT（現行は Drive folder 上�
 | 役割 | 接続 |
 |------|------|
 | 情報取得 | 公式 API / RSS の複数源（HackerNews・Lobsters・Publickey・TechCrunch・クラウド Watch）。Port は `ItemSource`。源ごとに専用 Adapter、facade なし（RSS 汎用 Adapter も作らない）。GET+retry / HTML 正規化の共有は `infrastructure/httpget`（Decision `2026-09-14T13-06-11`）。源 NI は controllable peer（`httptest` + DialTLS）。本番直撃の接続確認は gate 外 cache suite（Decision `2026-09-14T15-05-00`）。複数源 merge は Composition の composite。Application は源個数を知らない。`SourceItem` 形は Decision `2026-09-13T17-14-00`（正本は `models/source_item.go`）。写像を固定する方針は `2026-09-13T17-14-10`（表の正本は各 Adapter）。採用源は `2026-09-13T15-08-55` |
-| 原稿 | Cursor Cloud Agents REST（Port `TextWriter`）。Adapter は `manuscript/cursorapi` |
-| TTS | Gemini |
-| Drive | Google Drive + OAuth refresh（**現行**。将来 R2 方針 `2026-09-13T14-22-55`・実施の形 `2026-09-14T11-04-30`・実施順 `2026-09-14T12-49-26`。薄い配信 cache は R2 後・`2026-09-13T14-23-30`） |
+| 原稿 | Gemini generateContent（primary）→ Cursor Cloud Agents REST → Gemini generateContent（paid, final fallback）。Port は `TextWriter`（sources 配列を順に試す合成 layer）。Adapter は `manuscript/geminiapi` / `manuscript/cursorapi`。fallback 順序は Decision `2026-09-16T00-39-21` |
+| TTS | Gemini generateContent（primary）→ Gemini generateContent（paid, final fallback）。Port は `SpeechSynthesizer`（同型の合成 layer、部分成功保持）。Decision `2026-09-16T00-39-21` / `2026-09-16T11-41-59` |
+| Storage | Cloudflare R2（S3 互換 API。**現行**。方針 `2026-09-13T14-22-55`・実施の形 `2026-09-14T11-04-30`・実施順 `2026-09-14T12-49-26`。薄い配信 cache は別 Decision `2026-09-13T14-23-30`） |
 
 `generator/internal/config` が startup で process environment を一度だけ読み、検証済み capability Config を Composition へ渡す。HTTP Adapter は `*http.Client` と必要な capability config / credential だけを受け取る。保存元・environment key は知らない。
 
-ブラウザに Drive credential を置かない。注入の運用は `DEPLOY.md`。
+ブラウザに R2 credential を置かない。注入の運用は `DEPLOY.md`。
 
 ## 4. 認証の層所有
 
 - UI 入場・hostname・Access は `DEPLOY.md`
 - アプリ内マルチテナント OAuth は作らない
-- Drive credential は worker / generator の Infrastructure が持つ（Web は持たない）
+- R2 credential は worker / generator の Infrastructure が持つ（Web は持たない）
 
 ## 5. Test 配置
 

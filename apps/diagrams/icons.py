@@ -55,9 +55,11 @@ ICON_CATALOG: dict[str, IconSource] = {
         "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/cursor.svg",
         "#000000",
     ),
-    "google-drive": IconSource(
-        "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/googledrive.svg",
-        "#4285F4",
+    # why: Simple Icons に Cloudflare R2 固有の slug は無い。cloudflare-access と同じ
+    #   汎用 Cloudflare ブランド icon を再利用する（storage という role は node の label 側で表す）。
+    "cloudflare-r2": IconSource(
+        "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/cloudflare.svg",
+        "#F38020",
     ),
     "gemini": IconSource(
         "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/googlegemini.svg",

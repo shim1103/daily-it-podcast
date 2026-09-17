@@ -1,18 +1,19 @@
 //go:build system
 
 // Scope: System（e2e 1 回通し）
-// 実物: composition.NewProduceEpisodeFromEnv で結線した本番 UseCase が、
+// 実物: composition.NewProduceEpisodeFromEnvWithTopicCount で結線した UseCase（本番と同じ結線だが、
 //
+//	topic 数だけ環境変数 SYSTEM_TEST_TOPIC_COUNT 由来）が、
 //	実 5 情報源（HackerNews / Lobsters / Publickey / TechCrunch / クラウド Watch）→ 実 Cursor Cloud Agents API 原稿 →
-//	実 Gemini TTS → 実 OAuth + Drive 書込 を 1 度だけ通す。
+//	実 Gemini TTS → 実 R2 書込 を 1 度だけ通す。
 //
-// Double: なし（test 専用 credential。実行場所は GHA）。DRIVE_FOLDER_ID は test 専用 folder。
+// Double: なし（test 専用 credential。実行場所は GHA）。R2_BUCKET は test 専用 bucket。
 // 目的: 「system 全体が壊れていないか」を 1 回で見る（PASS 率は測らない。rate 計測は
 //
 //	tts_rate / draft_rate へ分離。Decision 2026-09-03T14-45-00）。
 //	下位 Scope（HTTP / 配線 / schema 全 field）は再 assert しない。ここは orchestration の疎通だけ。
 //
-// @require process env に config 契約の全 key がある（1 つでも欠けたら Skip）。DRIVE_FOLDER_ID は test 専用 folder。
+// @require process env に config 契約の全 key がある（1 つでも欠けたら Skip）。R2_BUCKET は test 専用 bucket。
 //
 //	Cursor CLI の `agent` binary は要らない（Cloud Agents HTTP API 移行済み。Decision 2026-09-03T17-03-33）。
 //
@@ -21,7 +22,7 @@
 //	Domain Error（Op = no_source_items）で成功扱い（fetch は通っており system は壊れていない）。
 //	それ以外の error は system 側の故障として t.Fatalf。
 //
-// @invariant local に secret を置かない。本番 credential / 本番 folder を使わない。Run が書いた成果物の
+// @invariant local に secret を置かない。本番 credential / 本番 bucket を使わない。Run が書いた成果物の
 //
 //	cleanup はしない（同 stem upsert で残骸許容。Decision 2026-08-30T23-32-00）。
 package system
@@ -46,10 +47,6 @@ var systemConfigEnvKeys = []string{
 	config.CursorAPIKeyEnv,
 	config.GeminiAPIKeyEnv,
 	config.SpareGeminiAPIKeyEnv,
-	config.GoogleOAuthClientIDEnv,
-	config.GoogleOAuthClientSecretEnv,
-	config.GoogleOAuthRefreshTokenEnv,
-	config.DriveFolderIDEnv,
 	config.R2AccessKeyIDEnv,
 	config.R2SecretAccessKeyEnv,
 	config.R2AccountIDEnv,
@@ -73,12 +70,12 @@ func TestProduceEpisodeSystem_runsEndToEndOnce_whenAllCredentialsPresent(t *test
 	// Given: config 契約の全 key（1 つでも欠けたら Skip）
 	requireSystemConfigEnv(t)
 
-	uc, err := composition.NewProduceEpisodeFromEnv(delivery.NewLogWriter(os.Stderr))
+	uc, err := composition.NewProduceEpisodeFromEnvWithTopicCount(systemTestTopicCount(), delivery.NewLogWriter(os.Stderr))
 	if err != nil {
-		t.Fatalf("NewProduceEpisodeFromEnv: %v", err)
+		t.Fatalf("NewProduceEpisodeFromEnvWithTopicCount: %v", err)
 	}
 
-	// ctx timeout: Cursor draft（数分）+ TTS topic+2 束（数分）+ Drive 書込。余裕を持って 35 分。
+	// ctx timeout: Cursor draft（数分）+ TTS topic+2 束（数分）+ R2 書込。余裕を持って 35 分。
 	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Minute)
 	defer cancel()
 

@@ -146,6 +146,7 @@ func TestGeminiTTSRate_measuresPassRate_overNRuns(t *testing.T) {
 	synth := gemini.NewSpeechSynthesizerWithTuning(
 		&http.Client{Timeout: 5 * time.Minute},
 		apiKey,
+		gemini.TierFree,
 		gemini.Tuning{CallGap: callGap, RetryBackoffBase: backoffBase, RetryBackoffMax: backoffMax},
 	)
 

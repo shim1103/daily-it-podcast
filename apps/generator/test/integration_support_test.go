@@ -29,40 +29,37 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/audio/ffmpeg"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/cloudwatch"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/drive/gdrive"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/google/oauth"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/hackernews"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/lobsters"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/publickey"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/r2"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/techcrunch"
 )
 
 const (
-	broadIntegrationTopicCount = constants.DraftTopicCountMin
+	broadIntegrationTopicCount = constants.DraftTopicCountTarget
 
 	// integrationTTSFixedSegmentCount は TTS 束の固定 segment 数（greeting+intro 束 / closingSummary+farewell 束）。
 	// SpeechTexts が topic+2 束を返すため（Decision 2026-09-02T13-55-00）。
 	integrationTTSFixedSegmentCount = 2
 
-	broadDummyCursorKey         = "broad-cursor-dummy-key-value"
-	broadDummyGeminiKey         = "broad-gemini-dummy-key-value"
-	broadDummyOAuthClientID     = "broad-oauth-client-id-dummy-value"
-	broadDummyOAuthClientSecret = "broad-oauth-client-secret-dummy-value"
-	broadDummyOAuthRefreshToken = "broad-oauth-refresh-token-dummy-value"
-	broadDummyDriveFolderID     = "broad-drive-folder-id-dummy-value"
-	broadDummyOAuthAccessToken  = "ya29.broad-access-token-dummy-value"
-	broadFixedEpisodeID         = "broad-ep-fixed-0001"
+	broadDummyCursorKey      = "broad-cursor-dummy-key-value"
+	broadDummyGeminiKey      = "broad-gemini-dummy-key-value"
+	broadDummyR2AccessKeyID  = "broad-r2-access-key-id-dummy-value"
+	broadDummyR2SecretAccess = "broad-r2-secret-access-key-dummy-value"
+	broadDummyR2AccountID    = "broad-r2-account-id-dummy-value"
+	broadDummyR2Bucket       = "broad-r2-bucket-dummy-value"
+	broadFixedEpisodeID      = "broad-ep-fixed-0001"
 )
 
 var broadDummySecrets = []string{
 	broadDummyCursorKey,
 	broadDummyGeminiKey,
-	broadDummyOAuthClientID,
-	broadDummyOAuthClientSecret,
-	broadDummyOAuthRefreshToken,
-	broadDummyDriveFolderID,
-	broadDummyOAuthAccessToken,
+	broadDummyR2AccessKeyID,
+	broadDummyR2SecretAccess,
+	broadDummyR2AccountID,
+	broadDummyR2Bucket,
 }
 
 // integrationTestDisplayLocation は Broad / Integration test 用の固定 JST Location。
@@ -202,8 +199,7 @@ func writeIntegrationGeminiAudioResponse(t *testing.T, w http.ResponseWriter, pc
 
 type integrationTLSRoutes struct {
 	gemini     http.HandlerFunc
-	oauth      http.HandlerFunc
-	gdrive     http.HandlerFunc
+	r2         http.HandlerFunc
 	hackernews http.HandlerFunc
 	lobsters   http.HandlerFunc
 	publickey  http.HandlerFunc
@@ -214,14 +210,13 @@ type integrationTLSRoutes struct {
 func newIntegrationTLSClient(t *testing.T, routes integrationTLSRoutes) *http.Client {
 	t.Helper()
 	servers := map[string]*httptest.Server{
-		"generativelanguage.googleapis.com": httptest.NewTLSServer(routes.gemini),
-		"oauth2.googleapis.com":             httptest.NewTLSServer(routes.oauth),
-		"www.googleapis.com":                httptest.NewTLSServer(routes.gdrive),
-		"hacker-news.firebaseio.com":        httptest.NewTLSServer(routes.hackernews),
-		"lobste.rs":                         httptest.NewTLSServer(routes.lobsters),
-		"www.publickey1.jp":                 httptest.NewTLSServer(routes.publickey),
-		"techcrunch.com":                    httptest.NewTLSServer(routes.techcrunch),
-		"cloud.watch.impress.co.jp":         httptest.NewTLSServer(routes.cloudwatch),
+		"generativelanguage.googleapis.com":                 httptest.NewTLSServer(routes.gemini),
+		broadDummyR2AccountID + ".r2.cloudflarestorage.com": httptest.NewTLSServer(routes.r2),
+		"hacker-news.firebaseio.com":                        httptest.NewTLSServer(routes.hackernews),
+		"lobste.rs":                                         httptest.NewTLSServer(routes.lobsters),
+		"www.publickey1.jp":                                 httptest.NewTLSServer(routes.publickey),
+		"techcrunch.com":                                    httptest.NewTLSServer(routes.techcrunch),
+		"cloud.watch.impress.co.jp":                         httptest.NewTLSServer(routes.cloudwatch),
 	}
 	for _, srv := range servers {
 		t.Cleanup(srv.Close)
@@ -247,48 +242,31 @@ func newIntegrationTLSClient(t *testing.T, routes integrationTLSRoutes) *http.Cl
 	}
 }
 
-func integrationOAuthSuccessHandler(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"access_token":"` + broadDummyOAuthAccessToken + `"}`))
+// integrationR2Probe は Broad が R2 PutObject 呼び出し回数を観測するための counter。
+type integrationR2Probe struct {
+	putObject int64
 }
 
-type integrationGDriveProbe struct {
-	uploadPATCH int64
-}
-
-func integrationGDriveSuccessHandler(t *testing.T, probe *integrationGDriveProbe) http.HandlerFunc {
+// integrationR2SuccessHandler は List(空)→常に成功する PutObject を返す S3 互換 double。
+// HasPair は毎回「未完成」を返す（List が空）ため、Broad は必ず Write 経路まで進む。
+func integrationR2SuccessHandler(t *testing.T, probe *integrationR2Probe) http.HandlerFunc {
 	t.Helper()
 	return func(w http.ResponseWriter, r *http.Request) {
-		target := r.URL.String()
 		switch {
-		case r.Method == http.MethodGet && strings.Contains(target, "/drive/v3/files"):
-			writeIntegrationJSONStatus(t, w, http.StatusOK, map[string]any{"files": []any{}})
-		case r.Method == http.MethodPost && strings.Contains(target, "/drive/v3/files"):
-			var meta struct {
-				Name string `json:"name"`
-			}
-			if err := json.NewDecoder(r.Body).Decode(&meta); err != nil {
-				t.Fatalf("decode create metadata: %v", err)
-			}
-			writeIntegrationJSONStatus(t, w, http.StatusOK, map[string]any{"id": "created-" + meta.Name})
-		case r.Method == http.MethodPatch && strings.Contains(target, "/upload/drive/v3/files/"):
+		case r.Method == http.MethodGet && r.URL.Query().Get("list-type") == "2":
+			w.Header().Set("Content-Type", "application/xml")
+			w.WriteHeader(http.StatusOK)
+			_, _ = io.WriteString(w, `<?xml version="1.0" encoding="UTF-8"?>`+
+				`<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">`+
+				`<IsTruncated>false</IsTruncated></ListBucketResult>`)
+		case r.Method == http.MethodPut:
 			if probe != nil {
-				probe.uploadPATCH++
+				probe.putObject++
 			}
-			writeIntegrationJSONStatus(t, w, http.StatusOK, map[string]any{"id": "uploaded"})
+			w.WriteHeader(http.StatusOK)
 		default:
-			t.Fatalf("unexpected gdrive request method=%s url=%s", r.Method, target)
+			t.Fatalf("unexpected r2 request method=%s url=%s", r.Method, r.URL.String())
 		}
-	}
-}
-
-func writeIntegrationJSONStatus(t *testing.T, w http.ResponseWriter, status int, body any) {
-	t.Helper()
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(body); err != nil {
-		t.Fatalf("encode fixture: %v", err)
 	}
 }
 
@@ -467,10 +445,10 @@ func integrationCloudWatchEmptyHandler(t *testing.T) http.HandlerFunc {
 }
 
 type broadProduceEpisodeHarness struct {
-	uc            *application.ProduceEpisode
-	textWriter    *broadTextWriter
-	geminiPosts   atomic.Int32
-	gdriveUploads *integrationGDriveProbe
+	uc          *application.ProduceEpisode
+	textWriter  *broadTextWriter
+	geminiPosts atomic.Int32
+	r2Uploads   *integrationR2Probe
 	// logBuf は progress reporter (delivery.LogWriter) の結線を Broad で観測するための出力先。
 	logBuf *bytes.Buffer
 }
@@ -482,12 +460,12 @@ type broadTextWriter struct {
 	calls    atomic.Int32
 }
 
-func (w *broadTextWriter) Write(_ context.Context, _ string) (string, error) {
+func (w *broadTextWriter) Write(_ context.Context, _ string, buildFn func(string) (models.ManuscriptDraft, error)) (models.ManuscriptDraft, error) {
 	w.calls.Add(1)
 	if w.fail {
-		return "", errors.New("broad text writer failure")
+		return models.ManuscriptDraft{}, errors.New("broad text writer failure")
 	}
-	return w.fragment, nil
+	return buildFn(w.fragment)
 }
 
 func assertBroadDownstreamCalls(t *testing.T, h *broadProduceEpisodeHarness, wantCursor, wantGemini, wantUpload int) {
@@ -500,8 +478,8 @@ func assertBroadDownstreamCalls(t *testing.T, h *broadProduceEpisodeHarness, wan
 	if got := int(h.geminiPosts.Load()); got != wantGemini {
 		t.Fatalf("Synthesize calls = %d, want %d", got, wantGemini)
 	}
-	if got := h.gdriveUploads.uploadPATCH; got != int64(wantUpload) {
-		t.Fatalf("Drive upload calls = %d, want %d", got, wantUpload)
+	if got := h.r2Uploads.putObject; got != int64(wantUpload) {
+		t.Fatalf("R2 upload calls = %d, want %d", got, wantUpload)
 	}
 }
 
@@ -509,12 +487,12 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 	t.Helper()
 
 	wireJSON := buildIntegrationWireJSON(broadIntegrationTopicCount)
-	gdriveProbe := &integrationGDriveProbe{}
+	r2Probe := &integrationR2Probe{}
 
 	h := &broadProduceEpisodeHarness{
-		gdriveUploads: gdriveProbe,
-		textWriter:    &broadTextWriter{fragment: wireJSON, fail: cfg.cursorFail},
-		logBuf:        &bytes.Buffer{},
+		r2Uploads:  r2Probe,
+		textWriter: &broadTextWriter{fragment: wireJSON, fail: cfg.cursorFail},
+		logBuf:     &bytes.Buffer{},
 	}
 	geminiHandler := func(w http.ResponseWriter, r *http.Request) {
 		n := h.geminiPosts.Add(1)
@@ -542,8 +520,7 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 
 	httpClient := newIntegrationTLSClient(t, integrationTLSRoutes{
 		gemini:     http.HandlerFunc(geminiHandler),
-		oauth:      http.HandlerFunc(integrationOAuthSuccessHandler),
-		gdrive:     integrationGDriveSuccessHandler(t, gdriveProbe),
+		r2:         integrationR2SuccessHandler(t, r2Probe),
 		hackernews: hackernewsHandler,
 		lobsters:   lobstersHandler,
 		publickey:  publickeyHandler,
@@ -554,16 +531,15 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 	// 5 情報源（HackerNews → Lobsters → Publickey → TechCrunch → クラウド Watch）。
 	// 登録順は composition.newProduceEpisode と同順。真外部は TLS redirect で double 済み。
 	fetch := application.NewFetchSourceItems(compositeItemSource{
-		hackernews.NewListItemSource(httpClient),
-		lobsters.NewListItemSource(httpClient),
-		publickey.NewListItemSource(httpClient),
-		techcrunch.NewListItemSource(httpClient),
-		cloudwatch.NewListItemSource(httpClient),
+		hackernews.NewListItemSource(httpClient, hackernews.MaxStoriesScanned),
+		lobsters.NewListItemSource(httpClient, lobsters.MaxStoriesScanned),
+		publickey.NewListItemSource(httpClient, publickey.MaxStoriesScanned),
+		techcrunch.NewListItemSource(httpClient, techcrunch.MaxStoriesScanned),
+		cloudwatch.NewListItemSource(httpClient, cloudwatch.MaxStoriesScanned),
 	})
-	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey)
-	tokens := oauth.NewTokenSource(httpClient, broadDummyOAuthClientID, broadDummyOAuthClientSecret, broadDummyOAuthRefreshToken)
-	lookup := gdrive.NewCompletedEpisodeLookup(httpClient, tokens, broadDummyDriveFolderID)
-	rawWriter := gdrive.NewRawEpisodeWriter(httpClient, tokens, broadDummyDriveFolderID)
+	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey, gemini.TierFree)
+	lookup := r2.NewCompletedEpisodeLookup(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket)
+	rawWriter := r2.NewEpisodeWriter(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket)
 	writeEpisode := application.NewWriteEpisode(rawWriter)
 
 	// progress reporter は production（composition.newProduceEpisode）と同型で delivery.LogWriter そのもの。
@@ -584,6 +560,7 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 		broadFixedEpisodeIDFunc,
 		integrationTestDisplayLocation,
 		logw,
+		broadIntegrationTopicCount,
 	)
 	return h
 }

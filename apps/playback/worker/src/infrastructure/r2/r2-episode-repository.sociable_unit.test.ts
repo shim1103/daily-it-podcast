@@ -102,6 +102,25 @@ describe("R2EpisodeRepository", () => {
       await expect(repository.listManuscripts()).rejects.toBeInstanceOf(R2Error);
     });
 
+    it("list 後の get が非 null だが不正形状の時、不正の理由を message に含めて R2Error を throw する", async () => {
+      // Given: get が arrayBuffer を持たない不正形状を返す bucket
+      const bucket = createBucket({
+        list: async () => ({ objects: [{ key: "ep-1.json" }] }),
+        // biome-ignore lint/suspicious/noExplicitAny: 不正形状を意図的に注入する test 用 double
+        get: async () => ({}) as any,
+      });
+      const repository = new R2EpisodeRepository({ bucket });
+
+      // When / Then: message に「arrayBuffer が function でない」旨の診断理由が含まれる
+      await expect(repository.listManuscripts()).rejects.toSatisfy((error: unknown) => {
+        return (
+          error instanceof R2Error &&
+          error.message.includes("arrayBuffer") &&
+          error.message.includes("function")
+        );
+      });
+    });
+
     it("get が例外を throw する時、R2Error を throw する", async () => {
       // Given: json 本文の取得が失敗する bucket
       const bucket = createBucket({
@@ -196,6 +215,42 @@ describe("R2EpisodeRepository", () => {
 
       // When / Then
       await expect(repository.getAudio("ep-1")).rejects.toBeInstanceOf(R2Error);
+    });
+
+    it("get が null（object 型でない）を返す時、不正の理由を message に含めて R2Error を throw する", async () => {
+      // Given: arrayBuffer を持たない文字列を返す bucket
+      const bucket = createBucket({
+        // biome-ignore lint/suspicious/noExplicitAny: 不正形状を意図的に注入する test 用 double
+        get: async () => "not-an-object" as any,
+      });
+      const repository = new R2EpisodeRepository({ bucket });
+
+      // When / Then: message に「object 型でない」旨の診断理由が含まれる
+      await expect(repository.getAudio("ep-1")).rejects.toSatisfy((error: unknown) => {
+        return (
+          error instanceof R2Error &&
+          error.message.includes("object") &&
+          error.message.includes("string")
+        );
+      });
+    });
+
+    it("get が arrayBuffer を持たない object を返す時、不正の理由を message に含めて R2Error を throw する", async () => {
+      // Given: arrayBuffer を持たない object を返す bucket
+      const bucket = createBucket({
+        // biome-ignore lint/suspicious/noExplicitAny: 不正形状を意図的に注入する test 用 double
+        get: async () => ({}) as any,
+      });
+      const repository = new R2EpisodeRepository({ bucket });
+
+      // When / Then: message に「arrayBuffer が function でない」旨の診断理由が含まれる
+      await expect(repository.getAudio("ep-1")).rejects.toSatisfy((error: unknown) => {
+        return (
+          error instanceof R2Error &&
+          error.message.includes("arrayBuffer") &&
+          error.message.includes("function")
+        );
+      });
     });
 
     it("mp3 の arrayBuffer 読み出しが失敗する時、R2Error を throw する", async () => {

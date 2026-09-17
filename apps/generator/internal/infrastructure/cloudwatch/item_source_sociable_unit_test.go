@@ -68,7 +68,7 @@ func (rt *stubRoundTripper) setFeedResponse(res stubClientResponse) {
 }
 
 func newStubListItemSource(rt *stubRoundTripper) *cloudwatch.ListItemSource {
-	return cloudwatch.NewListItemSource(&http.Client{Transport: rt})
+	return cloudwatch.NewListItemSource(&http.Client{Transport: rt}, cloudwatch.MaxStoriesScanned)
 }
 
 // rdfItemFixture は RDF item XML を組むための入力。
@@ -239,6 +239,38 @@ func TestList_stopsAfterCollectingMaxStoriesScanned_whenEnoughItemsInWindow(t *t
 	}
 }
 
+func TestList_stopsScanningAtMaxItems_whenMaxItemsBelowMaxStoriesScanned(t *testing.T) {
+	// @given window 内 item を MaxStoriesScanned 件持つ RDF double。
+	// maxItems は MaxStoriesScanned より小さい値を渡す
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	total := cloudwatch.MaxStoriesScanned
+	items := make([]rdfItemFixture, 0, total)
+	for i := 0; i < total; i++ {
+		link := fmt.Sprintf("https://cloud.watch.impress.co.jp/docs/news/%d.html", i)
+		items = append(items, rdfItemFixture{
+			title:       fmt.Sprintf("記事%d", i),
+			link:        link,
+			date:        since.Add(time.Duration(i+1) * time.Minute).Format(time.RFC3339),
+			description: "説明",
+		})
+	}
+	rt := newStubRoundTripper()
+	rt.setFeed(rdfXML(items...))
+	maxItems := cloudwatch.MaxStoriesScanned - 2
+	source := cloudwatch.NewListItemSource(&http.Client{Transport: rt}, maxItems)
+
+	// @when
+	got, err := source.List(context.Background(), since)
+
+	// @then 結果は maxItems 件で打ち切る
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != maxItems {
+		t.Fatalf("len(got) = %d, want %d", len(got), maxItems)
+	}
+}
+
 func TestList_returnsNonNilEmptySlice_whenNothingInWindow(t *testing.T) {
 	// @given 全 item が since より古い double
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
@@ -277,7 +309,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 
 	t.Run("client nil", func(t *testing.T) {
 		// @given client を持たない ListItemSource
-		source := cloudwatch.NewListItemSource(nil)
+		source := cloudwatch.NewListItemSource(nil, cloudwatch.MaxStoriesScanned)
 
 		// @when
 		got, err := source.List(context.Background(), since)
@@ -351,7 +383,7 @@ func TestList_retriesOnceOnTransientError_whenSecondAttemptSucceeds(t *testing.T
 			}, nil
 		},
 	}
-	source := cloudwatch.NewListItemSource(&http.Client{Transport: transientRT})
+	source := cloudwatch.NewListItemSource(&http.Client{Transport: transientRT}, cloudwatch.MaxStoriesScanned)
 
 	// @when
 	got, err := source.List(context.Background(), since)

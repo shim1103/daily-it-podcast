@@ -33,15 +33,26 @@ const (
 
 // ListItemSource は Lobsters の hottest を ItemSource として返す Adapter。
 type ListItemSource struct {
-	client *http.Client
+	client   *http.Client
+	maxItems int
 }
 
 // NewListItemSource は Lobsters 向け ItemSource を返す。
 //
 // @require httpClient != nil
 // @ensure 戻りは非 nil の *ListItemSource。vendor 固有型を露出しない。
-func NewListItemSource(httpClient *http.Client) *ListItemSource {
-	return &ListItemSource{client: httpClient}
+// @ensure maxItems <= 0 の場合、実効上限は MaxStoriesScanned にフォールバックする。
+func NewListItemSource(httpClient *http.Client, maxItems int) *ListItemSource {
+	return &ListItemSource{client: httpClient, maxItems: maxItems}
+}
+
+// effectiveMaxStories は min(maxItems, MaxStoriesScanned) を実効上限として返す。
+// maxItems <= 0 は呼び出し側の指定漏れとみなし、MaxStoriesScanned を安全側の値として使う。
+func (s *ListItemSource) effectiveMaxStories() int {
+	if s.maxItems <= 0 || s.maxItems > MaxStoriesScanned {
+		return MaxStoriesScanned
+	}
+	return s.maxItems
 }
 
 // hottestSummary は hottest.json の 1 要素のうち Adapter が使う field だけを表す。
@@ -74,7 +85,7 @@ type storyComment struct {
 //
 // @require since は OccurredAt の inclusive 下限。
 // @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ since 以上。
-// @ensure 結果は created_at >= since を満たす story のみ。最大 MaxStoriesScanned 件。
+// @ensure 結果は created_at >= since を満たす story のみ。最大 min(maxItems, MaxStoriesScanned) 件（maxItems <= 0 は MaxStoriesScanned）。
 // @ensure 該当なしは空 slice（nil ではない）。
 // @invariant vendor 固有型・監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
 func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
@@ -87,7 +98,7 @@ func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.So
 		return nil, err
 	}
 
-	targets := filterSummariesInWindow(summaries, since, MaxStoriesScanned)
+	targets := filterSummariesInWindow(summaries, since, s.effectiveMaxStories())
 
 	out := make([]models.SourceItem, 0, len(targets))
 	for _, summary := range targets {

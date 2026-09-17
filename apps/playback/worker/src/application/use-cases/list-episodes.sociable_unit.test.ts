@@ -113,4 +113,38 @@ describe("listEpisodes", () => {
     // Then: 空
     expect(got.episodes).toEqual([]);
   });
+
+  it("Port が返す順序に依らず、date降順（新しい日付が先頭）で返す", async () => {
+    // Given: Port が date の昇順で返す（R2 List の key 辞書順を想定した非日付順）
+    const older = { ...validManuscriptJson, episodeId: "ep-old", date: "2026-08-01" };
+    const newer = { ...validManuscriptJson, episodeId: "ep-new", date: "2026-09-10" };
+    const middle = { ...validManuscriptJson, episodeId: "ep-mid", date: "2026-08-20" };
+    const repository = createFakeRepository([
+      { stem: "ep-old", json: older },
+      { stem: "ep-new", json: newer },
+      { stem: "ep-mid", json: middle },
+    ]);
+
+    // When: 一覧を取得する
+    const got = await listEpisodes(repository);
+
+    // Then: date降順に並び替わる
+    expect(got.episodes.map((item) => item.episodeId)).toEqual(["ep-new", "ep-mid", "ep-old"]);
+  });
+
+  it("date が同値の entry は例外を投げず両方とも一覧に残す", async () => {
+    // Given: 同一 date の entry 2件
+    const first = { ...validManuscriptJson, episodeId: "ep-a", date: "2026-08-17" };
+    const second = { ...validManuscriptJson, episodeId: "ep-b", date: "2026-08-17" };
+    const repository = createFakeRepository([
+      { stem: "ep-a", json: first },
+      { stem: "ep-b", json: second },
+    ]);
+
+    // When: 一覧を取得する
+    const got = await listEpisodes(repository);
+
+    // Then: 両方とも残る（順序は未規定）
+    expect(got.episodes.map((item) => item.episodeId).sort()).toEqual(["ep-a", "ep-b"]);
+  });
 });

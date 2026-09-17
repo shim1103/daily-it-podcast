@@ -1,6 +1,6 @@
 # DEPLOY
 
-最終更新: 2026-09-13
+最終更新: 2026-09-16
 
 ## Scope
 
@@ -14,7 +14,7 @@ Non-scope（書かない・写さない）:
 - 進捗・未決 index → `docs/tasks/todo/*-lane.md`
 - Worker 境界契約（`name` / `main` / assets / route / `observability` の値） → `apps/playback/wrangler.jsonc` / `worker-entry.ts`（本書は参照のみ、値は写さない）
 
-音声の配置契約は mp3（`contracts/episode-layout.md`）。storage の将来方針（R2 完全移行・薄い cache）は Decision `2026-09-13T14-22-55` / `14-23-30`。実施の形は `2026-09-14T11-04-30`。実施順（Issue 単位）は `2026-09-14T12-49-26`（index は `docs/tasks/todo/playback-lane.md`）。**現行 runtime の正本は Drive**。R2 の GHA Variable/Secret と Worker binding 名は先行登録済み（下表）。正本切替・OAuth 削除は列 6–7。登録手順の百科はここに書かない。
+音声の配置契約は mp3（`contracts/episode-layout.md`）。storage の将来方針（R2 完全移行・薄い cache）は Decision `2026-09-13T14-22-55` / `14-23-30`。実施の形は `2026-09-14T11-04-30`。実施順（Issue 単位）は `2026-09-14T12-49-26`（index は `docs/tasks/todo/playback-lane.md`）。**現行 runtime の正本は R2**（書込・読取とも）。Google OAuth / Drive の codebase は削除済み（`2026-09-16`）。GHA 側の `GOOGLE_OAUTH_*` / `TEST_GOOGLE_OAUTH_*` / `DRIVE_FOLDER_ID` / `TEST_DRIVE_FOLDER_ID` 登録は未使用のまま残っている（削除は別途）。登録手順の百科はここに書かない。
 
 ## 1. Playback 公開形
 
@@ -37,27 +37,14 @@ Non-scope（書かない・写さない）:
 
 ## 3. Playback Worker runtime config
 
-型・検証の正は `PlaybackEnv`（code）。Workers への注入区分:
-
-| key | 注入 |
-|-----|------|
-| `GOOGLE_OAUTH_CLIENT_ID` | Variable（`*.apps.googleusercontent.com`。`GOCSPX-` は Client Secret 側） |
-| `DRIVE_FOLDER_ID` | Variable |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Secret |
-| `GOOGLE_OAUTH_REFRESH_TOKEN` | Secret |
-
-production では Drive 4 key 必須（正本切替前）。Drive config は Worker のみ。`wrangler.jsonc` は `keep_vars: true`（deploy で未指定 Variable を消さない）。
-
-R2 読取は Worker binding（S3 key を Worker に持たない）。binding 契約の正本は `apps/playback/wrangler.jsonc` の `r2_buckets`（方針は Decision `2026-09-14T11-04-30`）。
-
-`refresh_token` 失効時: 再認可 → `cd apps/playback && npx wrangler secret put GOOGLE_OAUTH_REFRESH_TOKEN`。
+型・検証の正は `PlaybackEnv`（code）。R2 読取は Worker binding（S3 key を Worker に持たない）。binding 契約の正本は `apps/playback/wrangler.jsonc` の `r2_buckets`（方針は Decision `2026-09-14T11-04-30`）。`wrangler.jsonc` は `keep_vars: true`（deploy で未指定 Variable を消さない）。
 
 HTTP 切り分け（応答 body は契約 code のみ。詳細は Worker log）:
 
 | 応答 | 意味 |
 |------|------|
-| `500` / `configuration_error` | runtime config 不足・不正 |
-| `503` / `unavailable` | Drive / OAuth token など外部一時不能（CLIENT_ID 取り違え含む） |
+| `500` / `configuration_error` | runtime config 不足・不正（`EPISODES` binding 未設定等） |
+| `503` / `unavailable` | R2 など外部一時不能 |
 
 ### Workers Logs
 
@@ -73,10 +60,6 @@ process env の正本は `apps/generator/internal/config/names.go`。`GENERATOR_
 
 | process env | 区分 |
 |------|------|
-| `GOOGLE_OAUTH_CLIENT_ID` | Variable |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Secret |
-| `GOOGLE_OAUTH_REFRESH_TOKEN` | Secret |
-| `DRIVE_FOLDER_ID` | Variable |
 | `CURSOR_API_KEY` | Secret |
 | `GEMINI_API_KEY` | Secret |
 | `SPARE_GEMINI_API_KEY` | Secret |
@@ -85,18 +68,13 @@ process env の正本は `apps/generator/internal/config/names.go`。`GENERATOR_
 | `R2_ACCESS_KEY_ID` | Secret |
 | `R2_SECRET_ACCESS_KEY` | Secret |
 
-GitHub Actions（Settings → Secrets and variables → Actions）:
+GitHub Actions（Settings → Secrets and variables → Actions）の `TEST_` 接頭辞は、**値が本番と異なる** credential/variable にのみ付ける（Decision `2026-09-16T00-39-21`）。値が本番と同一の `CURSOR_API_KEY` / `SPARE_GEMINI_API_KEY` / `R2_ACCOUNT_ID` は test workflow も本番登録名をそのまま使う。値が本番と異なるのは `TEST_GEMINI_API_KEY` / `TEST_R2_BUCKET` / `TEST_R2_ACCESS_KEY_ID` / `TEST_R2_SECRET_ACCESS_KEY` のみ。
 
-| 用途 | 登録名 |
-|------|------|
-| 本番 | process env と同名 |
-| test（System） | `TEST_` + 同名 |
+workflow ごとの credential 一覧・fallback 順序は Decision `2026-09-16T00-39-21` §1-1 の表を正とする。
 
-workflow が test 登録名を process env 名へ写す。Generator は `TEST_` を知らない。
+R2 key は上表（値は書かない）。本番 write/lookup の Composition 結線は R2 固定（Decision `2026-09-14T12-49-26`）。
 
-R2 key は上表（値は書かない）。`config.Load` 必須と workflow 注入は列 4。本番 write/lookup の Composition 結線切替は列 6（Decision `2026-09-14T12-49-26`）。
-
-`GEMINI_API_KEY` は TTS、`SPARE_GEMINI_API_KEY` は原稿 fallback（Gemini generateContent）。分ける理由は `GeminiConfig`（`internal/config/config.go`）の invariant を正とする。System test は両方を要求する。
+`GEMINI_API_KEY` は TextWriter/TTS 共通の primary（free）、`CURSOR_API_KEY` は TextWriter の 2 段目 fallback、`SPARE_GEMINI_API_KEY` は TextWriter/TTS 共通の final fallback（paid）。fallback 順序の理由は `GeminiConfig`（`internal/config/config.go`）の invariant と Decision `2026-09-16T00-39-21` を正とする。
 
 credential 付き実 operation は GHA runner のみ。通常 local / Integration gate は実 service を呼ばず local secret を持たない。
 
@@ -105,16 +83,16 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 | workflow | 入口 script | いつ | 使う登録 |
 |------|------|------|------|
 | `generator-produce-episode.yml` | `scripts/generator/produce-episode.sh` | 毎日 05:00 JST（cron UTC `0 20 * * *`）+ `workflow_dispatch` | 本番 Secret / Variable |
-| `generator-system.yml` | `scripts/generator/test-system.sh` | master 向け `pull_request` + `workflow_dispatch` | `TEST_*` |
+| `generator-system.yml` | `scripts/generator/test-system.sh` | master への `push` + `workflow_dispatch` | `TEST_*` |
 | `generator-tts-rate.yml` | `scripts/generator/test-tts-rate.sh` | `workflow_dispatch` のみ（cron なし） | `TEST_GEMINI_API_KEY` |
-| `generator-draft-rate.yml` | `scripts/generator/test-draft-rate.sh` | `workflow_dispatch` のみ（cron なし） | `TEST_CURSOR_API_KEY` |
+| `generator-draft-rate.yml` | `scripts/generator/test-draft-rate.sh` | `workflow_dispatch` のみ（cron なし） | `CURSOR_API_KEY` |
 | `playback-smoke.yml` | `npm run test:smoke`（webServer: `npm run dev:smoke`） | master 向け `pull_request` + `workflow_dispatch` | `CLOUDFLARE_API_TOKEN` `TEST_R2_ACCOUNT_ID` |
-| `playback-deploy.yml` | `scripts/playback/deploy.sh` | `apps/playback/**` 変更を含む master への `push` + `workflow_dispatch` | `CLOUDFLARE_API_TOKEN` |
+| `playback-deploy.yml` | `scripts/playback/deploy.sh` | `generator-system.yml` 成功後（`workflow_run`）+ `workflow_dispatch` | `CLOUDFLARE_API_TOKEN` |
 | `playback-e2e.yml` | `scripts/playback/test-e2e.sh` | `playback-deploy.yml` 成功後（`workflow_run`）+ `workflow_dispatch` | 下表 `PLAYWRIGHT_*` |
 
-必須 Unit / Integration gate には載せない。`generator-system.yml` / `playback-smoke.yml` は master 向け PR で走り、`playback-deploy.yml` は `apps/playback` 変更を含む master への push で本番 deploy し、`playback-e2e.yml` はその deploy 成功後に `workflow_run` で発火する（deploy 失敗時は E2E を走らせない）。判断: `docs/decisions/2026-09-15T03-51-41` / `2026-09-15T05-36-32` / `2026-09-15T05-04-17`。
+必須 Unit / Integration gate には載せない。`playback-smoke.yml` は master 向け PR で走る。CD 連鎖は `master push → generator-system.yml → playback-deploy.yml → playback-e2e.yml` の順（各段は前段の成功時のみ発火。失敗時は後続を走らせない）。判断: `docs/decisions/2026-09-15T03-51-41` / `2026-09-15T05-36-32` / `2026-09-15T05-04-17` / `2026-09-17T14-30-00`。
 
-`workflow_run` は GitHub 仕様上、**default branch（`master`）に存在する workflow 定義**を見て発火判定する。`playback-deploy.yml` → `playback-e2e.yml` の連鎖は、両 yml が master へ merge されるまで有効化されない（feature branch 上の差分だけでは動かない）。
+`workflow_run` は GitHub 仕様上、**default branch（`master`）に存在する workflow 定義**を見て発火判定する。`generator-system.yml` → `playback-deploy.yml` → `playback-e2e.yml` の連鎖は、3 つの yml すべてが master へ merge されるまで有効化されない（feature branch 上の差分だけでは動かない）。
 
 暦日は JST 運用に合わせる。
 
@@ -122,12 +100,12 @@ credential 付き実 operation は GHA runner のみ。通常 local / Integratio
 
 ### Generator System（`generator-system.yml`）
 
-`-tags=system` の system test を **1 回ずつ通すだけ**。「壊れていないか」だけを測り、PASS 率は定常で測らない。1 回でも FAIL なら run が赤。判断: `docs/decisions/2026-09-03T14-45-00` / `16-30-00`。
+`-tags=system` の system test を **1 回ずつ通すだけ**。「壊れていないか」だけを測り、PASS 率は定常で測らない。1 回でも FAIL なら run が赤。master push 契機の CD 連鎖（§5 冒頭）の起点であり、成功しないと `playback-deploy.yml` が発火しない。判断: `docs/decisions/2026-09-03T14-45-00` / `16-30-00` / `2026-09-17T14-30-00`。
 
-- 実体は `TestProduceEpisodeSystem`（`//go:build system`）1 本。`composition.NewProduceEpisodeFromEnv` → `Run` を 1 度通し、実 3 情報源 → Cursor API 原稿 → Gemini TTS → OAuth+Drive 書込 の疎通と通し経路の Drive 実到達を見る。Fetch 窓に SourceItem 0 件だった日は `no_source_items` Domain Error で PASS 扱い（fetch は疎通しており system は壊れていない）。他の error は system 故障として赤。
-- 必要 credential は config 契約の全 key（`TEST_CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` / `TEST_SPARE_GEMINI_API_KEY` / `TEST_GOOGLE_OAUTH_*` / `TEST_DRIVE_FOLDER_ID` / `TEST_R2_*`）。1 つでも欠けたら Skip。
+- 実体は `TestProduceEpisodeSystem`（`//go:build system`）1 本。`composition.NewProduceEpisodeFromEnvWithTopicCount`（`SYSTEM_TEST_TOPIC_COUNT` で topic 数を任意指定できる。未指定時は疎通確認用の 1 topic）→ `Run` を 1 度通し、実 5 情報源 → 原稿（Gemini→Cursor→Gemini fallback）→ Gemini TTS（fallback）→ R2 書込 の疎通と通し経路の R2 実到達を見る。Fetch 窓に SourceItem 0 件だった日は `no_source_items` Domain Error で PASS 扱い（fetch は疎通しており system は壊れていない）。他の error は system 故障として赤。
+- 必要 credential は config 契約の全 key（`CURSOR_API_KEY` / `TEST_GEMINI_API_KEY` / `SPARE_GEMINI_API_KEY` / `TEST_R2_*`）。1 つでも欠けたら Skip。
 - cron の 1 回通しが **2 週連続で落ちたら** bug 扱いで Issue 化する。1 週だけの赤は provider 起因として再 `workflow_dispatch` する。
-- 赤になったら故障区間に応じて `generator-tts-rate.yml`（TTS 側）/ `generator-draft-rate.yml`（Cursor 原稿側）を手動 dispatch して切り分ける。
+- 赤になったら故障区間に応じて `generator-tts-rate.yml`（TTS 側）/ `generator-draft-rate.yml`（Cursor 原稿側）を手動 dispatch して切り分ける。CD 連鎖が止まる（`playback-deploy.yml` が発火しない）ので、切り分けを優先する。
 - 定時緑化を運用目標にするのは課金枠移行後。無料枠のうちは「dispatch で回せたとき緑」で可。
 
 一次 evidence は GHA run URL（`go test -v` の `t.Logf` と `$GITHUB_STEP_SUMMARY`）。
@@ -151,7 +129,7 @@ env は `TEST_GEMINI_API_KEY` 直読み（本番 `GEMINI_API_KEY` を計測へ�
 - `*cursorapi.Error` の `Op=="do"`（API へ到達すらできない環境要因）はその回を分母から除外する。全回が除外なら Skip。
 - dispatch 例: `gh workflow run generator-draft-rate.yml -f runs=5 [-f prompt_variant=a -f pass_threshold=]`。
 
-env は `TEST_CURSOR_API_KEY` 直読み（本番 `CURSOR_API_KEY` を計測へ流さない）。判断: `docs/decisions/2026-09-03T14-45-00` / `14-47-00`。
+env は `CURSOR_API_KEY` 直読み（値が本番と同一のため`TEST_` 接頭辞を持たない。Decision `2026-09-16T00-39-21`）。判断: `docs/decisions/2026-09-03T14-45-00` / `14-47-00` / `2026-09-16T00-39-21`。
 
 ### Playback smoke（`playback-smoke.yml`）
 
@@ -163,9 +141,9 @@ deploy 前（master 向け PR）に「Access 以外の本当の e2e」を1本で
 
 ### Playback E2E（`PLAYWRIGHT_*`）
 
-OTP 手動・push 時 storageState・Drive=Worker。値は repo に書かない。
+OTP 手動・push 時 storageState。値は repo に書かない。
 
-`playback-smoke.yml` が一覧・原稿・再生・seek の UI 機能を deploy 前に確認するため、E2E は「Access session を経由して本番 Drive へ実際に到達できるか」の 1 test（一覧表示）だけを持つ。原稿・再生・seek の観測は smoke 側にある。
+`playback-smoke.yml` が一覧・原稿・再生・seek の UI 機能を deploy 前に確認するため、E2E は「Access session を経由して本番 R2 へ実際に到達できるか」の 1 test（一覧表示）だけを持つ。原稿・再生・seek の観測は smoke 側にある。
 
 | GHA 登録名 | 区分 | 意味 |
 |------|------|------|
@@ -182,7 +160,7 @@ local 実行時の path env 名は `PLAYWRIGHT_STORAGE_STATE`（GHA には登録
 
 手動確認: `gh workflow run playback-e2e.yml --ref <branch>`（Secret 付き）。
 
-安定 fixture（`apps/playback/test/e2e/fixtures/stable-episode/`）は本番 `DRIVE_FOLDER_ID` **直下**に置く。配置契約は mp3（`contracts/episode-layout.md`）。日次 produce が増えても fixture pair は残す。
+安定 fixture（`apps/playback/test/e2e/fixtures/stable-episode/`）は本番 R2 bucket **直下**に置く。配置契約は mp3（`contracts/episode-layout.md`）。日次 produce が増えても fixture pair は残す。
 
 ## 6. 再 deploy
 
@@ -213,4 +191,4 @@ custom domain / Pages+別 Worker / app 内 Access JWT / Service Token・WARP / p
 
 Reason / Rejected: `docs/decisions/2026-08-25T17-10-00`（公開境界）、`docs/decisions/2026-09-04T02-04-02`（運用後続の完了境界）。
 
-CD（master push 契機の自動 `wrangler deploy`）は `docs/decisions/2026-09-15T05-04-17` で採用へ転換した。自動 deploy は `playback-deploy.yml`（§5 参照）。手動手順は §6。
+CD（master push 契機の自動 `wrangler deploy`）は `docs/decisions/2026-09-15T05-04-17` で採用へ転換した。自動 deploy は `playback-deploy.yml`（§5 参照。`generator-system.yml` 成功後にのみ発火。Decision `2026-09-17T14-30-00`）。手動手順は §6。
