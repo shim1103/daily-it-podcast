@@ -80,6 +80,7 @@ export const episodeAudioFileExtension = ".mp3";
 /** 音声 GET 成功時の `Content-Type`。Drive 上の `{episodeId}.mp3` に対応する。 */
 export const episodeAudioContentType = "audio/mpeg";
 
+/** episodes は date 降順（新しい日付が先頭）で返る契約。並び替えは worker 側 use-case が持つ。 */
 export const ListEpisodesResponseSchema = z.strictObject({
   episodes: z.array(episodeItemSchema),
 });
