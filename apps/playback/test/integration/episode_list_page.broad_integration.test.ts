@@ -119,6 +119,47 @@ describe("EpisodeListPage", () => {
     expect(container.querySelector(".audio-controls")).toBeNull();
   });
 
+  it("retryable な catalog error（network_error）は retry button を描画し、押すと listEpisodes を呼び直して成功すれば一覧が出る", async () => {
+    // Given: 1 回目は失敗・2 回目（retry）は成功する stub
+    const listEpisodes = vi
+      .fn<PlaybackApiClient["listEpisodes"]>()
+      .mockImplementationOnce(async () => ({ ok: false as const, error: "network_error" }))
+      .mockImplementationOnce(async () => ({ ok: true as const, data: validListEpisodesResponse }));
+    const apiClient = createStubApiClient({ listEpisodes });
+    const { container } = renderPage(apiClient);
+    await waitFor(() => {
+      expect(container.querySelector(".page-error-retry")).not.toBeNull();
+    });
+
+    // When: retry button を押す
+    (container.querySelector(".page-error-retry") as HTMLButtonElement).dispatchEvent(
+      new MouseEvent("click", { bubbles: true }),
+    );
+
+    // Then: listEpisodes が 2 回目呼ばれ、成功後は一覧が描画される（Error UI は消える）
+    await waitFor(() => {
+      expect(container.querySelectorAll(".episode-item")).toHaveLength(2);
+    });
+    expect(listEpisodes).toHaveBeenCalledTimes(2);
+    expect(container.querySelector("[data-page-error]")).toBeNull();
+  });
+
+  it("retryable でない catalog error（validation_error）は retry button を描画しない", async () => {
+    // Given: 内部bug系（retryable=false）で失敗する stub
+    const apiClient = createStubApiClient({
+      listEpisodes: vi.fn(async () => ({ ok: false as const, error: "validation_error" as const })),
+    });
+
+    // When: page を render する
+    const { container } = renderPage(apiClient);
+
+    // Then: Error UI は出るが retry button は出ない
+    await waitFor(() => {
+      expect(container.querySelector("[data-page-error]")).not.toBeNull();
+    });
+    expect(container.querySelector(".page-error-retry")).toBeNull();
+  });
+
   it("catalog success 時は Row 一覧を描画する", async () => {
     // Given: listEpisodes が成功する stub
     const apiClient = createStubApiClient();

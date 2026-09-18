@@ -493,7 +493,7 @@ describe("useEpisodeListPage", () => {
     ]);
   });
 
-  it("page 実使用の投影とアクション（toggleSelection / play / seek / stop / audioElementRef）だけを公開する", () => {
+  it("page 実使用の投影とアクション（toggleSelection / play / seek / stop / retry / audioElementRef）だけを公開する", () => {
     // Given: success catalog stub
     mockCatalog({ catalogStatus: { status: "success" }, episodes: [episodeOne] });
     const apiClient = createStubApiClient();
@@ -506,6 +506,7 @@ describe("useEpisodeListPage", () => {
     expect(typeof result.current.play).toBe("function");
     expect(typeof result.current.stop).toBe("function");
     expect(typeof result.current.seek).toBe("function");
+    expect(typeof result.current.retry).toBe("function");
     expect(result.current.audioElementRef.current).toBeNull();
     expect(result.current).not.toHaveProperty("selection");
     expect(result.current).not.toHaveProperty("selectedEpisode");
@@ -514,5 +515,21 @@ describe("useEpisodeListPage", () => {
     expect(result.current).not.toHaveProperty("select");
     expect(result.current).not.toHaveProperty("deselect");
     expect(result.current).not.toHaveProperty("load");
+  });
+
+  it("retry は catalog.load をそのまま呼ぶ（配線の確認。load 自体の状態遷移は use-episode-catalog のテストが持つ）", async () => {
+    // Given: load を spy できる catalog stub
+    const load = vi.fn(async (): Promise<void> => {});
+    mockCatalog({ catalogStatus: { status: "error", error: "network_error" }, episodes: [], load });
+    const apiClient = createStubApiClient();
+    const { result } = renderHook(() => useEpisodeListPage(apiClient, BASE_URL));
+
+    // When: retry を呼ぶ
+    await act(async () => {
+      await result.current.retry();
+    });
+
+    // Then: catalog.load が呼ばれる
+    expect(load).toHaveBeenCalledTimes(1);
   });
 });

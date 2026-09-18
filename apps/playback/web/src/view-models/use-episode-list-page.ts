@@ -26,6 +26,7 @@ export type EpisodeListPageViewModel = {
   play(episodeId: string, positionSec?: number): void;
   seek(episodeId: string, positionSec: number): void;
   stop(): void;
+  retry(): Promise<void>;
   audioElementRef: EpisodePlaybackViewModel["audioElementRef"];
 };
 
@@ -106,6 +107,7 @@ export function useEpisodeListPage(
     play,
     seek,
     stop: playback.stop,
+    retry: catalog.load,
     audioElementRef: playback.audioElementRef,
   };
 }

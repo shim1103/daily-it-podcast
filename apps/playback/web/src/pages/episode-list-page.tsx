@@ -16,7 +16,8 @@ export type EpisodeListPageProps = {
  *
  * @require apiClient は `listEpisodes()` を持つ。baseUrl は audio 直結先の origin 相当で、
  *   そのまま `useEpisodeListPage` へ渡す（URL 組み立ては hook の責務）
- * @ensure `pageStatus.kind` が loading なら loading marker、unavailable なら全画面 Error UI、
+ * @ensure `pageStatus.kind` が loading なら loading marker、unavailable なら全画面 Error UI
+ *   （`pageStatus.retryable` が true なら message 下に retry button も出す）、
  *   ready なら本体を描画する。本体は `rows` を map し、各 row を `EpisodeItem` 1 つへ渡す
  *   （行本体と選択中の原稿は `EpisodeItem` が束ねる）。`AudioControls` は再生中かどうかに
  *   関わらず常に描画し、`audioElementRef` と `nowPlaying`（再生中 episode の見出し。hook が投影）を
@@ -27,15 +28,33 @@ export type EpisodeListPageProps = {
  *   `useEpisodeListPage` とその下位 hook が持つ
  */
 export function EpisodeListPage({ apiClient, baseUrl }: EpisodeListPageProps): ReactElement {
-  const { rows, nowPlaying, pageStatus, toggleSelection, play, seek, stop, audioElementRef } =
-    useEpisodeListPage(apiClient, baseUrl);
+  const {
+    rows,
+    nowPlaying,
+    pageStatus,
+    toggleSelection,
+    play,
+    seek,
+    stop,
+    retry,
+    audioElementRef,
+  } = useEpisodeListPage(apiClient, baseUrl);
 
   if (pageStatus.kind === "loading") {
     return <p data-page-loading>読み込み中</p>;
   }
 
   if (pageStatus.kind === "unavailable") {
-    return <div data-page-error>{pageStatus.message}</div>;
+    return (
+      <div data-page-error>
+        <p>{pageStatus.message}</p>
+        {pageStatus.retryable ? (
+          <button type="button" className="page-error-retry" onClick={() => void retry()}>
+            リトライ
+          </button>
+        ) : null}
+      </div>
+    );
   }
 
   return (

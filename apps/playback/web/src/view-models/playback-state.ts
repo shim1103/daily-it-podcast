@@ -94,24 +94,35 @@ export type NowPlayingViewModel = {
  * `PlaybackApiErrorCode` を UI 向け表示文言と retry 可否へ写す表（宣言的 mapping。
  * error-handling/defensive-design.md §5・§8）。`Record` の網羅性により、code 追加時は
  * この表の更新を tsc が compile error として強制する（同 §6 の静的網羅性）。
- * retryable は「再試行で状態が変わりうるか」（一時的失敗のみ true）で判定する。
+ * catalog は page 唯一の primary content のため、7 種いずれも表示形態は unavailable
+ * （全体を覆う）へ収束させる。retryable だけが「外部依存・一時的失敗」枝を分ける軸になる
+ * （defensive-design.md §8 の 3 軸判定のうち、catalog では表示形態の軸が効かない）。
  */
 const catalogErrorPresentation: {
   readonly [K in PlaybackApiErrorCode]: { message: string; retryable: boolean };
 } = {
+  // 外部依存・恒久的失敗: 対象データが無いだけで、再試行しても解消しない
   episode_not_found: { message: "エピソードが見つかりません", retryable: false },
-  validation_error: { message: "一覧を表示できません", retryable: false },
-  configuration_error: { message: "一覧を表示できません", retryable: false },
+
+  // 外部依存・一時的失敗: 呼び出し先の一時状態。時間を置けば成功しうる
   unavailable: {
     message: "現在ご利用いただけません。時間を置いてもう一度お試しください",
     retryable: true,
   },
-  client_error: { message: "一覧を表示できません", retryable: false },
   network_error: {
     message: "通信に失敗しました。時間を置いてもう一度お試しください",
     retryable: true,
   },
+
+  // 内部bug・想定外: 契約不整合・設定不備。再試行しても同じ結果になるため、
+  // userへ理由を出し分けず汎用文言へ統一する
+  validation_error: { message: "一覧を表示できません", retryable: false },
+  configuration_error: { message: "一覧を表示できません", retryable: false },
   invalid_response: { message: "一覧を表示できません", retryable: false },
+  // why: listEpisodes は入力を取らず契約が定義する 400/404/500/503 以外を worker 自身は
+  //   返さないため、worker のバグとしては到達しない。中間層（proxy 等）由来の想定外 4xx への
+  //   fallbackとして残す（`mapHttpStatusToApiError` 参照）
+  client_error: { message: "一覧を表示できません", retryable: false },
 };
 
 /**
