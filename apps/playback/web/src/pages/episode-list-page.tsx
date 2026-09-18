@@ -35,7 +35,7 @@ export function EpisodeListPage({ apiClient, baseUrl }: EpisodeListPageProps): R
   }
 
   if (pageStatus.kind === "unavailable") {
-    return <div data-page-error>一覧を表示できません</div>;
+    return <div data-page-error>{pageStatus.message}</div>;
   }
 
   return (

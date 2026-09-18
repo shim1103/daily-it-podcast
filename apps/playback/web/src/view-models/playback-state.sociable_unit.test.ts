@@ -52,13 +52,95 @@ function activePlayback(
 }
 
 describe("derivePageStatus", () => {
-  it("catalogStatus が error の時、kind=unavailable reason=catalog-load-failed を返す", () => {
-    // Given: catalog load 失敗
+  it("catalogStatus が error/network_error（一時的失敗）の時、retryable=true の unavailable を返す", () => {
+    // Given: 一時的失敗（network_error）
     // When: page status を導出する
-    const got = derivePageStatus({ status: "error" });
+    const got = derivePageStatus({ status: "error", error: "network_error" });
 
-    // Then: unavailable / catalog-load-failed
-    expect(got).toEqual({ kind: "unavailable", reason: "catalog-load-failed" });
+    // Then: unavailable・retryable=true・文言あり
+    expect(got).toEqual({
+      kind: "unavailable",
+      message: "通信に失敗しました。時間を置いてもう一度お試しください",
+      retryable: true,
+    });
+  });
+
+  it("catalogStatus が error/unavailable（外部依存の一時的失敗）の時、retryable=true を返す", () => {
+    // Given: 一時的失敗（unavailable）
+    // When: page status を導出する
+    const got = derivePageStatus({ status: "error", error: "unavailable" });
+
+    // Then: retryable=true
+    expect(got).toEqual({
+      kind: "unavailable",
+      message: "現在ご利用いただけません。時間を置いてもう一度お試しください",
+      retryable: true,
+    });
+  });
+
+  it("catalogStatus が error/episode_not_found（恒久的失敗）の時、retryable=false を返す", () => {
+    // Given: 恒久的失敗（対象不在）
+    // When: page status を導出する
+    const got = derivePageStatus({ status: "error", error: "episode_not_found" });
+
+    // Then: retryable=false
+    expect(got).toEqual({
+      kind: "unavailable",
+      message: "エピソードが見つかりません",
+      retryable: false,
+    });
+  });
+
+  it("catalogStatus が error/validation_error（内部bug・想定外）の時、retryable=false を返す", () => {
+    // Given: 契約不整合
+    // When: page status を導出する
+    const got = derivePageStatus({ status: "error", error: "validation_error" });
+
+    // Then: retryable=false
+    expect(got).toEqual({
+      kind: "unavailable",
+      message: "一覧を表示できません",
+      retryable: false,
+    });
+  });
+
+  it("catalogStatus が error/configuration_error の時、retryable=false を返す", () => {
+    // Given: 設定不備
+    // When: page status を導出する
+    const got = derivePageStatus({ status: "error", error: "configuration_error" });
+
+    // Then: retryable=false
+    expect(got).toEqual({
+      kind: "unavailable",
+      message: "一覧を表示できません",
+      retryable: false,
+    });
+  });
+
+  it("catalogStatus が error/client_error の時、retryable=false を返す", () => {
+    // Given: 想定外の 4xx
+    // When: page status を導出する
+    const got = derivePageStatus({ status: "error", error: "client_error" });
+
+    // Then: retryable=false
+    expect(got).toEqual({
+      kind: "unavailable",
+      message: "一覧を表示できません",
+      retryable: false,
+    });
+  });
+
+  it("catalogStatus が error/invalid_response の時、retryable=false を返す", () => {
+    // Given: 応答の契約不整合
+    // When: page status を導出する
+    const got = derivePageStatus({ status: "error", error: "invalid_response" });
+
+    // Then: retryable=false
+    expect(got).toEqual({
+      kind: "unavailable",
+      message: "一覧を表示できません",
+      retryable: false,
+    });
   });
 
   it("catalogStatus が loading の時、kind=loading を返す", () => {

@@ -1,5 +1,6 @@
 import type { ApiSuccessData } from "../api/api-result.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
+import type { PlaybackApiErrorCode } from "../api/playback-api-error.ts";
 import { formatEpisodeDate } from "../utils/format-episode-date.ts";
 import { formatNumberedEpisodeTitle } from "../utils/format-numbered-episode-title.ts";
 
@@ -7,7 +8,10 @@ type ListEpisodesData = ApiSuccessData<PlaybackApiClient["listEpisodes"]>;
 
 export type EpisodeData = ListEpisodesData["episodes"][number];
 
-export type CatalogStatus = { status: "loading" } | { status: "success" } | { status: "error" };
+export type CatalogStatus =
+  | { status: "loading" }
+  | { status: "success" }
+  | { status: "error"; error: PlaybackApiErrorCode };
 
 export type SelectionState = { selected: false } | { selected: true; episode: EpisodeData };
 
@@ -52,10 +56,12 @@ export type ActivePlayback = Extract<PlaybackState, { kind: "active" }>;
 /**
  * page 全体の振る舞いを決める blocking 判定のみを持つ型。non-blocking（audio 失敗）は
  * `PlaybackState` の `phase:"error"` 枝が持ち、この型からは分離する。
+ * `unavailable` の `message` は catalog の `error` code から導出した UI 向け表示文言、
+ * `retryable` は再試行で状態が変わりうるか（error-handling/defensive-design.md §8）。
  */
 export type PageStatus =
   | { kind: "loading" }
-  | { kind: "unavailable"; reason: "catalog-load-failed" }
+  | { kind: "unavailable"; message: string; retryable: boolean }
   | { kind: "ready" };
 
 /**
@@ -85,16 +91,41 @@ export type NowPlayingViewModel = {
 };
 
 /**
+ * `PlaybackApiErrorCode` を UI 向け表示文言と retry 可否へ写す表（宣言的 mapping。
+ * error-handling/defensive-design.md §5・§8）。`Record` の網羅性により、code 追加時は
+ * この表の更新を tsc が compile error として強制する（同 §6 の静的網羅性）。
+ * retryable は「再試行で状態が変わりうるか」（一時的失敗のみ true）で判定する。
+ */
+const catalogErrorPresentation: {
+  readonly [K in PlaybackApiErrorCode]: { message: string; retryable: boolean };
+} = {
+  episode_not_found: { message: "エピソードが見つかりません", retryable: false },
+  validation_error: { message: "一覧を表示できません", retryable: false },
+  configuration_error: { message: "一覧を表示できません", retryable: false },
+  unavailable: {
+    message: "現在ご利用いただけません。時間を置いてもう一度お試しください",
+    retryable: true,
+  },
+  client_error: { message: "一覧を表示できません", retryable: false },
+  network_error: {
+    message: "通信に失敗しました。時間を置いてもう一度お試しください",
+    retryable: true,
+  },
+  invalid_response: { message: "一覧を表示できません", retryable: false },
+};
+
+/**
  * catalog の取得状態から page 全体の振る舞い（`PageStatus`）を導出する。
  *
- * @ensure catalog error は unavailable/catalog-load-failed、catalog loading は loading、
- *   catalog success は ready。選択・再生の異常は blocking 判定に影響しない
+ * @ensure catalog error は `catalogErrorPresentation` が持つ message・retryable を
+ *   付けた unavailable、catalog loading は loading、catalog success は ready。
+ *   選択・再生の異常は blocking 判定に影響しない
  */
 export function derivePageStatus(catalogStatus: CatalogStatus): PageStatus {
   const status = catalogStatus.status;
   switch (status) {
     case "error":
-      return { kind: "unavailable", reason: "catalog-load-failed" };
+      return { kind: "unavailable", ...catalogErrorPresentation[catalogStatus.error] };
     case "loading":
       return { kind: "loading" };
     case "success":
@@ -104,7 +135,7 @@ export function derivePageStatus(catalogStatus: CatalogStatus): PageStatus {
       const exhaustive: never = status;
       void exhaustive;
       // why: 「使えない」を返すのが loading より安全側（本体を描かせない）
-      return { kind: "unavailable", reason: "catalog-load-failed" };
+      return { kind: "unavailable", message: "一覧を表示できません", retryable: false };
     }
   }
 }

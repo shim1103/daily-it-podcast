@@ -122,19 +122,16 @@ describe("useEpisodeListPage", () => {
     expect(result.current.rows).toEqual([]);
   });
 
-  it("catalog error 時は pageStatus が unavailable reason=catalog-load-failed になる", () => {
+  it("catalog error 時は pageStatus が unavailable になり catalog の error を配線する（文言・retryable 導出の詳細は playback-state.ts のテストが持つ）", () => {
     // Given: error catalog stub
-    mockCatalog({ catalogStatus: { status: "error" }, episodes: [] });
+    mockCatalog({ catalogStatus: { status: "error", error: "network_error" }, episodes: [] });
     const apiClient = createStubApiClient();
 
     // When: hook を render する
     const { result } = renderHook(() => useEpisodeListPage(apiClient, BASE_URL));
 
-    // Then: pageStatus は unavailable / catalog-load-failed
-    expect(result.current.pageStatus).toEqual({
-      kind: "unavailable",
-      reason: "catalog-load-failed",
-    });
+    // Then: pageStatus は unavailable
+    expect(result.current.pageStatus.kind).toBe("unavailable");
   });
 
   it("catalog success + episodes に無い id を toggleSelection しても selection は入らず pageStatus は ready のまま", () => {

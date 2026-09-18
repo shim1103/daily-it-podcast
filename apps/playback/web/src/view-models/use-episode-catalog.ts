@@ -15,7 +15,8 @@ export type EpisodeCatalogViewModel = {
  *   （変わる場合は `load` が再生成され、mount 時の auto-load effect が再発火する）
  * @ensure 初期は loading・episodes は空。mount 時に自動で `load()` を 1 回呼ぶ。以後 `load()` は
  *   明示 reload 用として残す。`load()` は `apiClient.listEpisodes()` を呼び、成功なら
- *   success + episodes、失敗なら error + episodes は空のまま。再実行前に loading へ戻す
+ *   success + episodes、失敗なら ApiResult の error code を保持した error + episodes は空のまま。
+ *   再実行前に loading へ戻す
  * @invariant throw しない。API Client の失敗は ApiResult の失敗側で受ける。hash・選択・再生は知らない
  */
 export function useEpisodeCatalog(apiClient: PlaybackApiClient): EpisodeCatalogViewModel {
@@ -30,7 +31,7 @@ export function useEpisodeCatalog(apiClient: PlaybackApiClient): EpisodeCatalogV
       setCatalogStatus({ status: "success" });
       return;
     }
-    setCatalogStatus({ status: "error" });
+    setCatalogStatus({ status: "error", error: result.error });
   }, [apiClient]);
 
   // why: 起動を hook の内部へ寄せる。mount 時 1 回だけ自動 load し、呼び出し側が
