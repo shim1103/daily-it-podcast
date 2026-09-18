@@ -1,5 +1,6 @@
 import type { ApiSuccessData } from "../api/api-result.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
+import type { PlaybackApiErrorCode } from "../api/playback-api-error.ts";
 import { formatEpisodeDate } from "../utils/format-episode-date.ts";
 import { formatNumberedEpisodeTitle } from "../utils/format-numbered-episode-title.ts";
 
@@ -7,7 +8,10 @@ type ListEpisodesData = ApiSuccessData<PlaybackApiClient["listEpisodes"]>;
 
 export type EpisodeData = ListEpisodesData["episodes"][number];
 
-export type CatalogStatus = { status: "loading" } | { status: "success" } | { status: "error" };
+export type CatalogStatus =
+  | { status: "loading" }
+  | { status: "success" }
+  | { status: "error"; error: PlaybackApiErrorCode };
 
 export type SelectionState = { selected: false } | { selected: true; episode: EpisodeData };
 
@@ -52,15 +56,16 @@ export type ActivePlayback = Extract<PlaybackState, { kind: "active" }>;
 /**
  * page 全体の振る舞いを決める blocking 判定のみを持つ型。non-blocking（audio 失敗）は
  * `PlaybackState` の `phase:"error"` 枝が持ち、この型からは分離する。
+ * `unavailable` の `message` は catalog の `error` code から導出した UI 向け表示文言、
+ * `retryable` は再試行で状態が変わりうるか（error-handling/defensive-design.md §8）。
  */
 export type PageStatus =
   | { kind: "loading" }
-  | { kind: "unavailable"; reason: "catalog-load-failed" }
+  | { kind: "unavailable"; message: string; retryable: boolean }
   | { kind: "ready" };
 
 /**
- * Row がそのまま描ける形。表示整形に要る episode 実体と、識別 id、union 判別で決まる boolean を持つ。
- * `episodeId` は `key` と識別に使う識別用の冗長 field（`episode.episodeId` と同値）。
+ * Row がそのまま描ける形。表示整形に要る episode 実体と、union 判別で決まる boolean を持つ。
  *
  * `isActivePlayback` は「この episode が今 再生進行中か（phase:"loading" か "playing"）」。
  * 再生 button の「再生 ↔ 停止」トグルはこれで決める（loading 中でも停止できるようにするため）。
@@ -69,7 +74,6 @@ export type PageStatus =
  */
 export type EpisodeRowViewModel = {
   episode: EpisodeData;
-  episodeId: string;
   isSelected: boolean;
   isActivePlayback: boolean;
   isPlaying: boolean;
@@ -85,16 +89,40 @@ export type NowPlayingViewModel = {
 };
 
 /**
+ * `PlaybackApiErrorCode` を UI 向け表示文言と retry 可否へ写す表。`Record` の網羅性により、
+ * code 追加時はこの表の更新を tsc が compile error として強制する。分類根拠は decision
+ * （`2026-09-18T08-47-51-refactor-playback-web-catalog-error-propagation.md`）を正とする。
+ */
+const catalogErrorPresentation: {
+  readonly [K in PlaybackApiErrorCode]: { message: string; retryable: boolean };
+} = {
+  episode_not_found: { message: "エピソードが見つかりません", retryable: false },
+  unavailable: {
+    message: "現在ご利用いただけません。時間を置いてもう一度お試しください",
+    retryable: true,
+  },
+  network_error: {
+    message: "通信に失敗しました。時間を置いてもう一度お試しください",
+    retryable: true,
+  },
+  validation_error: { message: "一覧を表示できません", retryable: false },
+  configuration_error: { message: "一覧を表示できません", retryable: false },
+  invalid_response: { message: "一覧を表示できません", retryable: false },
+  client_error: { message: "一覧を表示できません", retryable: false },
+};
+
+/**
  * catalog の取得状態から page 全体の振る舞い（`PageStatus`）を導出する。
  *
- * @ensure catalog error は unavailable/catalog-load-failed、catalog loading は loading、
- *   catalog success は ready。選択・再生の異常は blocking 判定に影響しない
+ * @ensure catalog error は `catalogErrorPresentation` が持つ message・retryable を
+ *   付けた unavailable、catalog loading は loading、catalog success は ready。
+ *   選択・再生の異常は blocking 判定に影響しない
  */
 export function derivePageStatus(catalogStatus: CatalogStatus): PageStatus {
   const status = catalogStatus.status;
   switch (status) {
     case "error":
-      return { kind: "unavailable", reason: "catalog-load-failed" };
+      return { kind: "unavailable", ...catalogErrorPresentation[catalogStatus.error] };
     case "loading":
       return { kind: "loading" };
     case "success":
@@ -104,7 +132,7 @@ export function derivePageStatus(catalogStatus: CatalogStatus): PageStatus {
       const exhaustive: never = status;
       void exhaustive;
       // why: 「使えない」を返すのが loading より安全側（本体を描かせない）
-      return { kind: "unavailable", reason: "catalog-load-failed" };
+      return { kind: "unavailable", message: "一覧を表示できません", retryable: false };
     }
   }
 }
@@ -112,7 +140,7 @@ export function derivePageStatus(catalogStatus: CatalogStatus): PageStatus {
 /**
  * 一覧と選択・再生 union から、Row がそのまま描ける形の配列を導出する。
  *
- * @ensure 各 row は入力 episode の実体（同一参照）と識別 id を持つ。選択中なら isSelected=true。
+ * @ensure 各 row は入力 episode の実体（同一参照）を持つ。選択中なら isSelected=true。
  *   `kind:"active"` かつ `phase` が "loading" / "playing" でその episodeId なら isActivePlayback=true。
  *   さらに `phase:"playing"` なら isPlaying=true。どちらも一致しなければ false。
  *   順序は入力の `episodes` に一致する
@@ -133,7 +161,6 @@ export function deriveEpisodeRows(
       : null;
   return episodes.map((episode) => ({
     episode,
-    episodeId: episode.episodeId,
     isSelected: episode.episodeId === selectedEpisodeId,
     isActivePlayback: episode.episodeId === activeEpisodeId,
     isPlaying: episode.episodeId === playingEpisodeId,

@@ -52,3 +52,28 @@
     margin-inline: auto;
   }
 }
+
+/* 全画面 Error UI。retry button だけ accent を青系にし、他の紫基調から浮かない程度に抑える */
+[data-page-error] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: #f5f5f7;
+  text-align: center;
+}
+
+.page-error-retry {
+  padding: 6px 20px;
+  border: 1px solid var(--app-blue);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--app-blue);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.page-error-retry:hover {
+  background: color-mix(in srgb, var(--app-blue) 15%, transparent);
+}
