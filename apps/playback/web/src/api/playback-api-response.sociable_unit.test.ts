@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ListEpisodesResponseSchema } from "../../../contracts/index.ts";
 import type { PlaybackApiErrorCode } from "./playback-api-error.ts";
 import { mapHttpStatusToApiError } from "./playback-api-error.ts";
-import { readJsonResult } from "./playback-api-response.ts";
+import { resolveApiResult } from "./playback-api-response.ts";
 
 vi.mock("./playback-api-error.ts", () => ({
   mapHttpStatusToApiError: vi.fn(),
@@ -27,7 +27,7 @@ const validListEpisodesResponse = {
   ],
 };
 
-describe("readJsonResult 正常系", () => {
+describe("resolveApiResult 正常系", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -37,14 +37,14 @@ describe("readJsonResult 正常系", () => {
     const response = Response.json(validListEpisodesResponse);
 
     // When: JSON response を処理する
-    const got = await readJsonResult(() => Promise.resolve(response), ListEpisodesResponseSchema);
+    const got = await resolveApiResult(() => Promise.resolve(response), ListEpisodesResponseSchema);
 
     // Then: schema 検証済みの data を返す
     expect(got).toEqual({ ok: true, data: validListEpisodesResponse });
   });
 });
 
-describe("readJsonResult 異常系", () => {
+describe("resolveApiResult 異常系", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -52,7 +52,7 @@ describe("readJsonResult 異常系", () => {
   it("getResponse が reject した時、network_error を返す", async () => {
     // Given: network failure を起こす getResponse
     // When: JSON response を処理する
-    const got = await readJsonResult(
+    const got = await resolveApiResult(
       () => Promise.reject(new Error("network failure")),
       ListEpisodesResponseSchema,
     );
@@ -66,7 +66,7 @@ describe("readJsonResult 異常系", () => {
     const response = Response.json({ episodes: [{ invalid: true }] });
 
     // When: JSON response を処理する
-    const got = await readJsonResult(() => Promise.resolve(response), ListEpisodesResponseSchema);
+    const got = await resolveApiResult(() => Promise.resolve(response), ListEpisodesResponseSchema);
 
     // Then: invalid_response
     expect(got).toEqual({ ok: false, error: "invalid_response" });
@@ -81,7 +81,7 @@ describe("readJsonResult 異常系", () => {
     };
 
     // When: JSON response を処理する
-    const got = await readJsonResult(() => Promise.resolve(response), ListEpisodesResponseSchema);
+    const got = await resolveApiResult(() => Promise.resolve(response), ListEpisodesResponseSchema);
 
     // Then: invalid_response
     expect(got).toEqual({ ok: false, error: "invalid_response" });
@@ -102,7 +102,7 @@ describe("readJsonResult 異常系", () => {
     };
 
     // When: JSON response を処理する
-    const got = await readJsonResult(() => Promise.resolve(response), ListEpisodesResponseSchema);
+    const got = await resolveApiResult(() => Promise.resolve(response), ListEpisodesResponseSchema);
 
     // Then: mapper の値をそのまま返し body は読まない
     expect(got).toEqual({ ok: false, error: mappedError });
@@ -111,7 +111,7 @@ describe("readJsonResult 異常系", () => {
   });
 });
 
-describe("readJsonResult 境界系", () => {
+describe("resolveApiResult 境界系", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -125,7 +125,7 @@ describe("readJsonResult 境界系", () => {
     };
 
     // When: JSON response を処理する
-    const got = await readJsonResult(() => Promise.resolve(response), ListEpisodesResponseSchema);
+    const got = await resolveApiResult(() => Promise.resolve(response), ListEpisodesResponseSchema);
 
     // Then: status の分類ではなく ok を根拠に成功する
     expect(got).toEqual({ ok: true, data: validListEpisodesResponse });

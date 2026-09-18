@@ -15,7 +15,7 @@ type ResponseLike = {
  * @ensure reject・非成功 response・body/schema failure を throw せず ApiResult へ変換する
  * @invariant 非成功 response の body は読まない
  */
-export async function readJsonResult<T>(
+export async function resolveApiResult<T>(
   getResponse: () => Promise<ResponseLike>,
   schema: ZodType<T>,
 ): Promise<ApiResult<T>> {
