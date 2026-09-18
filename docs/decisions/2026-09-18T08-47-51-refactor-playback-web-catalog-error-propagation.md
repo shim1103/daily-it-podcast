@@ -11,7 +11,7 @@ branch: refactor/playback-frontend-state-logic
 3. catalog由来の7種は、性質分類（`error-handling/defensive-design.md` §8の4分類）上は「外部依存・恒久的失敗」「外部依存・一時的失敗」「内部bug・想定外」の3群に分かれるが、**表示形態（全体を覆うか）の軸では全て同じ結論に収束する**。catalogはpageの唯一のprimary contentであり、これが失敗すれば他に見せられるcontentが無いため、7種いずれも `PageStatus.kind = "unavailable"`（全体を覆う画面）で表す。分岐が生じるのは retryable（外部依存・一時的失敗のみ true）の1点のみ。
 4. `PageStatus.unavailable` は `{ message: string; retryable: boolean }` を持つ。`retryable=true` の時だけ、page はmessage直下に小さいretry buttonを出す（`useEpisodeListPage.retry()` = `catalog.load` を呼ぶ配線）。retryableでない時はbuttonを出さない。
 5. 「内部bug・想定外」群（`validation_error` / `configuration_error` / `invalid_response` / `client_error`）は、userへ理由を出し分けず同一の汎用文言（「一覧を表示できません」）へ統一する。userが取れるactionが無い失敗の理由を細分化して見せても意味がない。
-6. `client_error` は `listEpisodes` が入力を取らない固定 `GET` のため、worker実装のcode上は契約が定義する `400/404/500/503` 以外を返す経路が無い。中間層（proxy等）由来の想定外4xxへのfallbackとして残すが、worker自身のbugとしては到達しない値であることを型定義側のcommentで明示する。
+6. `client_error` は `listEpisodes` が入力を取らない固定 `GET` のため、worker実装のcode上は契約が定義する `400/404/500/503` 以外を返す経路が無い。中間層（proxy等）由来の想定外4xxへのfallbackとして残す。この根拠は本Decisionのみに置き、`catalogErrorPresentation` 側（`playback-state.ts`）はcode commentへ全文転記せず本Decisionを参照するだけに留める（`coding-style/comments.md` の decision 重複禁止規約）。
 
 ## 2. Reason
 
