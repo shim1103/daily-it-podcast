@@ -1,7 +1,7 @@
 ---
 name: catalog由来のHttpErrorはPlaybackApiErrorCode 7種を性質別に分類し、UIへの見せ方は「全体を覆うか」と「retry導線を出すか」の2軸だけをcatalogに許す
 date: 2026-09-18T08:47:51
-branch: refactor/playback-frontend-state-logic
+branch: refactor/playback-web-catalog-error-propagation
 ---
 
 ## 1. Decision

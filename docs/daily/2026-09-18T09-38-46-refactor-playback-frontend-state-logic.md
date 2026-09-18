@@ -2,7 +2,7 @@
 name: playback web の catalog error伝播とview-model公開面の整理
 date: 2026-09-18T09:38:46
 session_id: none
-branch: refactor/playback-frontend-state-logic
+branch: refactor/playback-web-catalog-error-propagation
 prev: なし
 ---
 
