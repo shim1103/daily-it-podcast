@@ -61,7 +61,7 @@ export function EpisodeListPage({ apiClient, baseUrl }: EpisodeListPageProps): R
     <div className="episode-list">
       {rows.map((row, episodeIndex) => (
         <EpisodeItem
-          key={row.episodeId}
+          key={row.episode.episodeId}
           episode={row.episode}
           episodeCount={rows.length}
           episodeIndex={episodeIndex}
@@ -71,7 +71,7 @@ export function EpisodeListPage({ apiClient, baseUrl }: EpisodeListPageProps): R
           onSelect={toggleSelection}
           onPlay={play}
           onStop={stop}
-          onSeek={(startSec) => seek(row.episodeId, startSec)}
+          onSeek={(startSec) => seek(row.episode.episodeId, startSec)}
         />
       ))}
       <AudioControls audioRef={audioElementRef} nowPlaying={nowPlaying} />

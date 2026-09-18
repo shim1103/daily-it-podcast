@@ -164,13 +164,7 @@ describe("useEpisodeListPage", () => {
     // Then: ready・row の isSelected が true
     expect(result.current.pageStatus).toEqual({ kind: "ready" });
     expect(result.current.rows).toEqual([
-      {
-        episode: episodeOne,
-        episodeId: "ep-1",
-        isSelected: true,
-        isActivePlayback: false,
-        isPlaying: false,
-      },
+      { episode: episodeOne, isSelected: true, isActivePlayback: false, isPlaying: false },
     ]);
   });
 
@@ -221,13 +215,7 @@ describe("useEpisodeListPage", () => {
 
     // Then: ep-1 の row が isSelected=true になる
     expect(result.current.rows).toEqual([
-      {
-        episode: episodeOne,
-        episodeId: "ep-1",
-        isSelected: true,
-        isActivePlayback: false,
-        isPlaying: false,
-      },
+      { episode: episodeOne, isSelected: true, isActivePlayback: false, isPlaying: false },
     ]);
   });
 
@@ -245,13 +233,7 @@ describe("useEpisodeListPage", () => {
 
     // Then: row の isSelected が false のまま・pageStatus は ready
     expect(result.current.rows).toEqual([
-      {
-        episode: episodeOne,
-        episodeId: "ep-1",
-        isSelected: false,
-        isActivePlayback: false,
-        isPlaying: false,
-      },
+      { episode: episodeOne, isSelected: false, isActivePlayback: false, isPlaying: false },
     ]);
     expect(result.current.pageStatus).toEqual({ kind: "ready" });
   });
@@ -382,20 +364,8 @@ describe("useEpisodeListPage", () => {
 
     // Then: selection は ep-1 のまま・playback のみ ep-2・ready
     expect(result.current.rows).toEqual([
-      {
-        episode: episodeOne,
-        episodeId: "ep-1",
-        isSelected: true,
-        isActivePlayback: false,
-        isPlaying: false,
-      },
-      {
-        episode: episodeTwo,
-        episodeId: "ep-2",
-        isSelected: false,
-        isActivePlayback: true,
-        isPlaying: false,
-      },
+      { episode: episodeOne, isSelected: true, isActivePlayback: false, isPlaying: false },
+      { episode: episodeTwo, isSelected: false, isActivePlayback: true, isPlaying: false },
     ]);
     expect(result.current.playback).toMatchObject({
       kind: "active",
@@ -467,13 +437,7 @@ describe("useEpisodeListPage", () => {
 
     // Then: loading 中は「再生対象」だが「音は出ていない」
     expect(result.current.rows).toEqual([
-      {
-        episode: episodeOne,
-        episodeId: "ep-1",
-        isSelected: false,
-        isActivePlayback: true,
-        isPlaying: false,
-      },
+      { episode: episodeOne, isSelected: false, isActivePlayback: true, isPlaying: false },
     ]);
 
     // When: audio が playing event を発火する
@@ -483,13 +447,7 @@ describe("useEpisodeListPage", () => {
 
     // Then: isPlaying も true になる
     expect(result.current.rows).toEqual([
-      {
-        episode: episodeOne,
-        episodeId: "ep-1",
-        isSelected: false,
-        isActivePlayback: true,
-        isPlaying: true,
-      },
+      { episode: episodeOne, isSelected: false, isActivePlayback: true, isPlaying: true },
     ]);
   });
 

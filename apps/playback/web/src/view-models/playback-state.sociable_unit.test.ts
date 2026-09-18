@@ -179,14 +179,8 @@ describe("deriveEpisodeRows", () => {
 
     // Then: 全 row が false
     expect(got).toEqual([
-      { episode, episodeId: "ep-1", isSelected: false, isActivePlayback: false, isPlaying: false },
-      {
-        episode: episodeTwo,
-        episodeId: "ep-2",
-        isSelected: false,
-        isActivePlayback: false,
-        isPlaying: false,
-      },
+      { episode, isSelected: false, isActivePlayback: false, isPlaying: false },
+      { episode: episodeTwo, isSelected: false, isActivePlayback: false, isPlaying: false },
     ]);
   });
 
@@ -210,14 +204,8 @@ describe("deriveEpisodeRows", () => {
 
     // Then: ep-1 の row のみ isSelected=true
     expect(got).toEqual([
-      { episode, episodeId: "ep-1", isSelected: true, isActivePlayback: false, isPlaying: false },
-      {
-        episode: episodeTwo,
-        episodeId: "ep-2",
-        isSelected: false,
-        isActivePlayback: false,
-        isPlaying: false,
-      },
+      { episode, isSelected: true, isActivePlayback: false, isPlaying: false },
+      { episode: episodeTwo, isSelected: false, isActivePlayback: false, isPlaying: false },
     ]);
   });
 
@@ -231,14 +219,8 @@ describe("deriveEpisodeRows", () => {
 
     // Then: ep-2 の row のみ isActivePlayback=true かつ isPlaying=true
     expect(got).toEqual([
-      { episode, episodeId: "ep-1", isSelected: false, isActivePlayback: false, isPlaying: false },
-      {
-        episode: episodeTwo,
-        episodeId: "ep-2",
-        isSelected: false,
-        isActivePlayback: true,
-        isPlaying: true,
-      },
+      { episode, isSelected: false, isActivePlayback: false, isPlaying: false },
+      { episode: episodeTwo, isSelected: false, isActivePlayback: true, isPlaying: true },
     ]);
   });
 
@@ -251,7 +233,7 @@ describe("deriveEpisodeRows", () => {
     });
 
     // Then: ep-2 も isActivePlayback=false・isPlaying=false（「再生」表示に戻り、押すと続きから）
-    expect(got[1]).toMatchObject({ episodeId: "ep-2", isActivePlayback: false, isPlaying: false });
+    expect(got[1]).toMatchObject({ isActivePlayback: false, isPlaying: false });
     expect(got.every((row) => row.isActivePlayback === false)).toBe(true);
   });
 
@@ -271,8 +253,8 @@ describe("deriveEpisodeRows", () => {
     });
 
     // Then: どちらも再生進行中ではない
-    expect(endedRows[1]).toMatchObject({ episodeId: "ep-2", isActivePlayback: false });
-    expect(errorRows[1]).toMatchObject({ episodeId: "ep-2", isActivePlayback: false });
+    expect(endedRows[1]).toMatchObject({ isActivePlayback: false });
+    expect(errorRows[1]).toMatchObject({ isActivePlayback: false });
   });
 
   it("kind=active で phase=loading の episode は isActivePlayback=true になる（loading 中も停止できる）", () => {
@@ -284,7 +266,7 @@ describe("deriveEpisodeRows", () => {
     });
 
     // Then: ep-1 は再生進行中（停止ボタン表示）
-    expect(got[0]).toMatchObject({ episodeId: "ep-1", isActivePlayback: true, isPlaying: false });
+    expect(got[0]).toMatchObject({ isActivePlayback: true, isPlaying: false });
   });
 
   it("kind=idle なら全 row が isPlaying=false になる", () => {

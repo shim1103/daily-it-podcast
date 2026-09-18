@@ -65,8 +65,7 @@ export type PageStatus =
   | { kind: "ready" };
 
 /**
- * Row がそのまま描ける形。表示整形に要る episode 実体と、識別 id、union 判別で決まる boolean を持つ。
- * `episodeId` は `key` と識別に使う識別用の冗長 field（`episode.episodeId` と同値）。
+ * Row がそのまま描ける形。表示整形に要る episode 実体と、union 判別で決まる boolean を持つ。
  *
  * `isActivePlayback` は「この episode が今 再生進行中か（phase:"loading" か "playing"）」。
  * 再生 button の「再生 ↔ 停止」トグルはこれで決める（loading 中でも停止できるようにするため）。
@@ -75,7 +74,6 @@ export type PageStatus =
  */
 export type EpisodeRowViewModel = {
   episode: EpisodeData;
-  episodeId: string;
   isSelected: boolean;
   isActivePlayback: boolean;
   isPlaying: boolean;
@@ -154,7 +152,7 @@ export function derivePageStatus(catalogStatus: CatalogStatus): PageStatus {
 /**
  * 一覧と選択・再生 union から、Row がそのまま描ける形の配列を導出する。
  *
- * @ensure 各 row は入力 episode の実体（同一参照）と識別 id を持つ。選択中なら isSelected=true。
+ * @ensure 各 row は入力 episode の実体（同一参照）を持つ。選択中なら isSelected=true。
  *   `kind:"active"` かつ `phase` が "loading" / "playing" でその episodeId なら isActivePlayback=true。
  *   さらに `phase:"playing"` なら isPlaying=true。どちらも一致しなければ false。
  *   順序は入力の `episodes` に一致する
@@ -175,7 +173,6 @@ export function deriveEpisodeRows(
       : null;
   return episodes.map((episode) => ({
     episode,
-    episodeId: episode.episodeId,
     isSelected: episode.episodeId === selectedEpisodeId,
     isActivePlayback: episode.episodeId === activeEpisodeId,
     isPlaying: episode.episodeId === playingEpisodeId,
