@@ -3,7 +3,6 @@ import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 import type { HashSelectionAdapter } from "../lib/hash-selection-adapter.ts";
 import { buildRequestUrl } from "../utils/build-request-url.ts";
 import type {
-  EpisodeData,
   EpisodeRowViewModel,
   NowPlayingViewModel,
   PageStatus,
@@ -17,7 +16,8 @@ import { useEpisodeSelection } from "./use-episode-selection.ts";
 import { useHashSelectionSync } from "./use-hash-selection-sync.ts";
 
 export type EpisodeListPageViewModel = {
-  selectedEpisode: EpisodeData | null;
+  // why: EpisodeListPage は未消費だが、rows/nowPlaying が投影しない audioRef 解決結果・
+  //   phase:"error" の理由・positionSec を test が直接検証するために生 union のまま残す
   playback: PlaybackState;
   rows: EpisodeRowViewModel[];
   nowPlaying: NowPlayingViewModel | null;
@@ -31,24 +31,12 @@ export type EpisodeListPageViewModel = {
 
 /**
  * catalog / selection / hash-sync / playback を compose する page 用 hook。
+ * 戻り値は page が使う投影とアクションだけ。生 union と select/deselect/load/episodes は
+ * 内部合成材料として使い、外へは出さない。state machine は各下位 hook が持つ
  *
  * @require apiClient は `listEpisodes()` を持つ。adapter は test 用の DI で、未指定なら
  *   `useHashSelectionSync` が既定 adapter を使う
- * @ensure 下位 hook を束ね、`playback-state.ts` の derive 関数で投影を返す。page が全画面の
- *   振る舞いを決めるために見るのは `pageStatus` 1 型（`derivePageStatus(catalog.catalogStatus)`）。
- *   hash 同期の保留判断（catalog 完了まで同期しない）は `useHashSelectionSync` の内部に閉じる。
- *   hash 変化は episodeId があれば `selection.select`（一覧に無ければ no-op）、null なら
- *   `selection.deselect` として解釈する。公開する `play(episodeId, positionSec?)` /
- *   `seek(episodeId, positionSec)` は外部 signature を保ったまま、内部で `episodes` から
- *   `audioRef` を引き当て `buildRequestUrl(baseUrl, audioRef)` で絶対 URL 化して下位
- *   `playback.play` / `playback.seek` へ渡す。episodeId が一覧に無ければ URL を解決できず
- *   no-op（`useEpisodeSelection.select` の実在検証と対称）。
- *   `nowPlaying` は mini-player 見出し用に `deriveNowPlaying(episodes, playback)` を投影する
- *   （再生対象が無い／一覧に無ければ null）。
- *   戻り値は page が使う投影とアクションだけ。生 union（`selection` / `catalogStatus`）と
- *   `select` / `deselect` / `load` / `episodes` は内部合成材料として使い、外へは出さない。
- *   catalog の起動は `useEpisodeCatalog` の auto-load、deep-link 復元は `useHashSelectionSync`
- * @invariant throw しない。page が直接持つのは compose のみ。state machine は各下位 hook
+ * @invariant throw しない
  */
 export function useEpisodeListPage(
   apiClient: PlaybackApiClient,
@@ -76,26 +64,14 @@ export function useEpisodeListPage(
     adapter,
   );
 
-  const selectedEpisode = selection.selection.selected ? selection.selection.episode : null;
-  const rows = deriveEpisodeRows(catalog.episodes, {
-    selection: selection.selection,
-    playback: playback.playback,
-  });
-  const nowPlaying = deriveNowPlaying(catalog.episodes, playback.playback);
-  const pageStatus = derivePageStatus(catalog.catalogStatus);
-
-  const episodes = catalog.episodes;
-  const playbackPlay = playback.play;
-  const playbackSeek = playback.seek;
-  // why: play/seek の外部 signature は episodeId だけ受ける形を維持し、audioRef→絶対 URL の
-  //   解決は hook 内部へ隠す。一覧に無い episodeId は URL を引けないので no-op
-  //   （use-episode-selection.select と対称）。page は baseUrl を渡すだけで組み立てを持たない
   const resolveAudioUrl = useCallback(
     (episodeId: string): string | null => {
-      const audioRef = episodes.find((episode) => episode.episodeId === episodeId)?.audioRef;
+      const audioRef = catalog.episodes.find(
+        (episode) => episode.episodeId === episodeId,
+      )?.audioRef;
       return audioRef === undefined ? null : buildRequestUrl(baseUrl, audioRef);
     },
-    [episodes, baseUrl],
+    [catalog.episodes, baseUrl],
   );
   const play = useCallback(
     (episodeId: string, positionSec?: number): void => {
@@ -103,9 +79,9 @@ export function useEpisodeListPage(
       if (audioUrl === null) {
         return;
       }
-      playbackPlay(episodeId, audioUrl, positionSec);
+      playback.play(episodeId, audioUrl, positionSec);
     },
-    [resolveAudioUrl, playbackPlay],
+    [resolveAudioUrl, playback.play],
   );
   const seek = useCallback(
     (episodeId: string, positionSec: number): void => {
@@ -113,17 +89,19 @@ export function useEpisodeListPage(
       if (audioUrl === null) {
         return;
       }
-      playbackSeek(episodeId, audioUrl, positionSec);
+      playback.seek(episodeId, audioUrl, positionSec);
     },
-    [resolveAudioUrl, playbackSeek],
+    [resolveAudioUrl, playback.seek],
   );
 
   return {
-    selectedEpisode,
     playback: playback.playback,
-    rows,
-    nowPlaying,
-    pageStatus,
+    rows: deriveEpisodeRows(catalog.episodes, {
+      selection: selection.selection,
+      playback: playback.playback,
+    }),
+    nowPlaying: deriveNowPlaying(catalog.episodes, playback.playback),
+    pageStatus: derivePageStatus(catalog.catalogStatus),
     toggleSelection: selection.toggle,
     play,
     seek,
