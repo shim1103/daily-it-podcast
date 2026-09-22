@@ -40,13 +40,13 @@ const bodySchema = z.strictObject({
 /**
  * list embed / 永続行が共有する再生進捗。未playは episode 側で `progress: null`（行なし）。
  * 行があるとき `firstPlayedAt` / `lastPlayedAt` は必須。`firstCompletedAt` のみ未完走で null。
- * 時刻は offset 付き ISO-8601（契約値の正本は本 schema）。
+ * 時刻はタイムゾーン付き ISO-8601（`Z` または `±hh:mm`。契約値の正本は本 schema）。
  */
 export const episodeProgressSchema = z.strictObject({
   positionSec: z.number().min(0),
-  firstPlayedAt: z.string().datetime({ offset: true }),
-  firstCompletedAt: z.string().datetime({ offset: true }).nullable(),
-  lastPlayedAt: z.string().datetime({ offset: true }),
+  firstPlayedAt: z.iso.datetime({ offset: true }),
+  firstCompletedAt: z.iso.datetime({ offset: true }).nullable(),
+  lastPlayedAt: z.iso.datetime({ offset: true }),
 });
 
 export const episodeItemSchema = z.strictObject({
@@ -66,6 +66,18 @@ export const episodeRoutePath = `${listEpisodesPath}/:episodeId` as const;
 
 /** Hono route template。音声 GET の path パラメータ付き。 */
 export const episodeAudioRoutePath = `${episodeRoutePath}/audio` as const;
+
+/** Hono route template。進捗 create/update の path パラメータ付き。 */
+export const episodeProgressRoutePath = `${episodeRoutePath}/progress` as const;
+
+/** Hono route template。進捗 complete の path パラメータ付き。 */
+export const episodeProgressCompleteRoutePath = `${episodeProgressRoutePath}/complete` as const;
+
+/**
+ * session 中の進捗 pull（差分 Get）。list embed とは別 URL。
+ * query の形は {@link ProgressPullQuerySchema}。
+ */
+export const progressPullPath = "/progress" as const;
 
 /**
  * episodeId を含む path 段。音声 GET の親 path として使う。
@@ -87,6 +99,26 @@ export function episodeAudioPath(episodeId: string): string {
   return `${episodePath(episodeId)}/audio`;
 }
 
+/**
+ * 進捗 create（POST）/ update（PATCH）の path。
+ *
+ * @require episodeId は空でない
+ * @ensure episodePath の後に `progress` 段が 1 つ続く
+ */
+export function episodeProgressPath(episodeId: string): string {
+  return `${episodePath(episodeId)}/progress`;
+}
+
+/**
+ * 進捗 complete（POST）の path。
+ *
+ * @require episodeId は空でない
+ * @ensure episodeProgressPath の後に `complete` 段が 1 つ続く
+ */
+export function episodeProgressCompletePath(episodeId: string): string {
+  return `${episodeProgressPath(episodeId)}/complete`;
+}
+
 /** Drive 上の音声 file 拡張子。`{episodeId}.mp3` に対応する。 */
 export const episodeAudioFileExtension = ".mp3";
 
@@ -103,6 +135,40 @@ export const EpisodeIdRequestSchema = z.strictObject({
   episodeId: episodeIdSchema,
 });
 
+/**
+ * 進捗 create（POST）/ update（PATCH）/ complete（POST .../complete）共通の JSON body。
+ * 操作の違いは HTTP method と path で表す。字段が同じため schema は共有する。
+ * `clientAt` は merge 判定用の client 時刻（`Z` または `±hh:mm` の ISO-8601）。
+ * 行なし update → 404、重複 create → 冪等 200 の意味は Decision を正とし、ここへ写さない。
+ */
+export const ProgressWriteRequestSchema = z.strictObject({
+  positionSec: z.number().min(0),
+  clientAt: z.iso.datetime({ offset: true }),
+});
+
+/**
+ * 進捗 Write 成功応答。勝ち側の first* だけを返す（`positionSec` は載せない）。
+ */
+export const ProgressWriteResponseSchema = z.strictObject({
+  firstPlayedAt: z.iso.datetime({ offset: true }),
+  firstCompletedAt: z.iso.datetime({ offset: true }).nullable(),
+});
+
+/** 進捗 pull の query。`since` より後に更新された行だけを返す。 */
+export const ProgressPullQuerySchema = z.strictObject({
+  since: z.iso.datetime({ offset: true }),
+});
+
+/** 進捗 pull 応答。更新があった episode だけ（`progress` は常に object）。 */
+export const ProgressPullResponseSchema = z.strictObject({
+  episodes: z.array(
+    z.strictObject({
+      episodeId: episodeIdSchema,
+      progress: episodeProgressSchema,
+    }),
+  ),
+});
+
 export const ErrorResponseSchema = z.strictObject({
   code: z.enum(playbackHttpErrorCodes),
 });
@@ -111,4 +177,8 @@ export type EpisodeProgress = z.infer<typeof episodeProgressSchema>;
 export type EpisodeItem = z.infer<typeof episodeItemSchema>;
 export type ListEpisodesResponse = z.infer<typeof ListEpisodesResponseSchema>;
 export type EpisodeIdRequest = z.infer<typeof EpisodeIdRequestSchema>;
+export type ProgressWriteRequest = z.infer<typeof ProgressWriteRequestSchema>;
+export type ProgressWriteResponse = z.infer<typeof ProgressWriteResponseSchema>;
+export type ProgressPullQuery = z.infer<typeof ProgressPullQuerySchema>;
+export type ProgressPullResponse = z.infer<typeof ProgressPullResponseSchema>;
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;

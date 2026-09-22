@@ -2,9 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   episodeAudioPath,
   episodePath,
+  episodeProgressCompletePath,
+  episodeProgressPath,
   episodeProgressSchema,
   ListEpisodesResponseSchema,
   listEpisodesPath,
+  ProgressPullQuerySchema,
+  ProgressPullResponseSchema,
+  ProgressWriteRequestSchema,
+  ProgressWriteResponseSchema,
+  progressPullPath,
 } from "./http.ts";
 
 const validTopic = {
@@ -334,6 +341,123 @@ describe("episodeProgressSchema", () => {
       positionSec: 0,
       firstPlayedAt: "2026-09-19T10:00:00.000Z",
       lastPlayedAt: "2026-09-19T10:00:00.000Z",
+    });
+
+    expect(got.success).toBe(false);
+  });
+});
+
+describe("episodeProgressPath", () => {
+  it("episode path の後に progress 段が 1 つ続く", () => {
+    expect(episodeProgressPath("ep-1")).toBe(`${episodePath("ep-1")}/progress`);
+  });
+});
+
+describe("episodeProgressCompletePath", () => {
+  it("progress path の後に complete 段が 1 つ続く", () => {
+    expect(episodeProgressCompletePath("ep-1")).toBe(`${episodeProgressPath("ep-1")}/complete`);
+  });
+});
+
+describe("progressPullPath", () => {
+  it("一覧 path とは別の進捗 pull 用 path である", () => {
+    expect(progressPullPath).toBe("/progress");
+    expect(progressPullPath).not.toBe(listEpisodesPath);
+  });
+});
+
+describe("ProgressWriteRequestSchema", () => {
+  it("positionSec と offset 付き clientAt を受理する", () => {
+    const got = ProgressWriteRequestSchema.safeParse({
+      positionSec: 12,
+      clientAt: "2026-09-19T19:00:00.000+09:00",
+    });
+
+    expect(got.success).toBe(true);
+  });
+
+  it("clientAt 欠落は拒否する", () => {
+    const got = ProgressWriteRequestSchema.safeParse({ positionSec: 12 });
+
+    expect(got.success).toBe(false);
+  });
+
+  it("契約外 field を拒否する", () => {
+    const got = ProgressWriteRequestSchema.safeParse({
+      positionSec: 12,
+      clientAt: "2026-09-19T10:00:00.000Z",
+      extra: 1,
+    });
+
+    expect(got.success).toBe(false);
+  });
+});
+
+describe("ProgressWriteResponseSchema", () => {
+  it("勝ち側 first* だけを受理し positionSec は載せない", () => {
+    const got = ProgressWriteResponseSchema.safeParse({
+      firstPlayedAt: "2026-09-19T10:00:00.000Z",
+      firstCompletedAt: null,
+    });
+
+    expect(got.success).toBe(true);
+  });
+
+  it("positionSec 付きは拒否する", () => {
+    const got = ProgressWriteResponseSchema.safeParse({
+      firstPlayedAt: "2026-09-19T10:00:00.000Z",
+      firstCompletedAt: null,
+      positionSec: 12,
+    });
+
+    expect(got.success).toBe(false);
+  });
+});
+
+describe("ProgressPullQuerySchema", () => {
+  it("offset 付き since を受理する", () => {
+    const got = ProgressPullQuerySchema.safeParse({
+      since: "2026-09-19T19:00:00.000+09:00",
+    });
+
+    expect(got.success).toBe(true);
+  });
+
+  it("since 欠落は拒否する", () => {
+    const got = ProgressPullQuerySchema.safeParse({});
+
+    expect(got.success).toBe(false);
+  });
+});
+
+describe("ProgressPullResponseSchema", () => {
+  it("空配列を受理する", () => {
+    const got = ProgressPullResponseSchema.safeParse({ episodes: [] });
+
+    expect(got.success).toBe(true);
+  });
+
+  it("episodeId と progress object の組を受理する", () => {
+    const got = ProgressPullResponseSchema.safeParse({
+      episodes: [
+        {
+          episodeId: "ep-1",
+          progress: {
+            positionSec: 12,
+            firstPlayedAt: "2026-09-19T10:00:00.000Z",
+            firstCompletedAt: null,
+            lastPlayedAt: "2026-09-19T10:05:00.000Z",
+          },
+        },
+      ],
+    });
+
+    expect(got.success).toBe(true);
+  });
+
+  it("progress null は拒否する（pull は更新行だけ）", () => {
+    const got = ProgressPullResponseSchema.safeParse({
+      episodes: [{ episodeId: "ep-1", progress: null }],
     });
 
     expect(got.success).toBe(false);

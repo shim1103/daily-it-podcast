@@ -2,16 +2,25 @@ export {
   ErrorResponseSchema,
   EpisodeIdRequestSchema,
   ListEpisodesResponseSchema,
+  ProgressPullQuerySchema,
+  ProgressPullResponseSchema,
+  ProgressWriteRequestSchema,
+  ProgressWriteResponseSchema,
   episodeAudioContentType,
   episodeAudioFileExtension,
   episodeAudioPath,
   episodeAudioRoutePath,
   episodeItemSchema,
   episodePath,
+  episodeProgressCompletePath,
+  episodeProgressCompleteRoutePath,
+  episodeProgressPath,
+  episodeProgressRoutePath,
   episodeProgressSchema,
   episodeRoutePath,
   listEpisodesPath,
   playbackHttpErrorCodes,
+  progressPullPath,
 } from "./http.ts";
 export type {
   EpisodeItem,
@@ -20,6 +29,10 @@ export type {
   EpisodeIdRequest,
   ListEpisodesResponse,
   PlaybackHttpErrorCode,
+  ProgressPullQuery,
+  ProgressPullResponse,
+  ProgressWriteRequest,
+  ProgressWriteResponse,
 } from "./http.ts";
 export { mapHttpStatusToError } from "./http-error.ts";
 export {
