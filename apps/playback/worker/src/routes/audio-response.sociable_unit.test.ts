@@ -83,7 +83,7 @@ describe("createAudioResponse", () => {
     expect(response.status).toBe(416);
     expect(response.headers.get("Content-Range")).toBe("bytes */6");
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(response.headers.has("Cloudflare-CDN-Cache-Control")).toBe(false);
+    expect(response.headers.get("Cloudflare-CDN-Cache-Control")).toBe("no-store");
   });
 
   it("Range の終端が開始位置より小さい（逆順）時は、開始位置 1 byte だけを返す", async () => {
