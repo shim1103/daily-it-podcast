@@ -25,6 +25,7 @@ vi.mock("../composition/root.ts", async (importOriginal) => {
 import { createPlaybackControllers, PlaybackRuntimeConfigError } from "../composition/root.ts";
 import { app, createApp } from "./app.ts";
 import { validAudioBytes } from "../test/fixtures/audio-bytes.ts";
+import { requestIdHeaderName } from "./request-context.ts";
 
 const origin = "http://example.test";
 const emptyEnv = {};
@@ -54,16 +55,19 @@ const validList = {
 };
 
 const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
 afterEach(() => {
   vi.mocked(listEpisodesController).mockReset();
   vi.mocked(getAudioController).mockReset();
   vi.mocked(createPlaybackControllers).mockClear();
   errorSpy.mockClear();
+  logSpy.mockClear();
 });
 
 afterAll(() => {
   errorSpy.mockRestore();
+  logSpy.mockRestore();
 });
 
 describe("app", () => {
@@ -195,6 +199,30 @@ describe("app", () => {
     expect(got.status).toBe(400);
     const body: unknown = await got.json();
     expect(body).toEqual({ code: "validation_error" });
+  });
+
+  it("一覧 GET が成功する時、requestId header を付与する", async () => {
+    // Given: Composition が契約どおりの一覧を返す
+    vi.mocked(listEpisodesController).mockResolvedValue(validList);
+
+    // When: 一覧 path へ GET する
+    const got = await app.request(`${origin}${listEpisodesPath}`, {}, emptyEnv);
+
+    // Then: requestLoggingMiddleware が発行した requestId が response header に乗る
+    expect(got.headers.get(requestIdHeaderName)).toBeTruthy();
+  });
+
+  it("音声 GET の Controller が NotFoundError を throw する時も、onError 側の requestId が開始ログと一致する", async () => {
+    // Given: Domain 不在を写した External Error
+    vi.mocked(getAudioController).mockRejectedValue(new NotFoundError("エピソードが無い"));
+
+    // When: 音声 path へ GET する
+    await app.request(`${origin}${episodeAudioPath("missing")}`, {}, emptyEnv);
+
+    // Then: requestLoggingMiddleware の開始ログと onError 経由の error ログが同じ requestId を共有する
+    const startCall = logSpy.mock.calls.find(([payload]) => payload.event === "request_start");
+    const errorCall = errorSpy.mock.calls[0]?.[0];
+    expect(startCall?.[0].requestId).toBe(errorCall.requestId);
   });
 
   it("runtime config の内部 Error を configuration_error へ変換し、診断を cause へ残す", async () => {

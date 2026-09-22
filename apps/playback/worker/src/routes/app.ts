@@ -12,6 +12,7 @@ import {
 import { createAudioResponse } from "./audio-response.ts";
 import { episodeListCacheHeaders } from "./cache-policy.ts";
 import { createHttpErrorResponse } from "./http-error-response.ts";
+import { requestLoggingMiddleware, type RequestContextVariables } from "./request-context.ts";
 import { mapRuntimeConfigErrorToExternal } from "./runtime-config-error-mapping.ts";
 
 /**
@@ -25,7 +26,8 @@ import { mapRuntimeConfigErrorToExternal } from "./runtime-config-error-mapping.
 export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
   // why: Hono の AppType は method chain の戻り値に route が載る。mutation の instance.get では
   //   typeof app が空 schema のままになり、hc<AppType>() が unknown になる
-  return new Hono<{ Bindings: PlaybackEnv }>()
+  return new Hono<{ Bindings: PlaybackEnv; Variables: RequestContextVariables }>()
+    .use(requestLoggingMiddleware)
     .get(listEpisodesPath, async (c) => {
       const { listEpisodesController } = createPlaybackControllers(
         c.env,
@@ -34,7 +36,7 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
       );
       const input: unknown = {};
       const body = await listEpisodesController(input);
-      return Response.json(body, { status: 200, headers: episodeListCacheHeaders });
+      return c.json(body, 200, episodeListCacheHeaders);
     })
     .get(episodeAudioRoutePath, async (c) => {
       const { getAudioController } = createPlaybackControllers(
@@ -50,8 +52,10 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
       // why: 未一致 path を episode_not_found にすると、無い episode と無い route が同じ code になる
       throw new ValidationError("method または path が契約に無い");
     })
-    .onError((error) => {
-      return createHttpErrorResponse(mapRuntimeConfigErrorToExternal(error), crypto.randomUUID());
+    .onError((error, c) => {
+      // why: requestId は境界（requestLoggingMiddleware）で 1 度だけ発行した値をそのまま使う。
+      //   ここで再発行すると、開始・完了ログと error ログの requestId が食い違う
+      return createHttpErrorResponse(mapRuntimeConfigErrorToExternal(error), c.get("requestId"));
     });
 }
 
