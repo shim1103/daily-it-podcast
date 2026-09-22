@@ -8,12 +8,14 @@ export {
   episodeAudioRoutePath,
   episodeItemSchema,
   episodePath,
+  episodeProgressSchema,
   episodeRoutePath,
   listEpisodesPath,
   playbackHttpErrorCodes,
 } from "./http.ts";
 export type {
   EpisodeItem,
+  EpisodeProgress,
   ErrorResponse,
   EpisodeIdRequest,
   ListEpisodesResponse,

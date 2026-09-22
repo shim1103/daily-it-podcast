@@ -18,6 +18,7 @@ const episode: EpisodeData = {
     ending: { text: "終了文", startSec: 55 },
   },
   audioRef: "/episodes/ep-1/audio",
+  progress: null,
 };
 
 function renderItem(overrides: Partial<Parameters<typeof EpisodeItem>[0]> = {}) {

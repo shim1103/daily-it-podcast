@@ -102,6 +102,7 @@ describe("selectValidListItem", () => {
       durationSec: 60,
       body: validManuscript.body,
       audioRef: episodeAudioPath("ep-1"),
+      progress: null,
     });
   });
 

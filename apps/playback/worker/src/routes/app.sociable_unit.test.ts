@@ -49,6 +49,7 @@ const validList = {
         ending: { text: "終了", startSec: 55 },
       },
       audioRef: episodeAudioPath("ep-1"),
+      progress: null,
     },
   ],
 };

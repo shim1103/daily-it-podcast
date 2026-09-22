@@ -28,6 +28,7 @@ const validListBody = {
         ending: { text: "終了", startSec: 55 },
       },
       audioRef: "/episodes/ep-1/audio",
+      progress: null,
     },
   ],
 };

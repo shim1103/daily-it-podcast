@@ -23,6 +23,7 @@ const validListEpisodesResponse: ListEpisodesData = {
       durationSec: 60,
       body: episodeBody,
       audioRef: "/episodes/ep-1/audio",
+      progress: null,
     },
   ],
 };

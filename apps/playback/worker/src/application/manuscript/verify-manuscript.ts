@@ -43,5 +43,7 @@ export function selectValidListItem(json: unknown, stem: string): EpisodeListIte
   return {
     ...parsed.data,
     audioRef: episodeAudioPath(parsed.data.episodeId),
+    // A: D1 未結線。未play として null。C（embed join）が ProgressRepository で埋める
+    progress: null,
   };
 }

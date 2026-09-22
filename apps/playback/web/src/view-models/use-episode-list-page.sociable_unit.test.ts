@@ -30,6 +30,7 @@ const episodeOne: EpisodeData = {
   durationSec: 60,
   body: episodeBody,
   audioRef: "/episodes/ep-1/audio",
+  progress: null,
 };
 
 const episodeTwo: EpisodeData = {
@@ -39,6 +40,7 @@ const episodeTwo: EpisodeData = {
   durationSec: 90,
   body: episodeBody,
   audioRef: "/episodes/ep-2/audio",
+  progress: null,
 };
 
 /**

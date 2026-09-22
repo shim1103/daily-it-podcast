@@ -45,6 +45,7 @@ const validListEpisodesResponse: ListEpisodesResponse = {
       durationSec: 60,
       body: episodeBody,
       audioRef: "/episodes/ep-1/audio",
+      progress: null,
     },
     {
       episodeId: "ep-2",
@@ -56,6 +57,7 @@ const validListEpisodesResponse: ListEpisodesResponse = {
         topics: [{ title: "小題2", preface: "前2", detail: "詳2", startSec: 0 }],
       },
       audioRef: "/episodes/ep-2/audio",
+      progress: null,
     },
   ],
 };

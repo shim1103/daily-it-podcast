@@ -1,7 +1,7 @@
 import type { EpisodeItem, ListEpisodesResponse } from "../../../../contracts/index.ts";
 
 export type EpisodeListItem = ListEpisodesResponse["episodes"][number];
-export type EpisodeManuscript = Omit<EpisodeItem, "audioRef">;
+export type EpisodeManuscript = Omit<EpisodeItem, "audioRef" | "progress">;
 
 /**
  * 取得したままの原稿 json 1 件。`stem` は取得元ファイル名の stem（= 期待 episodeId）。

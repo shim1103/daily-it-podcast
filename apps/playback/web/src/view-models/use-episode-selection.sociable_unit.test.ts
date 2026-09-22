@@ -14,6 +14,7 @@ const episodeOne: EpisodeData = {
     ending: { text: "終了", startSec: 55 },
   },
   audioRef: "/episodes/ep-1/audio",
+  progress: null,
 };
 
 const episodeTwo: EpisodeData = { ...episodeOne, episodeId: "ep-2", title: "題2" };

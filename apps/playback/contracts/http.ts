@@ -37,6 +37,18 @@ const bodySchema = z.strictObject({
   ending: endingSchema,
 });
 
+/**
+ * list embed / 永続行が共有する再生進捗。未playは episode 側で `progress: null`（行なし）。
+ * 行があるとき `firstPlayedAt` / `lastPlayedAt` は必須。`firstCompletedAt` のみ未完走で null。
+ * 時刻は offset 付き ISO-8601（契約値の正本は本 schema）。
+ */
+export const episodeProgressSchema = z.strictObject({
+  positionSec: z.number().min(0),
+  firstPlayedAt: z.string().datetime({ offset: true }),
+  firstCompletedAt: z.string().datetime({ offset: true }).nullable(),
+  lastPlayedAt: z.string().datetime({ offset: true }),
+});
+
 export const episodeItemSchema = z.strictObject({
   episodeId: episodeIdSchema,
   date: dateSchema,
@@ -44,6 +56,7 @@ export const episodeItemSchema = z.strictObject({
   durationSec: durationSecSchema,
   body: bodySchema,
   audioRef: z.string().min(1),
+  progress: episodeProgressSchema.nullable(),
 });
 
 export const listEpisodesPath = "/episodes" as const;
@@ -94,6 +107,7 @@ export const ErrorResponseSchema = z.strictObject({
   code: z.enum(playbackHttpErrorCodes),
 });
 
+export type EpisodeProgress = z.infer<typeof episodeProgressSchema>;
 export type EpisodeItem = z.infer<typeof episodeItemSchema>;
 export type ListEpisodesResponse = z.infer<typeof ListEpisodesResponseSchema>;
 export type EpisodeIdRequest = z.infer<typeof EpisodeIdRequestSchema>;

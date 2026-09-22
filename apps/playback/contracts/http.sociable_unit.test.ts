@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   episodeAudioPath,
   episodePath,
+  episodeProgressSchema,
   ListEpisodesResponseSchema,
   listEpisodesPath,
 } from "./http.ts";
@@ -34,6 +35,7 @@ const validEpisodeItem = {
     ending: validEnding,
   },
   audioRef: episodeAudioPath("ep-1"),
+  progress: null,
 };
 
 describe("episodePath", () => {
@@ -282,6 +284,58 @@ describe("ListEpisodesResponseSchema", () => {
     const got = ListEpisodesResponseSchema.safeParse(body);
 
     // Then: 失敗する
+    expect(got.success).toBe(false);
+  });
+
+  it("progress が無い時拒否する", () => {
+    const { progress: _progress, ...withoutProgress } = validEpisodeItem;
+    const body = { episodes: [withoutProgress] };
+
+    const got = ListEpisodesResponseSchema.safeParse(body);
+
+    expect(got.success).toBe(false);
+  });
+
+  it("progress に適合 object を載せる時受理する", () => {
+    const body = {
+      episodes: [
+        {
+          ...validEpisodeItem,
+          progress: {
+            positionSec: 12,
+            firstPlayedAt: "2026-09-19T10:00:00.000Z",
+            firstCompletedAt: null,
+            lastPlayedAt: "2026-09-19T10:05:00.000Z",
+          },
+        },
+      ],
+    };
+
+    const got = ListEpisodesResponseSchema.safeParse(body);
+
+    expect(got.success).toBe(true);
+  });
+});
+
+describe("episodeProgressSchema", () => {
+  it("offset 付き ISO と null の firstCompletedAt を受理する", () => {
+    const got = episodeProgressSchema.safeParse({
+      positionSec: 0,
+      firstPlayedAt: "2026-09-19T19:00:00.000+09:00",
+      firstCompletedAt: null,
+      lastPlayedAt: "2026-09-19T19:00:00.000+09:00",
+    });
+
+    expect(got.success).toBe(true);
+  });
+
+  it("firstCompletedAt 欠落は拒否する（null 明示が必要）", () => {
+    const got = episodeProgressSchema.safeParse({
+      positionSec: 0,
+      firstPlayedAt: "2026-09-19T10:00:00.000Z",
+      lastPlayedAt: "2026-09-19T10:00:00.000Z",
+    });
+
     expect(got.success).toBe(false);
   });
 });

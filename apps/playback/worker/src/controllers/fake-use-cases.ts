@@ -37,6 +37,7 @@ function toEpisodeItem(record: FakeEpisodeRecord): EpisodeItem {
     durationSec: record.durationSec,
     body: record.body,
     audioRef: episodeAudioPath(record.episodeId),
+    progress: null,
   };
 }
 

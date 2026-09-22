@@ -50,6 +50,7 @@ describe("listEpisodes", () => {
         durationSec: 60,
         body: validManuscriptJson.body,
         audioRef: episodeAudioPath("ep-1"),
+        progress: null,
       },
     ]);
   });
