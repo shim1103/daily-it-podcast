@@ -38,8 +38,6 @@ export function throwOnEpisodeIdValidationFailure(result: { success: boolean; er
  * @invariant route 定義・Error 写像は production 用の `app` と同一のまま複製しない
  */
 export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
-  // why: Hono の AppType は method chain の戻り値に route が載る。mutation の instance.get では
-  //   typeof app が空 schema のままになり、hc<AppType>() が unknown になる
   return new Hono<{ Bindings: PlaybackEnv; Variables: RequestContextVariables }>()
     .use(requestLoggingMiddleware)
     .get(listEpisodesPath, async (c) => {
@@ -48,14 +46,11 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
         { mode: "r2" },
         useCaseOverrides,
       );
-      const input: unknown = {};
-      const body = await listEpisodesController(input);
+      const body = await listEpisodesController();
       return c.json(body, 200, episodeListCacheHeaders);
     })
     .get(
       episodeAudioRoutePath,
-      // why: episodeId の検証責務は zValidator（Hono route）へ寄せる。GetAudioController は
-      //   検証済み episodeId のみを受ける契約にし、controller 側での再検証は持たない（DRY）
       zValidator("param", EpisodeIdRequestSchema, throwOnEpisodeIdValidationFailure),
       async (c) => {
         const { getAudioController } = createPlaybackControllers(
@@ -69,12 +64,9 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
       },
     )
     .notFound(() => {
-      // why: 未一致 path を episode_not_found にすると、無い episode と無い route が同じ code になる
       throw new ValidationError("method または path が契約に無い");
     })
     .onError((error, c) => {
-      // why: requestId は境界（requestLoggingMiddleware）で 1 度だけ発行した値をそのまま使う。
-      //   ここで再発行すると、開始・完了ログと error ログの requestId が食い違う
       return createHttpErrorResponse(mapRuntimeConfigErrorToExternal(error), c.get("requestId"));
     });
 }
