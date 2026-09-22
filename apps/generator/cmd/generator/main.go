@@ -15,10 +15,14 @@ import (
 // main は generator CLI の Driving Adapter 入口である。
 //
 // @require process が Interrupt / SIGTERM を届けられる。
-// @ensure composition.NewProduceEpisodeFromEnv() の load error は kind 付き構造化 stderr へ出し process exit 非0。
-// @ensure ProduceEpisode.Run の error が nil なら process exit 0、non-nil なら kind 付き構造化 stderr へ出し process exit 非0。
-// @invariant internal/infrastructure と application/port を import しない。秘密・env を読まない。生成手順を持たない。
+// @ensure load または Run の失敗は構造化 stderr へ出し exit 非0。成功は exit 0。
+// @invariant infrastructure / application/port を import しない。秘密・env・生成手順を持たない。
 func main() {
+	// why: os.Exit は defer を実行しない。後始末付き本体を return させてから一度だけ Exit する。
+	os.Exit(runCLI())
+}
+
+func runCLI() int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -27,16 +31,12 @@ func main() {
 	produceEpisode, err := composition.NewProduceEpisodeFromEnv(logw)
 	if err != nil {
 		writeExternalError(os.Stderr, err)
-		os.Exit(1)
+		return 1
 	}
 
-	code := run(ctx, time.Now(), os.Stderr, produceEpisode.Run)
-	if code != 0 {
-		os.Exit(code)
-	}
+	return run(ctx, time.Now(), os.Stderr, produceEpisode.Run)
 }
 
-// run は ProduceEpisode.Run の結果を process 終了へ写す。
 func run(ctx context.Context, now time.Time, stderr io.Writer, produce func(context.Context, time.Time) (string, error)) int {
 	if _, err := produce(ctx, now); err != nil {
 		writeExternalError(stderr, err)

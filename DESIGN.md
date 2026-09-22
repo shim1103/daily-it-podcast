@@ -39,7 +39,12 @@ Non-scope（書かない・写さない）:
 | 置き場 | skill 上の層 |
 |--------|----------------|
 | `generator/internal/entities` | Entities |
-| `generator/internal/application` | Application（UseCase + Port IF） |
+| `generator/internal/application` | Application（入口 UseCase + Port IF） |
+| `generator/internal/application/port` | Driven Port IF |
+| `generator/internal/application/fetch` | Fetch UseCase（取得窓 → ItemSource） |
+| `generator/internal/application/writeepisode` | Write Gate UseCase（検査 → EpisodeWriter） |
+| `generator/internal/application/manuscript` | 原稿合成 UseCase（port.TextWriter） |
+| `generator/internal/application/speech` | TTS 合成 UseCase（port.SpeechSynthesizer） |
 | `generator/internal/application/build` | Builder helper（Gate ではない） |
 | `generator/internal/config` | Configuration Boundary |
 | `generator/internal/infrastructure` | Infrastructure |
@@ -52,6 +57,8 @@ Non-scope（書かない・写さない）:
 `playback/web` は Vite + TypeScript + React + Pico.css classless。`playback/worker` 入口は Hono、型同期は Hono RPC。Next.js / shadcn / TanStack は使わない。
 
 依存は内側へ。Composition Root だけが全層を結線する。未完了 index は `docs/tasks/todo/lane.md`。
+
+generator Application の下位 package 配置・`ProduceEpisode` の依存の型（port で受けるか UseCase DI か）・cmd の `os.Exit`/`defer` 形など、再発する判断は `docs/decisions/` を見よ（個別 Decision への日付 ID 直リンクは張らない）。
 
 `generator` Entities は generator に閉じる。言語横断の共有 Domain 型 module は作らない。UI / agent が共有して読む形は `contracts/`。
 
