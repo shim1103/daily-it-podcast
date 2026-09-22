@@ -1,11 +1,7 @@
 import type { MiddlewareHandler } from "hono";
-import { logInfo } from "./logger.ts";
+import { logInfo, type RequestId } from "./logger.ts";
 
-/**
- * system 境界（requestLoggingMiddleware）でのみ発行する branded string。
- * ただの `string` と型上区別し、任意の文字列を requestId として誤って渡せないようにする。
- */
-export type RequestId = string & { readonly __brand: "RequestId" };
+export type { RequestId } from "./logger.ts";
 
 function createRequestId(): RequestId {
   return crypto.randomUUID() as RequestId;

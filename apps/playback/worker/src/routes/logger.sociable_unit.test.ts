@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { logError, logInfo } from "./logger.ts";
+import { logError, logInfo, type RequestId } from "./logger.ts";
+
+const testRequestId = "req-1" as RequestId;
 
 const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -11,14 +13,14 @@ afterEach(() => {
 
 describe("logInfo", () => {
   it("console.log を structured payload で呼ぶ", () => {
-    // Given: event と任意 field を持つ payload
+    // Given: event・requestId と任意 field を持つ payload
     // When: logInfo を呼ぶ
-    logInfo({ event: "request_start", requestId: "req-1", method: "GET" });
+    logInfo({ event: "request_start", requestId: testRequestId, method: "GET" });
 
     // Then: console.log がそのまま渡す
     expect(logSpy).toHaveBeenCalledWith({
       event: "request_start",
-      requestId: "req-1",
+      requestId: testRequestId,
       method: "GET",
     });
   });
@@ -26,11 +28,15 @@ describe("logInfo", () => {
 
 describe("logError", () => {
   it("console.error を structured payload で呼ぶ", () => {
-    // Given: name/message を持つ error payload
+    // Given: name/message/requestId を持つ error payload
     // When: logError を呼ぶ
-    logError({ name: "Error", message: "boom", requestId: "req-1" });
+    logError({ name: "Error", message: "boom", requestId: testRequestId });
 
     // Then: console.error がそのまま渡す
-    expect(errorSpy).toHaveBeenCalledWith({ name: "Error", message: "boom", requestId: "req-1" });
+    expect(errorSpy).toHaveBeenCalledWith({
+      name: "Error",
+      message: "boom",
+      requestId: testRequestId,
+    });
   });
 });
