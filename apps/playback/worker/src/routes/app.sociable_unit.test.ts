@@ -186,8 +186,8 @@ describe("app", () => {
     // When: 音声 path へ GET する
     await app.request(`${origin}${episodeAudioPath("ep-1")}`, {}, emptyEnv);
 
-    // Then: zValidator（EpisodeIdRequestSchema）を経由した値で渡る
-    expect(getAudioController).toHaveBeenCalledWith({ episodeId: "ep-1" });
+    // Then: zValidator（EpisodeIdRequestSchema）を経由した検証済み episodeId で渡る
+    expect(getAudioController).toHaveBeenCalledWith("ep-1");
   });
 
   it("音声 GET の Controller が NotFoundError を throw する時、404 と episode_not_found を返す", async () => {

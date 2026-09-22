@@ -54,9 +54,8 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
     })
     .get(
       episodeAudioRoutePath,
-      // why: zValidator は HTTP 入口での早期検証。GetAudioController は unknown を受ける契約を
-      //   保つため、controller 内の parseEpisodeIdRequest による再検証はそのまま残す（二重検証）。
-      //   controller が route（Hono）に依存せず単独で安全なまま再利用・test できることを優先する
+      // why: episodeId の検証責務は zValidator（Hono route）へ寄せる。GetAudioController は
+      //   検証済み episodeId のみを受ける契約にし、controller 側での再検証は持たない（DRY）
       zValidator("param", EpisodeIdRequestSchema, throwOnEpisodeIdValidationFailure),
       async (c) => {
         const { getAudioController } = createPlaybackControllers(
@@ -64,8 +63,8 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
           { mode: "r2" },
           useCaseOverrides,
         );
-        const input: unknown = c.req.valid("param");
-        const bytes = await getAudioController(input);
+        const { episodeId } = c.req.valid("param");
+        const bytes = await getAudioController(episodeId);
         return createAudioResponse(bytes, c.req.header("Range") ?? null);
       },
     )
