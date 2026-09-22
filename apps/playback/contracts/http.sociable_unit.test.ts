@@ -12,6 +12,8 @@ import {
   ProgressWriteRequestSchema,
   ProgressWriteResponseSchema,
   progressPullPath,
+  PROGRESS_WRITE_MAX_ATTEMPTS,
+  progressWriteRetryableHttpErrorCodes,
 } from "./http.ts";
 
 const validTopic = {
@@ -461,5 +463,16 @@ describe("ProgressPullResponseSchema", () => {
     });
 
     expect(got.success).toBe(false);
+  });
+});
+
+describe("progress Write retry 契約", () => {
+  it("最大試行は正の有限回数である", () => {
+    expect(PROGRESS_WRITE_MAX_ATTEMPTS).toBe(3);
+    expect(PROGRESS_WRITE_MAX_ATTEMPTS).toBeGreaterThan(0);
+  });
+
+  it("再試行対象の契約 code は unavailable のみである", () => {
+    expect([...progressWriteRetryableHttpErrorCodes]).toEqual(["unavailable"]);
   });
 });

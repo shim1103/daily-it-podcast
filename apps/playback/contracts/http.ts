@@ -9,6 +9,20 @@ export const playbackHttpErrorCodes = [
 
 export type PlaybackHttpErrorCode = (typeof playbackHttpErrorCodes)[number];
 
+/**
+ * 進捗 Write（create / update / complete）の最大試行回数（初回含む）。
+ * browser の有限 retry 上限。session またぎキューは持たない。
+ */
+export const PROGRESS_WRITE_MAX_ATTEMPTS = 3 as const;
+
+/**
+ * Write を HTTP 契約 code として再試行してよいもの。
+ * validation / not_found は再送しても結果が変わらないので含めない。
+ */
+export const progressWriteRetryableHttpErrorCodes = [
+  "unavailable",
+] as const satisfies readonly PlaybackHttpErrorCode[];
+
 const episodeIdSchema = z.string().min(1);
 const dateSchema = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/);
 const titleSchema = z.string().min(1);

@@ -21,6 +21,8 @@ export {
   listEpisodesPath,
   playbackHttpErrorCodes,
   progressPullPath,
+  PROGRESS_WRITE_MAX_ATTEMPTS,
+  progressWriteRetryableHttpErrorCodes,
 } from "./http.ts";
 export type {
   EpisodeItem,
