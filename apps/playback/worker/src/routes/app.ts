@@ -36,7 +36,7 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
       );
       const input: unknown = {};
       const body = await listEpisodesController(input);
-      return Response.json(body, { status: 200, headers: episodeListCacheHeaders });
+      return c.json(body, 200, episodeListCacheHeaders);
     })
     .get(episodeAudioRoutePath, async (c) => {
       const { getAudioController } = createPlaybackControllers(
