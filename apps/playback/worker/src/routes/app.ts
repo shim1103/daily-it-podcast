@@ -1,5 +1,7 @@
+import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import {
+  EpisodeIdRequestSchema,
   ValidationError,
   episodeAudioRoutePath,
   listEpisodesPath,
@@ -14,6 +16,18 @@ import { episodeListCacheHeaders } from "./cache-policy.ts";
 import { createHttpErrorResponse } from "./http-error-response.ts";
 import { requestLoggingMiddleware, type RequestContextVariables } from "./request-context.ts";
 import { mapRuntimeConfigErrorToExternal } from "./runtime-config-error-mapping.ts";
+
+/**
+ * zValidator("param", EpisodeIdRequestSchema) の失敗を ValidationError へ変換する。
+ *
+ * @require result は EpisodeIdRequestSchema の safeParse 結果
+ * @ensure 不適合時は ValidationError を throw し、元の zod error を cause へ残す。適合時は何もしない
+ */
+export function throwOnEpisodeIdValidationFailure(result: { success: boolean; error?: unknown }) {
+  if (!result.success) {
+    throw new ValidationError("入力が契約に不適合", { cause: result.error });
+  }
+}
 
 /**
  * Playback worker の Hono instance を組み立てる。
@@ -38,16 +52,23 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
       const body = await listEpisodesController(input);
       return c.json(body, 200, episodeListCacheHeaders);
     })
-    .get(episodeAudioRoutePath, async (c) => {
-      const { getAudioController } = createPlaybackControllers(
-        c.env,
-        { mode: "r2" },
-        useCaseOverrides,
-      );
-      const input: unknown = { episodeId: c.req.param("episodeId") };
-      const bytes = await getAudioController(input);
-      return createAudioResponse(bytes, c.req.header("Range") ?? null);
-    })
+    .get(
+      episodeAudioRoutePath,
+      // why: zValidator は HTTP 入口での早期検証。GetAudioController は unknown を受ける契約を
+      //   保つため、controller 内の parseEpisodeIdRequest による再検証はそのまま残す（二重検証）。
+      //   controller が route（Hono）に依存せず単独で安全なまま再利用・test できることを優先する
+      zValidator("param", EpisodeIdRequestSchema, throwOnEpisodeIdValidationFailure),
+      async (c) => {
+        const { getAudioController } = createPlaybackControllers(
+          c.env,
+          { mode: "r2" },
+          useCaseOverrides,
+        );
+        const input: unknown = c.req.valid("param");
+        const bytes = await getAudioController(input);
+        return createAudioResponse(bytes, c.req.header("Range") ?? null);
+      },
+    )
     .notFound(() => {
       // why: 未一致 path を episode_not_found にすると、無い episode と無い route が同じ code になる
       throw new ValidationError("method または path が契約に無い");

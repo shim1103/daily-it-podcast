@@ -23,7 +23,7 @@ vi.mock("../composition/root.ts", async (importOriginal) => {
 });
 
 import { createPlaybackControllers, PlaybackRuntimeConfigError } from "../composition/root.ts";
-import { app, createApp } from "./app.ts";
+import { app, createApp, throwOnEpisodeIdValidationFailure } from "./app.ts";
 import { validAudioBytes } from "../test/fixtures/audio-bytes.ts";
 import { requestIdHeaderName } from "./request-context.ts";
 
@@ -68,6 +68,30 @@ afterEach(() => {
 afterAll(() => {
   errorSpy.mockRestore();
   logSpy.mockRestore();
+});
+
+describe("throwOnEpisodeIdValidationFailure", () => {
+  it("zValidator の parse が成功した時、何も throw しない", () => {
+    // Given: 成功結果
+    // When / Then: throw しない
+    expect(() => throwOnEpisodeIdValidationFailure({ success: true })).not.toThrow();
+  });
+
+  it("zValidator の parse が失敗した時、ValidationError を throw し zod error を cause へ残す", () => {
+    // Given: 失敗結果
+    const zodError = new Error("zod validation failed");
+
+    // When / Then: ValidationError を throw する
+    expect(() =>
+      throwOnEpisodeIdValidationFailure({ success: false, error: zodError }),
+    ).toThrowError(
+      expect.objectContaining({
+        name: "ValidationError",
+        message: "入力が契約に不適合",
+        cause: zodError,
+      }),
+    );
+  });
 });
 
 describe("app", () => {
@@ -155,14 +179,14 @@ describe("app", () => {
     expect(bytes).toEqual(validAudioBytes.subarray(1, 3));
   });
 
-  it("音声 GET の path param を unknown の episodeId として Controller に渡す", async () => {
+  it("音声 GET の path param を zValidator で検証済みの episodeId として Controller に渡す", async () => {
     // Given: Composition が音声 byte を返す
     vi.mocked(getAudioController).mockResolvedValue(validAudioBytes);
 
     // When: 音声 path へ GET する
     await app.request(`${origin}${episodeAudioPath("ep-1")}`, {}, emptyEnv);
 
-    // Then: schema parse せず unknown で渡す
+    // Then: zValidator（EpisodeIdRequestSchema）を経由した値で渡る
     expect(getAudioController).toHaveBeenCalledWith({ episodeId: "ep-1" });
   });
 
