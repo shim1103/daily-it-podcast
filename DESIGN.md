@@ -58,6 +58,8 @@ Non-scope（書かない・写さない）:
 
 依存は内側へ。Composition Root だけが全層を結線する。未完了 index は `docs/tasks/todo/lane.md`。
 
+generator Application の下位 package 配置・`ProduceEpisode` の依存の型（port で受けるか UseCase DI か）・cmd の `os.Exit`/`defer` 形など、再発する判断は `docs/decisions/` を見よ（個別 Decision への日付 ID 直リンクは張らない）。
+
 `generator` Entities は generator に閉じる。言語横断の共有 Domain 型 module は作らない。UI / agent が共有して読む形は `contracts/`。
 
 ### `contracts/` の読み手
