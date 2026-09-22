@@ -13,16 +13,13 @@ import { createDummyBackendMiddleware } from "./vite.config.ts";
 const origin = "http://localhost";
 
 const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
 afterEach(() => {
   errorSpy.mockClear();
-  logSpy.mockClear();
 });
 
 afterAll(() => {
   errorSpy.mockRestore();
-  logSpy.mockRestore();
 });
 
 describe("createDummyBackendMiddleware", () => {

@@ -1,7 +1,5 @@
 import type { PlaybackHttpErrorCode } from "../../../contracts/index.ts";
 import { noStoreCacheHeaders } from "./cache-policy.ts";
-import { logError } from "./logger.ts";
-import type { RequestId } from "./request-context.ts";
 
 type ExternalErrorName =
   | "ValidationError"
@@ -34,7 +32,7 @@ type ErrorLogPayload = {
   message: string;
   stack: string | undefined;
   cause: CauseLog | undefined;
-  requestId: RequestId;
+  requestId: string;
 };
 
 function isMappedExternalErrorName(name: string): name is ExternalErrorName {
@@ -52,7 +50,7 @@ function toCauseLog(cause: unknown): CauseLog | undefined {
   return { name: cause.name, message: cause.message, cause: nested };
 }
 
-function toErrorLogPayload(error: Error, requestId: RequestId): ErrorLogPayload {
+function toErrorLogPayload(error: Error, requestId: string): ErrorLogPayload {
   return {
     name: error.name,
     message: error.message,
@@ -62,22 +60,22 @@ function toErrorLogPayload(error: Error, requestId: RequestId): ErrorLogPayload 
   };
 }
 
-function logUnmappedError(error: unknown, requestId: RequestId): void {
+function logUnmappedError(error: unknown, requestId: string): void {
   if (error instanceof Error) {
-    logError({ ...toErrorLogPayload(error, requestId), name: "UnmappedError" });
+    console.error({ ...toErrorLogPayload(error, requestId), name: "UnmappedError" });
     return;
   }
-  logError({
+  console.error({
     name: "UnmappedError",
     message: String(error),
     requestId,
   });
 }
 
-export function createHttpErrorResponse(error: unknown, requestId: RequestId): Response {
+export function createHttpErrorResponse(error: unknown, requestId: string): Response {
   if (error instanceof Error && isMappedExternalErrorName(error.name)) {
     const mapped = externalHttpErrorMapping[error.name];
-    logError(toErrorLogPayload(error, requestId));
+    console.error(toErrorLogPayload(error, requestId));
     return Response.json(
       { code: mapped.code },
       { status: mapped.status, headers: noStoreCacheHeaders },

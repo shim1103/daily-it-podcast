@@ -6,11 +6,6 @@ import {
   ValidationError,
 } from "../../../contracts/index.ts";
 import { createHttpErrorResponse } from "./http-error-response.ts";
-import type { RequestId } from "./request-context.ts";
-
-// why: RequestId は requestLoggingMiddleware だけが発行する branded type。test はその発行経路を
-//   経由しないため、ここでだけ test 専用の固定値へ assert する。
-const testRequestId = "req-1" as RequestId;
 
 const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -24,7 +19,7 @@ describe("createHttpErrorResponse", () => {
     const error = new ValidationError("入力が契約に不適合");
 
     // When: HTTP Error Response を作る
-    const got = createHttpErrorResponse(error, testRequestId);
+    const got = createHttpErrorResponse(error, "req-1");
 
     // Then: 400・契約 code・保存不可
     expect(got.status).toBe(400);
@@ -37,7 +32,7 @@ describe("createHttpErrorResponse", () => {
     const error = new NotFoundError("エピソードが無い");
 
     // When: HTTP Error Response を作る
-    const got = createHttpErrorResponse(error, testRequestId);
+    const got = createHttpErrorResponse(error, "req-1");
 
     // Then: 404 と契約 code のみ
     expect(got.status).toBe(404);
@@ -51,7 +46,7 @@ describe("createHttpErrorResponse", () => {
     });
 
     // When: HTTP Error Response を作る
-    createHttpErrorResponse(error, testRequestId);
+    createHttpErrorResponse(error, "req-1");
 
     // Then: console.error へ渡る payload は Error ではなく structured object
     expect(errorSpy).toHaveBeenCalledTimes(1);
@@ -73,7 +68,7 @@ describe("createHttpErrorResponse", () => {
     const error = new ConfigurationError("設定を確認できません");
 
     // When: HTTP Error Response を作る
-    const got = createHttpErrorResponse(error, testRequestId);
+    const got = createHttpErrorResponse(error, "req-1");
 
     // Then: 500 と契約 code のみ
     expect(got.status).toBe(500);
@@ -85,7 +80,7 @@ describe("createHttpErrorResponse", () => {
     const error = new UnavailableError("利用できない");
 
     // When: HTTP Error Response を作る
-    const got = createHttpErrorResponse(error, testRequestId);
+    const got = createHttpErrorResponse(error, "req-1");
 
     // Then: 503 と契約 code のみ
     expect(got.status).toBe(503);
@@ -97,7 +92,7 @@ describe("createHttpErrorResponse", () => {
     const error = new Error("予期しない失敗");
 
     // When: HTTP Error Response を作る
-    const got = createHttpErrorResponse(error, testRequestId);
+    const got = createHttpErrorResponse(error, "req-1");
 
     // Then: 500・empty body・保存不可
     expect(got.status).toBe(500);
@@ -110,7 +105,7 @@ describe("createHttpErrorResponse", () => {
     const thrown = "文字列で throw された失敗";
 
     // When: HTTP Error Response を作る
-    const got = createHttpErrorResponse(thrown, testRequestId);
+    const got = createHttpErrorResponse(thrown, "req-1");
 
     // Then: 500 を返し、UnmappedError として String 化した message を log する
     expect(got.status).toBe(500);
@@ -129,7 +124,7 @@ describe("createHttpErrorResponse", () => {
     const error = new Error("予期しない失敗", { cause: middleCause });
 
     // When: HTTP Error Response を作る
-    createHttpErrorResponse(error, testRequestId);
+    createHttpErrorResponse(error, "req-1");
 
     // Then: cause chain 全体（root まで）が log payload に含まれる
     expect(errorSpy).toHaveBeenCalledWith(
