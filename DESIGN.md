@@ -39,7 +39,12 @@ Non-scope（書かない・写さない）:
 | 置き場 | skill 上の層 |
 |--------|----------------|
 | `generator/internal/entities` | Entities |
-| `generator/internal/application` | Application（UseCase + Port IF） |
+| `generator/internal/application` | Application（入口 UseCase + Port IF） |
+| `generator/internal/application/port` | Driven Port IF |
+| `generator/internal/application/fetch` | Fetch UseCase（取得窓 → ItemSource） |
+| `generator/internal/application/writeepisode` | Write Gate UseCase（検査 → EpisodeWriter） |
+| `generator/internal/application/manuscript` | 原稿合成 UseCase（port.TextWriter） |
+| `generator/internal/application/speech` | TTS 合成 UseCase（port.SpeechSynthesizer） |
 | `generator/internal/application/build` | Builder helper（Gate ではない） |
 | `generator/internal/config` | Configuration Boundary |
 | `generator/internal/infrastructure` | Infrastructure |

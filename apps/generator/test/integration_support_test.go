@@ -23,7 +23,9 @@ import (
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/fetch"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/writeepisode"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
@@ -530,7 +532,7 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 
 	// 5 情報源（HackerNews → Lobsters → Publickey → TechCrunch → クラウド Watch）。
 	// 登録順は composition.newProduceEpisode と同順。真外部は TLS redirect で double 済み。
-	fetch := application.NewFetchSourceItems(compositeItemSource{
+	fetchUC := fetch.NewFetchSourceItems(compositeItemSource{
 		hackernews.NewListItemSource(httpClient, hackernews.MaxStoriesScanned),
 		lobsters.NewListItemSource(httpClient, lobsters.MaxStoriesScanned),
 		publickey.NewListItemSource(httpClient, publickey.MaxStoriesScanned),
@@ -540,13 +542,13 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey, gemini.TierFree)
 	lookup := r2.NewCompletedEpisodeLookup(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket)
 	rawWriter := r2.NewEpisodeWriter(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket)
-	writeEpisode := application.NewWriteEpisode(rawWriter)
+	writeEpisode := writeepisode.NewWriteEpisode(rawWriter)
 
 	// progress reporter は production（composition.newProduceEpisode）と同型で delivery.LogWriter そのもの。
 	// logBuf へ "generator: category=progress ..." を書かせる。
 	logw := delivery.NewLogWriter(h.logBuf)
 	h.uc = application.NewProduceEpisode(
-		fetch,
+		fetchUC,
 		lookup,
 		h.textWriter,
 		speech,
