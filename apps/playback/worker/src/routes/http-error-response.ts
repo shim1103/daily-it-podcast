@@ -1,5 +1,6 @@
 import type { PlaybackHttpErrorCode } from "../../../contracts/index.ts";
 import { noStoreCacheHeaders } from "./cache-policy.ts";
+import { logError } from "./logger.ts";
 
 type ExternalErrorName =
   | "ValidationError"
@@ -62,10 +63,10 @@ function toErrorLogPayload(error: Error, requestId: string): ErrorLogPayload {
 
 function logUnmappedError(error: unknown, requestId: string): void {
   if (error instanceof Error) {
-    console.error({ ...toErrorLogPayload(error, requestId), name: "UnmappedError" });
+    logError({ ...toErrorLogPayload(error, requestId), name: "UnmappedError" });
     return;
   }
-  console.error({
+  logError({
     name: "UnmappedError",
     message: String(error),
     requestId,
@@ -75,7 +76,7 @@ function logUnmappedError(error: unknown, requestId: string): void {
 export function createHttpErrorResponse(error: unknown, requestId: string): Response {
   if (error instanceof Error && isMappedExternalErrorName(error.name)) {
     const mapped = externalHttpErrorMapping[error.name];
-    console.error(toErrorLogPayload(error, requestId));
+    logError(toErrorLogPayload(error, requestId));
     return Response.json(
       { code: mapped.code },
       { status: mapped.status, headers: noStoreCacheHeaders },
