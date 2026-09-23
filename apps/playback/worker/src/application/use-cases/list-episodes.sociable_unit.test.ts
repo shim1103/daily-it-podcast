@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { episodeAudioPath, ListEpisodesResponseSchema } from "../../../../contracts/index.ts";
+import { StubProgressRepository } from "../ports/progress-repository.ts";
 import type { EpisodeRepository, RawManuscriptEntry } from "../ports/episode-repository.ts";
 import { listEpisodes } from "./list-episodes.ts";
 
@@ -38,7 +39,7 @@ describe("listEpisodes", () => {
     const repository = createFakeRepository([{ stem: "ep-1", json: validManuscriptJson }]);
 
     // When: 一覧 UseCase を実行する
-    const got = await listEpisodes(repository);
+    const got = await listEpisodes(repository, new StubProgressRepository());
 
     // Then: 契約 schema を満たし、body 全文と audioRef がある
     expect(ListEpisodesResponseSchema.safeParse(got).success).toBe(true);
@@ -60,7 +61,7 @@ describe("listEpisodes", () => {
     const repository = createFakeRepository([{ stem: "bad", json: { episodeId: "bad" } }]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository);
+    const got = await listEpisodes(repository, new StubProgressRepository());
 
     // Then: 除外され空一覧
     expect(got.episodes).toEqual([]);
@@ -73,7 +74,7 @@ describe("listEpisodes", () => {
     ]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository);
+    const got = await listEpisodes(repository, new StubProgressRepository());
 
     // Then: 行に出ない
     expect(got.episodes).toEqual([]);
@@ -84,7 +85,7 @@ describe("listEpisodes", () => {
     const repository = createFakeRepository([{ stem: "ep-1", json: "not json" }]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository);
+    const got = await listEpisodes(repository, new StubProgressRepository());
 
     // Then: 除外される
     expect(got.episodes).toEqual([]);
@@ -98,7 +99,7 @@ describe("listEpisodes", () => {
     ]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository);
+    const got = await listEpisodes(repository, new StubProgressRepository());
 
     // Then: 適合分だけ
     expect(got.episodes.map((item) => item.episodeId)).toEqual(["ep-1"]);
@@ -109,7 +110,7 @@ describe("listEpisodes", () => {
     const repository = createFakeRepository([]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository);
+    const got = await listEpisodes(repository, new StubProgressRepository());
 
     // Then: 空
     expect(got.episodes).toEqual([]);
@@ -127,7 +128,7 @@ describe("listEpisodes", () => {
     ]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository);
+    const got = await listEpisodes(repository, new StubProgressRepository());
 
     // Then: date降順に並び替わる
     expect(got.episodes.map((item) => item.episodeId)).toEqual(["ep-new", "ep-mid", "ep-old"]);
@@ -143,7 +144,7 @@ describe("listEpisodes", () => {
     ]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository);
+    const got = await listEpisodes(repository, new StubProgressRepository());
 
     // Then: 両方とも残る（順序は未規定）
     expect(got.episodes.map((item) => item.episodeId).sort()).toEqual(["ep-a", "ep-b"]);
