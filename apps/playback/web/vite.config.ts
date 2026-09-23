@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react";
 import {
   createFakeGetAudioUseCase,
   createFakeListEpisodesUseCase,
+  createFakeProgressWriteUseCase,
+  createFakePullProgressUseCase,
 } from "../worker/src/controllers/fake-use-cases.ts";
 import { createApp } from "../worker/src/routes/app.ts";
 import { createDevBackendMiddleware } from "./dev-backend-proxy.ts";
@@ -21,6 +23,10 @@ export function createDummyBackendMiddleware() {
     useCases: {
       listEpisodes: createFakeListEpisodesUseCase(),
       getAudio: createFakeGetAudioUseCase(),
+      createProgress: createFakeProgressWriteUseCase(),
+      updateProgress: createFakeProgressWriteUseCase(),
+      completeProgress: createFakeProgressWriteUseCase(),
+      pullProgress: createFakePullProgressUseCase(),
     },
   });
 

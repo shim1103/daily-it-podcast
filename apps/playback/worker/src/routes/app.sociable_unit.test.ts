@@ -3,13 +3,22 @@ import {
   ErrorResponseSchema,
   episodeAudioContentType,
   episodeAudioPath,
+  episodeProgressCompletePath,
+  episodeProgressPath,
   ListEpisodesResponseSchema,
   listEpisodesPath,
   NotFoundError,
+  ProgressPullResponseSchema,
+  ProgressWriteResponseSchema,
+  progressPullPath,
 } from "../../../contracts/index.ts";
 
 const listEpisodesController = vi.fn();
 const getAudioController = vi.fn();
+const createProgressController = vi.fn();
+const updateProgressController = vi.fn();
+const completeProgressController = vi.fn();
+const pullProgressController = vi.fn();
 
 vi.mock("../composition/root.ts", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../composition/root.ts")>();
@@ -18,12 +27,16 @@ vi.mock("../composition/root.ts", async (importOriginal) => {
     createPlaybackControllers: vi.fn(() => ({
       listEpisodesController,
       getAudioController,
+      createProgressController,
+      updateProgressController,
+      completeProgressController,
+      pullProgressController,
     })),
   };
 });
 
 import { createPlaybackControllers, PlaybackRuntimeConfigError } from "../composition/root.ts";
-import { app, createApp, throwOnEpisodeIdValidationFailure } from "./app.ts";
+import { app, createApp, throwOnContractValidationFailure } from "./app.ts";
 import { validAudioBytes } from "../test/fixtures/audio-bytes.ts";
 import { requestIdHeaderName } from "./request-context.ts";
 
@@ -61,6 +74,10 @@ const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 afterEach(() => {
   vi.mocked(listEpisodesController).mockReset();
   vi.mocked(getAudioController).mockReset();
+  vi.mocked(createProgressController).mockReset();
+  vi.mocked(updateProgressController).mockReset();
+  vi.mocked(completeProgressController).mockReset();
+  vi.mocked(pullProgressController).mockReset();
   vi.mocked(createPlaybackControllers).mockClear();
   errorSpy.mockClear();
   logSpy.mockClear();
@@ -71,11 +88,11 @@ afterAll(() => {
   logSpy.mockRestore();
 });
 
-describe("throwOnEpisodeIdValidationFailure", () => {
+describe("throwOnContractValidationFailure", () => {
   it("zValidator の parse が成功した時、何も throw しない", () => {
     // Given: 成功結果
     // When / Then: throw しない
-    expect(() => throwOnEpisodeIdValidationFailure({ success: true })).not.toThrow();
+    expect(() => throwOnContractValidationFailure({ success: true })).not.toThrow();
   });
 
   it("zValidator の parse が失敗した時、ValidationError を throw し zod error を cause へ残す", () => {
@@ -84,7 +101,7 @@ describe("throwOnEpisodeIdValidationFailure", () => {
 
     // When / Then: ValidationError を throw する
     expect(() =>
-      throwOnEpisodeIdValidationFailure({ success: false, error: zodError }),
+      throwOnContractValidationFailure({ success: false, error: zodError }),
     ).toThrowError(
       expect.objectContaining({
         name: "ValidationError",
@@ -108,6 +125,10 @@ describe("app", () => {
       useCases: {
         listEpisodes: vi.fn(),
         getAudio: vi.fn(),
+        createProgress: vi.fn(),
+        updateProgress: vi.fn(),
+        completeProgress: vi.fn(),
+        pullProgress: vi.fn(),
       },
     };
     const devApp = createApp(overrides);
@@ -229,6 +250,117 @@ describe("app", () => {
     expect(got.status).toBe(404);
     const body: unknown = await got.json();
     expect(body).toEqual({ code: "episode_not_found" });
+  });
+
+  it("進捗 create POST が成功する時、ProgressWriteResponse を 200・no-store で返す", async () => {
+    // Given: Composition が契約どおりの Write 応答を返す
+    const writeBody = {
+      firstPlayedAt: "2026-09-22T10:00:00.000Z",
+      firstCompletedAt: null,
+    };
+    vi.mocked(createProgressController).mockResolvedValue(writeBody);
+
+    // When: progress path へ POST する
+    const got = await app.request(
+      `${origin}${episodeProgressPath("ep-1")}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          positionSec: 12,
+          clientAt: "2026-09-22T10:00:00.000Z",
+        }),
+      },
+      emptyEnv,
+    );
+
+    // Then: 200・契約 schema・no-store
+    expect(got.status).toBe(200);
+    expect(got.headers.get("Cache-Control")).toBe("no-store");
+    const body: unknown = await got.json();
+    expect(ProgressWriteResponseSchema.safeParse(body).success).toBe(true);
+    expect(createProgressController).toHaveBeenCalledWith("ep-1", {
+      positionSec: 12,
+      clientAt: "2026-09-22T10:00:00.000Z",
+    });
+  });
+
+  it("進捗 update PATCH が成功する時、updateProgressController を呼ぶ", async () => {
+    // Given: Composition が契約どおりの Write 応答を返す
+    vi.mocked(updateProgressController).mockResolvedValue({
+      firstPlayedAt: "2026-09-22T10:00:00.000Z",
+      firstCompletedAt: null,
+    });
+
+    // When: progress path へ PATCH する
+    const got = await app.request(
+      `${origin}${episodeProgressPath("ep-1")}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          positionSec: 20,
+          clientAt: "2026-09-22T11:00:00.000Z",
+        }),
+      },
+      emptyEnv,
+    );
+
+    // Then: update 経路
+    expect(got.status).toBe(200);
+    expect(updateProgressController).toHaveBeenCalledWith("ep-1", {
+      positionSec: 20,
+      clientAt: "2026-09-22T11:00:00.000Z",
+    });
+  });
+
+  it("進捗 complete POST が成功する時、completeProgressController を呼ぶ", async () => {
+    // Given: Composition が契約どおりの Write 応答を返す
+    vi.mocked(completeProgressController).mockResolvedValue({
+      firstPlayedAt: "2026-09-22T10:00:00.000Z",
+      firstCompletedAt: "2026-09-22T10:05:00.000Z",
+    });
+
+    // When: complete path へ POST する
+    const got = await app.request(
+      `${origin}${episodeProgressCompletePath("ep-1")}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          positionSec: 57,
+          clientAt: "2026-09-22T10:05:00.000Z",
+        }),
+      },
+      emptyEnv,
+    );
+
+    // Then: complete 経路
+    expect(got.status).toBe(200);
+    expect(completeProgressController).toHaveBeenCalledWith("ep-1", {
+      positionSec: 57,
+      clientAt: "2026-09-22T10:05:00.000Z",
+    });
+  });
+
+  it("進捗 pull GET が成功する時、ProgressPullResponse を 200・no-store で返す", async () => {
+    // Given: Composition が空差分を返す
+    vi.mocked(pullProgressController).mockResolvedValue({ episodes: [] });
+
+    // When: pull path へ GET する
+    const since = "2026-09-22T10:00:00.000Z";
+    const got = await app.request(
+      `${origin}${progressPullPath}?since=${encodeURIComponent(since)}`,
+      {},
+      emptyEnv,
+    );
+
+    // Then: 200・契約 schema・no-store
+    expect(got.status).toBe(200);
+    expect(got.headers.get("Cache-Control")).toBe("no-store");
+    const body: unknown = await got.json();
+    expect(ProgressPullResponseSchema.safeParse(body).success).toBe(true);
+    expect(pullProgressController).toHaveBeenCalledWith(since);
   });
 
   it("method または path が契約に無い時、400 と validation_error を返す", async () => {
