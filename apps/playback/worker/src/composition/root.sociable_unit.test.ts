@@ -87,8 +87,8 @@ describe("createPlaybackControllers", () => {
     const got = createPlaybackControllers({}, { mode: localMode });
 
     // When: 一覧・音声の2経路を叩く
-    const list = await got.listEpisodesController({});
-    const audio = got.getAudioController({ episodeId: "missing" });
+    const list = await got.listEpisodesController();
+    const audio = got.getAudioController("missing");
 
     // Then: 空 repository を検証純関数が通し、一覧は空・音声は Domain 経由の External NotFound
     expect(list.episodes).toEqual([]);
@@ -107,6 +107,6 @@ describe("createPlaybackControllers", () => {
     const got = createPlaybackControllers(env, {}, { useCases });
 
     // Then: repository 解決を経由せず、stub use case の応答をそのまま返す
-    await expect(got.listEpisodesController({})).resolves.toEqual(validListEpisodesResponse);
+    await expect(got.listEpisodesController()).resolves.toEqual(validListEpisodesResponse);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NotFoundError, UnavailableError, ValidationError } from "../../../contracts/index.ts";
+import { NotFoundError, UnavailableError } from "../../../contracts/index.ts";
 import { EpisodeContentError } from "../entities/errors/episode-content-error.ts";
 import { R2Error } from "../infrastructure/r2/r2-error.ts";
 import { createGetAudioController } from "./get-audio-controller.ts";
@@ -12,8 +12,8 @@ describe("createGetAudioController", () => {
     const useCase = createFakeGetAudioUseCase();
     const controller = createGetAudioController(useCase);
 
-    // When: 有効な episodeId を unknown として渡す
-    const got = await controller({ episodeId: "ep-1" });
+    // When: 検証済み episodeId を渡す
+    const got = await controller("ep-1");
     const expected = createFakeEpisodeAudioBytes(validEpisodeItem.durationSec);
 
     // Then: Fake が返した再生可能 mp3 と一致する
@@ -26,8 +26,8 @@ describe("createGetAudioController", () => {
     const controller = createGetAudioController(useCase);
 
     // When: 同じ episodeId で2回取得する
-    const first = await controller({ episodeId: "ep-1" });
-    const second = await controller({ episodeId: "ep-1" });
+    const first = await controller("ep-1");
+    const second = await controller("ep-1");
 
     // Then: 同一参照の byte を返す
     expect(second).toBe(first);
@@ -39,22 +39,10 @@ describe("createGetAudioController", () => {
     const controller = createGetAudioController(useCase);
 
     // When: 存在しない episodeId で呼ぶ
-    const act = controller({ episodeId: "missing" });
+    const act = controller("missing");
 
     // Then: Domain 不在が External NotFound になる
     await expect(act).rejects.toBeInstanceOf(NotFoundError);
-  });
-
-  it("episodeId が空の時、ValidationError を throw する", async () => {
-    // Given: 空 episodeId
-    const useCase = createFakeGetAudioUseCase();
-    const controller = createGetAudioController(useCase);
-
-    // When: schema が拒否する入力を渡す
-    const act = controller({ episodeId: "" });
-
-    // Then: External ValidationError
-    await expect(act).rejects.toBeInstanceOf(ValidationError);
   });
 
   it("UseCase が EpisodeContentError を throw する時、NotFoundError に cause 付きで変換する", async () => {
@@ -66,7 +54,7 @@ describe("createGetAudioController", () => {
     const controller = createGetAudioController(useCase);
 
     // When: 有効な episodeId で呼ぶ
-    const act = controller({ episodeId: "ep-1" });
+    const act = controller("ep-1");
 
     // Then: External NotFoundError が Domain を cause に持つ
     await expect(act).rejects.toSatisfy(
@@ -83,7 +71,7 @@ describe("createGetAudioController", () => {
     const controller = createGetAudioController(useCase);
 
     // When: 有効な episodeId で呼ぶ
-    const act = controller({ episodeId: "ep-1" });
+    const act = controller("ep-1");
 
     // Then: External UnavailableError が Infrastructure を cause に持つ
     await expect(act).rejects.toSatisfy(
