@@ -1,4 +1,4 @@
-package application_test
+package fetch_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/fetch"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
@@ -14,7 +14,7 @@ import (
 func TestFetchSourceItems_passesSinceAsNowMinusFetchWindow_whenNowGiven(t *testing.T) {
 	// Given: 固定 now
 	fake := &fakeItemSource{}
-	uc := application.NewFetchSourceItems(fake)
+	uc := fetch.NewFetchSourceItems(fake)
 	now := time.Date(2024, 12, 10, 15, 0, 0, 0, time.UTC)
 	wantSince := now.Add(-constants.FetchWindow)
 
@@ -41,7 +41,7 @@ func TestFetchSourceItems_returnsItemsFromSource_whenListSucceeds(t *testing.T) 
 		{SourceID: "x", OccurredAt: occurred.Add(time.Minute), Summary: "item_id: a2"},
 	}
 	fake := &fakeItemSource{items: want}
-	uc := application.NewFetchSourceItems(fake)
+	uc := fetch.NewFetchSourceItems(fake)
 	now := time.Date(2024, 12, 10, 15, 0, 0, 0, time.UTC)
 
 	// When: Run を呼ぶ
@@ -64,7 +64,7 @@ func TestFetchSourceItems_returnsItemsFromSource_whenListSucceeds(t *testing.T) 
 func TestFetchSourceItems_returnsEmptySlice_whenListReturnsEmpty(t *testing.T) {
 	// Given: List が空 slice
 	fake := &fakeItemSource{}
-	uc := application.NewFetchSourceItems(fake)
+	uc := fetch.NewFetchSourceItems(fake)
 	now := time.Date(2024, 12, 10, 15, 0, 0, 0, time.UTC)
 
 	// When: Run を呼ぶ
@@ -89,7 +89,7 @@ func TestFetchSourceItems_returnsErrorWithoutItems_whenListFails(t *testing.T) {
 		items: []models.SourceItem{{SourceID: "x", Summary: "item_id: a1"}},
 		err:   boom,
 	}
-	uc := application.NewFetchSourceItems(fake)
+	uc := fetch.NewFetchSourceItems(fake)
 	now := time.Date(2024, 12, 10, 15, 0, 0, 0, time.UTC)
 
 	// When: Run を呼ぶ

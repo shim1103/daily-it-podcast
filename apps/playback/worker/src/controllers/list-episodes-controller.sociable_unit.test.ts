@@ -10,8 +10,8 @@ describe("createListEpisodesController", () => {
     const useCase = createFakeListEpisodesUseCase();
     const controller = createListEpisodesController(useCase);
 
-    // When: unknown 入力で呼ぶ
-    const got = await controller({});
+    // When: 一覧を取得する
+    const got = await controller();
 
     // Then: 契約 schema を満たす
     expect(ListEpisodesResponseSchema.safeParse(got).success).toBe(true);
@@ -27,7 +27,7 @@ describe("createListEpisodesController", () => {
     const controller = createListEpisodesController(useCase);
 
     // When: 一覧を取得する
-    const act = controller({});
+    const act = controller();
 
     // Then: External UnavailableError が Infrastructure を cause に持つ
     await expect(act).rejects.toSatisfy(

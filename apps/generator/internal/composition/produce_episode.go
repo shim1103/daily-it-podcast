@@ -2,6 +2,7 @@ package composition
 
 import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/fetch"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/manuscript"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	speechapp "github.com/shim1103/daily-it-podcast/apps/generator/internal/application/speech"
@@ -37,7 +38,7 @@ func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter
 	if topicCount != constants.DraftTopicCountTarget {
 		sourceMaxItems = topicCount * constants.SourceItemsPerTopic
 	}
-	fetch := application.NewFetchSourceItems(newCompositeItemSource(
+	fetchUC := fetch.NewFetchSourceItems(newCompositeItemSource(
 		newHackerNewsItemSource(httpClient, sourceMaxItems),
 		newLobstersItemSource(httpClient, sourceMaxItems),
 		newPublickeyItemSource(httpClient, sourceMaxItems),
@@ -69,7 +70,7 @@ func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter
 	)
 	encode := newFFmpegWAVToMP3Encoder()
 	writeEpisode := newR2WriteEpisode(httpClient, cfg.R2)
-	return application.NewProduceEpisode(fetch, lookup, textWriter, speech, encode, writeEpisode, newEpisodeID, appruntime.DisplayLocation(), logw, topicCount)
+	return application.NewProduceEpisode(fetchUC, lookup, textWriter, speech, encode, writeEpisode, newEpisodeID, appruntime.DisplayLocation(), logw, topicCount)
 }
 
 // NewProduceEpisodeFromEnv は process environment から Config を読み、

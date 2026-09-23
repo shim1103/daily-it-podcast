@@ -23,8 +23,9 @@ vi.mock("../composition/root.ts", async (importOriginal) => {
 });
 
 import { createPlaybackControllers, PlaybackRuntimeConfigError } from "../composition/root.ts";
-import { app, createApp } from "./app.ts";
+import { app, createApp, throwOnEpisodeIdValidationFailure } from "./app.ts";
 import { validAudioBytes } from "../test/fixtures/audio-bytes.ts";
+import { requestIdHeaderName } from "./request-context.ts";
 
 const origin = "http://example.test";
 const emptyEnv = {};
@@ -55,16 +56,43 @@ const validList = {
 };
 
 const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
 afterEach(() => {
   vi.mocked(listEpisodesController).mockReset();
   vi.mocked(getAudioController).mockReset();
   vi.mocked(createPlaybackControllers).mockClear();
   errorSpy.mockClear();
+  logSpy.mockClear();
 });
 
 afterAll(() => {
   errorSpy.mockRestore();
+  logSpy.mockRestore();
+});
+
+describe("throwOnEpisodeIdValidationFailure", () => {
+  it("zValidator の parse が成功した時、何も throw しない", () => {
+    // Given: 成功結果
+    // When / Then: throw しない
+    expect(() => throwOnEpisodeIdValidationFailure({ success: true })).not.toThrow();
+  });
+
+  it("zValidator の parse が失敗した時、ValidationError を throw し zod error を cause へ残す", () => {
+    // Given: 失敗結果
+    const zodError = new Error("zod validation failed");
+
+    // When / Then: ValidationError を throw する
+    expect(() =>
+      throwOnEpisodeIdValidationFailure({ success: false, error: zodError }),
+    ).toThrowError(
+      expect.objectContaining({
+        name: "ValidationError",
+        message: "入力が契約に不適合",
+        cause: zodError,
+      }),
+    );
+  });
 });
 
 describe("app", () => {
@@ -118,6 +146,35 @@ describe("app", () => {
     expect(ListEpisodesResponseSchema.safeParse(body).success).toBe(true);
   });
 
+  it("一覧 GET が成功する時、ETag を付与する", async () => {
+    // Given: Composition が契約どおりの一覧を返す
+    vi.mocked(listEpisodesController).mockResolvedValue(validList);
+
+    // When: 一覧 path へ GET する
+    const got = await app.request(`${origin}${listEpisodesPath}`, {}, emptyEnv);
+
+    // Then: ETag header が付く
+    expect(got.headers.get("ETag")).toBeTruthy();
+  });
+
+  it("一覧 GET に If-None-Match を一致させて送る時、304 を body なしで返す", async () => {
+    // Given: 1 回目で得た ETag
+    vi.mocked(listEpisodesController).mockResolvedValue(validList);
+    const first = await app.request(`${origin}${listEpisodesPath}`, {}, emptyEnv);
+    const etag = first.headers.get("ETag");
+
+    // When: 同じ ETag を If-None-Match として送る
+    const second = await app.request(
+      `${origin}${listEpisodesPath}`,
+      { headers: { "If-None-Match": etag ?? "" } },
+      emptyEnv,
+    );
+
+    // Then: 304・body なし
+    expect(second.status).toBe(304);
+    expect(await second.text()).toBe("");
+  });
+
   it("音声 GET が成功する時、契約の Content-Type で byte を返す", async () => {
     // Given: Composition が音声 byte を返す
     vi.mocked(getAudioController).mockResolvedValue(validAudioBytes);
@@ -150,15 +207,15 @@ describe("app", () => {
     expect(bytes).toEqual(validAudioBytes.subarray(1, 3));
   });
 
-  it("音声 GET の path param を unknown の episodeId として Controller に渡す", async () => {
+  it("音声 GET の path param を zValidator で検証済みの episodeId として Controller に渡す", async () => {
     // Given: Composition が音声 byte を返す
     vi.mocked(getAudioController).mockResolvedValue(validAudioBytes);
 
     // When: 音声 path へ GET する
     await app.request(`${origin}${episodeAudioPath("ep-1")}`, {}, emptyEnv);
 
-    // Then: schema parse せず unknown で渡す
-    expect(getAudioController).toHaveBeenCalledWith({ episodeId: "ep-1" });
+    // Then: zValidator（EpisodeIdRequestSchema）を経由した検証済み episodeId で渡る
+    expect(getAudioController).toHaveBeenCalledWith("ep-1");
   });
 
   it("音声 GET の Controller が NotFoundError を throw する時、404 と episode_not_found を返す", async () => {
@@ -194,6 +251,52 @@ describe("app", () => {
     expect(got.status).toBe(400);
     const body: unknown = await got.json();
     expect(body).toEqual({ code: "validation_error" });
+  });
+
+  it("一覧 GET が成功する時、X-Content-Type-Options: nosniff を付与する", async () => {
+    // Given: Composition が契約どおりの一覧を返す
+    vi.mocked(listEpisodesController).mockResolvedValue(validList);
+
+    // When: 一覧 path へ GET する
+    const got = await app.request(`${origin}${listEpisodesPath}`, {}, emptyEnv);
+
+    // Then: secureHeaders() が MIME sniffing 対策 header を付与する
+    expect(got.headers.get("X-Content-Type-Options")).toBe("nosniff");
+  });
+
+  it("音声 GET が成功する時も、X-Content-Type-Options: nosniff を付与する", async () => {
+    // Given: Composition が音声 byte を返す
+    vi.mocked(getAudioController).mockResolvedValue(validAudioBytes);
+
+    // When: 音声 path へ GET する
+    const got = await app.request(`${origin}${episodeAudioPath("ep-1")}`, {}, emptyEnv);
+
+    // Then: secureHeaders() が全route共通で効く
+    expect(got.headers.get("X-Content-Type-Options")).toBe("nosniff");
+  });
+
+  it("一覧 GET が成功する時、requestId header を付与する", async () => {
+    // Given: Composition が契約どおりの一覧を返す
+    vi.mocked(listEpisodesController).mockResolvedValue(validList);
+
+    // When: 一覧 path へ GET する
+    const got = await app.request(`${origin}${listEpisodesPath}`, {}, emptyEnv);
+
+    // Then: requestLoggingMiddleware が発行した requestId が response header に乗る
+    expect(got.headers.get(requestIdHeaderName)).toBeTruthy();
+  });
+
+  it("音声 GET の Controller が NotFoundError を throw する時も、onError 側の requestId が開始ログと一致する", async () => {
+    // Given: Domain 不在を写した External Error
+    vi.mocked(getAudioController).mockRejectedValue(new NotFoundError("エピソードが無い"));
+
+    // When: 音声 path へ GET する
+    await app.request(`${origin}${episodeAudioPath("missing")}`, {}, emptyEnv);
+
+    // Then: requestLoggingMiddleware の開始ログと onError 経由の error ログが同じ requestId を共有する
+    const startCall = logSpy.mock.calls.find(([payload]) => payload.event === "request_start");
+    const errorCall = errorSpy.mock.calls[0]?.[0];
+    expect(startCall?.[0].requestId).toBe(errorCall.requestId);
   });
 
   it("runtime config の内部 Error を configuration_error へ変換し、診断を cause へ残す", async () => {
