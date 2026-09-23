@@ -19,3 +19,4 @@
 |---|---|
 | Access下の二段cache実測 | 音声のedge cache、browser cache、未認証requestがcache hitせずAccessで止まることを本番で確認する |
 | PlaybackState.activeのepisodeId/audioRef非正規化 | catalog非依存で独立保持する現設計（Decision 2026-09-04 §1-1）を維持するか、catalogから都度引く正規化形へ寄せるか。独立性（一覧再取得後も再生継続）と同期コストのトレードオフを検討する |
+| listEpisodesの原稿parse失敗の観測 | `selectValidListItem`がschema不適合entryを黙って除外する。application層はdependency-cruiser制約でconsole.*を呼べないため、除外時のwarning出力をどこに置くか（use case戻り値経由でroute層まで持ち帰る等）を決める |
