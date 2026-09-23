@@ -1,5 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
+import { etag } from "hono/etag";
 import { requestId } from "hono/request-id";
 import {
   EpisodeIdRequestSchema,
@@ -47,15 +48,21 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
   return new Hono<{ Bindings: PlaybackEnv; Variables: RequestContextVariables }>()
     .use(requestId({ generator: createRequestId, headerName: requestIdHeaderName }))
     .use(requestLoggingMiddleware)
-    .get(listEpisodesPath, async (c) => {
-      const { listEpisodesController } = createPlaybackControllers(
-        c.env,
-        { mode: "r2" },
-        useCaseOverrides,
-      );
-      const body = await listEpisodesController();
-      return c.json(body, 200, episodeListCacheHeaders);
-    })
+    .get(
+      listEpisodesPath,
+      // why: 音声GETには導入しない。判断根拠は
+      //   docs/decisions/2026-09-23T03-44-58-feature-playback-etag-list-episodes.md
+      etag(),
+      async (c) => {
+        const { listEpisodesController } = createPlaybackControllers(
+          c.env,
+          { mode: "r2" },
+          useCaseOverrides,
+        );
+        const body = await listEpisodesController();
+        return c.json(body, 200, episodeListCacheHeaders);
+      },
+    )
     .get(
       episodeAudioRoutePath,
       zValidator("param", EpisodeIdRequestSchema, throwOnEpisodeIdValidationFailure),

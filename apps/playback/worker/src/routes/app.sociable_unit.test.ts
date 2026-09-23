@@ -147,6 +147,35 @@ describe("app", () => {
     expect(ListEpisodesResponseSchema.safeParse(body).success).toBe(true);
   });
 
+  it("一覧 GET が成功する時、ETag を付与する", async () => {
+    // Given: Composition が契約どおりの一覧を返す
+    vi.mocked(listEpisodesController).mockResolvedValue(validList);
+
+    // When: 一覧 path へ GET する
+    const got = await app.request(`${origin}${listEpisodesPath}`, {}, emptyEnv);
+
+    // Then: ETag header が付く
+    expect(got.headers.get("ETag")).toBeTruthy();
+  });
+
+  it("一覧 GET に If-None-Match を一致させて送る時、304 を body なしで返す", async () => {
+    // Given: 1 回目で得た ETag
+    vi.mocked(listEpisodesController).mockResolvedValue(validList);
+    const first = await app.request(`${origin}${listEpisodesPath}`, {}, emptyEnv);
+    const etag = first.headers.get("ETag");
+
+    // When: 同じ ETag を If-None-Match として送る
+    const second = await app.request(
+      `${origin}${listEpisodesPath}`,
+      { headers: { "If-None-Match": etag ?? "" } },
+      emptyEnv,
+    );
+
+    // Then: 304・body なし
+    expect(second.status).toBe(304);
+    expect(await second.text()).toBe("");
+  });
+
   it("音声 GET が成功する時、契約の Content-Type で byte を返す", async () => {
     // Given: Composition が音声 byte を返す
     vi.mocked(getAudioController).mockResolvedValue(validAudioBytes);
