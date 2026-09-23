@@ -25,38 +25,38 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "bash \"/Users/shim0729/worktrees/tab1/daily-it-podcast/generator-go-performance/.claude/hooks/PreToolUse/Bash.sh\"" }
+          { "type": "command", "command": "bash \".claude/hooks/PreToolUse/Bash.sh\"" }
         ]
       },
       {
         "matcher": "Write",
         "hooks": [
-          { "type": "command", "command": "bash \"/Users/shim0729/worktrees/tab1/daily-it-podcast/generator-go-performance/.claude/hooks/PreToolUse/Write.sh\"" }
+          { "type": "command", "command": "bash \".claude/hooks/PreToolUse/Write.sh\"" }
         ]
       },
       {
         "matcher": "Edit",
         "hooks": [
-          { "type": "command", "command": "bash \"/Users/shim0729/worktrees/tab1/daily-it-podcast/generator-go-performance/.claude/hooks/PreToolUse/Edit.sh\"" }
+          { "type": "command", "command": "bash \".claude/hooks/PreToolUse/Edit.sh\"" }
         ]
       },
       {
         "matcher": "AskUserQuestion",
         "hooks": [
-          { "type": "command", "command": "bash \"/Users/shim0729/worktrees/tab1/daily-it-podcast/generator-go-performance/.claude/hooks/PreToolUse/AskUserQuestion.sh\"" }
+          { "type": "command", "command": "bash \".claude/hooks/PreToolUse/AskUserQuestion.sh\"" }
         ]
       },
       {
         "matcher": "Artifact",
         "hooks": [
-          { "type": "command", "command": "bash \"/Users/shim0729/worktrees/tab1/daily-it-podcast/generator-go-performance/.claude/hooks/PreToolUse/Artifact.sh\"" }
+          { "type": "command", "command": "bash \".claude/hooks/PreToolUse/Artifact.sh\"" }
         ]
       }
     ],
     "EnterPlanMode": [
       {
         "hooks": [
-          { "type": "command", "command": "bash \"/Users/shim0729/worktrees/tab1/daily-it-podcast/generator-go-performance/.claude/hooks/EnterPlanMode.sh\"" }
+          { "type": "command", "command": "bash \".claude/hooks/EnterPlanMode.sh\"" }
         ]
       }
     ]
