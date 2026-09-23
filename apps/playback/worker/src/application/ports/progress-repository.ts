@@ -64,11 +64,12 @@ export class StubProgressRepository implements ProgressRepository {
   }
 
   async writeProgress(_command: ProgressWriteCommand): Promise<ProgressWriteResponse> {
-    return { firstPlayedAt: "", firstCompletedAt: null };
+    // A: 契約 schema を満たす sentinel。意味のある first* は C
+    return { firstPlayedAt: "1970-01-01T00:00:00.000Z", firstCompletedAt: null };
   }
 
   async completeProgress(_command: ProgressWriteCommand): Promise<ProgressWriteResponse> {
-    return { firstPlayedAt: "", firstCompletedAt: null };
+    return { firstPlayedAt: "1970-01-01T00:00:00.000Z", firstCompletedAt: null };
   }
 
   async listUpdatedSince(_since: string): Promise<readonly ProgressUpdatedEntry[]> {

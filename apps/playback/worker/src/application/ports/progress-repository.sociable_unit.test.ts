@@ -22,7 +22,7 @@ describe("StubProgressRepository", () => {
       clientAt: "2026-09-19T10:00:00.000Z",
     });
 
-    expect(got).toEqual({ firstPlayedAt: "", firstCompletedAt: null });
+    expect(got).toEqual({ firstPlayedAt: "1970-01-01T00:00:00.000Z", firstCompletedAt: null });
   });
 
   it("completeProgress は first* の zero value を返す", async () => {
@@ -34,7 +34,7 @@ describe("StubProgressRepository", () => {
       clientAt: "2026-09-19T10:00:00.000Z",
     });
 
-    expect(got).toEqual({ firstPlayedAt: "", firstCompletedAt: null });
+    expect(got).toEqual({ firstPlayedAt: "1970-01-01T00:00:00.000Z", firstCompletedAt: null });
   });
 
   it("listUpdatedSince は常に空配列を返す", async () => {
