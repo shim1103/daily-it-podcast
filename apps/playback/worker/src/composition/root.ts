@@ -1,11 +1,28 @@
-import type { ListEpisodesResponse } from "../../../contracts/index.ts";
+import type {
+  ListEpisodesResponse,
+  ProgressPullResponse,
+  ProgressWriteRequest,
+  ProgressWriteResponse,
+} from "../../../contracts/index.ts";
 import type { EpisodeRepository } from "../application/ports/episode-repository.ts";
+import {
+  StubProgressRepository,
+  type ProgressRepository,
+} from "../application/ports/progress-repository.ts";
+import { completeProgress } from "../application/use-cases/complete-progress.ts";
+import { createProgress } from "../application/use-cases/create-progress.ts";
 import { getAudio } from "../application/use-cases/get-audio.ts";
 import { listEpisodes } from "../application/use-cases/list-episodes.ts";
+import { pullProgress } from "../application/use-cases/pull-progress.ts";
+import { updateProgress } from "../application/use-cases/update-progress.ts";
 import type { GetAudioController } from "../controllers/get-audio-controller.ts";
 import { createGetAudioController } from "../controllers/get-audio-controller.ts";
 import type { ListEpisodesController } from "../controllers/list-episodes-controller.ts";
 import { createListEpisodesController } from "../controllers/list-episodes-controller.ts";
+import type { ProgressWriteController } from "../controllers/progress-write-controller.ts";
+import { createProgressWriteController } from "../controllers/progress-write-controller.ts";
+import type { PullProgressController } from "../controllers/pull-progress-controller.ts";
+import { createPullProgressController } from "../controllers/pull-progress-controller.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/in-memory/in-memory-episode-repository.ts";
 import { R2EpisodeRepository } from "../infrastructure/r2/r2-episode-repository.ts";
 import { validatePlaybackEnv, type PlaybackRepositoryOptions } from "./runtime-config.ts";
@@ -21,6 +38,10 @@ export { PlaybackRuntimeConfigError } from "./runtime-config-error.ts";
 export type PlaybackControllers = {
   listEpisodesController: ListEpisodesController;
   getAudioController: GetAudioController;
+  createProgressController: ProgressWriteController;
+  updateProgressController: ProgressWriteController;
+  completeProgressController: ProgressWriteController;
+  pullProgressController: PullProgressController;
 };
 
 /**
@@ -32,6 +53,19 @@ export type PlaybackUseCaseOverrides = {
   useCases: {
     listEpisodes: () => Promise<ListEpisodesResponse>;
     getAudio: (episodeId: string) => Promise<Uint8Array>;
+    createProgress: (
+      episodeId: string,
+      body: ProgressWriteRequest,
+    ) => Promise<ProgressWriteResponse>;
+    updateProgress: (
+      episodeId: string,
+      body: ProgressWriteRequest,
+    ) => Promise<ProgressWriteResponse>;
+    completeProgress: (
+      episodeId: string,
+      body: ProgressWriteRequest,
+    ) => Promise<ProgressWriteResponse>;
+    pullProgress: (since: string) => Promise<ProgressPullResponse>;
   };
 };
 
@@ -65,6 +99,17 @@ export function createEpisodeRepository(
 }
 
 /**
+ * A: D1 adapter 未実装のため常に Stub ProgressRepository。
+ * binding（`EPISODE_PROGRESS`）の有無検証と D1 adapter 差し替えは C。
+ *
+ * @ensure 常に ProgressRepository を返す（無言で null にしない）
+ */
+// todo: D1 adapter（C）で env.EPISODE_PROGRESS を検証し具象へ差し替え。それまで Stub 固定
+export function createProgressRepository(_env: PlaybackEnv): ProgressRepository {
+  return new StubProgressRepository();
+}
+
+/**
  * env から Playback worker の Controller 一式を組み立てる。
  *
  * @require env は Cloudflare Workers native secrets/vars
@@ -82,14 +127,33 @@ export function createPlaybackControllers(
     return {
       listEpisodesController: createListEpisodesController(useCases.listEpisodes),
       getAudioController: createGetAudioController(useCases.getAudio),
+      createProgressController: createProgressWriteController(useCases.createProgress),
+      updateProgressController: createProgressWriteController(useCases.updateProgress),
+      completeProgressController: createProgressWriteController(useCases.completeProgress),
+      pullProgressController: createPullProgressController(useCases.pullProgress),
     };
   }
 
   const selection = createEpisodeRepository(env, options);
+  const progressRepository = createProgressRepository(env);
 
   const { repository } = selection;
   return {
-    listEpisodesController: createListEpisodesController(() => listEpisodes(repository)),
+    listEpisodesController: createListEpisodesController(() =>
+      listEpisodes(repository, progressRepository),
+    ),
     getAudioController: createGetAudioController((episodeId) => getAudio(repository, episodeId)),
+    createProgressController: createProgressWriteController((episodeId, body) =>
+      createProgress(progressRepository, { episodeId, ...body }),
+    ),
+    updateProgressController: createProgressWriteController((episodeId, body) =>
+      updateProgress(progressRepository, { episodeId, ...body }),
+    ),
+    completeProgressController: createProgressWriteController((episodeId, body) =>
+      completeProgress(progressRepository, { episodeId, ...body }),
+    ),
+    pullProgressController: createPullProgressController((since) =>
+      pullProgress(progressRepository, since),
+    ),
   };
 }
