@@ -254,6 +254,28 @@ describe("app", () => {
     expect(body).toEqual({ code: "validation_error" });
   });
 
+  it("一覧 GET が成功する時、X-Content-Type-Options: nosniff を付与する", async () => {
+    // Given: Composition が契約どおりの一覧を返す
+    vi.mocked(listEpisodesController).mockResolvedValue(validList);
+
+    // When: 一覧 path へ GET する
+    const got = await app.request(`${origin}${listEpisodesPath}`, {}, emptyEnv);
+
+    // Then: secureHeaders() が MIME sniffing 対策 header を付与する
+    expect(got.headers.get("X-Content-Type-Options")).toBe("nosniff");
+  });
+
+  it("音声 GET が成功する時も、X-Content-Type-Options: nosniff を付与する", async () => {
+    // Given: Composition が音声 byte を返す
+    vi.mocked(getAudioController).mockResolvedValue(validAudioBytes);
+
+    // When: 音声 path へ GET する
+    const got = await app.request(`${origin}${episodeAudioPath("ep-1")}`, {}, emptyEnv);
+
+    // Then: secureHeaders() が全route共通で効く
+    expect(got.headers.get("X-Content-Type-Options")).toBe("nosniff");
+  });
+
   it("一覧 GET が成功する時、requestId header を付与する", async () => {
     // Given: Composition が契約どおりの一覧を返す
     vi.mocked(listEpisodesController).mockResolvedValue(validList);

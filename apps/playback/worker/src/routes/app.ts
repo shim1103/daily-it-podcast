@@ -2,6 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { etag } from "hono/etag";
 import { requestId } from "hono/request-id";
+import { secureHeaders } from "hono/secure-headers";
 import {
   EpisodeIdRequestSchema,
   ValidationError,
@@ -48,6 +49,7 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
   return new Hono<{ Bindings: PlaybackEnv; Variables: RequestContextVariables }>()
     .use(requestId({ generator: createRequestId, headerName: requestIdHeaderName }))
     .use(requestLoggingMiddleware)
+    .use(secureHeaders())
     .get(
       listEpisodesPath,
       // why: 音声GETには導入しない。判断根拠は
