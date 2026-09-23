@@ -11,6 +11,7 @@ import (
 //
 // @require texts の各要素は trim 後に非空。朗読本文のみ。演出・voice は渡さない。
 // @ensure 成功時は texts と同数の非空 WAV bytes 列（セグメント単位。結合しない）。同一 text でも byte 列の一致は約束しない。
+// @ensure 各要素の DurationSec は同要素の Content（WAV）から算出した再生尺（秒）。呼び出し側は自前で再計算しない。
 // @ensure 失敗時も、それまでに合成できた分の []models.SpeechAudio を返す（部分成功）。
 //
 //	呼び出し側（fallback 合成 layer）はこの部分成功分を保持し、残りの texts だけを次 source へ渡してよい。
