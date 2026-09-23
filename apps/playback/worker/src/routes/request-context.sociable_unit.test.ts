@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { requestId } from "hono/request-id";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { requestIdHeaderName, requestLoggingMiddleware } from "./request-context.ts";
 
@@ -10,6 +11,7 @@ afterEach(() => {
 
 function buildApp() {
   return new Hono<{ Variables: { requestId: string } }>()
+    .use(requestId())
     .use(requestLoggingMiddleware)
     .get("/episodes", (c) => c.json({ ok: true }))
     .get("/boom", () => {

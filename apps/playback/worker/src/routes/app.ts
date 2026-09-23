@@ -1,5 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
+import { requestId } from "hono/request-id";
 import {
   EpisodeIdRequestSchema,
   ValidationError,
@@ -14,7 +15,12 @@ import {
 import { createAudioResponse } from "./audio-response.ts";
 import { episodeListCacheHeaders } from "./cache-policy.ts";
 import { createHttpErrorResponse } from "./http-error-response.ts";
-import { requestLoggingMiddleware, type RequestContextVariables } from "./request-context.ts";
+import {
+  createRequestId,
+  requestIdHeaderName,
+  requestLoggingMiddleware,
+  type RequestContextVariables,
+} from "./request-context.ts";
 import { mapRuntimeConfigErrorToExternal } from "./runtime-config-error-mapping.ts";
 
 /**
@@ -39,6 +45,7 @@ export function throwOnEpisodeIdValidationFailure(result: { success: boolean; er
  */
 export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
   return new Hono<{ Bindings: PlaybackEnv; Variables: RequestContextVariables }>()
+    .use(requestId({ generator: createRequestId, headerName: requestIdHeaderName }))
     .use(requestLoggingMiddleware)
     .get(listEpisodesPath, async (c) => {
       const { listEpisodesController } = createPlaybackControllers(

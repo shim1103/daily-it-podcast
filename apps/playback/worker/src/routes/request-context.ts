@@ -3,7 +3,12 @@ import { logInfo, type RequestId } from "./logger.ts";
 
 export type { RequestId } from "./logger.ts";
 
-function createRequestId(): RequestId {
+/**
+ * `hono/request-id` の `generator` option に渡す。requestId を branded type として発行する。
+ *
+ * @ensure crypto.randomUUID() を RequestId へ cast して返す
+ */
+export function createRequestId(): RequestId {
   return crypto.randomUUID() as RequestId;
 }
 
@@ -14,21 +19,19 @@ export type RequestContextVariables = {
 export const requestIdHeaderName = "X-Request-Id";
 
 /**
- * requestId の発行・伝播と、request 単位のアクセスログを担う Hono middleware。
+ * request 単位のアクセスログを担う Hono middleware。
  *
- * @require なし
- * @ensure system 境界に最初に入った地点で requestId を 1 度だけ発行し、`c.set("requestId", ...)` で
- *   後続 handler・onError へ伝播する。正常応答には requestId header を付与する。
- *   開始ログ（request_start）と完了ログ（request_end）を、成功・失敗どちらの経路でも各 1 回ずつ出す
+ * @require `hono/request-id`（`requestId({ generator: createRequestId })`）が、この middleware
+ *   より前段で requestId を発行・`c.set` 済みであること
+ * @ensure 開始ログ（request_start）と完了ログ（request_end）を、成功・失敗どちらの経路でも
+ *   各 1 回ずつ出す
  * @invariant log 出力はこの middleware と onError の 2 箇所に限定する。domain・infrastructure 層では出さない
- * @invariant requestId の発行はこの middleware に閉じる。他の層で crypto.randomUUID() を requestId
- *   として再発行しない
+ * @invariant requestId の発行はこの middleware で行わない。`hono/request-id` 側の発行結果を読むだけ
  */
 export const requestLoggingMiddleware: MiddlewareHandler<{
   Variables: RequestContextVariables;
 }> = async (c, next) => {
-  const requestId = createRequestId();
-  c.set("requestId", requestId);
+  const requestId = c.get("requestId");
   const method = c.req.method;
   const path = c.req.path;
   const start = Date.now();
@@ -37,7 +40,6 @@ export const requestLoggingMiddleware: MiddlewareHandler<{
 
   await next();
 
-  c.header(requestIdHeaderName, requestId);
   logInfo({
     event: "request_end",
     requestId,
