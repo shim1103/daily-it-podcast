@@ -2,6 +2,9 @@ import {
   episodeAudioPath,
   type EpisodeItem,
   type ListEpisodesResponse,
+  type ProgressPullResponse,
+  type ProgressWriteRequest,
+  type ProgressWriteResponse,
 } from "../../../contracts/index.ts";
 import { createFakeEpisodeAudioBytes } from "../test/fixtures/audio-bytes.ts";
 import { EpisodeContentError } from "../entities/errors/episode-content-error.ts";
@@ -70,4 +73,27 @@ export function createFakeGetAudioUseCase(
       return loadFakeEpisodeAudio(episodeId);
     })
   );
+}
+
+/** A 足場・Controller test 用の Write 成功応答。 */
+export const validProgressWriteResponse: ProgressWriteResponse = {
+  firstPlayedAt: "2026-09-22T10:00:00.000Z",
+  firstCompletedAt: null,
+};
+
+/** A 足場・Controller test 用の pull 成功応答（差分なし）。 */
+export const validProgressPullResponse: ProgressPullResponse = {
+  episodes: [],
+};
+
+export function createFakeProgressWriteUseCase(
+  impl?: (episodeId: string, body: ProgressWriteRequest) => Promise<ProgressWriteResponse>,
+): (episodeId: string, body: ProgressWriteRequest) => Promise<ProgressWriteResponse> {
+  return impl ?? (async () => validProgressWriteResponse);
+}
+
+export function createFakePullProgressUseCase(
+  impl?: (since: string) => Promise<ProgressPullResponse>,
+): (since: string) => Promise<ProgressPullResponse> {
+  return impl ?? (async () => validProgressPullResponse);
 }
