@@ -8,9 +8,10 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
-// compositeItemSource は登録順に各 port.ItemSource.List を逐次呼び、結果を登録順に concat する。
+// compositeItemSource は各 port.ItemSource.List を並行に呼び、結果を concat する。
 //
-// @invariant 並列化しない。source を跨いだ dedup / sort もしない（登録順 concat のみ）。
+// @invariant source 間で shared state を持たない（各 source は独立した port.ItemSource インスタンス）。
+// @invariant source を跨いだ dedup / sort もしない（結果順序は保証しない）。
 type compositeItemSource []port.ItemSource
 
 // newCompositeItemSource は sources を登録順に束ねた合成 port.ItemSource を返す。
@@ -21,11 +22,11 @@ func newCompositeItemSource(sources ...port.ItemSource) port.ItemSource {
 	return compositeItemSource(sources)
 }
 
-// List は登録順に各 source の List を呼び、成功結果を登録順に連結して返す。
+// List は各 source の List を並行に呼び、成功結果を連結して返す。
 //
 // @require since は OccurredAt の inclusive 下限（各 source の List 契約に委ねる）。
-// @ensure 各 source を登録順に 1 回ずつ逐次呼ぶ。並列化しない。
-// @ensure いずれかの source.List が error を返したらその error をそのまま返し、成功分は返さない。
+// @ensure 各 source を 1 回ずつ並行に呼ぶ。結果の連結順序は保証しない。
+// @ensure いずれかの source.List が error を返したらその error を返し、成功分は返さない（他 source の実行は中断してよい）。
 // @ensure 全 source が空、または source が 0 本のときも非 nil の空 slice を返す。
 // @invariant vendor 固有型・情報源内部の監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
 func (c compositeItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {

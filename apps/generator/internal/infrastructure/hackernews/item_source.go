@@ -37,6 +37,9 @@ const (
 	MaxCommentsPerStory = 8
 	// CommentDepth は取得する comment 階層の深さ（top-level のみ）。
 	CommentDepth = 1
+	// MaxConcurrentFetches は item/<id>.json への同時 fetch 数の上限。
+	// Hacker News API 側の rate limit は非公開のため、安全側に抑えた値とする。
+	MaxConcurrentFetches = 5
 )
 
 // permalinkBaseURL は Hacker News item ページ（C の raw→field 写像で使う契約定数）。
@@ -86,7 +89,8 @@ type hnItem struct {
 // @require since は OccurredAt の inclusive 下限。
 // @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ since 以上。
 // @ensure 結果は time >= since を満たす story のみ。最大 min(maxItems, MaxStoriesScanned) 件（maxItems <= 0 は MaxStoriesScanned）。
-// @ensure 該当なしは空 slice（nil ではない）。
+// @ensure 該当なしは空 slice（nil ではない）。結果の順序は保証しない。
+// @ensure id 列の個別 fetch は最大 MaxConcurrentFetches 件まで同時実行してよい。
 // @invariant vendor 固有型・監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
 func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
 	if s == nil || s.client == nil {
@@ -146,8 +150,9 @@ func (s *ListItemSource) fetchStoryInWindow(ctx context.Context, id int64, since
 	return item, true
 }
 
-// fetchTopLevelComments は kids 先頭 MaxCommentsPerStory 件の comment 本文を取得順に返す。
+// fetchTopLevelComments は kids 先頭 MaxCommentsPerStory 件の comment 本文を返す。
 // CommentDepth=1: comment の kids は辿らない。個別 comment の取得失敗はその要素を落とす。
+// 結果の順序は保証しない。個別 fetch は最大 MaxConcurrentFetches 件まで同時実行してよい。
 func (s *ListItemSource) fetchTopLevelComments(ctx context.Context, kids []int64) []string {
 	limit := MaxCommentsPerStory
 	if len(kids) < limit {

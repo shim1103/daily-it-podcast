@@ -10,6 +10,10 @@ const (
 	// maxPutAttempts は 1 object の put 試行上限。初回 + 1 回 retry（情報源 Adapter と同型）。
 	maxPutAttempts = 2
 
+	// maxConcurrentGets は HasPair における json object への同時 GET 数の上限。
+	// R2 側の rate limit は非公開のため、安全側に抑えた値とする。
+	maxConcurrentGets = 5
+
 	// awsRegion / awsService は R2 の S3 互換 SigV4 固定値。
 	awsRegion  = "auto"
 	awsService = "s3"

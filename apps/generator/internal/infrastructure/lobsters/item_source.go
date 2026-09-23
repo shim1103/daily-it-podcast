@@ -29,6 +29,9 @@ const (
 	MaxCommentsPerStory = 8
 	// CommentDepth は取得する comment 階層の深さ（top-level のみ）。
 	CommentDepth = 1
+	// MaxConcurrentFetches は /s/<short_id>.json への同時 fetch 数の上限。
+	// Lobsters API 側の rate limit は非公開のため、安全側に抑えた値とする。
+	MaxConcurrentFetches = 5
 )
 
 // ListItemSource は Lobsters の hottest を ItemSource として返す Adapter。
@@ -86,7 +89,8 @@ type storyComment struct {
 // @require since は OccurredAt の inclusive 下限。
 // @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ since 以上。
 // @ensure 結果は created_at >= since を満たす story のみ。最大 min(maxItems, MaxStoriesScanned) 件（maxItems <= 0 は MaxStoriesScanned）。
-// @ensure 該当なしは空 slice（nil ではない）。
+// @ensure 該当なしは空 slice（nil ではない）。結果の順序は保証しない。
+// @ensure targets の個別 fetch は最大 MaxConcurrentFetches 件まで同時実行してよい。
 // @invariant vendor 固有型・監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
 func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
 	if s == nil || s.client == nil {

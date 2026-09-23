@@ -47,6 +47,7 @@ func NewCompletedEpisodeLookup(httpClient *http.Client, accessKeyID, secretAcces
 // @require date は YYYY-MM-DD（Port 契約。本 Adapter は再検証しない）。
 // @ensure 同一 stem の json+mp3 があり json の date が一致するとき true。片方・無し・不一致は false。
 // @ensure network / 5xx / 429 は有限 retry。その他 4xx は fail-fast。
+// @ensure 対象 stem への GET は最大 maxConcurrentGets 件まで同時実行してよい。
 // @invariant storage 固有 id・MIME・vendor 型を露出せず、error に bucket / key / credential 実値を載せない。
 func (l *CompletedEpisodeLookup) HasPair(ctx context.Context, date string) (bool, error) {
 	if l == nil || l.client == nil {
