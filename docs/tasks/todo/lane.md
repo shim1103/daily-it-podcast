@@ -2,6 +2,15 @@
 
 未完了の調査・実測だけをGenerator / Playback横断で管理する。実装済み事項・実施順・方針は載せない。達成契約をIssue化した場合は`docs/tasks/todo/`の個別fileを正とする。
 
+## Release lane
+
+1 laneは1つのfeature-integration branch（release単位、定義は`1:terms/delivery/branch-strategy`）を表し、束ねるIssue間の依存関係を管理する。Issue本文（Scope・AC等）は複製しない。該当laneのfeature-integrationがintegrationへPR・mergeされた時点でこの区画から削除する。未issue化の調査・実測topic（下記Generator/Playback表）とは区別する。
+
+| lane（feature-integration branch） | Issue | 依存 |
+|---|---|---|
+| `refactor/generator-go-performance` | `docs/tasks/todo/generator-io-fanout.md` | 独立 |
+| `refactor/generator-go-performance` | `docs/tasks/todo/generator-speech-duration.md` | 独立 |
+
 ## Generator
 
 | topic | 未完了 |
