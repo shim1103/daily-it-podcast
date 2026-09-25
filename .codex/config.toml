@@ -1,3 +1,7 @@
+model = "gpt-5.4"
+model_reasoning_effort = "medium"
+approval_policy = "never"
+
 # Project-scoped secret path deny（GitHub 管理対象）.
 # user 側に sandbox_mode があると permission profile は無視されるため、
 # この repo では profile で deny を定義し、sandbox_mode は置かない。

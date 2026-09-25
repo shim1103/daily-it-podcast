@@ -1,6 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "respectGitignore": true,
   "permissions": {
+    "defaultMode": "auto",
     "deny": [
       "Read(.env)",
       "Read(.env.*)",
@@ -17,6 +19,41 @@
       "Bash(* /proc/*/environ*)"
     ]
   },
+  "model": "sonnet",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "bash \".claude/hooks/PreToolUse/Bash.sh\"" }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          { "type": "command", "command": "bash \".claude/hooks/PreToolUse/Write.sh\"" }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          { "type": "command", "command": "bash \".claude/hooks/PreToolUse/Edit.sh\"" }
+        ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          { "type": "command", "command": "bash \".claude/hooks/PreToolUse/AskUserQuestion.sh\"" }
+        ]
+      },
+      {
+        "matcher": "Artifact",
+        "hooks": [
+          { "type": "command", "command": "bash \".claude/hooks/PreToolUse/Artifact.sh\"" }
+        ]
+      }
+    ]
+  },
   "sandbox": {
     "enabled": true,
     "filesystem": {
@@ -29,6 +66,16 @@
       "allowRead": [
         "**/.env.example"
       ]
+    },
+    "network": {
+      "allowLocalBinding": true
     }
-  }
+  },
+  "alwaysThinkingEnabled": false,
+  "effortLevel": "high",
+  "skipDangerousModePermissionPrompt": true,
+  "verbose": false,
+  "agentPushNotifEnabled": true,
+  "autoUpdates": true,
+  "streamingEnabled": true
 }
