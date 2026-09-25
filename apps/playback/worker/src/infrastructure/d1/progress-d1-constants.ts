@@ -5,7 +5,7 @@
 
 /**
  * Workers D1 binding 名。`wrangler.jsonc` の `d1_databases[].binding` と
- * PlaybackEnv の key と一致させる（database 実体の作成・結線は C）。
+ * PlaybackEnv の key と一致させる（database 実体の作成・credential 登録は A）。
  */
 export const EPISODE_PROGRESS_D1_BINDING = "EPISODE_PROGRESS" as const;
 

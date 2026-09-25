@@ -21,5 +21,13 @@
       "binding": "EPISODES",
       "bucket_name": "daily-it-podcast-prod"
     }
+  ],
+  // D1: binding 名は EPISODE_PROGRESS_D1_BINDING と一致。database_name / database_id は instance 作成後に確定する。
+  "d1_databases": [
+    {
+      "binding": "EPISODE_PROGRESS",
+      "database_name": "daily-it-podcast-progress-prod",
+      "database_id": "c0257cd5-2945-480a-bb6f-6feb02e5d057"
+    }
   ]
 }
