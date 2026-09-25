@@ -13,4 +13,4 @@
 - 2026-09-25 [develop] remote branch 削除は名前付き ref を外す操作である。他 branch / tag / merge 祖先から到達できる commit は残る  # → layer:platform
 - 2026-09-25 [develop] どの ref からも辿れない tip は orphan（dangling）になりやすい。SHA を知れば一時的に戻せる場合もあるが、保証は弱い  # → layer:platform
 - 2026-09-25 [develop] hosting の「履歴が見える」ことは未 merge tip を残す理由にならない。進行中 work の正本参照は branch / tag / PR tip のどれかで明示する  # → layer:platform
-- 2026-09-25 [develop] 残す branch は保護ブランチと進行中の未完了 work に限る。release 済み・直接 merge 済み・間接 merge 済み・再開しない tip は消す  # → layer:workflow
+- 2026-09-25 [develop] branch の残置基準は「いま必要な参照か」だけ。残すのは保護ブランチと進行中の未完了 work。release 済み・直接/間接 merge 済み・再開しない tip は残置しない  # → layer:terms
