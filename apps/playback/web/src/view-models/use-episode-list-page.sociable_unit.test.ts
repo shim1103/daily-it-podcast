@@ -74,7 +74,13 @@ function createFakeAudioElement(): HTMLAudioElement & { emit(type: string): void
 }
 
 function createStubApiClient(): PlaybackApiClient {
-  return { listEpisodes: vi.fn() };
+  return {
+    listEpisodes: vi.fn(),
+    createProgress: vi.fn(),
+    updateProgress: vi.fn(),
+    completeProgress: vi.fn(),
+    pullProgress: vi.fn(),
+  };
 }
 
 function mockCatalog(overrides: Partial<ReturnType<typeof useEpisodeCatalog>> = {}): void {

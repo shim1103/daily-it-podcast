@@ -65,6 +65,10 @@ const validListEpisodesResponse: ListEpisodesResponse = {
 function createStubApiClient(overrides: Partial<PlaybackApiClient> = {}): PlaybackApiClient {
   return {
     listEpisodes: vi.fn(async () => ({ ok: true as const, data: validListEpisodesResponse })),
+    createProgress: vi.fn(),
+    updateProgress: vi.fn(),
+    completeProgress: vi.fn(),
+    pullProgress: vi.fn(),
     ...overrides,
   };
 }

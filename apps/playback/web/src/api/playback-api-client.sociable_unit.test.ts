@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { createPlaybackApiClient } from "./playback-api-client.ts";
 
+const writeBody = {
+  positionSec: 12,
+  clientAt: "2026-09-22T10:00:00.000Z",
+} as const;
+
+const writeResponse = {
+  firstPlayedAt: "2026-09-22T10:00:00.000Z",
+  firstCompletedAt: null,
+} as const;
+
 describe("createPlaybackApiClient", () => {
   it("listEpisodes は成功 response を schema 検証済み Result で返す", async () => {
     // Given: 一覧 URL への fetch が成功 response を返す Stub
@@ -41,5 +51,38 @@ describe("createPlaybackApiClient", () => {
 
     // Then: throw せず network_error を返す
     expect(got).toEqual({ ok: false, error: "network_error" });
+  });
+
+  it("createProgress は成功 response を schema 検証済み Result で返す", async () => {
+    // Given: Write 成功 Stub
+    const fetch = () => Promise.resolve(Response.json(writeResponse));
+    const client = createPlaybackApiClient({ baseUrl: "https://example.test/", fetch });
+
+    // When: create
+    const got = await client.createProgress("ep-1", writeBody);
+
+    // Then: ok data
+    expect(got).toEqual({ ok: true, data: writeResponse });
+  });
+
+  it("updateProgress / completeProgress / pullProgress の signature が ApiResult を返す", async () => {
+    // Given: Write / pull 成功 Stub
+    const fetch = (url: string) => {
+      if (url.includes("since=") || (url.endsWith("/progress") && !url.includes("/episodes/"))) {
+        return Promise.resolve(Response.json({ episodes: [] }));
+      }
+      return Promise.resolve(Response.json(writeResponse));
+    };
+    const client = createPlaybackApiClient({ baseUrl: "https://example.test/", fetch });
+
+    // When: 残り 3 method
+    const updated = await client.updateProgress("ep-1", writeBody);
+    const completed = await client.completeProgress("ep-1", writeBody);
+    const pulled = await client.pullProgress({ since: "2026-09-22T10:00:00.000Z" });
+
+    // Then: いずれも ok（足場。retry 振る舞いは C）
+    expect(updated.ok).toBe(true);
+    expect(completed.ok).toBe(true);
+    expect(pulled).toEqual({ ok: true, data: { episodes: [] } });
   });
 });
