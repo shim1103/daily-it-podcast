@@ -25,3 +25,11 @@ apps/playback/playwright-report/
 # Python bytecode (apps/diagrams)
 __pycache__/
 *.pyc
+
+.claude/
+AGENTS.md
+CLAUDE.md
+
+.codex/
+
+.cursor/
