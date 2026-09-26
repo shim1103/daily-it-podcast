@@ -47,6 +47,12 @@
         ]
       },
       {
+        "matcher": "EnterPlanMode",
+        "hooks": [
+          { "type": "command", "command": "bash \".claude/hooks/PreToolUse/EnterPlanMode.sh\"" }
+        ]
+      },
+      {
         "matcher": "Artifact",
         "hooks": [
           { "type": "command", "command": "bash \".claude/hooks/PreToolUse/Artifact.sh\"" }
