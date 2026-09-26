@@ -56,7 +56,7 @@ Non-scope（書かない・写さない）:
 
 `playback/web` は Vite + TypeScript + React + Pico.css classless。`playback/worker` 入口は Hono、型同期は Hono RPC。Next.js / shadcn / TanStack は使わない。
 
-依存は内側へ。Composition Root だけが全層を結線する。未完了 index は `docs/tasks/todo/lane.md`。
+依存は内側へ。Composition Root だけが全層を結線する。未完了 index は [wiki Issue #192](https://github.com/shim1103/daily-it-podcast/issues/192)。
 
 generator Application の下位 package 配置・`ProduceEpisode` の依存の型（port で受けるか UseCase DI か）・cmd の `os.Exit`/`defer` 形など、再発する判断は `docs/decisions/` を見よ（個別 Decision への日付 ID 直リンクは張らない）。
 
@@ -82,7 +82,7 @@ repo 根 `contracts/` は **配置表現**の SSOT（現行は R2 object 上の�
 | 情報取得 | 公式 API / RSS の複数源（HackerNews・Lobsters・Publickey・TechCrunch・クラウド Watch）。Port は `ItemSource`。源ごとに専用 Adapter、facade なし（RSS 汎用 Adapter も作らない）。GET+retry / HTML 正規化の共有は `infrastructure/httpget`（Decision `2026-09-14T13-06-11`）。源 NI は controllable peer（`httptest` + DialTLS）。本番直撃の接続確認は gate 外 cache suite（Decision `2026-09-14T15-05-00`）。複数源 merge は Composition の composite。Application は源個数を知らない。`SourceItem` 形は Decision `2026-09-13T17-14-00`（正本は `models/source_item.go`）。写像を固定する方針は `2026-09-13T17-14-10`（表の正本は各 Adapter）。採用源は `2026-09-13T15-08-55` |
 | 原稿 | Gemini generateContent（primary）→ Cursor Cloud Agents REST → Gemini generateContent（paid, final fallback）。Port は `TextWriter`（sources 配列を順に試す合成 layer）。Adapter は `manuscript/geminiapi` / `manuscript/cursorapi`。fallback 順序は Decision `2026-09-16T00-39-21` |
 | TTS | Gemini generateContent（primary）→ Gemini generateContent（paid, final fallback）。Port は `SpeechSynthesizer`（同型の合成 layer、部分成功保持）。Decision `2026-09-16T00-39-21` / `2026-09-16T11-41-59` |
-| Storage | Cloudflare R2（S3 互換 API）。薄い配信 cache の未完了実測は `docs/tasks/todo/lane.md` |
+| Storage | Cloudflare R2（S3 互換 API）。薄い配信 cache の未完了実測は [wiki Issue #192](https://github.com/shim1103/daily-it-podcast/issues/192) |
 
 `generator/internal/config` が startup で process environment を一度だけ読み、検証済み capability Config を Composition へ渡す。HTTP Adapter は `*http.Client` と必要な capability config / credential だけを受け取る。保存元・environment key は知らない。
 

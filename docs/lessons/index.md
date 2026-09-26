@@ -21,3 +21,10 @@
 - 2026-09-26 [feature/playback-progress] A stubに実peer起動・到達NI・振る舞い検証を載せない。それらはC  # → layer:3:workflow
 - 2026-09-26 [feature/playback-progress] Cの分割は層ラベルではなく共有する検証境界で決める。同一deploy/test切片は1本に畳む  # → layer:3:workflow
 - 2026-09-26 [feature/playback-progress] list応答へのserver側embedはApplication／server読取のC。web同期・描画のCへ寄せない  # → layer:3:workflow
+- 2026-09-25 [develop] `git branch --merged` は tip commit が base の祖先かを見る。機能が base に在っても tip hash が違うと unmerged と出る  # → layer:platform
+- 2026-09-25 [develop] squash merge は複数 tip commit を別 hash の1 commit へ載せ替える。元 tip は base 祖先にならず、`--merged` では残る  # → layer:platform
+- 2026-09-25 [develop] 間接 merge（squash・cherry-pick・別 tip での再実装）済みの feature tip は、機能の正本が base にあるなら残置理由にならない  # → layer:platform
+- 2026-09-25 [develop] remote branch 削除は名前付き ref を外す操作である。他 branch / tag / merge 祖先から到達できる commit は残る  # → layer:platform
+- 2026-09-25 [develop] どの ref からも辿れない tip は orphan（dangling）になりやすい。SHA を知れば一時的に戻せる場合もあるが、保証は弱い  # → layer:platform
+- 2026-09-25 [develop] hosting の「履歴が見える」ことは未 merge tip を残す理由にならない。進行中 work の正本参照は branch / tag / PR tip のどれかで明示する  # → layer:platform
+- 2026-09-25 [develop] branch の残置基準は「いま必要な参照か」だけ。残すのは保護ブランチと進行中の未完了 work。release 済み・直接/間接 merge 済み・再開しない tip は残置しない  # → layer:terms
