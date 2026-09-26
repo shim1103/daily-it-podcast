@@ -25,6 +25,7 @@ type SpeechSynthesizer struct {
 	client         *http.Client
 	apiKey         string
 	tier           Tier
+	retry          port.RetryReporter
 	backoffSleepFn func(time.Duration) // why: test の並列実行と共存するため package global に置かない
 	lastCallAt     time.Time
 	nowFn          func() time.Time
@@ -66,10 +67,7 @@ func (s *SpeechSynthesizer) SynthesizeAll(ctx context.Context, texts []string) (
 			return audios, infraErr("synthesize_budget", fmt.Errorf(
 				"gemini call budget exhausted at segment %d/%d: spent %d of %d", i+1, len(texts), callsSpent, budget))
 		}
-		maxAttempts := MaxAttempts
-		if remaining < maxAttempts {
-			maxAttempts = remaining
-		}
+		maxAttempts := min(MaxAttempts, remaining)
 		audio, used, err := s.synthesizeOne(ctx, text, maxAttempts)
 		callsSpent += used
 		if err != nil {
