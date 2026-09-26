@@ -14,16 +14,6 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
-// retryReporterSpy は port.RetryReporter を満たし、Retry 呼び出しを記録する Spy。
-// synthesizeOne の retry ループを実際に発生させる test から共有される。
-type retryReporterSpy struct {
-	calls int
-}
-
-func (s *retryReporterSpy) Retry(step string, attempt, max int, reason string) {
-	s.calls++
-}
-
 func minimalPCM() []byte {
 	// why: 24 kHz / 16-bit / mono。最小尺閾値（minPCMBytes = 0.5s）を超える長さにする。
 	//      これ未満だと decodePCM が「極小 PCM」として retryable な失敗に落とす。
@@ -118,7 +108,7 @@ func jsonBody(t *testing.T, v any) []byte {
 
 func newFakeSynthesizer(responses ...fakeClientResponse) (*SpeechSynthesizer, *fakeRoundTripper) {
 	rt := &fakeRoundTripper{responses: responses}
-	synth := newSpeechSynthesizerForTest(&http.Client{Transport: rt}, "gemini-fake-key", func(time.Duration) {}, &retryReporterSpy{})
+	synth := newSpeechSynthesizerForTest(&http.Client{Transport: rt}, "gemini-fake-key", func(time.Duration) {})
 	return synth, rt
 }
 

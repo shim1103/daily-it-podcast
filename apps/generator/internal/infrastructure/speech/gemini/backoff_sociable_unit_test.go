@@ -10,7 +10,7 @@ import (
 func TestRetryDelay_growsFromBaseAndCapsAtMax(t *testing.T) {
 	t.Parallel()
 
-	s := NewSpeechSynthesizer(&http.Client{}, "gemini-fake-key", TierFree, nil)
+	s := NewSpeechSynthesizer(&http.Client{}, "gemini-fake-key", TierFree)
 
 	if got := s.retryDelay(1); got != defaultRetryBackoffBase {
 		t.Fatalf("retryDelay(1) = %v, want %v", got, defaultRetryBackoffBase)
@@ -29,7 +29,7 @@ func TestRetryDelay_growsFromBaseAndCapsAtMax(t *testing.T) {
 func TestParseRetryAfter_returnsDuration_whenSecondsHeaderPresent(t *testing.T) {
 	t.Parallel()
 
-	s := NewSpeechSynthesizer(&http.Client{}, "gemini-fake-key", TierFree, nil)
+	s := NewSpeechSynthesizer(&http.Client{}, "gemini-fake-key", TierFree)
 
 	h := http.Header{}
 	h.Set("Retry-After", "90")
@@ -41,7 +41,7 @@ func TestParseRetryAfter_returnsDuration_whenSecondsHeaderPresent(t *testing.T) 
 func TestParseRetryAfter_returnsZero_whenHeaderMissingOrInvalid(t *testing.T) {
 	t.Parallel()
 
-	s := NewSpeechSynthesizer(&http.Client{}, "gemini-fake-key", TierFree, nil)
+	s := NewSpeechSynthesizer(&http.Client{}, "gemini-fake-key", TierFree)
 
 	if got := s.parseRetryAfter(http.Header{}); got != 0 {
 		t.Fatalf("empty = %v, want 0", got)
@@ -64,7 +64,7 @@ func TestWaitCallGap_usesInjectedCallGap_whenTuningProvided(t *testing.T) {
 	}}
 	var sleeps []time.Duration
 	const injectedGap = 5 * time.Millisecond
-	synth := NewSpeechSynthesizerWithTuning(&http.Client{Transport: rt}, "gemini-fake-key", TierFree, Tuning{CallGap: injectedGap}, nil)
+	synth := NewSpeechSynthesizerWithTuning(&http.Client{Transport: rt}, "gemini-fake-key", TierFree, Tuning{CallGap: injectedGap})
 	synth.backoffSleepFn = func(d time.Duration) { sleeps = append(sleeps, d) }
 	// nowFn は常に同じ時刻。elapsed=0 なので毎回 callGap 全量の待機が入るはず。
 	synth.nowFn = func() time.Time { return time.Unix(0, 0) }
@@ -94,7 +94,7 @@ func TestWaitCallGap_skipsWait_whenElapsedExceedsInjectedGap(t *testing.T) {
 		{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
 	}}
 	var sleeps []time.Duration
-	synth := NewSpeechSynthesizerWithTuning(&http.Client{Transport: rt}, "gemini-fake-key", TierFree, Tuning{CallGap: time.Second}, nil)
+	synth := NewSpeechSynthesizerWithTuning(&http.Client{Transport: rt}, "gemini-fake-key", TierFree, Tuning{CallGap: time.Second})
 	synth.backoffSleepFn = func(d time.Duration) { sleeps = append(sleeps, d) }
 	// nowFn は呼ぶたびに 10s 進む。経過 >> CallGap なので待機は入らない。
 	base := time.Unix(0, 0)

@@ -24,25 +24,24 @@ type TextWriter struct {
 	client         *http.Client
 	apiKey         string
 	backoffSleepFn func(context.Context, time.Duration) // why: test の並列実行と共存するため package global に置かない
-	retry          port.RetryReporter
 }
 
 // NewTextWriter は Cursor Cloud Agents API 用 TextWriter を組み立てる。
 //
-// @require apiKey は Composition で検証済み。retry != nil（Composition Root の結線責務）。
+// @require apiKey は Composition で検証済み。
 // @ensure 戻りは port.TextWriter。apiKey は Authorization: Bearer header にだけ使う。
 // @ensure client == nil のとき Write は infraErr("build_request") を返す。
-func NewTextWriter(client *http.Client, apiKey string, retry port.RetryReporter) *TextWriter {
-	return newTextWriter(client, apiKey, ctxSleep, retry)
+func NewTextWriter(client *http.Client, apiKey string) *TextWriter {
+	return newTextWriter(client, apiKey, ctxSleep)
 }
 
 // newTextWriter は backoff の sleep 関数を差し込める内部 constructor。
 // why: NewTextWriter は本番の ctxSleep を固定し、test は待ちを観測する fake を渡す。
-func newTextWriter(client *http.Client, apiKey string, backoffSleepFn func(context.Context, time.Duration), retry port.RetryReporter) *TextWriter {
+func newTextWriter(client *http.Client, apiKey string, backoffSleepFn func(context.Context, time.Duration)) *TextWriter {
 	if backoffSleepFn == nil {
 		backoffSleepFn = ctxSleep
 	}
-	return &TextWriter{client: client, apiKey: apiKey, backoffSleepFn: backoffSleepFn, retry: retry}
+	return &TextWriter{client: client, apiKey: apiKey, backoffSleepFn: backoffSleepFn}
 }
 
 // ctxSleep は ctx が先に切れたらそちらを優先して待ちを中断する。
@@ -123,9 +122,6 @@ func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(strin
 		lastErr = err
 		lastRaw = raw
 		lastBuildErr = err
-		if attempt < TextWriterMaxAttempts {
-			w.retry.Retry("write_manuscript_draft", attempt, TextWriterMaxAttempts, lastBuildErr.Error())
-		}
 	}
 	return models.ManuscriptDraft{}, fmt.Errorf("%w: %w: %w", port.ErrDraftRejected, lastErr, port.LastAttempt{Raw: lastRaw, BuildErr: lastBuildErr})
 }
@@ -298,7 +294,6 @@ func (w *TextWriter) streamResult(ctx context.Context, agentID, runID string) (s
 			if wait <= 0 {
 				wait = backoffDelay(rateLimitAttempt)
 			}
-			w.retry.Retry("stream_result", rateLimitAttempt, MaxAttempts, err.Error())
 			w.backoffSleepFn(ctx, wait)
 		default:
 			return "", err

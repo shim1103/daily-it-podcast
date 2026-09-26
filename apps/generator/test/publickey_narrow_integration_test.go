@@ -62,7 +62,7 @@ func newPublickeyListItemSourceWithProxy(t *testing.T, handler http.HandlerFunc)
 			},
 		},
 	}
-	return publickey.NewListItemSource(httpClient, publickey.MaxStoriesScanned, &retryReporterSpy{}), probe
+	return publickey.NewListItemSource(httpClient, publickey.MaxStoriesScanned), probe
 }
 
 func TestPublickeyListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucceeds(t *testing.T) {

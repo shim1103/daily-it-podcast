@@ -72,19 +72,7 @@ func (rt *stubRoundTripper) feedCalls() int {
 }
 
 func newStubListItemSource(rt *stubRoundTripper) *publickey.ListItemSource {
-	// why: 500 応答で retry を発生させる test（non-200 系）と発生させない test を共有する。
-	//      呼ばれるかどうかをテストごとに見極めず、常に Spy を渡して安全に倒す。
-	return publickey.NewListItemSource(&http.Client{Transport: rt}, publickey.MaxStoriesScanned, &retryReporterSpy{})
-}
-
-// retryReporterSpy は port.RetryReporter を満たし、Retry 呼び出しを記録する Spy。
-// retry が実際に発生する test（transient error からの再試行）専用。
-type retryReporterSpy struct {
-	calls int
-}
-
-func (s *retryReporterSpy) Retry(step string, attempt, max int, reason string) {
-	s.calls++
+	return publickey.NewListItemSource(&http.Client{Transport: rt}, publickey.MaxStoriesScanned)
 }
 
 // atomEntryFixture は Atom entry XML を組むための入力。
@@ -278,7 +266,7 @@ func TestList_stopsScanningAtMaxItems_whenMaxItemsBelowMaxStoriesScanned(t *test
 	rt := newStubRoundTripper()
 	rt.setFeed(atomXML(entries...))
 	maxItems := publickey.MaxStoriesScanned - 2
-	source := publickey.NewListItemSource(&http.Client{Transport: rt}, maxItems, nil)
+	source := publickey.NewListItemSource(&http.Client{Transport: rt}, maxItems)
 
 	// @when
 	got, err := source.List(context.Background(), since)
@@ -330,7 +318,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 
 	t.Run("client nil", func(t *testing.T) {
 		// @given client を持たない ListItemSource
-		source := publickey.NewListItemSource(nil, publickey.MaxStoriesScanned, nil)
+		source := publickey.NewListItemSource(nil, publickey.MaxStoriesScanned)
 
 		// @when
 		got, err := source.List(context.Background(), since)
@@ -405,7 +393,7 @@ func TestList_retriesOnceOnTransientError_whenSecondAttemptSucceeds(t *testing.T
 			}, nil
 		},
 	}
-	source := publickey.NewListItemSource(&http.Client{Transport: transientRT}, publickey.MaxStoriesScanned, &retryReporterSpy{})
+	source := publickey.NewListItemSource(&http.Client{Transport: transientRT}, publickey.MaxStoriesScanned)
 
 	// @when
 	got, err := source.List(context.Background(), since)

@@ -12,12 +12,3 @@ type ProgressReporter interface {
 type FallbackReporter interface {
 	Fallback(event string)
 }
-
-// RetryReporter は retry ループ内で 1 attempt が失敗し次 attempt へ進む直前の
-// 途中経過を知らせる。成功時・全 attempt 失敗時は呼ばない（成功は
-// ProgressReporter.Done、最終失敗は呼び出し元の error 返却で表現する）。
-//
-// @require retry != nil（Composition Root の結線責務）。
-type RetryReporter interface {
-	Retry(step string, attempt, max int, reason string)
-}

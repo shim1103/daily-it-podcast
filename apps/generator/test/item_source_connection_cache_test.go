@@ -30,7 +30,7 @@ import (
 func TestConnectionCache_hackernewsListSucceedsAndSaves(t *testing.T) {
 	// Given: HackerNews 本番向け client と広い since 窓
 	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
-	source := hackernews.NewListItemSource(newConnectionCacheHTTPClient(120*time.Second), hackernews.MaxStoriesScanned, &retryReporterSpy{})
+	source := hackernews.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), hackernews.MaxStoriesScanned)
 
 	// When: List(ctx, since) を呼ぶ
 	got, err := source.List(context.Background(), since)
@@ -43,7 +43,7 @@ func TestConnectionCache_hackernewsListSucceedsAndSaves(t *testing.T) {
 func TestConnectionCache_lobstersListSucceedsAndSaves(t *testing.T) {
 	// Given: Lobsters 本番向け client と広い since 窓
 	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
-	source := lobsters.NewListItemSource(newConnectionCacheHTTPClient(120*time.Second), lobsters.MaxStoriesScanned, &retryReporterSpy{})
+	source := lobsters.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), lobsters.MaxStoriesScanned)
 
 	// When: List(ctx, since) を呼ぶ
 	got, err := source.List(context.Background(), since)
@@ -56,7 +56,7 @@ func TestConnectionCache_lobstersListSucceedsAndSaves(t *testing.T) {
 func TestConnectionCache_publickeyListSucceedsAndSaves(t *testing.T) {
 	// Given: Publickey 本番向け client と広い since 窓
 	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
-	source := publickey.NewListItemSource(newConnectionCacheHTTPClient(120*time.Second), publickey.MaxStoriesScanned, &retryReporterSpy{})
+	source := publickey.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), publickey.MaxStoriesScanned)
 
 	// When: List(ctx, since) を呼ぶ
 	got, err := source.List(context.Background(), since)
@@ -69,7 +69,7 @@ func TestConnectionCache_publickeyListSucceedsAndSaves(t *testing.T) {
 func TestConnectionCache_techcrunchListSucceedsAndSaves(t *testing.T) {
 	// Given: TechCrunch 本番向け client と広い since 窓
 	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
-	source := techcrunch.NewListItemSource(newConnectionCacheHTTPClient(120*time.Second), techcrunch.MaxStoriesScanned, &retryReporterSpy{})
+	source := techcrunch.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), techcrunch.MaxStoriesScanned)
 
 	// When: List(ctx, since) を呼ぶ
 	got, err := source.List(context.Background(), since)
@@ -82,7 +82,7 @@ func TestConnectionCache_techcrunchListSucceedsAndSaves(t *testing.T) {
 func TestConnectionCache_cloudwatchListSucceedsAndSaves(t *testing.T) {
 	// Given: クラウド Watch 本番向け client と広い since 窓
 	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
-	source := cloudwatch.NewListItemSource(newConnectionCacheHTTPClient(120*time.Second), cloudwatch.MaxStoriesScanned, &retryReporterSpy{})
+	source := cloudwatch.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), cloudwatch.MaxStoriesScanned)
 
 	// When: List(ctx, since) を呼ぶ
 	got, err := source.List(context.Background(), since)
