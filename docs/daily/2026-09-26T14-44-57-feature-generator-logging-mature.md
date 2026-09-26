@@ -18,8 +18,10 @@ prev: なし
 4. `.golangci.yml`へ`staticcheck`を追加し、検出された既存コードのスタイル指摘6件（De Morgan則、型注釈の要否）を解消した
 5. `1:terms/architecture/configuration-boundary.md`へ「暗黙defaultとoptional observerの区別」「fail-fastの1点集約とtyped nil」の2節を追記した（worktree・`agent-standards`正本の両方）
 6. `git revert`と`git apply`を組み合わせ、一度commitした実装をcommit履行上は取り消しつつ、working treeへdirty差分として戻す操作を行った（`git reset`系はhookで禁止されているため）
+7. `/pr-completion`に着手し、`feature/generator-logging-mature`は`develop`から分岐した1本のfeature branchで、PRのbaseは`develop`が適切と確認した。`commit --repo`実行時点でworking treeは既にclean、リモートとも同期済みだった
 
 ### Commits
 
 1. `195ac19`
 2. `1125f95`
+3. `50b0663`
