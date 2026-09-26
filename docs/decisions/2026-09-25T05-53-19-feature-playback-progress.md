@@ -1,7 +1,7 @@
 ---
 name: 進捗の frontend A は API client で止め、compose／UI 公開面は構成 B 後
 date: 2026-09-25T05:53:19
-branch: docs/playback-audio-history
+branch: feature/playback-progress
 ---
 
 ## 1. Decision

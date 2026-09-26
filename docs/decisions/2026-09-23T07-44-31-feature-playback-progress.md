@@ -1,7 +1,7 @@
 ---
 name: Playback WorkerはController結線をrequest-scoped middlewareに1回寄せ、routeはcontextから取る
 date: 2026-09-23T07:44:31
-branch: docs/playback-audio-history
+branch: feature/playback-progress
 ---
 
 ## 1. Decision

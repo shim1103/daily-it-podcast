@@ -1,7 +1,7 @@
 ---
 name: 進捗の達成契約は疎通・D1 infra・Application・web同期・web表示・releaseに分け、FakeはAに置かない
 date: 2026-09-26T03:48:06
-branch: docs/playback-audio-history
+branch: feature/playback-progress
 ---
 
 ## 1. Decision

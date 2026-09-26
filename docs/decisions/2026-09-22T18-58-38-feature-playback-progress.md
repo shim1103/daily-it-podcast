@@ -1,7 +1,7 @@
 ---
 name: 進捗WriteのHTTP失敗は既存codeのまま。行なしupdateは404、重複createは冪等200
 date: 2026-09-22T18:58:38
-branch: docs/playback-audio-history
+branch: feature/playback-progress
 ---
 
 ## 1. Decision
@@ -12,7 +12,7 @@ branch: docs/playback-audio-history
 
 ## 2. Reason
 
-1. 進捗同期失敗は user 向け通知を出さない（先行 Decision `2026-09-19T19-12-30-docs-playback-audio-history.md`）。新しい code を足しても UI 分岐が増えず、web の code 写像と status 表だけが膨らむ。形の不正も意味ルール違反（skew 等）も、client が直せる／再送しても無駄、という区別は現状の補助同期では status 400 系に畳んで足りる。
+1. 進捗同期失敗は user 向け通知を出さない（先行 Decision `2026-09-19T19-12-30-feature-playback-progress.md`）。新しい code を足しても UI 分岐が増えず、web の code 写像と status 表だけが膨らむ。形の不正も意味ルール違反（skew 等）も、client が直せる／再送しても無駄、という区別は現状の補助同期では status 400 系に畳んで足りる。
 2. 行なし update は「その進捗資源がまだ無い」状態である。400（操作順不正）より 404（資源不在）の方が HTTP の読みと一致し、無限 retry しても成功しないことが status から分かる。
 3. 重複 create を 409 等で落とすと、再送や複数端末の初回 play が失敗扱いになり、先勝ち merge の前提（後から来た正当な時刻も受理しうる）と衝突する。既行への create を成功扱いにすれば再送が安全になる。
 

@@ -1,7 +1,7 @@
 ---
 name: 再生進捗の正本はR2外のD1状態行（1 episode=1行）とし、UI信号とGetのprogress形をそれで表す
 date: 2026-09-19T16:25:18
-branch: docs/playback-audio-history
+branch: feature/playback-progress
 ---
 
 ## 1. Decision

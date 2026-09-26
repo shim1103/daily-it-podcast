@@ -13,11 +13,11 @@
 ## 3. Canonical Sources
 
 1. A: progress use case／`listEpisodes` signature・contracts schema
-2. B: `docs/decisions/2026-09-22T19-13-35-docs-playback-audio-history.md`（merge・playing/stopped）
-3. B: `docs/decisions/2026-09-22T18-58-38-docs-playback-audio-history.md`（冪等・404）
-4. B: `docs/decisions/2026-09-19T16-26-00-docs-playback-audio-history.md`（embed）
-5. B: `docs/decisions/2026-09-19T19-12-01-docs-playback-audio-history.md`（embed no-store）
-6. B: `docs/decisions/2026-09-22T19-29-15-docs-playback-audio-history.md`（Cacheに載せない）
+2. B: `docs/decisions/2026-09-22T19-13-35-feature-playback-progress.md`（merge・playing/stopped）
+3. B: `docs/decisions/2026-09-22T18-58-38-feature-playback-progress.md`（冪等・404）
+4. B: `docs/decisions/2026-09-19T16-26-00-feature-playback-progress.md`（embed）
+5. B: `docs/decisions/2026-09-19T19-12-01-feature-playback-progress.md`（embed no-store）
+6. B: `docs/decisions/2026-09-22T19-29-15-feature-playback-progress.md`（Cacheに載せない）
 7. test方針: `testing-strategy`
 
 ## 4. Scope

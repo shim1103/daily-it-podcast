@@ -13,9 +13,9 @@
 ## 3. Canonical Sources
 
 1. A: `apps/playback/web/src/api/playback-api-client.ts`（1試行）
-2. B: `docs/decisions/2026-09-22T19-13-35-docs-playback-audio-history.md`
-3. B: `docs/decisions/2026-09-19T19-12-30-docs-playback-audio-history.md`
-4. B: `docs/decisions/2026-09-25T05-53-19-docs-playback-audio-history.md`
+2. B: `docs/decisions/2026-09-22T19-13-35-feature-playback-progress.md`
+3. B: `docs/decisions/2026-09-19T19-12-30-feature-playback-progress.md`
+4. B: `docs/decisions/2026-09-25T05-53-19-feature-playback-progress.md`
 5. frontend層: `1:terms/architecture/frontend`
 6. test方針: `testing-strategy`
 

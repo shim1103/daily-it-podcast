@@ -7,6 +7,6 @@
 - 2026-09-22 [refactor/generator-go-design] 公開契約 documentation に処理手順（How）を書くと実装変更で腐る。観測可能な postcondition / invariant だけを残す  # → layer:0:meta
 - 2026-09-22 [refactor/generator-go-design] response の thema 分割は自律判断で直交・独立させる。userprompt の見出し構造を写すだけでは分割になっていない  # → layer:0:meta
 - 2026-09-22 [refactor/generator-go-design] 言語の強み（例: 軽量並行）が現行仕様の実行形に出ていなくても、その仕様が逐次で足りるなら設計失敗ではない。言語選定の価値と現行 pipeline の形を混同しない  # → layer:terms
-- 2026-09-25 [docs/playback-audio-history] frontendの契約凍結で、文字・印・CSSを埋めた描画を「slot／props／配置」と呼んで残さない。空のdata属性と型・定数宣言までが契約、中身埋めは実装  # → layer:3:workflow
-- 2026-09-25 [docs/playback-audio-history] 「完成系に寄せる」はsignature・置き場・入口までであり、動くUIや見た目の完成を先取りする根拠にしない  # → layer:3:workflow
-- 2026-09-25 [docs/playback-audio-history] UI信号の定数宣言が契約でも、定数をDOMに描くことまで契約に含めない。宣言と描画を分けて消す  # → layer:3:workflow
+- 2026-09-25 [feature/playback-progress] frontendの契約凍結で、文字・印・CSSを埋めた描画を「slot／props／配置」と呼んで残さない。空のdata属性と型・定数宣言までが契約、中身埋めは実装  # → layer:3:workflow
+- 2026-09-25 [feature/playback-progress] 「完成系に寄せる」はsignature・置き場・入口までであり、動くUIや見た目の完成を先取りする根拠にしない  # → layer:3:workflow
+- 2026-09-25 [feature/playback-progress] UI信号の定数宣言が契約でも、定数をDOMに描くことまで契約に含めない。宣言と描画を分けて消す  # → layer:3:workflow

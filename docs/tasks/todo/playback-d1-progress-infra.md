@@ -15,8 +15,8 @@
 
 1. A: `apps/playback/test/support/create-local-d1-binding.ts`（型・stub signature）
 2. A: `apps/playback/worker/src/infrastructure/d1/d1-database-binding.ts`・`progress-d1-constants.ts`・`ProgressRepository` Port
-3. B: `docs/decisions/2026-09-22T19-29-15-docs-playback-audio-history.md`（adapter内retryしない）
-4. B: `docs/decisions/2026-09-23T08-06-58-docs-playback-audio-history.md`（D1定数・binding面の置き場）
+3. B: `docs/decisions/2026-09-22T19-29-15-feature-playback-progress.md`（adapter内retryしない）
+4. B: `docs/decisions/2026-09-23T08-06-58-feature-playback-progress.md`（D1定数・binding面の置き場）
 5. B: `docs/decisions/2026-09-15T14-28-12-feature-playback-r2-read-adapter.md`
 6. B: `docs/decisions/2026-09-16T00-20-08-feature-generator-r2-test-peer-scope.md`（playback local peer置き場）
 7. R2同型: `create-local-r2-binding.ts` / `local_r2_binding.narrow_integration.test.ts`

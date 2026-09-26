@@ -1,13 +1,13 @@
 ---
 name: 進捗Writeは単行原子性に任せ補償rollbackせず、retryは一時不能のみ有限回
 date: 2026-09-22T19:23:39
-branch: docs/playback-audio-history
+branch: feature/playback-progress
 ---
 
 ## 1. Decision
 
 1. 進捗 Write の **rollback（補償操作）は作らない**。D1 への1行 upsert / complete が失敗したら、その試行の変更は入らない（成功前の行が残る）。成功済みの別 Write や再生状態を打ち消す DELETE / 逆更新はしない。
-2. client 側も、失敗した Write のためにローカル再生位置や既に成功反映した共有進捗UIを **巻き戻さない**。共有進捗UIは成功後だけ更新する（先行 Decision `2026-09-19T19-12-30-docs-playback-audio-history.md`）。
+2. client 側も、失敗した Write のためにローカル再生位置や既に成功反映した共有進捗UIを **巻き戻さない**。共有進捗UIは成功後だけ更新する（先行 Decision `2026-09-19T19-12-30-feature-playback-progress.md`）。
 3. **retry** の回数上限と、HTTP 契約 code として再試行してよい語彙の正本は A（`PROGRESS_WRITE_MAX_ATTEMPTS` / `progressWriteRetryableHttpErrorCodes`）とする。本 Decision は「どの失敗を回すか」の方針だけを固定する。
    1. 契約 code **`unavailable`（一時不能）** は有限回 retry する
    2. **`validation_error` / `episode_not_found` / `configuration_error`** は retry しない

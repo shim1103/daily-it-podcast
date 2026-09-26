@@ -1,13 +1,13 @@
 ---
 name: 再生進捗のlist向けGetはlistEpisodes応答へembedし、catalogとprogressを1往復で返す
 date: 2026-09-19T16:26:00
-branch: docs/playback-audio-history
+branch: feature/playback-progress
 ---
 
 ## 1. Decision
 
 1. episode一覧のGet（現行の `listEpisodes` 相当）は、Server側で進捗storeを読み、各episodeに進捗を**embed**して1応答で返す。
-2. list表示に必要な進捗の意味（`null` または各字段の意味）は先行Decision（`2026-09-19T16-25-18-docs-playback-audio-history.md`）に従う。本 Decision は**返し方（合成単位）**だけを固定し、字段の百科は写さない。
+2. list表示に必要な進捗の意味（`null` または各字段の意味）は先行Decision（`2026-09-19T16-25-18-feature-playback-progress.md`）に従う。本 Decision は**返し方（合成単位）**だけを固定し、字段の百科は写さない。
 3. 進捗専用のlist向けGetを初手では分けない。DB上でcontent（R2）と進捗（D1）が分かれていることと、HTTP Getを分けることは同一ではない。
 
 ## 2. Reason

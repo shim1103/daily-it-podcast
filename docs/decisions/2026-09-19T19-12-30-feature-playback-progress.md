@@ -1,7 +1,7 @@
 ---
 name: 進捗Write失敗はuser向け通知せずconsole.errorに留め有限retryしsession終了で捨てる
 date: 2026-09-19T19:12:30
-branch: docs/playback-audio-history
+branch: feature/playback-progress
 ---
 
 ## 1. Decision

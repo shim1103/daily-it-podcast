@@ -1,7 +1,7 @@
 ---
 name: 進捗のWorker→D1はadapter内再試行せず補償rollbackせず、Workers Cacheにも載せない
 date: 2026-09-22T19:29:15
-branch: docs/playback-audio-history
+branch: feature/playback-progress
 ---
 
 ## 1. Decision

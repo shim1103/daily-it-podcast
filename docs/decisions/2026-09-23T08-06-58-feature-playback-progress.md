@@ -1,7 +1,7 @@
 ---
 name: 進捗の完走ゾーンはentities、D1 binding・表列・adapter再試行はinfrastructure/d1に置く
 date: 2026-09-23T08:06:58
-branch: docs/playback-audio-history
+branch: feature/playback-progress
 ---
 
 ## 1. Decision

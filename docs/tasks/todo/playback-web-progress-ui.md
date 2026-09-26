@@ -11,8 +11,8 @@
 
 ## 3. Canonical Sources
 
-1. B: `docs/decisions/2026-09-19T16-25-18-docs-playback-audio-history.md`（UI信号意味）
-2. B: `docs/decisions/2026-09-25T05-53-19-docs-playback-audio-history.md`（配置の意味・描画はAにしない）
+1. B: `docs/decisions/2026-09-19T16-25-18-feature-playback-progress.md`（UI信号意味）
+2. B: `docs/decisions/2026-09-25T05-53-19-feature-playback-progress.md`（配置の意味・描画はAにしない）
 3. frontend層: `1:terms/architecture/frontend`
 4. test方針: `testing-strategy`
 

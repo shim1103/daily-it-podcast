@@ -1,7 +1,7 @@
 ---
 name: 進捗WriteはclientAtで先勝ち／後勝ちmergeし、create・update・completeとplaying／stopped同期を分ける
 date: 2026-09-22T19:13:35
-branch: docs/playback-audio-history
+branch: feature/playback-progress
 ---
 
 ## 1. Decision
@@ -17,7 +17,7 @@ branch: docs/playback-audio-history
 4. 端末間・session 内の同期方針は次とする。
    1. **playing 中** — push（create/update/complete）のみ。応答の `positionSec` は見ない／載せない（A の Write 応答形）。負けてもローカル seek をサーバ位置へ引き戻さない
    2. **stopped 中** — stop 時に push したうえで、定期 **pull** で他端末反映。stopped 中の seek だけは端末固有で共有しない
-5. 重複 create の冪等 200・行なし update の 404・HTTP code を増やさないことは先行 Decision（`2026-09-22T18-58-38-docs-playback-audio-history.md`）に従う。
+5. 重複 create の冪等 200・行なし update の 404・HTTP code を増やさないことは先行 Decision（`2026-09-22T18-58-38-feature-playback-progress.md`）に従う。
 
 ## 2. Reason
 

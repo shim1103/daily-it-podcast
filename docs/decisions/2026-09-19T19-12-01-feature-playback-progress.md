@@ -1,15 +1,15 @@
 ---
 name: 進捗付き初回listはembedのno-store、session中の他端末反映はprogress pullのno-storeのみ
 date: 2026-09-19T19:12:01
-branch: docs/playback-audio-history
+branch: feature/playback-progress
 ---
 
 ## 1. Decision
 
-1. 初回の一覧表示は、先行Decision（`2026-09-19T16-26-00-docs-playback-audio-history.md`）どおり **embed 1 Get** で catalog と進捗を同時に返す。
+1. 初回の一覧表示は、先行Decision（`2026-09-19T16-26-00-feature-playback-progress.md`）どおり **embed 1 Get** で catalog と進捗を同時に返す。
 2. その embed 応答、および session 中の進捗 **pull** 応答は、HTTP cache させない（`Cache-Control: no-store` 相当。具体header文字列の正本は cache 政策の実装／既存 `cache-policy` に置き、ここへ写さない）。
 3. SPA が mount したあとの session 中は、catalog を再取得しない（現行どおり list は mount 時のみ）。他端末の進捗反映は **progress 専用 pull** だけとする。
-4. 置き換え範囲: 先行Decision（`2026-09-19T16-26-00-docs-playback-audio-history.md`）§1-3「進捗専用の list 向け Get を初手では分けない」のうち、**初回一覧の代替として分けない**趣旨は維持する。**session 中の増分／差分 pull として進捗専用 Get を持つ**ことは本 Decision が許す（初回 embed を廃して常時2 Get にする話ではない）。
+4. 置き換え範囲: 先行Decision（`2026-09-19T16-26-00-feature-playback-progress.md`）§1-3「進捗専用の list 向け Get を初手では分けない」のうち、**初回一覧の代替として分けない**趣旨は維持する。**session 中の増分／差分 pull として進捗専用 Get を持つ**ことは本 Decision が許す（初回 embed を廃して常時2 Get にする話ではない）。
 
 ## 2. Reason
 
