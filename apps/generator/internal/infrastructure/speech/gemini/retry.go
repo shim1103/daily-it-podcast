@@ -66,6 +66,7 @@ func (s *SpeechSynthesizer) synthesizeOne(ctx context.Context, text string, maxA
 		if suggestedWait > wait {
 			wait = suggestedWait
 		}
+		s.retry.Retry("synthesize_speech", attempt, maxAttempts, lastErr.Error())
 		backoffSleepFn(wait)
 	}
 	return models.SpeechAudio{}, calls, lastErr

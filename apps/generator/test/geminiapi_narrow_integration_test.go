@@ -56,7 +56,7 @@ func newGeminiTextWriterWithProxy(t *testing.T, apiKey string, handler http.Hand
 			},
 		},
 	}
-	return geminiapi.NewTextWriter(httpClient, apiKey, geminiapi.TierFree), probe
+	return geminiapi.NewTextWriter(httpClient, apiKey, geminiapi.TierFree, nil), probe
 }
 
 // geminiManuscriptNarrowBody は generateContent 成功応答（candidates + finishReason: STOP + 非空 text）の fixture を組む。

@@ -98,10 +98,21 @@ type sleepSpy struct {
 func newFakeTextWriterWithSleepSpy(responses ...fakeClientResponse) (*TextWriter, *fakeRoundTripper, *sleepSpy) {
 	rt := &fakeRoundTripper{responses: responses}
 	spy := &sleepSpy{}
+	// why: このヘルパーは stream retry / buildFn reject retry の両方を発生させる test から
+	//      共有される。呼ばれるかどうかをテストごとに見極めず、常に Spy を渡して安全に倒す。
 	w := newTextWriter(&http.Client{Transport: rt}, "cursor-fake-key", func(_ context.Context, d time.Duration) {
 		spy.waits = append(spy.waits, d)
-	})
+	}, &retryReporterSpy{})
 	return w, rt, spy
+}
+
+// retryReporterSpy は port.RetryReporter を満たし、Retry 呼び出しを記録する Spy。
+type retryReporterSpy struct {
+	calls int
+}
+
+func (s *retryReporterSpy) Retry(step string, attempt, max int, reason string) {
+	s.calls++
 }
 
 // alwaysValidBuildFn は常に valid と判定する Stub。retry させたくない test で使う。
@@ -636,7 +647,7 @@ func TestWrite_excludesAPIKeyFromErrorMessage_whenCreateFails(t *testing.T) {
 	rt := &fakeRoundTripper{responses: []fakeClientResponse{
 		{status: http.StatusUnauthorized, body: `{"error":"unauthorized"}`},
 	}}
-	w := newTextWriter(&http.Client{Transport: rt}, apiKey, func(context.Context, time.Duration) {})
+	w := newTextWriter(&http.Client{Transport: rt}, apiKey, func(context.Context, time.Duration) {}, nil)
 
 	// When: Write する
 	_, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
