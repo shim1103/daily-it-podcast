@@ -9,7 +9,7 @@ import (
 // Tuning のゼロ値 field が既定値へフォールバックすることを検証する。
 func TestNewSpeechSynthesizerWithTuning_fallsBackToDefaultTuning_whenZeroValueFields(t *testing.T) {
 	// Given: 空 Tuning を注入した Synthesizer
-	synth := NewSpeechSynthesizerWithTuning(&http.Client{}, "gemini-fake-key", TierFree, Tuning{})
+	synth := NewSpeechSynthesizerWithTuning(&http.Client{}, "gemini-fake-key", TierFree, Tuning{}, nil)
 
 	// Then: 各 tuning field が既定値
 	if synth.callGap != defaultCallGap {
@@ -27,7 +27,7 @@ func TestNewSpeechSynthesizerWithTuning_fallsBackToDefaultTuning_whenZeroValueFi
 // 既定 constructor が既定 tuning を使う（挙動不変）ことを検証する。
 func TestNewSpeechSynthesizer_usesDefaultTuning_whenConstructedPlainly(t *testing.T) {
 	// Given / When: 既定 constructor
-	synth := NewSpeechSynthesizer(&http.Client{}, "gemini-fake-key", TierFree)
+	synth := NewSpeechSynthesizer(&http.Client{}, "gemini-fake-key", TierFree, nil)
 
 	// Then: tuning field はすべて既定値
 	if synth.callGap != defaultCallGap || synth.retryBackoffBase != defaultRetryBackoffBase || synth.retryBackoffMax != defaultRetryBackoffMax {
@@ -42,7 +42,7 @@ func TestNewSpeechSynthesizer_usesDefaultTuning_whenConstructedPlainly(t *testin
 // 明示引数にした Decision 2026-09-16T11-41-59 §1-5 の契約）。
 func TestNewSpeechSynthesizer_storesGivenTier_whenConstructed(t *testing.T) {
 	// Given / When: TierPaid を渡して構築する
-	synth := NewSpeechSynthesizer(&http.Client{}, "gemini-fake-key", TierPaid)
+	synth := NewSpeechSynthesizer(&http.Client{}, "gemini-fake-key", TierPaid, nil)
 
 	// Then: 渡した Tier がそのまま保持される
 	if synth.tier != TierPaid {

@@ -12,12 +12,15 @@ import (
 )
 
 func newStubLookup(rt *seqRoundTripper) *r2.CompletedEpisodeLookup {
+	// why: 5xx / 429 / network error から再試行する test と成功一発の test を共有する。
+	//      呼ばれるかどうかをテストごとに見極めず、常に Spy を渡して安全に倒す。
 	return r2.NewCompletedEpisodeLookup(
 		&http.Client{Transport: rt},
 		testAccessKeyID,
 		testSecretAccessKey,
 		testAccountID,
 		testBucket,
+		&retryReporterSpy{},
 	)
 }
 
@@ -364,7 +367,7 @@ func TestHasPair_returnsInfrastructureError_whenClientNil(t *testing.T) {
 	t.Parallel()
 
 	// Given: http.Client が nil
-	lookup := r2.NewCompletedEpisodeLookup(nil, testAccessKeyID, testSecretAccessKey, testAccountID, testBucket)
+	lookup := r2.NewCompletedEpisodeLookup(nil, testAccessKeyID, testSecretAccessKey, testAccountID, testBucket, nil)
 
 	// When: 照会する
 	got, err := lookup.HasPair(context.Background(), "2026-08-31")
