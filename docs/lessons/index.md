@@ -16,3 +16,8 @@
 - 2026-09-26 [feature/playback-progress] 未issue化の未完了と、releaseに載せたIssue範囲内の未決は別区画にする。混ぜると着手判断が溶ける  # → layer:0:meta
 - 2026-09-26 [feature/playback-progress] releaseの依存は表ではなくbranch階層graphで書く。PR先は親子関係で示す  # → layer:0:meta
 - 2026-09-26 [feature/playback-progress] terms（architecture）へA/B/C所属や凍らせる順序を書き戻さない。所属はworkflow、層責務はterms  # → layer:0:meta
+- 2026-09-26 [feature/playback-progress] release laneは1つの依存graphに全featureを並べる。release単位ごとの表・section分割をしない  # → layer:0:meta
+- 2026-09-26 [feature/playback-progress] 「今凍らせない」をremain Aの待合せにしない。未確定の形はCで埋めるかBの方針に置き、pending A artifactにしない  # → layer:3:workflow
+- 2026-09-26 [feature/playback-progress] A stubに実peer起動・到達NI・振る舞い検証を載せない。それらはC  # → layer:3:workflow
+- 2026-09-26 [feature/playback-progress] Cの分割は層ラベルではなく共有する検証境界で決める。同一deploy/test切片は1本に畳む  # → layer:3:workflow
+- 2026-09-26 [feature/playback-progress] list応答へのserver側embedはApplication／server読取のC。web同期・描画のCへ寄せない  # → layer:3:workflow
