@@ -1,5 +1,7 @@
 import type { PlaybackHttpErrorCode } from "../../../contracts/index.ts";
 import { noStoreCacheHeaders } from "./cache-policy.ts";
+import { logError } from "./logger.ts";
+import type { RequestId } from "./request-context.ts";
 
 type ExternalErrorName =
   | "ValidationError"
@@ -32,7 +34,7 @@ type ErrorLogPayload = {
   message: string;
   stack: string | undefined;
   cause: CauseLog | undefined;
-  requestId: string;
+  requestId: RequestId;
 };
 
 function isMappedExternalErrorName(name: string): name is ExternalErrorName {
@@ -50,7 +52,7 @@ function toCauseLog(cause: unknown): CauseLog | undefined {
   return { name: cause.name, message: cause.message, cause: nested };
 }
 
-function toErrorLogPayload(error: Error, requestId: string): ErrorLogPayload {
+function toErrorLogPayload(error: Error, requestId: RequestId): ErrorLogPayload {
   return {
     name: error.name,
     message: error.message,
@@ -60,22 +62,22 @@ function toErrorLogPayload(error: Error, requestId: string): ErrorLogPayload {
   };
 }
 
-function logUnmappedError(error: unknown, requestId: string): void {
+function logUnmappedError(error: unknown, requestId: RequestId): void {
   if (error instanceof Error) {
-    console.error({ ...toErrorLogPayload(error, requestId), name: "UnmappedError" });
+    logError({ ...toErrorLogPayload(error, requestId), name: "UnmappedError" });
     return;
   }
-  console.error({
+  logError({
     name: "UnmappedError",
     message: String(error),
     requestId,
   });
 }
 
-export function createHttpErrorResponse(error: unknown, requestId: string): Response {
+export function createHttpErrorResponse(error: unknown, requestId: RequestId): Response {
   if (error instanceof Error && isMappedExternalErrorName(error.name)) {
     const mapped = externalHttpErrorMapping[error.name];
-    console.error(toErrorLogPayload(error, requestId));
+    logError(toErrorLogPayload(error, requestId));
     return Response.json(
       { code: mapped.code },
       { status: mapped.status, headers: noStoreCacheHeaders },

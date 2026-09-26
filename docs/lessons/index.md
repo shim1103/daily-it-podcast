@@ -10,3 +10,10 @@
 - 2026-09-23 [refactor/generator-go-performance] `go get` で追加した依存を実際に import する前に `go mod tidy` を実行すると、未使用依存として go.mod/go.sum から除去される。A（境界契約）として import 宣言だけ先に固定したい場合、`go mod tidy` を挟む操作（lint・test 等の全体実行）の後に依存が残っているか確認する  # → layer:platform
 - 2026-09-23 [refactor/generator-go-performance] `.gitignore` へ path を追加しても、その path 配下で既に track 済みの file は自動では unstage されない（`git ls-files` で確認できる）。ignore 方針を追加する commit では、既存 tracked file の棚卸しと `git rm --cached` をセットで行う  # → layer:platform
 
+- 2026-09-25 [develop] `git branch --merged` は tip commit が base の祖先かを見る。機能が base に在っても tip hash が違うと unmerged と出る  # → layer:platform
+- 2026-09-25 [develop] squash merge は複数 tip commit を別 hash の1 commit へ載せ替える。元 tip は base 祖先にならず、`--merged` では残る  # → layer:platform
+- 2026-09-25 [develop] 間接 merge（squash・cherry-pick・別 tip での再実装）済みの feature tip は、機能の正本が base にあるなら残置理由にならない  # → layer:platform
+- 2026-09-25 [develop] remote branch 削除は名前付き ref を外す操作である。他 branch / tag / merge 祖先から到達できる commit は残る  # → layer:platform
+- 2026-09-25 [develop] どの ref からも辿れない tip は orphan（dangling）になりやすい。SHA を知れば一時的に戻せる場合もあるが、保証は弱い  # → layer:platform
+- 2026-09-25 [develop] hosting の「履歴が見える」ことは未 merge tip を残す理由にならない。進行中 work の正本参照は branch / tag / PR tip のどれかで明示する  # → layer:platform
+- 2026-09-25 [develop] branch の残置基準は「いま必要な参照か」だけ。残すのは保護ブランチと進行中の未完了 work。release 済み・直接/間接 merge 済み・再開しない tip は残置しない  # → layer:terms

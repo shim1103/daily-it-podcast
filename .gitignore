@@ -27,9 +27,7 @@ __pycache__/
 *.pyc
 
 .claude/
+.cursor/
+.codex/
 AGENTS.md
 CLAUDE.md
-
-.cursor/
-
-.codex/

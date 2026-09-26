@@ -11,10 +11,10 @@ Non-scope（書かない・写さない）:
 - 地図・使い方 → `README.md`
 - 層・依存・技術選定・test 配置の規則 → `DESIGN.md`
 - Reason / Rejected・再発する判断 → `docs/decisions/`
-- 未完了 index → `docs/tasks/todo/lane.md`
+- 未完了 index → [wiki Issue #192](https://github.com/shim1103/daily-it-podcast/issues/192)
 - Worker 境界契約（`name` / `main` / assets / route / `observability` の値） → `apps/playback/wrangler.jsonc` / `worker-entry.ts`（本書は参照のみ、値は写さない）
 
-音声の配置契約は mp3（`contracts/episode-layout.md`）。**現行 runtime の正本はR2**（書込・読取とも）。残る未完了実測は`docs/tasks/todo/lane.md`を正とする。Google OAuth / Drive のcodebaseは削除済み（`2026-09-16`）。GHA側の`GOOGLE_OAUTH_*` / `TEST_GOOGLE_OAUTH_*` / `DRIVE_FOLDER_ID` / `TEST_DRIVE_FOLDER_ID`登録は未使用のまま残っている（削除は別途）。登録手順の百科はここに書かない。
+音声の配置契約は mp3（`contracts/episode-layout.md`）。**現行 runtime の正本はR2**（書込・読取とも）。残る未完了実測は[wiki Issue #192](https://github.com/shim1103/daily-it-podcast/issues/192)を正とする。Google OAuth / Drive のcodebaseは削除済み（`2026-09-16`）。GHA側の`GOOGLE_OAUTH_*` / `TEST_GOOGLE_OAUTH_*` / `DRIVE_FOLDER_ID` / `TEST_DRIVE_FOLDER_ID`登録は未使用のまま残っている（削除は別途）。登録手順の百科はここに書かない。
 
 ## 1. Playback 公開形
 
