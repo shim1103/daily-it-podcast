@@ -12,6 +12,8 @@
 | TextWriterのURL取得実測 | Cloud Agents / Geminiが`Detail.Links` / `Discourse.Links`を実際に取得できるかと件数上限を測る |
 | no-repo原稿運用実測 | Cloud Agents no-repoの原稿品質・日次消費・GHA所要を測る |
 | Gemini free-tier実測 | 日次produceとdraft retryを含む実運用でquotaが足りるか測る |
+| 外部呼び出しの完了ログ | `RetryReporter`は異常系（retry試行）だけを観測する。個々の外部呼び出し（HTTP call等）の正常完了ログ（`ProgressReporter`相当）は未追加。粒度をAdapter単位1回にするかHTTP呼び出し単位にするか未決 |
+| `LogWriter.Event`の排他制御 | 現在`sync.Mutex`無し。今は逐次実行のみで実害無いが、source取得等をgoroutineで並行化する際にログ行のinterleavingが起きうる。並行化着手前に追加するか、着手時にまとめて追加するか未決 |
 
 ## Playback
 

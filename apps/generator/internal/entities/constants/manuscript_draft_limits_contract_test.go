@@ -73,7 +73,7 @@ func TestManuscriptDraftLimits_totalCharsBoundsAscend(t *testing.T) {
 	t.Parallel()
 
 	// Then: Min < Target < Max（typo や逆転の検出）
-	if !(DraftTotalCharsMin < DraftTotalCharsTarget && DraftTotalCharsTarget < DraftTotalCharsMax) {
+	if DraftTotalCharsMin >= DraftTotalCharsTarget || DraftTotalCharsTarget >= DraftTotalCharsMax {
 		t.Fatalf("全体文字数の順序が壊れている: Min=%d Target=%d Max=%d", DraftTotalCharsMin, DraftTotalCharsTarget, DraftTotalCharsMax)
 	}
 }
@@ -94,7 +94,7 @@ func TestManuscriptDraftLimits_narrationFieldBoundsAscend(t *testing.T) {
 
 	// Then: 各 field で Min <= Target <= Max
 	for _, f := range fields {
-		if !(f.min <= f.target && f.target <= f.max) {
+		if f.min > f.target || f.target > f.max {
 			t.Fatalf("%s の順序が壊れている: Min=%d Target=%d Max=%d", f.name, f.min, f.target, f.max)
 		}
 	}
@@ -114,7 +114,7 @@ func TestManuscriptDraftLimits_headingFieldBoundsAscend(t *testing.T) {
 
 	// Then: 各 field で Min <= Target <= Max
 	for _, f := range fields {
-		if !(f.min <= f.target && f.target <= f.max) {
+		if f.min > f.target || f.target > f.max {
 			t.Fatalf("%s の順序が壊れている: Min=%d Target=%d Max=%d", f.name, f.min, f.target, f.max)
 		}
 	}

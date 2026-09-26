@@ -412,7 +412,7 @@ func TestProduceEpisodeRun_reportsStepProgressInOrder_whenAllStepsSucceed(t *tes
 	if writeIdx < 0 {
 		t.Fatalf("write_episode が無い: %q", got)
 	}
-	if !(concatIdx < encodeIdx && encodeIdx < writeIdx) {
+	if concatIdx >= encodeIdx || encodeIdx >= writeIdx {
 		t.Fatalf("順序が concat→encode→write ではない: concat=%d encode=%d write=%d steps=%q", concatIdx, encodeIdx, writeIdx, got)
 	}
 }

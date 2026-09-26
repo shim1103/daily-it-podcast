@@ -29,6 +29,12 @@ func newProduceEpisode(cfg config.Config, logw *delivery.LogWriter) *application
 // @ensure Fetch は composite ItemSource 経由で行い、Application へ情報源個数を渡さない。
 // @invariant config.Load 呼び出しをここで行わない。Composition Root の結線責務だけを持つ。
 func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter, topicCount int) *application.ProduceEpisode {
+	// why: logw は typed nil（*delivery.LogWriter の nil）になり得るが、port interface へ渡すと
+	//      == nil 比較が false になり検知が漏れる（Go の typed nil 問題）。具体型の時点で唯一
+	//      ここに fail-fast を集約する（Composition Root の結線責務）。
+	if logw == nil {
+		panic("composition: newProduceEpisodeWithTopicCount: logw is nil")
+	}
 	httpClient := appruntime.HTTPClient()
 	// why: maxItems <= 0 は各 Adapter が既存の MaxStoriesScanned へフォールバックする契約
 	//      （infrastructure/*/item_source.go の effectiveMaxStories）。本番の topicCount は
@@ -39,22 +45,22 @@ func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter
 		sourceMaxItems = topicCount * constants.SourceItemsPerTopic
 	}
 	fetchUC := fetch.NewFetchSourceItems(newCompositeItemSource(
-		newHackerNewsItemSource(httpClient, sourceMaxItems),
-		newLobstersItemSource(httpClient, sourceMaxItems),
-		newPublickeyItemSource(httpClient, sourceMaxItems),
-		newTechCrunchItemSource(httpClient, sourceMaxItems),
-		newCloudWatchItemSource(httpClient, sourceMaxItems),
+		newHackerNewsItemSource(httpClient, sourceMaxItems, logw),
+		newLobstersItemSource(httpClient, sourceMaxItems, logw),
+		newPublickeyItemSource(httpClient, sourceMaxItems, logw),
+		newTechCrunchItemSource(httpClient, sourceMaxItems, logw),
+		newCloudWatchItemSource(httpClient, sourceMaxItems, logw),
 	))
-	lookup := newR2CompletedEpisodeLookup(httpClient, cfg.R2)
+	lookup := newR2CompletedEpisodeLookup(httpClient, cfg.R2, logw)
 	// logw は port.FallbackReporter / port.ProgressReporter を満たす。application 用 callback の
 	// 組み立ては delivery.LogWriter が持ち、Composition は結線だけ行う。
 	// why: fallback 順序は GEMINI_API_KEY(free) → CURSOR_API_KEY → SPARE_GEMINI_API_KEY(paid, final)
 	//      で固定する（Decision 2026-09-16T00-39-21）。
 	textWriter := manuscript.NewTextWriter(
 		[]port.TextWriter{
-			newGeminiTextWriterPrimary(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini),
-			newCursorTextWriter(appruntime.HTTPClientWithoutTimeout(), cfg.Cursor),
-			newGeminiTextWriterSpare(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini),
+			newGeminiTextWriterPrimary(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini, logw),
+			newCursorTextWriter(appruntime.HTTPClientWithoutTimeout(), cfg.Cursor, logw),
+			newGeminiTextWriterSpare(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini, logw),
 		},
 		logw,
 	)
@@ -63,13 +69,13 @@ func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter
 	//      （Decision 2026-09-16T00-39-21）。
 	speech := speechapp.NewSpeechSynthesizer(
 		[]port.SpeechSynthesizer{
-			newGeminiSpeechSynthesizerPrimary(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini),
-			newGeminiSpeechSynthesizerSpare(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini),
+			newGeminiSpeechSynthesizerPrimary(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini, logw),
+			newGeminiSpeechSynthesizerSpare(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini, logw),
 		},
 		logw,
 	)
 	encode := newFFmpegWAVToMP3Encoder()
-	writeEpisode := newR2WriteEpisode(httpClient, cfg.R2)
+	writeEpisode := newR2WriteEpisode(httpClient, cfg.R2, logw)
 	return application.NewProduceEpisode(fetchUC, lookup, textWriter, speech, encode, writeEpisode, newEpisodeID, appruntime.DisplayLocation(), logw, topicCount)
 }
 

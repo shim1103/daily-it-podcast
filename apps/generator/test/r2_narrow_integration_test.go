@@ -86,12 +86,15 @@ func newR2WriterWithProxyDial(t *testing.T, handler http.HandlerFunc, dial func(
 	httpClient := &http.Client{
 		Transport: &http.Transport{DialTLSContext: dial},
 	}
+	// why: 5xx / dial error から再試行する test と成功一発の test を共有する。
+	//      呼ばれるかどうかをテストごとに見極めず、常に Spy を渡して安全に倒す。
 	w := r2.NewEpisodeWriter(
 		httpClient,
 		r2NarrowAccessKeyID,
 		r2NarrowSecretAccessKey,
 		r2NarrowAccountID,
 		r2NarrowBucket,
+		&retryReporterSpy{},
 	)
 	return w, calls
 }
@@ -126,12 +129,15 @@ func newR2LookupWithProxy(t *testing.T, handler http.HandlerFunc) (*r2.Completed
 	httpClient := &http.Client{
 		Transport: &http.Transport{DialTLSContext: dial},
 	}
+	// why: 5xx から再試行する test と成功一発の test を共有する。
+	//      呼ばれるかどうかをテストごとに見極めず、常に Spy を渡して安全に倒す。
 	l := r2.NewCompletedEpisodeLookup(
 		httpClient,
 		r2NarrowAccessKeyID,
 		r2NarrowSecretAccessKey,
 		r2NarrowAccountID,
 		r2NarrowBucket,
+		&retryReporterSpy{},
 	)
 	return l, calls
 }
