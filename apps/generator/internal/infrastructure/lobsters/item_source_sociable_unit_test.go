@@ -101,10 +101,7 @@ type hottestEntry struct {
 
 // storyJSON は story 詳細 JSON を組む helper。
 func storyJSON(shortID, createdAt, submitter, title, descriptionPlain, url, shortIDURL, commentsURL string, comments ...string) string {
-	commentParts := make([]string, 0, len(comments))
-	for _, c := range comments {
-		commentParts = append(commentParts, c)
-	}
+	commentParts := append([]string{}, comments...)
 	commentsField := "[]"
 	if len(commentParts) > 0 {
 		commentsField = "[" + strings.Join(commentParts, ",") + "]"

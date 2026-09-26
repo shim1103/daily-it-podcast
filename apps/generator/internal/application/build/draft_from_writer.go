@@ -102,7 +102,7 @@ func extractJSONObject(s string) string {
 // 空文字（ラベル無し行）または ASCII 英字のみなら true。
 func isASCIILabelLine(s string) bool {
 	for _, r := range s {
-		if !(r >= 'a' && r <= 'z') && !(r >= 'A' && r <= 'Z') {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') {
 			return false
 		}
 	}
@@ -238,7 +238,7 @@ func containsJapanese(s string) bool {
 func toManuscriptDraft(w models.WriterOutput) models.ManuscriptDraft {
 	topics := make([]models.ManuscriptDraftTopic, len(w.Topics))
 	for i, tp := range w.Topics {
-		topics[i] = models.ManuscriptDraftTopic{
+		topics[i] = models.ManuscriptDraftTopic{ //nolint:staticcheck // wire境界型からDomain型への明示 field-by-field 変換を保つ（shared-types §1）
 			Title:   tp.Title,
 			Preface: tp.Preface,
 			Detail:  tp.Detail,
