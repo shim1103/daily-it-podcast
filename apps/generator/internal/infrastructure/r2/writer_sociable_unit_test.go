@@ -77,18 +77,6 @@ func (rt *seqRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 	}, nil
 }
 
-// retryReporterSpy は port.RetryReporter を満たし、Retry 呼び出しを記録する Spy。
-// r2_test package 内の stub 系 helper（newStubWriter / newStubLookup）が共有する。
-// 5xx / 429 / network error から再試行する test と成功一発の test を両方カバーするため、
-// 呼ばれるかどうかをテストごとに見極めず、常に Spy を渡して安全に倒す。
-type retryReporterSpy struct {
-	calls int
-}
-
-func (s *retryReporterSpy) Retry(step string, attempt, max int, reason string) {
-	s.calls++
-}
-
 func newStubWriter(rt *seqRoundTripper) *r2.EpisodeWriter {
 	return r2.NewEpisodeWriter(
 		&http.Client{Transport: rt},
@@ -96,7 +84,6 @@ func newStubWriter(rt *seqRoundTripper) *r2.EpisodeWriter {
 		testSecretAccessKey,
 		testAccountID,
 		testBucket,
-		&retryReporterSpy{},
 	)
 }
 
@@ -252,7 +239,7 @@ func TestWrite_returnsInfrastructureError_whenClientNil(t *testing.T) {
 	t.Parallel()
 
 	// Given: http.Client が nil の EpisodeWriter
-	w := r2.NewEpisodeWriter(nil, testAccessKeyID, testSecretAccessKey, testAccountID, testBucket, nil)
+	w := r2.NewEpisodeWriter(nil, testAccessKeyID, testSecretAccessKey, testAccountID, testBucket)
 
 	// When: Write する
 	err := w.Write(context.Background(), "ep-1", []byte(`{}`), models.SpeechAudio{Content: []byte("a")})

@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/techcrunch"
 )
 
@@ -12,6 +11,6 @@ import (
 //
 // @require httpClient != nil。
 // @ensure 戻りは port.ItemSource。maxItems はそのまま Adapter へ渡す。
-func newTechCrunchItemSource(httpClient *http.Client, maxItems int, logw *delivery.LogWriter) port.ItemSource {
-	return techcrunch.NewListItemSource(httpClient, maxItems, logw)
+func newTechCrunchItemSource(httpClient *http.Client, maxItems int) port.ItemSource {
+	return techcrunch.NewListItemSource(httpClient, maxItems)
 }

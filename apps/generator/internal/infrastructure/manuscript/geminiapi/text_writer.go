@@ -26,26 +26,25 @@ type TextWriter struct {
 	apiKey         string
 	tier           Tier
 	backoffSleepFn func(context.Context, time.Duration) // why: test の並列実行と共存するため package global に置かない
-	retry          port.RetryReporter
 }
 
 // NewTextWriter は Gemini generateContent 用 TextWriter を組み立てる。
 //
-// @require apiKey は Composition で検証済み。retry != nil（Composition Root の結線責務）。
+// @require apiKey は Composition で検証済み。
 // @ensure 戻りは port.TextWriter。apiKey は APIKeyHeader にだけ使う。
 // @ensure client == nil のとき Write は geminiErr("build_request") を返す。
 // @ensure httpClient には textWriterHTTPTimeout を付けた shallow copy を使う（引数の Client は変更しない）。
-func NewTextWriter(client *http.Client, apiKey string, tier Tier, retry port.RetryReporter) *TextWriter {
-	return newTextWriter(withCallTimeout(client), apiKey, tier, ctxSleep, retry)
+func NewTextWriter(client *http.Client, apiKey string, tier Tier) *TextWriter {
+	return newTextWriter(withCallTimeout(client), apiKey, tier, ctxSleep)
 }
 
 // newTextWriter は backoff の sleep 関数を差し込める内部 constructor。
 // why: NewTextWriter は本番の ctxSleep を固定し、test は待ちを観測する fake を渡す（cursorapi と同型）。
-func newTextWriter(client *http.Client, apiKey string, tier Tier, backoffSleepFn func(context.Context, time.Duration), retry port.RetryReporter) *TextWriter {
+func newTextWriter(client *http.Client, apiKey string, tier Tier, backoffSleepFn func(context.Context, time.Duration)) *TextWriter {
 	if backoffSleepFn == nil {
 		backoffSleepFn = ctxSleep
 	}
-	return &TextWriter{client: client, apiKey: apiKey, tier: tier, backoffSleepFn: backoffSleepFn, retry: retry}
+	return &TextWriter{client: client, apiKey: apiKey, tier: tier, backoffSleepFn: backoffSleepFn}
 }
 
 // withCallTimeout は httpClient の shallow copy に textWriterHTTPTimeout を付けて返す。
@@ -91,10 +90,6 @@ func ctxSleep(ctx context.Context, d time.Duration) {
 //	2 回目以降の試行は port.BuildRejectionBrief で前回の raw response と rejection 理由を
 //	区別可能な形で brief へ埋め込む。
 //
-// @ensure buildFn が invalid を返し次 attempt が残っているとき（最終 attempt を除く）、非 nil な
-//
-//	w.retry へ Retry("write_manuscript_draft", attempt, TextWriterMaxAttempts, ...) を通知する。
-//
 // @invariant generateContent は idempotent（同 body は同じ生成試行・副作用なし）。client.Do error / 5xx を 1 回、429 を MaxAttempts まで backoff で再試行し、429 の使い切りは Tier に関係なく port.ErrSourceExhausted を wrap する。401 / 403 / その他 4xx、finishReason が STOP 以外、空 text、parse 失敗は再試行しない。secret 実値を error へ出さない。model は ModelID 固定。
 func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(string) (models.ManuscriptDraft, error)) (models.ManuscriptDraft, error) {
 	if w == nil || w.client == nil {
@@ -124,10 +119,7 @@ func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(strin
 		lastErr = err
 		lastRaw = raw
 		lastBuildErr = err
-		if attempt < TextWriterMaxAttempts {
-			w.retry.Retry("write_manuscript_draft", attempt, TextWriterMaxAttempts, lastBuildErr.Error())
-			attemptBrief = port.BuildRejectionBrief(trimmed, lastRaw, lastBuildErr.Error())
-		}
+		attemptBrief = port.BuildRejectionBrief(trimmed, lastRaw, lastBuildErr.Error())
 	}
 	return models.ManuscriptDraft{}, fmt.Errorf("%w: %w: %w", port.ErrDraftRejected, lastErr, port.LastAttempt{Raw: lastRaw, BuildErr: lastBuildErr})
 }
@@ -226,7 +218,6 @@ func (w *TextWriter) generateContent(ctx context.Context, brief string) (string,
 			if wait <= 0 {
 				wait = backoffDelay(rateLimitAttempt)
 			}
-			w.retry.Retry("generate_content", rateLimitAttempt, MaxAttempts, err.Error())
 			w.backoffSleepFn(ctx, wait)
 		default:
 			return "", err

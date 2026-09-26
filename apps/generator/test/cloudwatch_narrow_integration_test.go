@@ -62,7 +62,7 @@ func newCloudWatchListItemSourceWithProxy(t *testing.T, handler http.HandlerFunc
 			},
 		},
 	}
-	return cloudwatch.NewListItemSource(httpClient, cloudwatch.MaxStoriesScanned, &retryReporterSpy{}), probe
+	return cloudwatch.NewListItemSource(httpClient, cloudwatch.MaxStoriesScanned), probe
 }
 
 func TestCloudWatchListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucceeds(t *testing.T) {

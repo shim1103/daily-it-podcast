@@ -3,8 +3,6 @@ package gemini
 import (
 	"net/http"
 	"time"
-
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 )
 
 // Tuning は SpeechSynthesizer の待機系パラメータの注入値。
@@ -17,20 +15,20 @@ type Tuning struct {
 
 // NewSpeechSynthesizer は Gemini TTS Adapter を返す。待機系パラメータは既定値。
 //
-// @require httpClient != nil。retry != nil（Composition Root の結線責務）。
+// @require httpClient != nil
 // @ensure apiKey は x-goog-api-key header にだけ使い、保存元の知識は持たない。
-func NewSpeechSynthesizer(httpClient *http.Client, apiKey string, tier Tier, retry port.RetryReporter) *SpeechSynthesizer {
-	return NewSpeechSynthesizerWithTuning(httpClient, apiKey, tier, Tuning{}, retry)
+func NewSpeechSynthesizer(httpClient *http.Client, apiKey string, tier Tier) *SpeechSynthesizer {
+	return NewSpeechSynthesizerWithTuning(httpClient, apiKey, tier, Tuning{})
 }
 
 // NewSpeechSynthesizerWithTuning は待機系パラメータを注入できる constructor。
 // rate 計測（system && ratemeasure）専用の差し替え口。
 //
-// @require httpClient != nil。retry != nil（Composition Root の結線責務）。
+// @require httpClient != nil
 // @ensure tuning のゼロ値 field は既定値（defaultCallGap / defaultRetryBackoffBase / defaultRetryBackoffMax）へフォールバックする。
 // @ensure Tuning{} を渡した場合の挙動は NewSpeechSynthesizer と同一。
-func NewSpeechSynthesizerWithTuning(httpClient *http.Client, apiKey string, tier Tier, tuning Tuning, retry port.RetryReporter) *SpeechSynthesizer {
-	s := newSpeechSynthesizerForTest(httpClient, apiKey, time.Sleep, retry)
+func NewSpeechSynthesizerWithTuning(httpClient *http.Client, apiKey string, tier Tier, tuning Tuning) *SpeechSynthesizer {
+	s := newSpeechSynthesizerForTest(httpClient, apiKey, time.Sleep)
 	s.tier = tier
 	s.callGap = firstNonZeroDuration(tuning.CallGap, defaultCallGap)
 	s.retryBackoffBase = firstNonZeroDuration(tuning.RetryBackoffBase, defaultRetryBackoffBase)
@@ -62,14 +60,13 @@ func withCallTimeout(httpClient *http.Client) *http.Client {
 	return &c
 }
 
-func newSpeechSynthesizerForTest(httpClient *http.Client, apiKey string, backoffSleepFn func(time.Duration), retry port.RetryReporter) *SpeechSynthesizer {
+func newSpeechSynthesizerForTest(httpClient *http.Client, apiKey string, backoffSleepFn func(time.Duration)) *SpeechSynthesizer {
 	if backoffSleepFn == nil {
 		backoffSleepFn = time.Sleep
 	}
 	return &SpeechSynthesizer{
 		client:           withCallTimeout(httpClient),
 		apiKey:           apiKey,
-		retry:            retry,
 		backoffSleepFn:   backoffSleepFn,
 		nowFn:            time.Now,
 		callGap:          defaultCallGap,

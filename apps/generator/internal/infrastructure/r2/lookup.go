@@ -24,15 +24,14 @@ type CompletedEpisodeLookup struct {
 	accountID       string
 	bucket          string
 	now             func() time.Time
-	retry           port.RetryReporter
 }
 
 // NewCompletedEpisodeLookup は R2 CompletedEpisodeLookup を返す。
 //
-// @require httpClient は非 nil（HasPair 時に検証）。accessKeyID / secretAccessKey / accountID / bucket は Composition が検証済み値を渡す。retry != nil（Composition Root の結線責務）。
+// @require httpClient は非 nil（HasPair 時に検証）。accessKeyID / secretAccessKey / accountID / bucket は Composition が検証済み値を渡す。
 // @ensure 戻りは非 nil の *CompletedEpisodeLookup（port.CompletedEpisodeLookup）。
 // @invariant bucket・key・Account ID・Access Key・secret 実値を error / log へ載せない。
-func NewCompletedEpisodeLookup(httpClient *http.Client, accessKeyID, secretAccessKey, accountID, bucket string, retry port.RetryReporter) *CompletedEpisodeLookup {
+func NewCompletedEpisodeLookup(httpClient *http.Client, accessKeyID, secretAccessKey, accountID, bucket string) *CompletedEpisodeLookup {
 	return &CompletedEpisodeLookup{
 		client:          httpClient,
 		accessKeyID:     accessKeyID,
@@ -40,7 +39,6 @@ func NewCompletedEpisodeLookup(httpClient *http.Client, accessKeyID, secretAcces
 		accountID:       accountID,
 		bucket:          bucket,
 		now:             time.Now,
-		retry:           retry,
 	}
 }
 
@@ -112,7 +110,7 @@ type objectKeysPage struct {
 }
 
 func (l *CompletedEpisodeLookup) listObjectKeysPage(ctx context.Context, continuation string) ([]string, string, error) {
-	page, err := retryLoop(l.retry, "list_episode_keys", maxPutAttempts, func() (bool, objectKeysPage, error) {
+	page, err := retryLoop(maxPutAttempts, func() (bool, objectKeysPage, error) {
 		return l.listObjectKeysPageOnce(ctx, continuation)
 	})
 	if err != nil {
@@ -168,7 +166,7 @@ func (l *CompletedEpisodeLookup) listObjectKeysPageOnce(ctx context.Context, con
 }
 
 func (l *CompletedEpisodeLookup) getObject(ctx context.Context, objectName string) ([]byte, error) {
-	return retryLoop(l.retry, "get_episode_object", maxPutAttempts, func() (bool, []byte, error) {
+	return retryLoop(maxPutAttempts, func() (bool, []byte, error) {
 		return l.getObjectOnce(ctx, objectName)
 	})
 }

@@ -13,16 +13,6 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpget"
 )
 
-// retryReporterSpy は port.RetryReporter を満たし、Retry 呼び出しを記録する Spy。
-// retry が実際に発生する test（5xx / transport error からの再試行）専用。
-type retryReporterSpy struct {
-	calls int
-}
-
-func (s *retryReporterSpy) Retry(step string, attempt, max int, reason string) {
-	s.calls++
-}
-
 func TestGetWithRetry_returnsBody_whenFirstGetSucceeds(t *testing.T) {
 	t.Parallel()
 
@@ -38,7 +28,7 @@ func TestGetWithRetry_returnsBody_whenFirstGetSucceeds(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	// When: GetWithRetry(ctx, client, url) を呼ぶ
-	got, err := httpget.GetWithRetry(context.Background(), srv.Client(), srv.URL, nil, "step")
+	got, err := httpget.GetWithRetry(context.Background(), srv.Client(), srv.URL)
 
 	// Then: body は "ok-body"、呼び出しは 1 回
 	if err != nil {
@@ -68,7 +58,7 @@ func TestGetWithRetry_retriesOnce_whenStatus5xxThenSucceeds(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	// When: GetWithRetry(ctx, client, url) を呼ぶ
-	got, err := httpget.GetWithRetry(context.Background(), srv.Client(), srv.URL, &retryReporterSpy{}, "step")
+	got, err := httpget.GetWithRetry(context.Background(), srv.Client(), srv.URL)
 
 	// Then: body は "recovered"、呼び出しは 2 回（5xx で 1 回 retry）
 	if err != nil {
@@ -94,7 +84,7 @@ func TestGetWithRetry_stopsAfterOneRetry_whenStatus5xxPersists(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	// When: GetWithRetry(ctx, client, url) を呼ぶ
-	got, err := httpget.GetWithRetry(context.Background(), srv.Client(), srv.URL, &retryReporterSpy{}, "step")
+	got, err := httpget.GetWithRetry(context.Background(), srv.Client(), srv.URL)
 
 	// Then: body は nil、error に 502、呼び出しは 2 回で打ち切り
 	if got != nil {
@@ -128,7 +118,7 @@ func TestGetWithRetry_doesNotRetry_whenStatus4xxIncluding429(t *testing.T) {
 			t.Cleanup(srv.Close)
 
 			// When: GetWithRetry(ctx, client, url) を呼ぶ
-			got, err := httpget.GetWithRetry(context.Background(), srv.Client(), srv.URL, nil, "step")
+			got, err := httpget.GetWithRetry(context.Background(), srv.Client(), srv.URL)
 
 			// Then: body は nil、error あり、呼び出しは 1 回（4xx は非 retry）
 			if got != nil {
@@ -164,7 +154,7 @@ func TestGetWithRetry_retriesOnce_whenTransportErrorThenSucceeds(t *testing.T) {
 	client := &http.Client{Transport: rt}
 
 	// When: GetWithRetry(ctx, client, url) を呼ぶ
-	got, err := httpget.GetWithRetry(context.Background(), client, "http://example.invalid/x", &retryReporterSpy{}, "step")
+	got, err := httpget.GetWithRetry(context.Background(), client, "http://example.invalid/x")
 
 	// Then: body は "after-transport"、呼び出しは 2 回
 	if err != nil {
@@ -195,7 +185,7 @@ func TestGetWithRetry_doesNotRetry_whenBodyReadFails(t *testing.T) {
 	client := &http.Client{Transport: rt}
 
 	// When: GetWithRetry(ctx, client, url) を呼ぶ
-	got, err := httpget.GetWithRetry(context.Background(), client, "http://example.invalid/x", nil, "step")
+	got, err := httpget.GetWithRetry(context.Background(), client, "http://example.invalid/x")
 
 	// Then: body は nil、error あり、呼び出しは 1 回（body read 失敗は非 retry）
 	if got != nil {
@@ -214,7 +204,7 @@ func TestGetWithRetry_returnsError_whenClientNil(t *testing.T) {
 
 	// Given: client が nil
 	// When: GetWithRetry(ctx, nil, url) を呼ぶ
-	got, err := httpget.GetWithRetry(context.Background(), nil, "http://example.invalid/x", nil, "step")
+	got, err := httpget.GetWithRetry(context.Background(), nil, "http://example.invalid/x")
 
 	// Then: body は nil、error あり
 	if got != nil {

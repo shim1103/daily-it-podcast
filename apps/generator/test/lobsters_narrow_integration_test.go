@@ -62,7 +62,7 @@ func newLobstersListItemSourceWithProxy(t *testing.T, handler http.HandlerFunc) 
 			},
 		},
 	}
-	return lobsters.NewListItemSource(httpClient, lobsters.MaxStoriesScanned, &retryReporterSpy{}), probe
+	return lobsters.NewListItemSource(httpClient, lobsters.MaxStoriesScanned), probe
 }
 
 func TestLobstersListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucceeds(t *testing.T) {

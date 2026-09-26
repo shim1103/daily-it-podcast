@@ -35,16 +35,15 @@ const (
 type ListItemSource struct {
 	client   *http.Client
 	maxItems int
-	retry    port.RetryReporter
 }
 
 // NewListItemSource は Lobsters 向け ItemSource を返す。
 //
-// @require httpClient != nil。retry != nil（Composition Root の結線責務）。
+// @require httpClient != nil
 // @ensure 戻りは非 nil の *ListItemSource。vendor 固有型を露出しない。
 // @ensure maxItems <= 0 の場合、実効上限は MaxStoriesScanned にフォールバックする。
-func NewListItemSource(httpClient *http.Client, maxItems int, retry port.RetryReporter) *ListItemSource {
-	return &ListItemSource{client: httpClient, maxItems: maxItems, retry: retry}
+func NewListItemSource(httpClient *http.Client, maxItems int) *ListItemSource {
+	return &ListItemSource{client: httpClient, maxItems: maxItems}
 }
 
 // effectiveMaxStories は min(maxItems, MaxStoriesScanned) を実効上限として返す。
@@ -162,7 +161,7 @@ func (s *ListItemSource) fetchStoryDetail(ctx context.Context, shortID string, s
 
 // getWithRetry は httpget へ委譲し、失敗を Adapter の infraErr で包む。
 func (s *ListItemSource) getWithRetry(ctx context.Context, url, op string) ([]byte, error) {
-	body, err := httpget.GetWithRetry(ctx, s.client, url, s.retry, op)
+	body, err := httpget.GetWithRetry(ctx, s.client, url)
 	if err != nil {
 		return nil, infraErr(op, err)
 	}
