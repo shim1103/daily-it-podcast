@@ -10,3 +10,9 @@
 - 2026-09-25 [feature/playback-progress] frontendの契約凍結で、文字・印・CSSを埋めた描画を「slot／props／配置」と呼んで残さない。空のdata属性と型・定数宣言までが契約、中身埋めは実装  # → layer:3:workflow
 - 2026-09-25 [feature/playback-progress] 「完成系に寄せる」はsignature・置き場・入口までであり、動くUIや見た目の完成を先取りする根拠にしない  # → layer:3:workflow
 - 2026-09-25 [feature/playback-progress] UI信号の定数宣言が契約でも、定数をDOMに描くことまで契約に含めない。宣言と描画を分けて消す  # → layer:3:workflow
+- 2026-09-26 [feature/playback-progress] stubは境界入口の未実装骨。Fake／test専用doubleは契約Aに置かず実装Cのsupportへ置く  # → layer:3:workflow
+- 2026-09-26 [feature/playback-progress] frontendの契約AはAPI client／同期定数で止める。page／compose／Row公開面を「後でA」に逃がさない  # → layer:3:workflow
+- 2026-09-26 [feature/playback-progress] laneにcheckboxを置かない。完了行は即削除し、済/未済の状態を進捗indexに残さない  # → layer:0:meta
+- 2026-09-26 [feature/playback-progress] 未issue化の未完了と、releaseに載せたIssue範囲内の未決は別区画にする。混ぜると着手判断が溶ける  # → layer:0:meta
+- 2026-09-26 [feature/playback-progress] releaseの依存は表ではなくbranch階層graphで書く。PR先は親子関係で示す  # → layer:0:meta
+- 2026-09-26 [feature/playback-progress] terms（architecture）へA/B/C所属や凍らせる順序を書き戻さない。所属はworkflow、層責務はterms  # → layer:0:meta
