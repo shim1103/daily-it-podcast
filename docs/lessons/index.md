@@ -25,3 +25,8 @@
 - 2026-09-29 [cursor/gemini-structured-yesterday-window-6a75] structured 出力の schema は Unmarshal 正本の型から生成する。手書き schema は第二 SSOT  # → layer:terms
 - 2026-09-29 [cursor/gemini-structured-yesterday-window-6a75] SSoT 本文の文言存在 assert は値の二重管理で検出力が無い。消費側の振る舞い test に寄せる  # → layer:terms
 - 2026-09-29 [cursor/gemini-structured-yesterday-window-6a75] bookend field 名は opening / ending と対称にする。無修飾 summary は他 Summary 概念と衝突する  # → layer:terms
+- 2026-09-29 [develop] 外部APIのschema欄へ載せる文書は、文書の記法と欄が受ける型が一致するかを公式reference上の欄定義で確認する。fakeのtransportはAPIが欄を受理するかを検証できない  # → layer:platform
+- 2026-09-29 [develop] 同日の冪等性で早期returnする入口のSystem testは、別runの残骸があると実経路を通らずpassする。冪等な入口のe2eは再実行ごとに独立した状態を持たせる  # → layer:terms
+- 2026-09-29 [develop] CI/CD連鎖の成功は、その成功が実経路を通ったかまで観測して完了とする。所要時間や短絡logの有無は、緑の中身を疑う手がかりになる  # → layer:workflow
+- 2026-09-29 [develop] 資格情報や共有bucketなど外部の共有状態へ書く検証は、必要性があっても指示なしに実行しない。検証の必要性は実行の許可にならず、実行前に確認する  # → layer:terms
+- 2026-09-29 [develop] 共有repoへcommit・pushする前に現在branchを毎回確認する。以前確認した時点のbranchが維持されている保証は無い  # → layer:terms
