@@ -7,6 +7,7 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	domainerr "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
 func TestEmbedManuscriptDraftLimits_replacesNumericPlaceholdersButKeepsDynamicOnes(t *testing.T) {
@@ -62,8 +63,8 @@ func TestEmbedManuscriptDraftLimits_leavesNoNumericPlaceholder_whenTemplateLists
 func TestLoadWriterOutputExampleJSON_returnsRaw_whenValid(t *testing.T) {
 	t.Parallel()
 
-	// Given: embed 済みの WriterOutput JSON 平文（topic 数は固定 DraftTopicCountTarget 件）
-	raw := strings.TrimSpace(writerOutputExampleJSON)
+	// Given: models に embed 済みの WriterOutput JSON 平文（topic 数は固定 DraftTopicCountTarget 件）
+	raw := strings.TrimSpace(models.WriterOutputExampleJSON)
 
 	// When: 読込と正当性検査をする
 	got, err := loadWriterOutputExampleJSON(raw, constants.DraftTopicCountTarget)

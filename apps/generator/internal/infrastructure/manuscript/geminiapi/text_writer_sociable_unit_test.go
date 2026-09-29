@@ -17,7 +17,6 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
-	"github.com/shim1103/daily-it-podcast/contracts"
 )
 
 // Scope: Sociable Unit
@@ -342,7 +341,7 @@ func TestGenerateContent_sendsJSONResponseSchema_onEveryRequest(t *testing.T) {
 	// When: Write する
 	_, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
 
-	// Then: generationConfig は application/json と contracts.WriterOutputSchema を載せる
+	// Then: generationConfig は application/json と models.WriterOutputSchema を載せる
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
@@ -368,12 +367,12 @@ func TestGenerateContent_sendsJSONResponseSchema_onEveryRequest(t *testing.T) {
 	if err := json.Unmarshal(reqBody.GenerationConfig.ResponseSchema, &gotSchema); err != nil {
 		t.Fatalf("decode got responseSchema: %v", err)
 	}
-	if err := json.Unmarshal(contracts.WriterOutputSchema, &wantSchema); err != nil {
+	if err := json.Unmarshal(models.WriterOutputSchema, &wantSchema); err != nil {
 		t.Fatalf("decode want WriterOutputSchema: %v", err)
 	}
 	if !reflect.DeepEqual(gotSchema, wantSchema) {
-		t.Fatalf("responseSchema が contracts.WriterOutputSchema と不一致\ngot=%s\nwant=%s",
-			reqBody.GenerationConfig.ResponseSchema, contracts.WriterOutputSchema)
+		t.Fatalf("responseSchema が models.WriterOutputSchema と不一致\ngot=%s\nwant=%s",
+			reqBody.GenerationConfig.ResponseSchema, models.WriterOutputSchema)
 	}
 }
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://daily-it-podcast.local/contracts/writer-output.schema.json",
+  "$id": "https://daily-it-podcast.local/generator/entities/models/writer_output.schema.json",
   "title": "WriterOutput",
   "description": "TextWriter 成功戻り string の JSON wire 形。完成 manuscript.schema.json ではない途中型。件数・文字数・日本語含有は Domain 検証の正本。",
   "type": "object",
