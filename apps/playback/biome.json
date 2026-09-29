@@ -17,7 +17,10 @@
   },
   "linter": {
     "rules": {
-      "preset": "recommended"
+      "preset": "recommended",
+      "suspicious": {
+        "noConsole": "error"
+      }
     }
   },
   "javascript": {
@@ -32,6 +35,16 @@
         "rules": {
           "correctness": {
             "useHookAtTopLevel": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["worker/src/routes/logger.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
           }
         }
       }

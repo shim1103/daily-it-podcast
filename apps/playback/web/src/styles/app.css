@@ -9,6 +9,8 @@ html {
   --app-purple: #bf5af2;
   --app-bg: color-mix(in srgb, var(--app-purple) 5%, var(--app-bg-base));
   --app-bg-deep: color-mix(in srgb, var(--app-purple) 3%, #020204);
+  /* retry 等の action button に限定して使う青系 accent（Apple system blue） */
+  --app-blue: #0a84ff;
 
   color-scheme: dark;
   background-color: var(--app-bg-deep);

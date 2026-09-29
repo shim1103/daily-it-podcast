@@ -35,8 +35,8 @@ func assertInconsistentEpisodeAssembly(t *testing.T, err error) {
 // draftFixture は helper test 共通の 2 topic 分の ManuscriptDraft を返す。
 func draftFixture() models.ManuscriptDraft {
 	return models.ManuscriptDraft{
-		Title:          "きょうの IT ニュースまとめ",
-		OpeningIntro:          "本日の導入です。",
+		Title:         "きょうの IT ニュースまとめ",
+		OpeningIntro:  "本日の導入です。",
 		EndingSummary: "本日のまとめです。",
 		Topics: []models.ManuscriptDraftTopic{
 			{Title: "話題いち", Preface: "前置きいち。", Detail: "詳細いち。"},

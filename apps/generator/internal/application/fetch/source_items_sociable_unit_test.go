@@ -1,4 +1,4 @@
-package application_test
+package fetch_test
 
 import (
 	"context"
@@ -6,17 +6,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/fetch"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
 var testFetchLocation = time.FixedZone("JST", 9*3600)
 
-func TestFetchSourceItems_passesYesterdayWindow_whenNowGiven(t *testing.T) {
+func TestFetchSourceItems_passesYesterdayHalfOpenWindow_whenNowGiven(t *testing.T) {
 	// Given: 固定 now（JST 05:00）と表示 Location
 	fake := &fakeItemSource{}
-	uc := application.NewFetchSourceItems(fake, testFetchLocation)
+	uc := fetch.NewFetchSourceItems(fake, testFetchLocation)
 	now := time.Date(2026, 9, 27, 5, 0, 0, 0, testFetchLocation)
 	wantSince, wantUntil := constants.YesterdayHalfOpenWindow(now, testFetchLocation)
 
@@ -47,12 +47,12 @@ func TestFetchSourceItems_returnsItemsFromSource_whenListSucceeds(t *testing.T) 
 		{SourceID: "x", OccurredAt: since.Add(2 * time.Hour), Summary: "item_id: a2"},
 	}
 	fake := &fakeItemSource{items: want}
-	uc := application.NewFetchSourceItems(fake, testFetchLocation)
+	uc := fetch.NewFetchSourceItems(fake, testFetchLocation)
 
 	// When: Run を呼ぶ
 	got, err := uc.Run(context.Background(), now)
 
-	// Then: source の配列をそのまま返す（再 filter しない）
+	// Then: source の配列をそのまま返す
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestFetchSourceItems_returnsItemsFromSource_whenListSucceeds(t *testing.T) 
 func TestFetchSourceItems_returnsEmptySlice_whenListReturnsEmpty(t *testing.T) {
 	// Given: List が空 slice
 	fake := &fakeItemSource{}
-	uc := application.NewFetchSourceItems(fake, testFetchLocation)
+	uc := fetch.NewFetchSourceItems(fake, testFetchLocation)
 	now := time.Date(2026, 9, 27, 5, 0, 0, 0, testFetchLocation)
 
 	// When: Run を呼ぶ
@@ -94,7 +94,7 @@ func TestFetchSourceItems_returnsErrorWithoutItems_whenListFails(t *testing.T) {
 		items: []models.SourceItem{{SourceID: "x", Summary: "item_id: a1"}},
 		err:   boom,
 	}
-	uc := application.NewFetchSourceItems(fake, testFetchLocation)
+	uc := fetch.NewFetchSourceItems(fake, testFetchLocation)
 	now := time.Date(2026, 9, 27, 5, 0, 0, 0, testFetchLocation)
 
 	// When: Run を呼ぶ

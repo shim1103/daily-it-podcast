@@ -61,7 +61,7 @@ func newCursorTextWriterWithProxy(t *testing.T, apiKey string, handler http.Hand
 			},
 		},
 	}
-	return cursorapi.NewTextWriter(httpClient, apiKey), probe
+	return cursorapi.NewTextWriter(httpClient, apiKey, nil), probe
 }
 
 func cursorNarrowStreamBody(text string) string {

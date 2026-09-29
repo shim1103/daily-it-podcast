@@ -23,7 +23,9 @@ import (
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/fetch"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/writeepisode"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
@@ -36,6 +38,17 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/techcrunch"
 )
+
+// retryReporterSpy は port.RetryReporter を満たし、Retry 呼び出しを記録する Spy。
+// Narrow integration test 群（*_narrow_integration_test.go）が、upstream 5xx から
+// 再試行を発生させる test と成功一発の test を同一 helper で共有するために使う。
+type retryReporterSpy struct {
+	calls int
+}
+
+func (s *retryReporterSpy) Retry(step string, attempt, max int, reason string) {
+	s.calls++
+}
 
 const (
 	broadIntegrationTopicCount = constants.DraftTopicCountTarget
@@ -152,9 +165,9 @@ func buildIntegrationWireJSON(topicCount int) string {
 		}
 	}
 	doc := map[string]any{
-		"title":          title,
-		"openingIntro":          intro,
-		"topics":         topics,
+		"title":         title,
+		"openingIntro":  intro,
+		"topics":        topics,
 		"endingSummary": closing,
 	}
 	raw, err := json.Marshal(doc)
@@ -540,23 +553,23 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 
 	// 5 情報源（HackerNews → Lobsters → Publickey → TechCrunch → クラウド Watch）。
 	// 登録順は composition.newProduceEpisode と同順。真外部は TLS redirect で double 済み。
-	fetch := application.NewFetchSourceItems(compositeItemSource{
-		hackernews.NewListItemSource(httpClient, hackernews.MaxStoriesScanned),
-		lobsters.NewListItemSource(httpClient, lobsters.MaxStoriesScanned),
-		publickey.NewListItemSource(httpClient, publickey.MaxStoriesScanned),
-		techcrunch.NewListItemSource(httpClient, techcrunch.MaxStoriesScanned),
-		cloudwatch.NewListItemSource(httpClient, cloudwatch.MaxStoriesScanned),
+	fetchUC := fetch.NewFetchSourceItems(compositeItemSource{
+		hackernews.NewListItemSource(httpClient, hackernews.MaxStoriesScanned, nil),
+		lobsters.NewListItemSource(httpClient, lobsters.MaxStoriesScanned, nil),
+		publickey.NewListItemSource(httpClient, publickey.MaxStoriesScanned, nil),
+		techcrunch.NewListItemSource(httpClient, techcrunch.MaxStoriesScanned, nil),
+		cloudwatch.NewListItemSource(httpClient, cloudwatch.MaxStoriesScanned, nil),
 	}, integrationTestDisplayLocation)
-	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey, gemini.TierFree)
-	lookup := r2.NewCompletedEpisodeLookup(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket)
-	rawWriter := r2.NewEpisodeWriter(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket)
-	writeEpisode := application.NewWriteEpisode(rawWriter)
+	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey, gemini.TierFree, nil)
+	lookup := r2.NewCompletedEpisodeLookup(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket, nil)
+	rawWriter := r2.NewEpisodeWriter(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket, nil)
+	writeEpisode := writeepisode.NewWriteEpisode(rawWriter)
 
 	// progress reporter は production（composition.newProduceEpisode）と同型で delivery.LogWriter そのもの。
 	// logBuf へ "generator: category=progress ..." を書かせる。
 	logw := delivery.NewLogWriter(h.logBuf)
 	h.uc = application.NewProduceEpisode(
-		fetch,
+		fetchUC,
 		lookup,
 		h.textWriter,
 		speech,

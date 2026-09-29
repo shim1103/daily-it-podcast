@@ -9,6 +9,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 )
 
 // GetWithRetry は GET を実行し body を返す。
@@ -16,7 +18,8 @@ import (
 //
 // @require client != nil。url は絶対 URL。
 // @ensure 成功時は応答 body。失敗時は非 nil error（Adapter 側で infraErr へ包む）。
-func GetWithRetry(ctx context.Context, client *http.Client, url string) ([]byte, error) {
+// @ensure 再試行が発生する場合、その直前に retry.Retry(step, 1, 2, reason) を呼ぶ。retry は非 nil（呼び出し側の Constructor が保証する）。
+func GetWithRetry(ctx context.Context, client *http.Client, url string, retry port.RetryReporter, step string) ([]byte, error) {
 	if client == nil {
 		return nil, fmt.Errorf("client is nil")
 	}
@@ -27,6 +30,7 @@ func GetWithRetry(ctx context.Context, client *http.Client, url string) ([]byte,
 	if !retryable {
 		return nil, err
 	}
+	retry.Retry(step, 1, 2, err.Error())
 	// why: 2 回目は retryable を問わず打ち切る（再試行は 1 回だけ）。
 	body, _, err = get(ctx, client, url)
 	if err != nil {

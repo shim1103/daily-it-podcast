@@ -68,9 +68,9 @@ func buildValidWireJSONWithTopicCount(topicCount int) string {
 		}
 	}
 	doc := map[string]any{
-		"title":          jaRunes(constants.DraftTitleMinLen + 2),
-		"openingIntro":          "どうにゅう" + jaSentence(introRunes),
-		"topics":         topics,
+		"title":         jaRunes(constants.DraftTitleMinLen + 2),
+		"openingIntro":  "どうにゅう" + jaSentence(introRunes),
+		"topics":        topics,
 		"endingSummary": "まとめ" + jaSentence(closingRunes),
 	}
 	raw, err := json.Marshal(doc)

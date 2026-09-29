@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/fetch"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/writeepisode"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
@@ -153,12 +155,12 @@ func newHarness(t *testing.T, segDurationSec float64) *harness {
 	episw := &fakeEpisodeWriter{}
 	progress := &spyProgress{}
 	uc := application.NewProduceEpisode(
-		application.NewFetchSourceItems(source, testDisplayLocation),
+		fetch.NewFetchSourceItems(source, testDisplayLocation),
 		lookup,
 		writer,
 		synth,
 		encode,
-		application.NewWriteEpisode(episw),
+		writeepisode.NewWriteEpisode(episw),
 		fixedEpisodeIDFunc,
 		testDisplayLocation,
 		progress,
@@ -182,12 +184,12 @@ func newHarnessWithTopicCount(t *testing.T, topicCount int) *harness {
 	episw := &fakeEpisodeWriter{}
 	progress := &spyProgress{}
 	uc := application.NewProduceEpisode(
-		application.NewFetchSourceItems(source, testDisplayLocation),
+		fetch.NewFetchSourceItems(source, testDisplayLocation),
 		lookup,
 		writer,
 		synth,
 		encode,
-		application.NewWriteEpisode(episw),
+		writeepisode.NewWriteEpisode(episw),
 		fixedEpisodeIDFunc,
 		testDisplayLocation,
 		progress,
@@ -410,7 +412,7 @@ func TestProduceEpisodeRun_reportsStepProgressInOrder_whenAllStepsSucceed(t *tes
 	if writeIdx < 0 {
 		t.Fatalf("write_episode が無い: %q", got)
 	}
-	if !(concatIdx < encodeIdx && encodeIdx < writeIdx) {
+	if concatIdx >= encodeIdx || encodeIdx >= writeIdx {
 		t.Fatalf("順序が concat→encode→write ではない: concat=%d encode=%d write=%d steps=%q", concatIdx, encodeIdx, writeIdx, got)
 	}
 }

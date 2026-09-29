@@ -72,7 +72,7 @@ func TestNewSecret_satisfiesSecretInterface_whenAssigned(t *testing.T) {
 	t.Parallel()
 
 	// Given / When: newSecretの戻りをSecret型へ代入する
-	var s Secret = newSecret(dummySecretRaw)
+	var s Secret = newSecret(dummySecretRaw) //nolint:staticcheck // Secret型への代入可否自体がこのtestの主張（型注釈を省くと検証が消える）
 
 	// Then: nilではない
 	if s == nil {

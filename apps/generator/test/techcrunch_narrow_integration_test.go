@@ -62,7 +62,7 @@ func newTechCrunchListItemSourceWithProxy(t *testing.T, handler http.HandlerFunc
 			},
 		},
 	}
-	return techcrunch.NewListItemSource(httpClient, techcrunch.MaxStoriesScanned), probe
+	return techcrunch.NewListItemSource(httpClient, techcrunch.MaxStoriesScanned, &retryReporterSpy{}), probe
 }
 
 func TestTechCrunchListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucceeds(t *testing.T) {

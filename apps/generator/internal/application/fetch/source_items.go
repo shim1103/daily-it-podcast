@@ -1,4 +1,4 @@
-package application
+package fetch
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
+// FetchSourceItems は取得窓を適用して ItemSource から SourceItem を取る UseCase である。
 type FetchSourceItems struct {
 	source port.ItemSource
 	loc    *time.Location
@@ -28,7 +29,7 @@ func NewFetchSourceItems(source port.ItemSource, loc *time.Location) *FetchSourc
 // @ensure since, until は constants.YesterdayHalfOpenWindow(now, uc.loc)。source.List(ctx, since, until) を 1 回呼ぶ。
 // @ensure List の戻りを再 filter せずそのまま返す（窓判定は Adapter の契約）。
 // @ensure List が error ならその error を返し、成功結果は返さない。
-// @invariant Infrastructure を参照しない。監視対象一覧を知らない。依存は port.ItemSource と Entities のみ。
+// @invariant Infrastructure を参照しない。依存は port.ItemSource と Entities のみ。
 func (uc *FetchSourceItems) Run(ctx context.Context, now time.Time) ([]models.SourceItem, error) {
 	since, until := constants.YesterdayHalfOpenWindow(now, uc.loc)
 	return uc.source.List(ctx, since, until)

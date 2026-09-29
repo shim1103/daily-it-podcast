@@ -148,6 +148,7 @@ func TestGeminiTTSRate_measuresPassRate_overNRuns(t *testing.T) {
 		apiKey,
 		gemini.TierFree,
 		gemini.Tuning{CallGap: callGap, RetryBackoffBase: backoffBase, RetryBackoffMax: backoffMax},
+		&retryReporterSpy{},
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 55*time.Minute)
