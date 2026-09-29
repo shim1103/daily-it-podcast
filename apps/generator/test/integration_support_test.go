@@ -66,7 +66,17 @@ var broadDummySecrets = []string{
 var integrationTestDisplayLocation = time.FixedZone("JST", 9*3600)
 
 // integrationTestFixedNow は Broad Integration の Run 引数に渡す固定時刻。
+// UTC 2026-08-30 16:00 = JST 2026-08-31 01:00。
 var integrationTestFixedNow = time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
+
+// integrationTestSourceOccurredAt は Fetch の昨日 half-open 窓内に入る固定発生時刻。
+// why: Run 引数 now 自体は今日側にあり、窓 [昨日 00:00, 今日 00:00) の外。fixture の OccurredAt を
+//
+//	now にすると Application の until filter で落ちて 0 件になる。
+func integrationTestSourceOccurredAt() time.Time {
+	since, until := constants.YesterdayHalfOpenWindow(integrationTestFixedNow, integrationTestDisplayLocation)
+	return since.Add(until.Sub(since) / 2)
+}
 
 func broadFixedEpisodeIDFunc() string { return broadFixedEpisodeID }
 
@@ -276,12 +286,12 @@ type broadProduceEpisodeConfig struct {
 	emptySources bool // true なら 5 源すべてが 0 件を返す
 }
 
-// 各情報源の success / empty handler。時刻は integrationTestFixedNow を使う。
-// FetchSourceItems は since = now - FetchWindow(24h) を渡すため、now 自体は必ず since 以上になる。
+// 各情報源の success / empty handler。発生時刻は integrationTestSourceOccurredAt（昨日窓内）を使う。
+// FetchSourceItems は YesterdayHalfOpenWindow の since を List へ渡し、until 以降は Application で落とす。
 // Broad は「SourceItem が 1 件以上ある」ことだけを要求する。
 func integrationHackerNewsSuccessHandler(t *testing.T) http.HandlerFunc {
 	t.Helper()
-	storyUnix := integrationTestFixedNow.Unix()
+	storyUnix := integrationTestSourceOccurredAt().Unix()
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/topstories.json"):
@@ -310,7 +320,7 @@ func integrationHackerNewsEmptyHandler(t *testing.T) http.HandlerFunc {
 
 func integrationLobstersSuccessHandler(t *testing.T) http.HandlerFunc {
 	t.Helper()
-	createdAt := integrationTestFixedNow.Format(time.RFC3339)
+	createdAt := integrationTestSourceOccurredAt().Format(time.RFC3339)
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/hottest.json"):
@@ -339,7 +349,7 @@ func integrationLobstersEmptyHandler(t *testing.T) http.HandlerFunc {
 
 func integrationPublickeySuccessHandler(t *testing.T) http.HandlerFunc {
 	t.Helper()
-	published := integrationTestFixedNow.UTC().Format(time.RFC3339)
+	published := integrationTestSourceOccurredAt().UTC().Format(time.RFC3339)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/atom.xml" {
 			http.Error(w, "unexpected publickey path", http.StatusNotFound)
@@ -375,7 +385,7 @@ func integrationPublickeyEmptyHandler(t *testing.T) http.HandlerFunc {
 
 func integrationTechCrunchSuccessHandler(t *testing.T) http.HandlerFunc {
 	t.Helper()
-	pubDate := integrationTestFixedNow.UTC().Format(time.RFC1123Z)
+	pubDate := integrationTestSourceOccurredAt().UTC().Format(time.RFC1123Z)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/feed/" && r.URL.Path != "/feed" {
 			http.Error(w, "unexpected techcrunch path", http.StatusNotFound)
@@ -410,7 +420,7 @@ func integrationTechCrunchEmptyHandler(t *testing.T) http.HandlerFunc {
 
 func integrationCloudWatchSuccessHandler(t *testing.T) http.HandlerFunc {
 	t.Helper()
-	date := integrationTestFixedNow.UTC().Format(time.RFC3339)
+	date := integrationTestSourceOccurredAt().UTC().Format(time.RFC3339)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/data/rss/1.0/clw/feed.rdf" {
 			http.Error(w, "unexpected cloudwatch path", http.StatusNotFound)
@@ -536,7 +546,7 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 		publickey.NewListItemSource(httpClient, publickey.MaxStoriesScanned),
 		techcrunch.NewListItemSource(httpClient, techcrunch.MaxStoriesScanned),
 		cloudwatch.NewListItemSource(httpClient, cloudwatch.MaxStoriesScanned),
-	})
+	}, integrationTestDisplayLocation)
 	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey, gemini.TierFree)
 	lookup := r2.NewCompletedEpisodeLookup(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket)
 	rawWriter := r2.NewEpisodeWriter(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket)

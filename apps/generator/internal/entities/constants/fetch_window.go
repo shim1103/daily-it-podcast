@@ -2,6 +2,16 @@ package constants
 
 import "time"
 
-// FetchWindow は ItemSource.List へ渡す since の遡及幅。
-// OccurredAt（情報の発生時刻）そのものではない。
-const FetchWindow = 24 * time.Hour
+// YesterdayHalfOpenWindow は表示 Location の「昨日」暦日を half-open 区間 [since, until) で返す。
+// since = 昨日 00:00:00、until = 今日 00:00:00（いずれも loc）。長さは常に 24h。
+//
+// @require loc != nil。
+// @ensure since / until は loc の wall clock で真夜中。until.Sub(since) == 24h。
+// @ensure now の時刻・実行遅延に依存せず、now を loc で見た暦日の「昨日」だけを返す。
+// @invariant time.Now を呼ばない（純関数）。OccurredAt 自体は触らない。
+func YesterdayHalfOpenWindow(now time.Time, loc *time.Location) (since, until time.Time) {
+	local := now.In(loc)
+	todayStart := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+	yesterdayStart := todayStart.AddDate(0, 0, -1)
+	return yesterdayStart, todayStart
+}

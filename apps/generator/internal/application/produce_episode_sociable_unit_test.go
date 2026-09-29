@@ -153,7 +153,7 @@ func newHarness(t *testing.T, segDurationSec float64) *harness {
 	episw := &fakeEpisodeWriter{}
 	progress := &spyProgress{}
 	uc := application.NewProduceEpisode(
-		application.NewFetchSourceItems(source),
+		application.NewFetchSourceItems(source, testDisplayLocation),
 		lookup,
 		writer,
 		synth,
@@ -182,7 +182,7 @@ func newHarnessWithTopicCount(t *testing.T, topicCount int) *harness {
 	episw := &fakeEpisodeWriter{}
 	progress := &spyProgress{}
 	uc := application.NewProduceEpisode(
-		application.NewFetchSourceItems(source),
+		application.NewFetchSourceItems(source, testDisplayLocation),
 		lookup,
 		writer,
 		synth,

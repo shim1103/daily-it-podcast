@@ -11,17 +11,19 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
-func TestFetchSourceItems_passesSinceAsNowMinusFetchWindow_whenNowGiven(t *testing.T) {
-	// Given: 固定 now
+var testFetchLocation = time.FixedZone("JST", 9*3600)
+
+func TestFetchSourceItems_passesYesterdaySince_whenNowGiven(t *testing.T) {
+	// Given: 固定 now（JST 05:00）と表示 Location
 	fake := &fakeItemSource{}
-	uc := application.NewFetchSourceItems(fake)
-	now := time.Date(2024, 12, 10, 15, 0, 0, 0, time.UTC)
-	wantSince := now.Add(-constants.FetchWindow)
+	uc := application.NewFetchSourceItems(fake, testFetchLocation)
+	now := time.Date(2026, 9, 27, 5, 0, 0, 0, testFetchLocation)
+	wantSince, _ := constants.YesterdayHalfOpenWindow(now, testFetchLocation)
 
 	// When: Run を呼ぶ
 	_, err := uc.Run(context.Background(), now)
 
-	// Then: List は 1 回、since は now - FetchWindow
+	// Then: List は 1 回、since は昨日 00:00（JST）
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -33,16 +35,42 @@ func TestFetchSourceItems_passesSinceAsNowMinusFetchWindow_whenNowGiven(t *testi
 	}
 }
 
+func TestFetchSourceItems_excludesItemsAtOrAfterUntil_whenListReturnsBorderItems(t *testing.T) {
+	// Given: since ちょうど・until ちょうど・until 以降の item を混ぜた List 結果
+	now := time.Date(2026, 9, 27, 5, 0, 0, 0, testFetchLocation)
+	since, until := constants.YesterdayHalfOpenWindow(now, testFetchLocation)
+	inWindow := models.SourceItem{SourceID: "x", OccurredAt: since.Add(time.Hour), Summary: "in"}
+	atSince := models.SourceItem{SourceID: "x", OccurredAt: since, Summary: "at-since"}
+	atUntil := models.SourceItem{SourceID: "x", OccurredAt: until, Summary: "at-until"}
+	afterUntil := models.SourceItem{SourceID: "x", OccurredAt: until.Add(time.Hour), Summary: "after-until"}
+	fake := &fakeItemSource{items: []models.SourceItem{inWindow, atSince, atUntil, afterUntil}}
+	uc := application.NewFetchSourceItems(fake, testFetchLocation)
+
+	// When
+	got, err := uc.Run(context.Background(), now)
+
+	// Then: [since, until) のみ。atUntil / afterUntil は落ちる
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2: %+v", len(got), got)
+	}
+	if got[0].Summary != "in" || got[1].Summary != "at-since" {
+		t.Fatalf("got = %+v, want in then at-since", got)
+	}
+}
+
 func TestFetchSourceItems_returnsItemsFromSource_whenListSucceeds(t *testing.T) {
-	// Given: List が 2 件を返す
-	occurred := time.Date(2024, 12, 10, 10, 0, 0, 0, time.UTC)
+	// Given: List が窓内 2 件を返す
+	now := time.Date(2026, 9, 27, 5, 0, 0, 0, testFetchLocation)
+	since, _ := constants.YesterdayHalfOpenWindow(now, testFetchLocation)
 	want := []models.SourceItem{
-		{SourceID: "x", OccurredAt: occurred, Summary: "item_id: a1"},
-		{SourceID: "x", OccurredAt: occurred.Add(time.Minute), Summary: "item_id: a2"},
+		{SourceID: "x", OccurredAt: since.Add(time.Hour), Summary: "item_id: a1"},
+		{SourceID: "x", OccurredAt: since.Add(2 * time.Hour), Summary: "item_id: a2"},
 	}
 	fake := &fakeItemSource{items: want}
-	uc := application.NewFetchSourceItems(fake)
-	now := time.Date(2024, 12, 10, 15, 0, 0, 0, time.UTC)
+	uc := application.NewFetchSourceItems(fake, testFetchLocation)
 
 	// When: Run を呼ぶ
 	got, err := uc.Run(context.Background(), now)
@@ -64,8 +92,8 @@ func TestFetchSourceItems_returnsItemsFromSource_whenListSucceeds(t *testing.T) 
 func TestFetchSourceItems_returnsEmptySlice_whenListReturnsEmpty(t *testing.T) {
 	// Given: List が空 slice
 	fake := &fakeItemSource{}
-	uc := application.NewFetchSourceItems(fake)
-	now := time.Date(2024, 12, 10, 15, 0, 0, 0, time.UTC)
+	uc := application.NewFetchSourceItems(fake, testFetchLocation)
+	now := time.Date(2026, 9, 27, 5, 0, 0, 0, testFetchLocation)
 
 	// When: Run を呼ぶ
 	got, err := uc.Run(context.Background(), now)
@@ -89,8 +117,8 @@ func TestFetchSourceItems_returnsErrorWithoutItems_whenListFails(t *testing.T) {
 		items: []models.SourceItem{{SourceID: "x", Summary: "item_id: a1"}},
 		err:   boom,
 	}
-	uc := application.NewFetchSourceItems(fake)
-	now := time.Date(2024, 12, 10, 15, 0, 0, 0, time.UTC)
+	uc := application.NewFetchSourceItems(fake, testFetchLocation)
+	now := time.Date(2026, 9, 27, 5, 0, 0, 0, testFetchLocation)
 
 	// When: Run を呼ぶ
 	got, err := uc.Run(context.Background(), now)
