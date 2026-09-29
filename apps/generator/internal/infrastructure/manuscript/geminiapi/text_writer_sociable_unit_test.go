@@ -355,7 +355,7 @@ func TestGenerateContent_sendsURLContextAndGoogleSearchTools_onEveryRequest(t *t
 	}
 }
 
-func TestGenerateContent_sendsJSONResponseSchema_onEveryRequest(t *testing.T) {
+func TestGenerateContent_sendsResponseJsonSchemaNotResponseSchema_onEveryRequest(t *testing.T) {
 	t.Parallel()
 
 	// Given: 成功応答 1 件
@@ -364,7 +364,8 @@ func TestGenerateContent_sendsJSONResponseSchema_onEveryRequest(t *testing.T) {
 	// When: Write する
 	_, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
 
-	// Then: generationConfig は application/json と models.WriterOutputSchema を載せる
+	// Then: generationConfig は application/json と models.WriterOutputSchema を responseJsonSchema（JSON Schema 用）へ載せる。
+	//       OpenAPI subset 用の responseSchema は additionalProperties を受け付けず 400 になるので送らない
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
@@ -373,8 +374,8 @@ func TestGenerateContent_sendsJSONResponseSchema_onEveryRequest(t *testing.T) {
 	}
 	var reqBody struct {
 		GenerationConfig *struct {
-			ResponseMIMEType string          `json:"responseMimeType"`
-			ResponseSchema   json.RawMessage `json:"responseSchema"`
+			ResponseMIMEType   string          `json:"responseMimeType"`
+			ResponseJSONSchema json.RawMessage `json:"responseJsonSchema"`
 		} `json:"generationConfig"`
 	}
 	if err := json.Unmarshal(rt.calls[0].Body, &reqBody); err != nil {
@@ -386,16 +387,25 @@ func TestGenerateContent_sendsJSONResponseSchema_onEveryRequest(t *testing.T) {
 	if reqBody.GenerationConfig.ResponseMIMEType != "application/json" {
 		t.Fatalf("responseMimeType = %q, want application/json", reqBody.GenerationConfig.ResponseMIMEType)
 	}
+	var rawConfig struct {
+		GenerationConfig map[string]json.RawMessage `json:"generationConfig"`
+	}
+	if err := json.Unmarshal(rt.calls[0].Body, &rawConfig); err != nil {
+		t.Fatalf("decode request body: %v", err)
+	}
+	if _, ok := rawConfig.GenerationConfig["responseSchema"]; ok {
+		t.Fatal("generationConfig.responseSchema is set, want omitted（responseJsonSchema と排他）")
+	}
 	var gotSchema, wantSchema any
-	if err := json.Unmarshal(reqBody.GenerationConfig.ResponseSchema, &gotSchema); err != nil {
-		t.Fatalf("decode got responseSchema: %v", err)
+	if err := json.Unmarshal(reqBody.GenerationConfig.ResponseJSONSchema, &gotSchema); err != nil {
+		t.Fatalf("decode got responseJsonSchema: %v", err)
 	}
 	if err := json.Unmarshal(models.WriterOutputSchema, &wantSchema); err != nil {
 		t.Fatalf("decode want WriterOutputSchema: %v", err)
 	}
 	if !reflect.DeepEqual(gotSchema, wantSchema) {
-		t.Fatalf("responseSchema が models.WriterOutputSchema と不一致\ngot=%s\nwant=%s",
-			reqBody.GenerationConfig.ResponseSchema, models.WriterOutputSchema)
+		t.Fatalf("responseJsonSchema が models.WriterOutputSchema と不一致\ngot=%s\nwant=%s",
+			reqBody.GenerationConfig.ResponseJSONSchema, models.WriterOutputSchema)
 	}
 }
 
