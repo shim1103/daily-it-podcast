@@ -72,7 +72,19 @@ func (rt *stubRoundTripper) feedCalls() int {
 }
 
 func newStubListItemSource(rt *stubRoundTripper) *publickey.ListItemSource {
-	return publickey.NewListItemSource(&http.Client{Transport: rt}, publickey.MaxStoriesScanned)
+	// why: 500 応答で retry を発生させる test（non-200 系）と発生させない test を共有する。
+	//      呼ばれるかどうかをテストごとに見極めず、常に Spy を渡して安全に倒す。
+	return publickey.NewListItemSource(&http.Client{Transport: rt}, publickey.MaxStoriesScanned, &retryReporterSpy{})
+}
+
+// retryReporterSpy は port.RetryReporter を満たし、Retry 呼び出しを記録する Spy。
+// retry が実際に発生する test（transient error からの再試行）専用。
+type retryReporterSpy struct {
+	calls int
+}
+
+func (s *retryReporterSpy) Retry(step string, attempt, max int, reason string) {
+	s.calls++
 }
 
 // atomEntryFixture は Atom entry XML を組むための入力。
@@ -147,7 +159,7 @@ func TestList_mapsAtomEntryToSourceItem_whenEntryInWindow(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と写像
 	if err != nil {
@@ -206,7 +218,43 @@ func TestList_excludesEntriesOlderThanSince_atBoundary(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
+
+	// @then 戻り値と error
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
+	}
+	if got[0].Summary != "境界ちょうど" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "境界ちょうど")
+	}
+}
+
+func TestList_excludesEntriesAtOrAfterUntil_atBoundary(t *testing.T) {
+	// @given published==until-1s の entry と published==until の entry を混ぜた double
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	until := since.Add(24 * time.Hour)
+	rt := newStubRoundTripper()
+	rt.setFeed(atomXML(
+		atomEntryFixture{
+			title:     "境界ちょうど",
+			id:        "in",
+			published: until.Add(-time.Second).Format(time.RFC3339),
+			href:      "https://www.publickey1.jp/in.html",
+		},
+		atomEntryFixture{
+			title:     "境界の外",
+			id:        "out",
+			published: until.Format(time.RFC3339),
+			href:      "https://www.publickey1.jp/out.html",
+		},
+	))
+	source := newStubListItemSource(rt)
+
+	// @when
+	got, err := source.List(context.Background(), since, until)
 
 	// @then 戻り値と error
 	if err != nil {
@@ -238,7 +286,7 @@ func TestList_stopsAfterCollectingMaxStoriesScanned_whenEnoughEntriesInWindow(t 
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 結果は MaxStoriesScanned 件で打ち切る
 	if err != nil {
@@ -266,10 +314,10 @@ func TestList_stopsScanningAtMaxItems_whenMaxItemsBelowMaxStoriesScanned(t *test
 	rt := newStubRoundTripper()
 	rt.setFeed(atomXML(entries...))
 	maxItems := publickey.MaxStoriesScanned - 2
-	source := publickey.NewListItemSource(&http.Client{Transport: rt}, maxItems)
+	source := publickey.NewListItemSource(&http.Client{Transport: rt}, maxItems, nil)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 結果は maxItems 件で打ち切る
 	if err != nil {
@@ -299,7 +347,7 @@ func TestList_returnsNonNilEmptySlice_whenNothingInWindow(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -318,10 +366,10 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 
 	t.Run("client nil", func(t *testing.T) {
 		// @given client を持たない ListItemSource
-		source := publickey.NewListItemSource(nil, publickey.MaxStoriesScanned)
+		source := publickey.NewListItemSource(nil, publickey.MaxStoriesScanned, nil)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -337,7 +385,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 		source := newStubListItemSource(rt)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -353,7 +401,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 		source := newStubListItemSource(rt)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -393,10 +441,10 @@ func TestList_retriesOnceOnTransientError_whenSecondAttemptSucceeds(t *testing.T
 			}, nil
 		},
 	}
-	source := publickey.NewListItemSource(&http.Client{Transport: transientRT}, publickey.MaxStoriesScanned)
+	source := publickey.NewListItemSource(&http.Client{Transport: transientRT}, publickey.MaxStoriesScanned, &retryReporterSpy{})
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と feed fetch 回数
 	if err != nil {
@@ -432,7 +480,7 @@ func TestList_dropsEntry_whenPublishedAndUpdatedAreInvalid(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -460,7 +508,7 @@ func TestList_usesUpdated_whenPublishedAbsent(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と OccurredAt
 	if err != nil {
@@ -487,7 +535,7 @@ func TestList_selectsAlternateLinkOnly_whenSelfLinkAlsoPresent(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then Detail.Links は alternate のみ
 	if err != nil {

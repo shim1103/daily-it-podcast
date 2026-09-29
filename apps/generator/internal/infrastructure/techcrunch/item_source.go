@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpget"
 )
@@ -28,15 +29,16 @@ const (
 type ListItemSource struct {
 	client   *http.Client
 	maxItems int
+	retry    port.RetryReporter
 }
 
 // NewListItemSource は TechCrunch 向け ItemSource を返す。
 //
-// @require httpClient != nil
+// @require httpClient != nil。retry != nil（Composition Root の結線責務）。
 // @ensure 戻りは非 nil の *ListItemSource。vendor 固有型を露出しない。
 // @ensure maxItems <= 0 の場合、実効上限は MaxStoriesScanned にフォールバックする。
-func NewListItemSource(httpClient *http.Client, maxItems int) *ListItemSource {
-	return &ListItemSource{client: httpClient, maxItems: maxItems}
+func NewListItemSource(httpClient *http.Client, maxItems int, retry port.RetryReporter) *ListItemSource {
+	return &ListItemSource{client: httpClient, maxItems: maxItems, retry: retry}
 }
 
 // effectiveMaxStories は min(maxItems, MaxStoriesScanned) を実効上限として返す。
@@ -68,14 +70,14 @@ type rssItem struct {
 	Creator     string `xml:"http://purl.org/dc/elements/1.1/ creator"`
 }
 
-// List は since 以降に発生した TechCrunch item を SourceItem slice で返す。
+// List は [since, until) に発生した TechCrunch item を SourceItem slice で返す。
 //
-// @require since は OccurredAt の inclusive 下限。
-// @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ since 以上。
-// @ensure 結果は pubDate >= since を満たす item のみ。最大 min(maxItems, MaxStoriesScanned) 件（maxItems <= 0 は MaxStoriesScanned）。
+// @require since は OccurredAt の inclusive 下限。until は exclusive 上限。
+// @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ [since, until)。
+// @ensure 結果は pubDate ∈ [since, until) を満たす item のみ。最大 min(maxItems, MaxStoriesScanned) 件（maxItems <= 0 は MaxStoriesScanned）。
 // @ensure 該当なしは空 slice（nil ではない）。
 // @invariant vendor 固有型・監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
-func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
+func (s *ListItemSource) List(ctx context.Context, since, until time.Time) ([]models.SourceItem, error) {
 	if s == nil || s.client == nil {
 		return nil, infraErr("list", fmt.Errorf("client is nil"))
 	}
@@ -94,7 +96,7 @@ func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.So
 	out := make([]models.SourceItem, 0, limit)
 	for _, item := range feed.Channel.Items {
 		occurredAt, ok := parsePubDate(item.PubDate)
-		if !ok || occurredAt.Before(since) {
+		if !ok || !constants.OccurredInHalfOpen(occurredAt, since, until) {
 			continue
 		}
 		out = append(out, toSourceItem(item, occurredAt))
@@ -139,7 +141,7 @@ func toSourceItem(item rssItem, occurredAt time.Time) models.SourceItem {
 
 // getWithRetry は httpget へ委譲し、失敗を Adapter の infraErr で包む。
 func (s *ListItemSource) getWithRetry(ctx context.Context, url, op string) ([]byte, error) {
-	body, err := httpget.GetWithRetry(ctx, s.client, url)
+	body, err := httpget.GetWithRetry(ctx, s.client, url, s.retry, op)
 	if err != nil {
 		return nil, infraErr(op, err)
 	}

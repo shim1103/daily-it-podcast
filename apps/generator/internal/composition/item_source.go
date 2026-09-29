@@ -23,15 +23,15 @@ func newCompositeItemSource(sources ...port.ItemSource) port.ItemSource {
 
 // List は登録順に各 source の List を呼び、成功結果を登録順に連結して返す。
 //
-// @require since は OccurredAt の inclusive 下限（各 source の List 契約に委ねる）。
+// @require since / until は各 source の List 契約に委ねる（[since, until)）。
 // @ensure 各 source を登録順に 1 回ずつ逐次呼ぶ。並列化しない。
 // @ensure いずれかの source.List が error を返したらその error をそのまま返し、成功分は返さない。
 // @ensure 全 source が空、または source が 0 本のときも非 nil の空 slice を返す。
 // @invariant vendor 固有型・情報源内部の監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
-func (c compositeItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
+func (c compositeItemSource) List(ctx context.Context, since, until time.Time) ([]models.SourceItem, error) {
 	merged := make([]models.SourceItem, 0)
 	for _, source := range c {
-		items, err := source.List(ctx, since)
+		items, err := source.List(ctx, since, until)
 		if err != nil {
 			return nil, err
 		}

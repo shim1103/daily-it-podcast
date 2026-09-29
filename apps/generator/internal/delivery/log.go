@@ -3,6 +3,7 @@ package delivery
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
@@ -45,6 +46,7 @@ func (l *LogWriter) Event(category, name string, fields ...Field) {
 var (
 	_ port.ProgressReporter = (*LogWriter)(nil)
 	_ port.FallbackReporter = (*LogWriter)(nil)
+	_ port.RetryReporter    = (*LogWriter)(nil)
 )
 
 // Start は段階の開始を "category=progress ... phase=start" 行で書く。
@@ -64,4 +66,14 @@ func (l *LogWriter) Done(step, detail string) {
 // Fallback は取得元切替などの観測イベントを "category=fallback" 行で書く。
 func (l *LogWriter) Fallback(event string) {
 	l.Event("fallback", event)
+}
+
+// Retry は retry ループ内の 1 attempt 失敗を
+// "category=retry ... attempt=<n> max=<m> reason=<...>" 行で書く。
+func (l *LogWriter) Retry(step string, attempt, max int, reason string) {
+	l.Event("retry", step,
+		Field{Key: "attempt", Value: strconv.Itoa(attempt)},
+		Field{Key: "max", Value: strconv.Itoa(max)},
+		Field{Key: "reason", Value: reason},
+	)
 }

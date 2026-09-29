@@ -17,7 +17,7 @@ import (
 // field range・日本語含有・末尾句点は validateTotalChars が見ないため考慮しない。
 func writerOutputWithTotalRunes(n int) models.WriterOutput {
 	return models.WriterOutput{
-		Intro: strings.Repeat("あ", n),
+		OpeningIntro: strings.Repeat("あ", n),
 	}
 }
 
@@ -155,9 +155,9 @@ func TestWriterOutputWithTotalRunes_sumsToArgument(t *testing.T) {
 		w := writerOutputWithTotalRunes(n)
 
 		// Then: validateTotalChars と同じ数え方の合計が n に一致する
-		// 合計対象は intro + closingSummary + Σ_topics(preface + detail)。title / topic.title は足さない。
-		total := utf8.RuneCountInString(strings.TrimSpace(w.Intro)) +
-			utf8.RuneCountInString(strings.TrimSpace(w.ClosingSummary))
+		// 合計対象は intro + endingSummary + Σ_topics(preface + detail)。title / topic.title は足さない。
+		total := utf8.RuneCountInString(strings.TrimSpace(w.OpeningIntro)) +
+			utf8.RuneCountInString(strings.TrimSpace(w.EndingSummary))
 		for _, tp := range w.Topics {
 			total += utf8.RuneCountInString(strings.TrimSpace(tp.Preface))
 			total += utf8.RuneCountInString(strings.TrimSpace(tp.Detail))

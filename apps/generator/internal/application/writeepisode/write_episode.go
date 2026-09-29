@@ -1,4 +1,4 @@
-package application
+package writeepisode
 
 import (
 	"bytes"
@@ -15,23 +15,26 @@ import (
 	"github.com/shim1103/daily-it-podcast/contracts"
 )
 
+var _ port.EpisodeWriter = (*WriteEpisode)(nil)
+
+// WriteEpisode は完成 episode を検査し、合格時だけ EpisodeWriter へ渡す Gate UseCase である。
 type WriteEpisode struct {
 	writer port.EpisodeWriter
 }
 
-// NewWriteEpisode は検証済み episode を EpisodeWriter へ渡す UseCase を返す。
+// NewWriteEpisode は raw EpisodeWriter を包む Gate を返す。
 //
 // @require writer != nil
-// @ensure 戻りは非 nil。
+// @ensure 戻りは非 nil かつ port.EpisodeWriter を満たす。
 func NewWriteEpisode(writer port.EpisodeWriter) *WriteEpisode {
 	return &WriteEpisode{writer: writer}
 }
 
-// Run は原稿と音声を検証してから EpisodeWriter へ 1 回だけ渡す。
+// Write は原稿と音声を検証してから内側の EpisodeWriter へ 1 回だけ渡す。
 //
 // @require uc != nil かつ uc.writer != nil。
 // @ensure 検証失敗時は writer.Write を呼ばない。成功時だけ writer.Write を呼ぶ。
-func (uc *WriteEpisode) Run(ctx context.Context, episodeID string, manuscript []byte, audio models.SpeechAudio) error {
+func (uc *WriteEpisode) Write(ctx context.Context, episodeID string, manuscript []byte, audio models.SpeechAudio) error {
 	if strings.TrimSpace(episodeID) == "" {
 		return domainerrors.DomainErr(domainerrors.OpEmptyEpisodeID, nil)
 	}

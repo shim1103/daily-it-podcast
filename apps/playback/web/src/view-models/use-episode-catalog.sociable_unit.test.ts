@@ -77,7 +77,7 @@ describe("useEpisodeCatalog", () => {
     expect(result.current.episodes).toEqual(validListEpisodesResponse.episodes);
   });
 
-  it("load() が失敗する時、例外を投げず catalogStatus が error になり episodes は空のまま", async () => {
+  it("load() が失敗する時、例外を投げず catalogStatus が error(error code 付き) になり episodes は空のまま", async () => {
     // Given: 失敗 ApiResult を返す stub api client
     const apiClient = createStubApiClient({
       listEpisodes: vi.fn(async () => ({ ok: false as const, error: "unavailable" as const })),
@@ -89,9 +89,28 @@ describe("useEpisodeCatalog", () => {
       await result.current.load();
     });
 
-    // Then: error・episodes 空（view-model.md §4: 失敗は throw せず state で表現）
-    expect(result.current.catalogStatus).toEqual({ status: "error" });
+    // Then: error code を保持した error・episodes 空（view-model.md §4: 失敗は throw せず state で表現）
+    expect(result.current.catalogStatus).toEqual({ status: "error", error: "unavailable" });
     expect(result.current.episodes).toEqual([]);
+  });
+
+  it("load() が失敗する時、ApiResult の error code をそのまま catalogStatus.error へ渡す", async () => {
+    // Given: episode_not_found を返す stub api client
+    const apiClient = createStubApiClient({
+      listEpisodes: vi.fn(async () => ({
+        ok: false as const,
+        error: "episode_not_found" as const,
+      })),
+    });
+    const { result } = renderHook(() => useEpisodeCatalog(apiClient));
+
+    // When: load を実行する
+    await act(async () => {
+      await result.current.load();
+    });
+
+    // Then: error code が episode_not_found のまま伝わる
+    expect(result.current.catalogStatus).toEqual({ status: "error", error: "episode_not_found" });
   });
 
   it("load() の再実行前に catalogStatus を loading へ戻す", async () => {

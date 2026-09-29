@@ -20,7 +20,7 @@ package constants
 const CharsPerSecond = 7
 
 const (
-	// DraftIntroTgtSec / DraftClosingTgtSec は intro・closingSummary の target 秒数。
+	// DraftIntroTgtSec / DraftClosingTgtSec は intro・endingSummary の target 秒数。
 	DraftIntroTgtSec   = 30
 	DraftClosingTgtSec = 30
 

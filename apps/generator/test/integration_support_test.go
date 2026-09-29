@@ -23,7 +23,9 @@ import (
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/fetch"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/writeepisode"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
@@ -37,10 +39,21 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/techcrunch"
 )
 
+// retryReporterSpy は port.RetryReporter を満たし、Retry 呼び出しを記録する Spy。
+// Narrow integration test 群（*_narrow_integration_test.go）が、upstream 5xx から
+// 再試行を発生させる test と成功一発の test を同一 helper で共有するために使う。
+type retryReporterSpy struct {
+	calls int
+}
+
+func (s *retryReporterSpy) Retry(step string, attempt, max int, reason string) {
+	s.calls++
+}
+
 const (
 	broadIntegrationTopicCount = constants.DraftTopicCountTarget
 
-	// integrationTTSFixedSegmentCount は TTS 束の固定 segment 数（greeting+intro 束 / closingSummary+farewell 束）。
+	// integrationTTSFixedSegmentCount は TTS 束の固定 segment 数（greeting+intro 束 / endingSummary+farewell 束）。
 	// SpeechTexts が topic+2 束を返すため（Decision 2026-09-02T13-55-00）。
 	integrationTTSFixedSegmentCount = 2
 
@@ -66,7 +79,17 @@ var broadDummySecrets = []string{
 var integrationTestDisplayLocation = time.FixedZone("JST", 9*3600)
 
 // integrationTestFixedNow は Broad Integration の Run 引数に渡す固定時刻。
+// UTC 2026-08-30 16:00 = JST 2026-08-31 01:00。
 var integrationTestFixedNow = time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
+
+// integrationTestSourceOccurredAt は Fetch の昨日 half-open 窓内に入る固定発生時刻。
+// why: Run 引数 now 自体は今日側にあり、窓 [昨日 00:00, 今日 00:00) の外。fixture の OccurredAt を
+//
+//	now にすると Adapter の until 判定で落ちて 0 件になる。
+func integrationTestSourceOccurredAt() time.Time {
+	since, until := constants.YesterdayHalfOpenWindow(integrationTestFixedNow, integrationTestDisplayLocation)
+	return since.Add(until.Sub(since) / 2)
+}
 
 func broadFixedEpisodeIDFunc() string { return broadFixedEpisodeID }
 
@@ -74,10 +97,10 @@ func broadFixedEpisodeIDFunc() string { return broadFixedEpisodeID }
 // why: composition は test から import できないため、同型の写しを test 内に置く。
 type compositeItemSource []port.ItemSource
 
-func (c compositeItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
+func (c compositeItemSource) List(ctx context.Context, since, until time.Time) ([]models.SourceItem, error) {
 	merged := make([]models.SourceItem, 0)
 	for _, source := range c {
-		items, err := source.List(ctx, since)
+		items, err := source.List(ctx, since, until)
 		if err != nil {
 			return nil, err
 		}
@@ -142,10 +165,10 @@ func buildIntegrationWireJSON(topicCount int) string {
 		}
 	}
 	doc := map[string]any{
-		"title":          title,
-		"intro":          intro,
-		"topics":         topics,
-		"closingSummary": closing,
+		"title":         title,
+		"openingIntro":  intro,
+		"topics":        topics,
+		"endingSummary": closing,
 	}
 	raw, err := json.Marshal(doc)
 	if err != nil {
@@ -276,12 +299,12 @@ type broadProduceEpisodeConfig struct {
 	emptySources bool // true なら 5 源すべてが 0 件を返す
 }
 
-// 各情報源の success / empty handler。時刻は integrationTestFixedNow を使う。
-// FetchSourceItems は since = now - FetchWindow(24h) を渡すため、now 自体は必ず since 以上になる。
+// 各情報源の success / empty handler。発生時刻は integrationTestSourceOccurredAt（昨日窓内）を使う。
+// FetchSourceItems は YesterdayHalfOpenWindow の since を List へ渡し、until 以降は Application で落とす。
 // Broad は「SourceItem が 1 件以上ある」ことだけを要求する。
 func integrationHackerNewsSuccessHandler(t *testing.T) http.HandlerFunc {
 	t.Helper()
-	storyUnix := integrationTestFixedNow.Unix()
+	storyUnix := integrationTestSourceOccurredAt().Unix()
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/topstories.json"):
@@ -310,7 +333,7 @@ func integrationHackerNewsEmptyHandler(t *testing.T) http.HandlerFunc {
 
 func integrationLobstersSuccessHandler(t *testing.T) http.HandlerFunc {
 	t.Helper()
-	createdAt := integrationTestFixedNow.Format(time.RFC3339)
+	createdAt := integrationTestSourceOccurredAt().Format(time.RFC3339)
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/hottest.json"):
@@ -339,7 +362,7 @@ func integrationLobstersEmptyHandler(t *testing.T) http.HandlerFunc {
 
 func integrationPublickeySuccessHandler(t *testing.T) http.HandlerFunc {
 	t.Helper()
-	published := integrationTestFixedNow.UTC().Format(time.RFC3339)
+	published := integrationTestSourceOccurredAt().UTC().Format(time.RFC3339)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/atom.xml" {
 			http.Error(w, "unexpected publickey path", http.StatusNotFound)
@@ -375,7 +398,7 @@ func integrationPublickeyEmptyHandler(t *testing.T) http.HandlerFunc {
 
 func integrationTechCrunchSuccessHandler(t *testing.T) http.HandlerFunc {
 	t.Helper()
-	pubDate := integrationTestFixedNow.UTC().Format(time.RFC1123Z)
+	pubDate := integrationTestSourceOccurredAt().UTC().Format(time.RFC1123Z)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/feed/" && r.URL.Path != "/feed" {
 			http.Error(w, "unexpected techcrunch path", http.StatusNotFound)
@@ -410,7 +433,7 @@ func integrationTechCrunchEmptyHandler(t *testing.T) http.HandlerFunc {
 
 func integrationCloudWatchSuccessHandler(t *testing.T) http.HandlerFunc {
 	t.Helper()
-	date := integrationTestFixedNow.UTC().Format(time.RFC3339)
+	date := integrationTestSourceOccurredAt().UTC().Format(time.RFC3339)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/data/rss/1.0/clw/feed.rdf" {
 			http.Error(w, "unexpected cloudwatch path", http.StatusNotFound)
@@ -530,23 +553,23 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 
 	// 5 情報源（HackerNews → Lobsters → Publickey → TechCrunch → クラウド Watch）。
 	// 登録順は composition.newProduceEpisode と同順。真外部は TLS redirect で double 済み。
-	fetch := application.NewFetchSourceItems(compositeItemSource{
-		hackernews.NewListItemSource(httpClient, hackernews.MaxStoriesScanned),
-		lobsters.NewListItemSource(httpClient, lobsters.MaxStoriesScanned),
-		publickey.NewListItemSource(httpClient, publickey.MaxStoriesScanned),
-		techcrunch.NewListItemSource(httpClient, techcrunch.MaxStoriesScanned),
-		cloudwatch.NewListItemSource(httpClient, cloudwatch.MaxStoriesScanned),
-	})
-	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey, gemini.TierFree)
-	lookup := r2.NewCompletedEpisodeLookup(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket)
-	rawWriter := r2.NewEpisodeWriter(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket)
-	writeEpisode := application.NewWriteEpisode(rawWriter)
+	fetchUC := fetch.NewFetchSourceItems(compositeItemSource{
+		hackernews.NewListItemSource(httpClient, hackernews.MaxStoriesScanned, nil),
+		lobsters.NewListItemSource(httpClient, lobsters.MaxStoriesScanned, nil),
+		publickey.NewListItemSource(httpClient, publickey.MaxStoriesScanned, nil),
+		techcrunch.NewListItemSource(httpClient, techcrunch.MaxStoriesScanned, nil),
+		cloudwatch.NewListItemSource(httpClient, cloudwatch.MaxStoriesScanned, nil),
+	}, integrationTestDisplayLocation)
+	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey, gemini.TierFree, nil)
+	lookup := r2.NewCompletedEpisodeLookup(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket, nil)
+	rawWriter := r2.NewEpisodeWriter(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket, nil)
+	writeEpisode := writeepisode.NewWriteEpisode(rawWriter)
 
 	// progress reporter は production（composition.newProduceEpisode）と同型で delivery.LogWriter そのもの。
 	// logBuf へ "generator: category=progress ..." を書かせる。
 	logw := delivery.NewLogWriter(h.logBuf)
 	h.uc = application.NewProduceEpisode(
-		fetch,
+		fetchUC,
 		lookup,
 		h.textWriter,
 		speech,

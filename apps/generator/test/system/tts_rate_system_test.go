@@ -99,8 +99,8 @@ func rateMeasureDraft(prefaceLen, detailLen, introLen, closingLen int) models.Ma
 	detail := jpFiller(detailLen, detailSentence)
 	return models.ManuscriptDraft{
 		Title:          "きょうの IT ニュースまとめ回",
-		Intro:          jpFiller(introLen, "本日は注目の発表をまとめてお届けします。"),
-		ClosingSummary: jpFiller(closingLen, "本日取り上げた話題を振り返ります。"),
+		OpeningIntro:          jpFiller(introLen, "本日は注目の発表をまとめてお届けします。"),
+		EndingSummary: jpFiller(closingLen, "本日取り上げた話題を振り返ります。"),
 		Topics: []models.ManuscriptDraftTopic{
 			{Title: "話題一の見出しです", Preface: preface, Detail: detail},
 			{Title: "話題二の見出しです", Preface: preface, Detail: detail},
@@ -148,6 +148,7 @@ func TestGeminiTTSRate_measuresPassRate_overNRuns(t *testing.T) {
 		apiKey,
 		gemini.TierFree,
 		gemini.Tuning{CallGap: callGap, RetryBackoffBase: backoffBase, RetryBackoffMax: backoffMax},
+		&retryReporterSpy{},
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 55*time.Minute)

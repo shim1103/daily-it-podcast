@@ -117,18 +117,41 @@ type sleepSpy struct {
 	waits []time.Duration
 }
 
+// retryReporterCall は retryReporterSpy が観測した Retry 呼び出し 1 件分。
+type retryReporterCall struct {
+	step    string
+	attempt int
+	max     int
+	reason  string
+}
+
+// retryReporterSpy は port.RetryReporter を満たし、Retry 呼び出しを記録する Spy。
+type retryReporterSpy struct {
+	calls []retryReporterCall
+}
+
+func (s *retryReporterSpy) Retry(step string, attempt, max int, reason string) {
+	s.calls = append(s.calls, retryReporterCall{step: step, attempt: attempt, max: max, reason: reason})
+}
+
 func newFakeTextWriter(responses ...fakeClientResponse) (*TextWriter, *fakeRoundTripper) {
 	w, rt, _ := newFakeTextWriterWithSleepSpy(responses...)
 	return w, rt
 }
 
 func newFakeTextWriterWithSleepSpy(responses ...fakeClientResponse) (*TextWriter, *fakeRoundTripper, *sleepSpy) {
+	w, rt, spy, _ := newFakeTextWriterWithSpies(responses...)
+	return w, rt, spy
+}
+
+func newFakeTextWriterWithSpies(responses ...fakeClientResponse) (*TextWriter, *fakeRoundTripper, *sleepSpy, *retryReporterSpy) {
 	rt := &fakeRoundTripper{responses: responses}
 	spy := &sleepSpy{}
+	retry := &retryReporterSpy{}
 	w := newTextWriter(&http.Client{Transport: rt}, fakeAPIKey, TierFree, func(_ context.Context, d time.Duration) {
 		spy.waits = append(spy.waits, d)
-	})
-	return w, rt, spy
+	}, retry)
+	return w, rt, spy, retry
 }
 
 // generateContentBody は generateContent 成功応答の fixture を組む。
@@ -332,6 +355,50 @@ func TestGenerateContent_sendsURLContextAndGoogleSearchTools_onEveryRequest(t *t
 	}
 }
 
+func TestGenerateContent_sendsJSONResponseSchema_onEveryRequest(t *testing.T) {
+	t.Parallel()
+
+	// Given: 成功応答 1 件
+	w, rt := newFakeTextWriter(successResponse("STOP", `{"title":"題","openingIntro":"あ。","topics":[],"endingSummary":"あ。"}`))
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
+
+	// Then: generationConfig は application/json と models.WriterOutputSchema を載せる
+	if err != nil {
+		t.Fatalf("Write() error = %v, want nil", err)
+	}
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(rt.calls))
+	}
+	var reqBody struct {
+		GenerationConfig *struct {
+			ResponseMIMEType string          `json:"responseMimeType"`
+			ResponseSchema   json.RawMessage `json:"responseSchema"`
+		} `json:"generationConfig"`
+	}
+	if err := json.Unmarshal(rt.calls[0].Body, &reqBody); err != nil {
+		t.Fatalf("decode request body: %v", err)
+	}
+	if reqBody.GenerationConfig == nil {
+		t.Fatal("generationConfig = nil, want set")
+	}
+	if reqBody.GenerationConfig.ResponseMIMEType != "application/json" {
+		t.Fatalf("responseMimeType = %q, want application/json", reqBody.GenerationConfig.ResponseMIMEType)
+	}
+	var gotSchema, wantSchema any
+	if err := json.Unmarshal(reqBody.GenerationConfig.ResponseSchema, &gotSchema); err != nil {
+		t.Fatalf("decode got responseSchema: %v", err)
+	}
+	if err := json.Unmarshal(models.WriterOutputSchema, &wantSchema); err != nil {
+		t.Fatalf("decode want WriterOutputSchema: %v", err)
+	}
+	if !reflect.DeepEqual(gotSchema, wantSchema) {
+		t.Fatalf("responseSchema が models.WriterOutputSchema と不一致\ngot=%s\nwant=%s",
+			reqBody.GenerationConfig.ResponseSchema, models.WriterOutputSchema)
+	}
+}
+
 // requestToolsOf は fakeRoundTripper が記録した request body から tools 配列を取り出す。
 func requestToolsOf(t *testing.T, body []byte) []map[string]map[string]any {
 	t.Helper()
@@ -370,6 +437,92 @@ func TestWrite_retriesWithRejectionBrief_whenBuildFnReportsInvalidOnce(t *testin
 	wantSecondBrief := port.BuildRejectionBrief(brief, "1 回目の原稿。", buildErr.Error())
 	if got := requestBriefOf(t, rt.calls[1].Body); got != wantSecondBrief {
 		t.Fatalf("2 回目 brief = %q, want %q", got, wantSecondBrief)
+	}
+}
+
+func TestWrite_notifiesRetryReporter_whenBuildFnReportsInvalidOnce(t *testing.T) {
+	t.Parallel()
+
+	// Given: 1 回目・2 回目とも成功応答。buildFn は 1 回目だけ invalid を返す
+	w, _, _, retry := newFakeTextWriterWithSpies(
+		successResponse("STOP", "1 回目の原稿。"),
+		successResponse("STOP", "2 回目の原稿。"),
+	)
+	buildErr := errors.New("invalid draft")
+	seq := &sequenceBuildFn{rejects: 1, err: buildErr}
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて", seq.call)
+
+	// Then: 次 attempt が残っている 1 回目失敗時だけ Retry が 1 回通知される
+	if err != nil {
+		t.Fatalf("Write() error = %v, want nil", err)
+	}
+	if len(retry.calls) != 1 {
+		t.Fatalf("retry calls = %+v, want 1 call", retry.calls)
+	}
+	want := retryReporterCall{step: "write_manuscript_draft", attempt: 1, max: TextWriterMaxAttempts, reason: buildErr.Error()}
+	if retry.calls[0] != want {
+		t.Fatalf("retry.calls[0] = %+v, want %+v", retry.calls[0], want)
+	}
+}
+
+func TestWrite_doesNotNotifyRetryReporter_onFinalAttempt_whenBuildFnFailsAllAttempts(t *testing.T) {
+	t.Parallel()
+
+	// Given: 全 attempt で成功応答だが buildFn は毎回 invalid を返す
+	responses := make([]fakeClientResponse, 0, TextWriterMaxAttempts)
+	for i := 0; i < TextWriterMaxAttempts; i++ {
+		responses = append(responses, successResponse("STOP", fmt.Sprintf("%d 回目の原稿。", i+1)))
+	}
+	w, _, _, retry := newFakeTextWriterWithSpies(responses...)
+	buildErr := errors.New("invalid draft")
+	rejecting := &rejectingBuildFn{err: buildErr}
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて", rejecting.call)
+
+	// Then: TextWriterMaxAttempts - 1 回だけ Retry が通知される（最終 attempt は次が無いので呼ばない）
+	if !errors.Is(err, port.ErrDraftRejected) {
+		t.Fatalf("errors.Is(err, port.ErrDraftRejected) = false: %v", err)
+	}
+	if len(retry.calls) != TextWriterMaxAttempts-1 {
+		t.Fatalf("retry calls = %+v, want %d calls", retry.calls, TextWriterMaxAttempts-1)
+	}
+	for i, call := range retry.calls {
+		wantAttempt := i + 1
+		if call.attempt != wantAttempt || call.max != TextWriterMaxAttempts || call.step != "write_manuscript_draft" {
+			t.Fatalf("retry.calls[%d] = %+v, want attempt=%d max=%d step=write_manuscript_draft", i, call, wantAttempt, TextWriterMaxAttempts)
+		}
+	}
+}
+
+func TestGenerateContent_notifiesRetryReporter_on429BeforeEachBackoff(t *testing.T) {
+	t.Parallel()
+
+	// Given: 429 を MaxAttempts 回返し続ける
+	responses := make([]fakeClientResponse, 0, MaxAttempts)
+	for i := 0; i < MaxAttempts; i++ {
+		responses = append(responses, fakeClientResponse{
+			status: http.StatusTooManyRequests,
+			body:   `{"error":"rate limited"}`,
+		})
+	}
+	w, _, _, retry := newFakeTextWriterWithSpies(responses...)
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
+
+	// Then: backoff 前の MaxAttempts-1 回だけ Retry が通知される（使い切りの最終 1 回は通知しない）
+	assertGeminiInfraErrorOp(t, err, "http_status")
+	if len(retry.calls) != MaxAttempts-1 {
+		t.Fatalf("retry calls = %+v, want %d calls", retry.calls, MaxAttempts-1)
+	}
+	for i, call := range retry.calls {
+		wantAttempt := i + 1
+		if call.attempt != wantAttempt || call.max != MaxAttempts || call.step != "generate_content" {
+			t.Fatalf("retry.calls[%d] = %+v, want attempt=%d max=%d step=generate_content", i, call, wantAttempt, MaxAttempts)
+		}
 	}
 }
 
@@ -802,7 +955,7 @@ func TestWrite_returnsInfraError_whenClientIsNil(t *testing.T) {
 	t.Parallel()
 
 	// Given: client nil の TextWriter
-	w := newTextWriter(nil, fakeAPIKey, TierFree, func(context.Context, time.Duration) {})
+	w := newTextWriter(nil, fakeAPIKey, TierFree, func(context.Context, time.Duration) {}, nil)
 
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
@@ -852,13 +1005,13 @@ func TestWrite_excludesAPIKeyFromErrorMessage_andPutsItInHeader(t *testing.T) {
 func TestNewTextWriter_returnsNonNil(t *testing.T) {
 	t.Parallel()
 
-	w := NewTextWriter(&http.Client{}, "gemini-fake-key", TierFree)
+	w := NewTextWriter(&http.Client{}, "gemini-fake-key", TierFree, nil)
 	if w == nil {
 		t.Fatal("NewTextWriter が nil を返した")
 	}
 
 	// 内部 constructor の backoff seam 分岐（nil → ctxSleep）も 1 度通す。
-	if got := newTextWriter(&http.Client{}, "k", TierFree, nil); got.backoffSleepFn == nil {
+	if got := newTextWriter(&http.Client{}, "k", TierFree, nil, nil); got.backoffSleepFn == nil {
 		t.Fatal("newTextWriter(nil) が backoffSleepFn を補わなかった")
 	}
 }
@@ -869,7 +1022,7 @@ func TestNewTextWriter_storesGivenTier_whenConstructed(t *testing.T) {
 	t.Parallel()
 
 	// Given / When: TierPaid を渡して構築する
-	w := NewTextWriter(&http.Client{}, "gemini-fake-key", TierPaid)
+	w := NewTextWriter(&http.Client{}, "gemini-fake-key", TierPaid, nil)
 
 	// Then: 渡した Tier がそのまま保持される
 	if w.tier != TierPaid {

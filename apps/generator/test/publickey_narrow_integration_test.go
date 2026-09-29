@@ -62,7 +62,7 @@ func newPublickeyListItemSourceWithProxy(t *testing.T, handler http.HandlerFunc)
 			},
 		},
 	}
-	return publickey.NewListItemSource(httpClient, publickey.MaxStoriesScanned), probe
+	return publickey.NewListItemSource(httpClient, publickey.MaxStoriesScanned, &retryReporterSpy{}), probe
 }
 
 func TestPublickeyListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucceeds(t *testing.T) {
@@ -92,7 +92,7 @@ func TestPublickeyListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSuccee
 	})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: upstream は GET・Authorization 空、戻りは SourceID=publickey の 1 件以上
 	if err != nil {
@@ -127,7 +127,7 @@ func TestPublickeyListItemSource_returnsInfrastructureError_whenUpstreamFails(t 
 	})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: *adaptererror.Error（publickey: prefix）かつ feed 5xx で 2 回 request（retry once）
 	if got != nil {

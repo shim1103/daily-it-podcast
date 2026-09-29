@@ -1,7 +1,7 @@
 package constants
 
 // ManuscriptDraft / TextWriter 出力の parse・validation 用文字数定数（Domain Rule 正本）。
-// 朗読 field（intro / closingSummary / topic.preface / topic.detail / 全体）の文字数は
+// 朗読 field（openingIntro / endingSummary / topic.preface / topic.detail / 全体）の文字数は
 // manuscript_draft_seconds.go の秒数 × CharsPerSecond の const 畳み込みで導出する。
 // title / topic.title は朗読されない見出しなので秒非依存の文字数を直接定義する。
 // embed 専用 Prompt 文言は text_writer_brief_prompt.go。数値 placeholder は ComposeBrief が本定数で埋める。
@@ -25,7 +25,7 @@ const (
 	DraftIntroTarget = DraftIntroTgtSec * CharsPerSecond
 	DraftIntroMaxLen = DraftIntroMaxSec * CharsPerSecond
 
-	// closingSummary（秒 × CharsPerSecond）。
+	// endingSummary（秒 × CharsPerSecond）。
 	DraftClosingMinLen = DraftClosingMinSec * CharsPerSecond
 	DraftClosingTarget = DraftClosingTgtSec * CharsPerSecond
 	DraftClosingMaxLen = DraftClosingMaxSec * CharsPerSecond

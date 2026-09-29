@@ -1,4 +1,4 @@
-package application_test
+package fetch_test
 
 import (
 	"context"
@@ -6,43 +6,48 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/fetch"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
-func TestFetchSourceItems_passesSinceAsNowMinusFetchWindow_whenNowGiven(t *testing.T) {
-	// Given: 固定 now
+var testFetchLocation = time.FixedZone("JST", 9*3600)
+
+func TestFetchSourceItems_passesYesterdayHalfOpenWindow_whenNowGiven(t *testing.T) {
+	// Given: 固定 now（JST 05:00）と表示 Location
 	fake := &fakeItemSource{}
-	uc := application.NewFetchSourceItems(fake)
-	now := time.Date(2024, 12, 10, 15, 0, 0, 0, time.UTC)
-	wantSince := now.Add(-constants.FetchWindow)
+	uc := fetch.NewFetchSourceItems(fake, testFetchLocation)
+	now := time.Date(2026, 9, 27, 5, 0, 0, 0, testFetchLocation)
+	wantSince, wantUntil := constants.YesterdayHalfOpenWindow(now, testFetchLocation)
 
 	// When: Run を呼ぶ
 	_, err := uc.Run(context.Background(), now)
 
-	// Then: List は 1 回、since は now - FetchWindow
+	// Then: List は 1 回、since/until は昨日 half-open 窓
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if len(fake.calls) != 1 {
 		t.Fatalf("List calls = %d, want 1", len(fake.calls))
 	}
-	if !fake.calls[0].Equal(wantSince) {
-		t.Fatalf("since = %v, want %v", fake.calls[0], wantSince)
+	if !fake.calls[0].since.Equal(wantSince) {
+		t.Fatalf("since = %v, want %v", fake.calls[0].since, wantSince)
+	}
+	if !fake.calls[0].until.Equal(wantUntil) {
+		t.Fatalf("until = %v, want %v", fake.calls[0].until, wantUntil)
 	}
 }
 
 func TestFetchSourceItems_returnsItemsFromSource_whenListSucceeds(t *testing.T) {
-	// Given: List が 2 件を返す
-	occurred := time.Date(2024, 12, 10, 10, 0, 0, 0, time.UTC)
+	// Given: List が窓内 2 件を返す
+	now := time.Date(2026, 9, 27, 5, 0, 0, 0, testFetchLocation)
+	since, _ := constants.YesterdayHalfOpenWindow(now, testFetchLocation)
 	want := []models.SourceItem{
-		{SourceID: "x", OccurredAt: occurred, Summary: "item_id: a1"},
-		{SourceID: "x", OccurredAt: occurred.Add(time.Minute), Summary: "item_id: a2"},
+		{SourceID: "x", OccurredAt: since.Add(time.Hour), Summary: "item_id: a1"},
+		{SourceID: "x", OccurredAt: since.Add(2 * time.Hour), Summary: "item_id: a2"},
 	}
 	fake := &fakeItemSource{items: want}
-	uc := application.NewFetchSourceItems(fake)
-	now := time.Date(2024, 12, 10, 15, 0, 0, 0, time.UTC)
+	uc := fetch.NewFetchSourceItems(fake, testFetchLocation)
 
 	// When: Run を呼ぶ
 	got, err := uc.Run(context.Background(), now)
@@ -64,8 +69,8 @@ func TestFetchSourceItems_returnsItemsFromSource_whenListSucceeds(t *testing.T) 
 func TestFetchSourceItems_returnsEmptySlice_whenListReturnsEmpty(t *testing.T) {
 	// Given: List が空 slice
 	fake := &fakeItemSource{}
-	uc := application.NewFetchSourceItems(fake)
-	now := time.Date(2024, 12, 10, 15, 0, 0, 0, time.UTC)
+	uc := fetch.NewFetchSourceItems(fake, testFetchLocation)
+	now := time.Date(2026, 9, 27, 5, 0, 0, 0, testFetchLocation)
 
 	// When: Run を呼ぶ
 	got, err := uc.Run(context.Background(), now)
@@ -89,8 +94,8 @@ func TestFetchSourceItems_returnsErrorWithoutItems_whenListFails(t *testing.T) {
 		items: []models.SourceItem{{SourceID: "x", Summary: "item_id: a1"}},
 		err:   boom,
 	}
-	uc := application.NewFetchSourceItems(fake)
-	now := time.Date(2024, 12, 10, 15, 0, 0, 0, time.UTC)
+	uc := fetch.NewFetchSourceItems(fake, testFetchLocation)
+	now := time.Date(2026, 9, 27, 5, 0, 0, 0, testFetchLocation)
 
 	// When: Run を呼ぶ
 	got, err := uc.Run(context.Background(), now)

@@ -1,7 +1,7 @@
 import { ListEpisodesResponseSchema } from "../../../contracts/index.ts";
 import type { ListEpisodesResponse } from "../../../contracts/index.ts";
 import type { ApiResult } from "./api-result.ts";
-import { readJsonResult } from "./playback-api-response.ts";
+import { resolveApiResult } from "./playback-api-response.ts";
 import { createPlaybackRpcClient } from "./playback-rpc-client.ts";
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -29,7 +29,7 @@ export function createPlaybackApiClient(deps: PlaybackApiClientDeps): PlaybackAp
 
   return {
     async listEpisodes(): Promise<ApiResult<ListEpisodesResponse>> {
-      return readJsonResult(() => rpc.listEpisodes(), ListEpisodesResponseSchema);
+      return resolveApiResult(() => rpc.listEpisodes(), ListEpisodesResponseSchema);
     },
   };
 }
