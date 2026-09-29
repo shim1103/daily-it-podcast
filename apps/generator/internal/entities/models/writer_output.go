@@ -7,7 +7,7 @@ import (
 	"reflect"
 )
 
-// WriterOutputSchema は WriterOutput の json tag から組み立てた Gemini responseSchema 用 JSON。
+// WriterOutputSchema は WriterOutput の json tag から組み立てた Gemini responseJsonSchema 用 JSON Schema。
 // 手書き .schema.json は置かない。wire 形の正本は WriterOutput 型。
 var WriterOutputSchema = mustWriterOutputSchemaJSON()
 
@@ -42,7 +42,7 @@ func mustWriterOutputSchemaJSON() []byte {
 	return b
 }
 
-// objectSchemaFrom は struct の json tag から Gemini responseSchema 向け object schema を組む。
+// objectSchemaFrom は struct の json tag から Gemini responseJsonSchema 向け object schema を組む。
 // string / []T（T は struct）だけを扱う。Domain 制約（件数・rune・日本語）は載せない。
 func objectSchemaFrom(t reflect.Type) map[string]any {
 	if t.Kind() == reflect.Pointer {

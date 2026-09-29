@@ -6,14 +6,15 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
-// writerOutputGenerationConfig は models.WriterOutputSchema を responseSchema に載せる。
-// why: schema は WriterOutput の json tag から生成する。手書き .schema.json を置かない。
+// writerOutputGenerationConfig は models.WriterOutputSchema を responseJsonSchema に載せる。
+// why: schema は WriterOutput の json tag から生成する。additionalProperties を含む JSON Schema は
+// OpenAPI subset の responseSchema が拒否するため、載せ先は responseJsonSchema にする。
 var writerOutputGenerationConfig = generationConfig{
-	ResponseMIMEType: "application/json",
-	ResponseSchema:   json.RawMessage(models.WriterOutputSchema),
+	ResponseMIMEType:   "application/json",
+	ResponseJSONSchema: json.RawMessage(models.WriterOutputSchema),
 }
 
 type generationConfig struct {
-	ResponseMIMEType string          `json:"responseMimeType"`
-	ResponseSchema   json.RawMessage `json:"responseSchema"`
+	ResponseMIMEType   string          `json:"responseMimeType"`
+	ResponseJSONSchema json.RawMessage `json:"responseJsonSchema"`
 }
