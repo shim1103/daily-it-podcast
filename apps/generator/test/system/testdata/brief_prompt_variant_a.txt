@@ -7,7 +7,8 @@
 {{SOURCES}}
 
 # Language and style
-- 出力言語: 日本語（本文 field はすべて日本語）
+- 出力言語: 日本語のみ。title / intro / topics[].title / topics[].preface / topics[].detail / closingSummary のすべてに、ひらがな・カタカナ・漢字のいずれかを必ず含める
+- topic.title を英語・ローマ字・ASCII だけの見出しにしない
 - 一人喋りの podcast 原稿として書く
 - 各文は「。」で終える。無意味な空白行・装飾は禁止
 
@@ -38,6 +39,7 @@
 
 # topic title
 - 何の話かが一目で分かる簡潔な題名（釣りタイトルにしない）
+- 必ず日本語で書く。英単語・製品名だけ、または ASCII だけの title は不合格
 - 本文（全体文字数）には数えない見出し。末尾の句点は付けない
 - 各 topic.title の文字数: {{TOPIC_TITLE_MIN}}〜{{TOPIC_TITLE_MAX}} 文字（目安 {{TOPIC_TITLE_TARGET}}）
 

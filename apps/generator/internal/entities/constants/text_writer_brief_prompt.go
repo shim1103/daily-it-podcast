@@ -58,7 +58,8 @@ Source の各 item は summary / detail / detail_link / discourse / discourse_li
 - topic preface はその topic の背景と要点の予告に集中する。「最初の話題は」「二つ目は」など序数だけの枠説明で長くしない
 
 # Language and style
-- 出力言語: 日本語（本文 field はすべて日本語）
+- 出力言語: 日本語のみ。title / intro / topics[].title / topics[].preface / topics[].detail / closingSummary のすべてに、ひらがな・カタカナ・漢字のいずれかを必ず含める
+- topic.title を英語・ローマ字・ASCII だけの見出しにしない（不合格例: "OpenAI release" / "Rust async runtime"。合格例: 「OpenAI の新機能公開」／「Rust の非同期ランタイム議論」）。製品名・固有名詞を入れても日本語の説明語を必ず足す
 - 一人喋りの podcast 原稿として書く。耳で聞いて追える語り口にする
 - 報告書・リリースノート要約・コードレビューメモの棒読みにしない。事実と論点を、聞き手が追いやすい文の流れでつなぐ
 - coding agent や技術ブログの「要点列挙」人格で書かない。ナレーターが学生リスナーに向かって話している文にする
@@ -97,6 +98,7 @@ Source の各 item は summary / detail / detail_link / discourse / discourse_li
 
 # topic title
 - 何の話かが一目で分かる簡潔な題名（釣りタイトルにしない）
+- 必ず日本語で書く。英単語・製品名だけ、または ASCII だけの title は不合格（# Language and style の例に従う）
 - 本文（全体文字数）には数えない見出し。末尾の句点は付けない
 - 各 topic.title の文字数: {{TOPIC_TITLE_MIN}}〜{{TOPIC_TITLE_MAX}} 文字（目安 {{TOPIC_TITLE_TARGET}}）
 
@@ -126,6 +128,7 @@ Workflow 7 で次をすべて真にする。偽なら該当 step へ戻る。
 - topics が {{TOPIC_COUNT_TARGET}} 件（Purpose1 と Purpose2 はそれぞれ半数ほど）
 - Purpose1 選出 item は detail_link を必ず見る（あれば fetch。無ければ detail 本文のみ。どちらも空の選出は禁止）。Purpose2 選出 item は discourse_link を必ず見る（同上）
 - 全 field が日本語で、各文が「。」で終わる（title / topic.title は句点なし）
+- 各 topic.title にひらがな・カタカナ・漢字が 1 文字以上ある（英語・ASCII のみは不合格）
 - title / intro / topic.title / topic.preface / closingSummary に改行が 0 個、topic.detail の改行は 0 個か 1 個
 - 完成 draft に Purpose1・Purpose2・P1・P2 を含めない
 - 完成 draft に # Draft content で禁止した meta 言い回し（番組枠・進行宣言・定型免責）を含めない
