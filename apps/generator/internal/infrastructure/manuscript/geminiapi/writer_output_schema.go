@@ -7,8 +7,7 @@ import (
 )
 
 // writerOutputGenerationConfig は models.WriterOutputSchema を responseSchema に載せる。
-// why: WriterOutput 形の正本は entities/models（json.Unmarshal 型と同 dir）。
-// Adapter 内へ schema JSON を手写ししない（DRY）。contracts/ は完成 manuscript 用。
+// why: schema は WriterOutput の json tag から生成する。手書き .schema.json を置かない。
 var writerOutputGenerationConfig = generationConfig{
 	ResponseMIMEType: "application/json",
 	ResponseSchema:   json.RawMessage(models.WriterOutputSchema),

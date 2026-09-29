@@ -27,16 +27,16 @@ const speechTextBundleDelimiter = "\n\n\n"
 // @require greeting は非空。farewell も非空（date 注入済みの文）。d は検証済み ManuscriptDraft。
 // @ensure 本数は 1 + len(d.Topics) + 1。順序は次のとおり:
 //
-//	texts[0]  = greeting + "\n\n\n" + d.Intro
+//	texts[0]  = greeting + "\n\n\n" + d.OpeningIntro
 //	texts[1..] = 各 topic の Preface + "\n\n\n" + Detail（topic 順）
-//	texts[末尾] = d.ClosingSummary + "\n\n\n" + farewell
+//	texts[末尾] = d.EndingSummary + "\n\n\n" + farewell
 func SpeechTexts(greeting, farewell string, d models.ManuscriptDraft) []string {
 	texts := make([]string, 0, speechSegmentsBeforeTopics+speechSegmentsPerTopic*len(d.Topics)+1)
-	texts = append(texts, greeting+speechTextBundleDelimiter+d.Intro)
+	texts = append(texts, greeting+speechTextBundleDelimiter+d.OpeningIntro)
 	for _, tp := range d.Topics {
 		texts = append(texts, tp.Preface+speechTextBundleDelimiter+tp.Detail)
 	}
-	texts = append(texts, d.ClosingSummary+speechTextBundleDelimiter+farewell)
+	texts = append(texts, d.EndingSummary+speechTextBundleDelimiter+farewell)
 	return texts
 }
 
@@ -45,9 +45,9 @@ func SpeechTexts(greeting, farewell string, d models.ManuscriptDraft) []string {
 //
 // SpeechTexts が topic+2 束を返すため、期待 segment 本数と topicStartSecs の意味も束ね後の単位に合わせる（Decision 2026-09-02T13-55-00）。
 //
-// @require len(segmentDurations) は SpeechTexts と同じ固定本数（1 + topicCount + 1 = greeting+intro 束 / 各 topic の preface+detail 束 / closingSummary+farewell 束）。
+// @require len(segmentDurations) は SpeechTexts と同じ固定本数（1 + topicCount + 1 = greeting+intro 束 / 各 topic の preface+detail 束 / endingSummary+farewell 束）。
 // @ensure topicStartSecs[i] は i 番目 topic 束（Preface+Detail 連結）の開始累積秒。
-// @ensure endingStartSec は末尾 segment（closingSummary+farewell 束）の開始累積秒。
+// @ensure endingStartSec は末尾 segment（endingSummary+farewell 束）の開始累積秒。
 // @ensure totalDurationSec == Σ segmentDurations + SegmentSilenceSec*(len(segmentDurations)-1)。
 // @ensure segment 本数が固定本数と不一致、または topicCount < 1 のとき Domain Error（Op = inconsistent_episode_assembly）。
 func Timeline(segmentDurations []float64, topicCount int) (topicStartSecs []float64, endingStartSec float64, totalDurationSec float64, err error) {
@@ -95,8 +95,8 @@ type ManuscriptInput struct {
 	Opening        string // 朗読全文: 定型挨拶 + intro（SpeechTexts[0] と同一）。body.opening.text へそのまま入る。
 	Draft          models.ManuscriptDraft
 	TopicStartSecs []float64
-	Ending         string  // 朗読全文: closingSummary + 定型締め（SpeechTexts 末尾と同一）。body.ending.text へそのまま入る。
-	EndingStartSec float64 // 末尾 segment（closingSummary+farewell 束）の音声上の開始秒。body.ending.startSec へ入る。
+	Ending         string  // 朗読全文: endingSummary + 定型締め（SpeechTexts 末尾と同一）。body.ending.text へそのまま入る。
+	EndingStartSec float64 // 末尾 segment（endingSummary+farewell 束）の音声上の開始秒。body.ending.startSec へ入る。
 }
 
 // MarshalManuscript は完成 manuscript.schema.json 形の JSON bytes を組む。

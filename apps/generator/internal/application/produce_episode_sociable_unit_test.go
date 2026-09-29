@@ -348,15 +348,15 @@ func TestProduceEpisodeRun_writesEpisodeWithAssembledManuscriptAndAudio_whenAllS
 	if wantTitle := wireTitleOf(t, h.writer.out); m.Title != wantTitle {
 		t.Fatalf("title = %q, want wire title %q", m.Title, wantTitle)
 	}
-	// body.ending.text は closingSummary + 束境界 + farewell（date 注入済み。TTS が読む原稿そのものを契約へ入れる）。
-	wantEnding := wireClosingSummaryOf(t, h.writer.out) + bundleSep + wantFarewell
+	// body.ending.text は endingSummary + 束境界 + farewell（date 注入済み。TTS が読む原稿そのものを契約へ入れる）。
+	wantEnding := wireEndingSummaryOf(t, h.writer.out) + bundleSep + wantFarewell
 	if m.Body.Ending.Text != wantEnding {
 		t.Fatalf("body.ending.text = %q, want %q", m.Body.Ending.Text, wantEnding)
 	}
 	if strings.Contains(m.Body.Ending.Text, "%s") {
 		t.Fatalf("body.ending.text contains raw %%s: %q", m.Body.Ending.Text)
 	}
-	// body.ending.startSec は末尾束（closingSummary+farewell）の開始累積秒。topic の後なので > 0。
+	// body.ending.startSec は末尾束（endingSummary+farewell）の開始累積秒。topic の後なので > 0。
 	if m.Body.Ending.StartSec <= 0 {
 		t.Fatalf("body.ending.startSec = %v, want > 0", m.Body.Ending.StartSec)
 	}
@@ -492,7 +492,7 @@ func TestProduceEpisodeRun_synthesizesTopicPlusTwoBundles_whenDraftHasTopics(t *
 	}
 
 	// Then: SynthesizeAll は 1 回だけ呼ばれ、渡された texts 束は 1 + topic 数 + 1 本。
-	// texts[0] = greeting+intro、各 topic = preface+detail、末尾 = closingSummary+farewell（いずれも改行連結）。
+	// texts[0] = greeting+intro、各 topic = preface+detail、末尾 = endingSummary+farewell（いずれも改行連結）。
 	if h.synth.calls != 1 {
 		t.Fatalf("SynthesizeAll calls = %d, want 1", h.synth.calls)
 	}
@@ -680,7 +680,7 @@ func TestProduceEpisodeRun_returnsInvalidManuscriptDraftWithoutWriting_whenWrite
 	// Given: TextWriter が壊れた JSON を返す（invalid-draft retry は TextWriter 実装側の責務であり
 	// Run 自体は持たないため、stubWriter は 1 回 buildFn を呼ぶだけで invalid 判定を確定させる）
 	h := newHarness(t, 1.0)
-	h.writer.out = `{"title": "あ", "intro":`
+	h.writer.out = `{"title": "あ", "openingIntro":`
 
 	// When: Run を呼ぶ
 	_, err := h.uc.Run(context.Background(), time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC))

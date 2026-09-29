@@ -18,7 +18,7 @@ import (
 // @require expectedTopicCount は wire が持つべき topic 数（本番は constants.DraftTopicCountTarget）。
 // @ensure 成功時は ManuscriptDraft（Title 含む）。失敗時は Domain Error（Op = invalid_manuscript_draft）。
 // @ensure Domain Rule の正本は entities/constants/manuscript_draft_limits.go（unmarshal 後に検証）。topic 数一致・全体文字数 range は expectedTopicCount に基づく。
-// @ensure 全体文字数の合計対象は intro / closingSummary / 各 topic の preface・detail。
+// @ensure 全体文字数の合計対象は openingIntro / endingSummary / 各 topic の preface・detail。
 // @ensure title / topic.title は朗読されない見出しで合計対象外、末尾句点も課さない（非空 + 日本語含有 + rune 数 range のみ）。
 // @ensure 朗読 field の rune 数 range は秒数正本 entities/constants/manuscript_draft_seconds.go × CharsPerSecond の畳み込み。
 // @invariant Infrastructure・vendor envelope を知らない。wire 前処理は code fence strip と先頭 prose 除去のみ。
@@ -116,7 +116,7 @@ func validateWriterOutput(w models.WriterOutput, expectedTopicCount int) error {
 	if err := validateHeadingField("title", w.Title, constants.DraftTitleMinLen, constants.DraftTitleMaxLen); err != nil {
 		return err
 	}
-	if err := validateNarrationField("intro", w.Intro, constants.DraftIntroMinLen, constants.DraftIntroMaxLen); err != nil {
+	if err := validateNarrationField("openingIntro", w.OpeningIntro, constants.DraftIntroMinLen, constants.DraftIntroMaxLen); err != nil {
 		return err
 	}
 
@@ -136,14 +136,14 @@ func validateWriterOutput(w models.WriterOutput, expectedTopicCount int) error {
 		}
 	}
 
-	if err := validateNarrationField("closingSummary", w.ClosingSummary, constants.DraftClosingMinLen, constants.DraftClosingMaxLen); err != nil {
+	if err := validateNarrationField("endingSummary", w.EndingSummary, constants.DraftClosingMinLen, constants.DraftClosingMaxLen); err != nil {
 		return err
 	}
 
 	return validateTotalChars(w, expectedTopicCount)
 }
 
-// validateNarrationField は朗読 field（intro / closingSummary / topic.preface / topic.detail）の
+// validateNarrationField は朗読 field（openingIntro / endingSummary / topic.preface / topic.detail）の
 // 基本規則 + rune 数 range を検証する。
 func validateNarrationField(name, value string, minLen, maxLen int) error {
 	if err := checkNarrationBasics(name, value); err != nil {
@@ -199,11 +199,11 @@ func checkHeadingBasics(name, value string) error {
 
 // validateTotalChars は合計対象 field の rune 合計を、expectedTopicCount に基づく
 // 全体文字数 range（constants.TotalCharsMinFor/MaxFor）で検証する。
-// 合計対象は intro + closingSummary + Σ_topics(preface + detail)。
+// 合計対象は openingIntro + endingSummary + Σ_topics(preface + detail)。
 // title / topic.title は朗読されない見出しなので合計に入れない。
 func validateTotalChars(w models.WriterOutput, expectedTopicCount int) error {
-	total := utf8.RuneCountInString(strings.TrimSpace(w.Intro)) +
-		utf8.RuneCountInString(strings.TrimSpace(w.ClosingSummary))
+	total := utf8.RuneCountInString(strings.TrimSpace(w.OpeningIntro)) +
+		utf8.RuneCountInString(strings.TrimSpace(w.EndingSummary))
 	for _, tp := range w.Topics {
 		total += utf8.RuneCountInString(strings.TrimSpace(tp.Preface))
 		total += utf8.RuneCountInString(strings.TrimSpace(tp.Detail))
@@ -246,9 +246,9 @@ func toManuscriptDraft(w models.WriterOutput) models.ManuscriptDraft {
 	}
 	return models.ManuscriptDraft{
 		Title:          w.Title,
-		Intro:          w.Intro,
+		OpeningIntro:          w.OpeningIntro,
 		Topics:         topics,
-		ClosingSummary: w.ClosingSummary,
+		EndingSummary: w.EndingSummary,
 	}
 }
 

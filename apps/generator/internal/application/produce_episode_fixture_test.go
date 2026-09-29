@@ -69,9 +69,9 @@ func buildValidWireJSONWithTopicCount(topicCount int) string {
 	}
 	doc := map[string]any{
 		"title":          jaRunes(constants.DraftTitleMinLen + 2),
-		"intro":          "どうにゅう" + jaSentence(introRunes),
+		"openingIntro":          "どうにゅう" + jaSentence(introRunes),
 		"topics":         topics,
-		"closingSummary": "まとめ" + jaSentence(closingRunes),
+		"endingSummary": "まとめ" + jaSentence(closingRunes),
 	}
 	raw, err := json.Marshal(doc)
 	if err != nil {
@@ -137,17 +137,17 @@ type manuscriptDoc struct {
 }
 
 // wireFieldsOf は wire JSON string から検証で参照する top-level 朗読 field を取り出す。
-func wireFieldsOf(t *testing.T, wire string) (title, intro, closingSummary string) {
+func wireFieldsOf(t *testing.T, wire string) (title, intro, endingSummary string) {
 	t.Helper()
 	var v struct {
-		Title          string `json:"title"`
-		Intro          string `json:"intro"`
-		ClosingSummary string `json:"closingSummary"`
+		Title         string `json:"title"`
+		OpeningIntro  string `json:"openingIntro"`
+		EndingSummary string `json:"endingSummary"`
 	}
 	if err := json.Unmarshal([]byte(wire), &v); err != nil {
 		t.Fatalf("wire Unmarshal: %v", err)
 	}
-	return v.Title, v.Intro, v.ClosingSummary
+	return v.Title, v.OpeningIntro, v.EndingSummary
 }
 
 // wireTitleOf は wire JSON string から title field を取り出す。
@@ -164,8 +164,8 @@ func wireIntroOf(t *testing.T, wire string) string {
 	return intro
 }
 
-// wireClosingSummaryOf は wire JSON string から closingSummary field を取り出す。
-func wireClosingSummaryOf(t *testing.T, wire string) string {
+// wireEndingSummaryOf は wire JSON string から endingSummary field を取り出す。
+func wireEndingSummaryOf(t *testing.T, wire string) string {
 	t.Helper()
 	_, _, closing := wireFieldsOf(t, wire)
 	return closing

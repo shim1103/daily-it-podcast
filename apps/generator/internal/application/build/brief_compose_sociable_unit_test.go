@@ -94,7 +94,7 @@ func TestComposeBrief_returnsTrimmedBriefWithoutPlaceholders_whenSingleItemGiven
 	if err := json.Unmarshal([]byte(jsonExample), &wire); err != nil {
 		t.Fatalf("JSON example の Unmarshal: %v\njson: %s", err, jsonExample)
 	}
-	if wire.Title == "" || wire.Intro == "" || wire.ClosingSummary == "" {
+	if wire.Title == "" || wire.OpeningIntro == "" || wire.EndingSummary == "" {
 		t.Fatalf("WriterOutput の主要 field が空: %+v", wire)
 	}
 	if len(wire.Topics) == 0 {

@@ -40,7 +40,7 @@ import (
 const (
 	broadIntegrationTopicCount = constants.DraftTopicCountTarget
 
-	// integrationTTSFixedSegmentCount は TTS 束の固定 segment 数（greeting+intro 束 / closingSummary+farewell 束）。
+	// integrationTTSFixedSegmentCount は TTS 束の固定 segment 数（greeting+intro 束 / endingSummary+farewell 束）。
 	// SpeechTexts が topic+2 束を返すため（Decision 2026-09-02T13-55-00）。
 	integrationTTSFixedSegmentCount = 2
 
@@ -153,9 +153,9 @@ func buildIntegrationWireJSON(topicCount int) string {
 	}
 	doc := map[string]any{
 		"title":          title,
-		"intro":          intro,
+		"openingIntro":          intro,
 		"topics":         topics,
-		"closingSummary": closing,
+		"endingSummary": closing,
 	}
 	raw, err := json.Marshal(doc)
 	if err != nil {

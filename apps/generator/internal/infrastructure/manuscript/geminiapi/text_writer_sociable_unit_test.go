@@ -336,7 +336,7 @@ func TestGenerateContent_sendsJSONResponseSchema_onEveryRequest(t *testing.T) {
 	t.Parallel()
 
 	// Given: 成功応答 1 件
-	w, rt := newFakeTextWriter(successResponse("STOP", `{"title":"題","intro":"あ。","topics":[],"closingSummary":"あ。"}`))
+	w, rt := newFakeTextWriter(successResponse("STOP", `{"title":"題","openingIntro":"あ。","topics":[],"endingSummary":"あ。"}`))
 
 	// When: Write する
 	_, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)

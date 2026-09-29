@@ -36,8 +36,8 @@ func assertInconsistentEpisodeAssembly(t *testing.T, err error) {
 func draftFixture() models.ManuscriptDraft {
 	return models.ManuscriptDraft{
 		Title:          "きょうの IT ニュースまとめ",
-		Intro:          "本日の導入です。",
-		ClosingSummary: "本日のまとめです。",
+		OpeningIntro:          "本日の導入です。",
+		EndingSummary: "本日のまとめです。",
 		Topics: []models.ManuscriptDraftTopic{
 			{Title: "話題いち", Preface: "前置きいち。", Detail: "詳細いち。"},
 			{Title: "話題にい", Preface: "前置きにい。", Detail: "詳細にい。"},
@@ -47,7 +47,7 @@ func draftFixture() models.ManuscriptDraft {
 
 // --- SpeechTexts ---
 
-func TestSpeechTexts_returnsTopicPlusTwoBundles_inGreetingIntroTopicsClosingSummaryFarewellOrder(t *testing.T) {
+func TestSpeechTexts_returnsTopicPlusTwoBundles_inGreetingIntroTopicsEndingSummaryFarewellOrder(t *testing.T) {
 	t.Parallel()
 
 	// Given: greeting・farewell（date 注入済みの非空文）+ 2 topic の draft
@@ -72,8 +72,8 @@ func TestSpeechTexts_returnsTopicPlusTwoBundles_inGreetingIntroTopicsClosingSumm
 func TestTimeline_accumulatesSegmentDurationsWithSilence_andRecordsBundleStartPerTopic(t *testing.T) {
 	t.Parallel()
 
-	// Given: greeting+intro 束 + topic 束×2 + closingSummary+farewell 束 の 4 segment、各尺は既知、topic 数 2
-	//        [greetingIntro, topic0, topic1, closingSummaryFarewell]
+	// Given: greeting+intro 束 + topic 束×2 + endingSummary+farewell 束 の 4 segment、各尺は既知、topic 数 2
+	//        [greetingIntro, topic0, topic1, endingSummaryFarewell]
 	durs := []float64{5, 9, 13, 17}
 	s := constants.SegmentSilenceSec
 
@@ -96,7 +96,7 @@ func TestTimeline_accumulatesSegmentDurationsWithSilence_andRecordsBundleStartPe
 		t.Fatalf("starts[1] = %v, want %v", starts[1], want1)
 	}
 
-	// Then: closingSummary+farewell 束（末尾 segment）の開始 = topic1 束開始 + topic1 尺 + S
+	// Then: endingSummary+farewell 束（末尾 segment）の開始 = topic1 束開始 + topic1 尺 + S
 	wantClosing := want1 + 13 + s
 	if math.Abs(closingStart-wantClosing) > 1e-9 {
 		t.Fatalf("closingStart = %v, want %v", closingStart, wantClosing)
@@ -112,7 +112,7 @@ func TestTimeline_accumulatesSegmentDurationsWithSilence_andRecordsBundleStartPe
 func TestTimeline_returnsSingleTopicStart_whenTopicCountIsOne(t *testing.T) {
 	t.Parallel()
 
-	// Given: 1 topic、3 segment [greetingIntro, topic0, closingSummaryFarewell]
+	// Given: 1 topic、3 segment [greetingIntro, topic0, endingSummaryFarewell]
 	durs := []float64{1, 2, 3}
 	s := constants.SegmentSilenceSec
 
@@ -130,7 +130,7 @@ func TestTimeline_returnsSingleTopicStart_whenTopicCountIsOne(t *testing.T) {
 	if math.Abs(starts[0]-want0) > 1e-9 {
 		t.Fatalf("starts[0] = %v, want %v", starts[0], want0)
 	}
-	// Then: closingSummary+farewell 束の開始 = topic0 束開始 + topic0 尺 + S
+	// Then: endingSummary+farewell 束の開始 = topic0 束開始 + topic0 尺 + S
 	wantClosing := want0 + 2 + s
 	if math.Abs(closingStart-wantClosing) > 1e-9 {
 		t.Fatalf("closingStart = %v, want %v", closingStart, wantClosing)
@@ -176,8 +176,8 @@ func TestMarshalManuscript_marshalsAllFields_whenInputsValid(t *testing.T) {
 
 	// Given: episodeID・date・title・durationSec・opening（挨拶+intro 朗読全文）・draft・topicStartSecs・ending（summary+farewell 朗読全文）・endingStartSec
 	d := draftFixture()
-	opening := "おはようございます。2026年8月31日です。\n\n\n" + d.Intro
-	ending := d.ClosingSummary + "\n\n\n以上、2026年8月31日のITニュースでした。"
+	opening := "おはようございます。2026年8月31日です。\n\n\n" + d.OpeningIntro
+	ending := d.EndingSummary + "\n\n\n以上、2026年8月31日のITニュースでした。"
 	in := build.ManuscriptInput{
 		EpisodeID:      "ep-fixed-0001",
 		Date:           "2026-08-31",

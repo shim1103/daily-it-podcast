@@ -87,7 +87,7 @@ func TestLoadWriterOutputExampleJSON_returnsValidationErrorAsIs_whenInvalid(t *t
 	t.Parallel()
 
 	// Given: draft 検証に落ちる短い JSON と、同一 raw を直接検証したときの error
-	raw := `{"title":"短すぎる題","intro":"短い。","topics":[],"closingSummary":"短い。"}`
+	raw := `{"title":"短すぎる題","openingIntro":"短い。","topics":[],"endingSummary":"短い。"}`
 	wantErr := mustManuscriptDraftErrForExampleLoad(t, raw)
 
 	// When: 読込検査する
