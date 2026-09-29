@@ -21,4 +21,5 @@ Fetch を表示 TZ の昨日 half-open 暦日へ切り替え、Gemini TextWriter
 1. `f01ad81` — feat(generator): Fetch 窓を表示 TZ の昨日 half-open 暦日へ切り替える
 2. `b722a1f` — feat(generator): Gemini TextWriter だけに WriterOutput JSON schema 拘束を載せる
 3. `99c8370` — docs(generator): brief prompt で topic.title の日本語必須を強化する
-4. （本追記後の fix commit）
+4. `ec18349` — refactor(generator): Fetch 窓の until 判定を Adapter へ移す
+5. `9576f38` — refactor(generator): WriterOutput schema を contracts 経由で Gemini へ渡す
