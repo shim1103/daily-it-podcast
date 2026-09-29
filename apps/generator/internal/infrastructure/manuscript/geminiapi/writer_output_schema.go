@@ -1,36 +1,16 @@
 package geminiapi
 
-import "encoding/json"
+import (
+	"encoding/json"
 
-// writerOutputResponseSchema は ManuscriptDraft wire（models.WriterOutput）の形を拘束する
-// generateContent responseSchema。topic 件数・rune 数・日本語含有は Domain 検証のまま。
-// why: Cursor Cloud Agents に structured 出力が無いため Gemini Adapter だけが持つ（Decision）。
-var writerOutputResponseSchema = json.RawMessage(`{
-  "type": "object",
-  "properties": {
-    "title": { "type": "string" },
-    "intro": { "type": "string" },
-    "topics": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "title": { "type": "string" },
-          "preface": { "type": "string" },
-          "detail": { "type": "string" }
-        },
-        "required": ["title", "preface", "detail"]
-      }
-    },
-    "closingSummary": { "type": "string" }
-  },
-  "required": ["title", "intro", "topics", "closingSummary"]
-}`)
+	"github.com/shim1103/daily-it-podcast/contracts"
+)
 
-// writerOutputGenerationConfig は JSON のみ・schema 拘束付きの generationConfig。
+// writerOutputGenerationConfig は contracts/writer-output.schema.json を responseSchema に載せる。
+// why: WriterOutput 形の正本は contracts。Adapter 内へ schema JSON を手写ししない（DRY）。
 var writerOutputGenerationConfig = generationConfig{
 	ResponseMIMEType: "application/json",
-	ResponseSchema:   writerOutputResponseSchema,
+	ResponseSchema:   json.RawMessage(contracts.WriterOutputSchema),
 }
 
 type generationConfig struct {

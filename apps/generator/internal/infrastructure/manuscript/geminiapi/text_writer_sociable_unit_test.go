@@ -17,6 +17,7 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
+	"github.com/shim1103/daily-it-podcast/contracts"
 )
 
 // Scope: Sociable Unit
@@ -341,7 +342,7 @@ func TestGenerateContent_sendsJSONResponseSchema_onEveryRequest(t *testing.T) {
 	// When: Write する
 	_, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
 
-	// Then: generationConfig に application/json と WriterOutput schema が入る
+	// Then: generationConfig は application/json と contracts.WriterOutputSchema を載せる
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
@@ -363,24 +364,16 @@ func TestGenerateContent_sendsJSONResponseSchema_onEveryRequest(t *testing.T) {
 	if reqBody.GenerationConfig.ResponseMIMEType != "application/json" {
 		t.Fatalf("responseMimeType = %q, want application/json", reqBody.GenerationConfig.ResponseMIMEType)
 	}
-	if !json.Valid(reqBody.GenerationConfig.ResponseSchema) {
-		t.Fatalf("responseSchema is not valid JSON: %s", reqBody.GenerationConfig.ResponseSchema)
+	var gotSchema, wantSchema any
+	if err := json.Unmarshal(reqBody.GenerationConfig.ResponseSchema, &gotSchema); err != nil {
+		t.Fatalf("decode got responseSchema: %v", err)
 	}
-	var schema map[string]any
-	if err := json.Unmarshal(reqBody.GenerationConfig.ResponseSchema, &schema); err != nil {
-		t.Fatalf("decode responseSchema: %v", err)
+	if err := json.Unmarshal(contracts.WriterOutputSchema, &wantSchema); err != nil {
+		t.Fatalf("decode want WriterOutputSchema: %v", err)
 	}
-	if schema["type"] != "object" {
-		t.Fatalf("schema.type = %v, want object", schema["type"])
-	}
-	props, ok := schema["properties"].(map[string]any)
-	if !ok {
-		t.Fatalf("schema.properties type = %T", schema["properties"])
-	}
-	for _, key := range []string{"title", "intro", "topics", "closingSummary"} {
-		if _, ok := props[key]; !ok {
-			t.Fatalf("schema.properties missing %q", key)
-		}
+	if !reflect.DeepEqual(gotSchema, wantSchema) {
+		t.Fatalf("responseSchema が contracts.WriterOutputSchema と不一致\ngot=%s\nwant=%s",
+			reqBody.GenerationConfig.ResponseSchema, contracts.WriterOutputSchema)
 	}
 }
 
