@@ -84,10 +84,10 @@ func broadFixedEpisodeIDFunc() string { return broadFixedEpisodeID }
 // why: composition は test から import できないため、同型の写しを test 内に置く。
 type compositeItemSource []port.ItemSource
 
-func (c compositeItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
+func (c compositeItemSource) List(ctx context.Context, since, until time.Time) ([]models.SourceItem, error) {
 	merged := make([]models.SourceItem, 0)
 	for _, source := range c {
-		items, err := source.List(ctx, since)
+		items, err := source.List(ctx, since, until)
 		if err != nil {
 			return nil, err
 		}

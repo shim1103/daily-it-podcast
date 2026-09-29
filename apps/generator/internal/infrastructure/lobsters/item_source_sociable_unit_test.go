@@ -135,7 +135,7 @@ func TestList_mapsHottestStoryToSourceItem_whenStoryInWindow(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -196,7 +196,7 @@ func TestList_excludesStoriesOlderThanSince_atBoundary(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -226,7 +226,7 @@ func TestList_excludesDeletedOrModeratedComments(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -269,7 +269,7 @@ func TestList_usesCommentPlainForCommentBody(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -304,7 +304,7 @@ func TestList_returnsNonNilEmptySlice_whenNothingInWindow(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -326,7 +326,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidJSON(t *t
 		source := lobsters.NewListItemSource(nil, lobsters.MaxStoriesScanned)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -342,7 +342,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidJSON(t *t
 		source := newStubListItemSource(rt)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -358,7 +358,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidJSON(t *t
 		source := newStubListItemSource(rt)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -382,7 +382,7 @@ func TestList_dropsFailedStoryButKeepsRest_whenOneStoryDetailFetchFails(t *testi
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -404,7 +404,7 @@ func TestList_failsEntirely_whenHottestFetchFails(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if got != nil {
@@ -437,7 +437,7 @@ func TestList_dropsStory_whenDetailCreatedAtIsInvalid(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -462,7 +462,7 @@ func TestList_dropsStory_whenStoryJSONIsBroken(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -494,7 +494,7 @@ func TestList_stopsScanningAfterCollectingMaxStoriesScanned_whenEnoughStoriesInW
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と fetch 回数
 	if err != nil {
@@ -530,7 +530,7 @@ func TestList_stopsScanningAtMaxItems_whenMaxItemsBelowMaxStoriesScanned(t *test
 	source := lobsters.NewListItemSource(&http.Client{Transport: rt}, maxItems)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 結果は maxItems 件で打ち切る
 	if err != nil {
@@ -587,7 +587,7 @@ func TestList_retriesOnceOnTransientError_whenSecondAttemptSucceeds(t *testing.T
 	source := lobsters.NewListItemSource(&http.Client{Transport: transientRT}, lobsters.MaxStoriesScanned)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と hottest fetch 回数
 	if err != nil {
@@ -612,7 +612,7 @@ func TestList_parsesCreatedAtWithTimezoneOffset_toUTC(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と OccurredAt
 	if err != nil {

@@ -15,3 +15,11 @@ func YesterdayHalfOpenWindow(now time.Time, loc *time.Location) (since, until ti
 	yesterdayStart := todayStart.AddDate(0, 0, -1)
 	return yesterdayStart, todayStart
 }
+
+// OccurredInHalfOpen は t ∈ [since, until) なら true。
+// ItemSource Adapter が OccurredAt を窓へ落とすときに使う。
+//
+// @ensure !t.Before(since) && t.Before(until)。
+func OccurredInHalfOpen(t, since, until time.Time) bool {
+	return !t.Before(since) && t.Before(until)
+}

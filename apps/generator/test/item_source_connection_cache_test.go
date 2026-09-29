@@ -33,7 +33,7 @@ func TestConnectionCache_hackernewsListSucceedsAndSaves(t *testing.T) {
 	source := hackernews.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), hackernews.MaxStoriesScanned)
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
 	assertConnectionCacheItemSourceList(t, got, err, hackernews.SourceID, since)
@@ -46,7 +46,7 @@ func TestConnectionCache_lobstersListSucceedsAndSaves(t *testing.T) {
 	source := lobsters.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), lobsters.MaxStoriesScanned)
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
 	assertConnectionCacheItemSourceList(t, got, err, lobsters.SourceID, since)
@@ -59,7 +59,7 @@ func TestConnectionCache_publickeyListSucceedsAndSaves(t *testing.T) {
 	source := publickey.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), publickey.MaxStoriesScanned)
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
 	assertConnectionCacheItemSourceList(t, got, err, publickey.SourceID, since)
@@ -72,7 +72,7 @@ func TestConnectionCache_techcrunchListSucceedsAndSaves(t *testing.T) {
 	source := techcrunch.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), techcrunch.MaxStoriesScanned)
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
 	assertConnectionCacheItemSourceList(t, got, err, techcrunch.SourceID, since)
@@ -85,7 +85,7 @@ func TestConnectionCache_cloudwatchListSucceedsAndSaves(t *testing.T) {
 	source := cloudwatch.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), cloudwatch.MaxStoriesScanned)
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
 	assertConnectionCacheItemSourceList(t, got, err, cloudwatch.SourceID, since)

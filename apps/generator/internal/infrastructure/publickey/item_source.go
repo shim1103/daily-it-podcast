@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpget"
 )
@@ -78,14 +79,14 @@ type atomAuthor struct {
 	Name string `xml:"name"`
 }
 
-// List は since 以降に発生した Publickey entry を SourceItem slice で返す。
+// List は [since, until) に発生した Publickey entry を SourceItem slice で返す。
 //
-// @require since は OccurredAt の inclusive 下限。
-// @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ since 以上。
-// @ensure 結果は published（無ければ updated）>= since を満たす entry のみ。最大 min(maxItems, MaxStoriesScanned) 件（maxItems <= 0 は MaxStoriesScanned）。
+// @require since は OccurredAt の inclusive 下限。until は exclusive 上限。
+// @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ [since, until)。
+// @ensure 結果は published（無ければ updated）∈ [since, until) を満たす entry のみ。最大 min(maxItems, MaxStoriesScanned) 件（maxItems <= 0 は MaxStoriesScanned）。
 // @ensure 該当なしは空 slice（nil ではない）。
 // @invariant vendor 固有型・監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
-func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
+func (s *ListItemSource) List(ctx context.Context, since, until time.Time) ([]models.SourceItem, error) {
 	if s == nil || s.client == nil {
 		return nil, infraErr("list", fmt.Errorf("client is nil"))
 	}
@@ -104,7 +105,7 @@ func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.So
 	out := make([]models.SourceItem, 0, limit)
 	for _, entry := range feed.Entries {
 		occurredAt, ok := parseEntryTime(entry)
-		if !ok || occurredAt.Before(since) {
+		if !ok || !constants.OccurredInHalfOpen(occurredAt, since, until) {
 			continue
 		}
 		out = append(out, toSourceItem(entry, occurredAt))

@@ -122,7 +122,7 @@ func TestList_mapsTopStoryToSourceItem_whenStoryInWindow(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -174,7 +174,7 @@ func TestList_filtersToTypeStory_whenJobOrPollPresent(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -200,7 +200,7 @@ func TestList_excludesDeletedOrDeadItems(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -224,7 +224,7 @@ func TestList_excludesItemsOlderThanSince_atBoundary(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -256,7 +256,7 @@ func TestList_fetchesTopLevelCommentsUpToMaxCommentsPerStory(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と comment fetch 回数
 	if err != nil {
@@ -288,7 +288,7 @@ func TestList_returnsNonNilEmptySlice_whenNothingInWindow(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -310,7 +310,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidJSON(t *t
 		source := hackernews.NewListItemSource(nil, hackernews.MaxStoriesScanned)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -335,7 +335,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidJSON(t *t
 		source := newStubListItemSource(rt)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -360,7 +360,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidJSON(t *t
 		source := newStubListItemSource(rt)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -391,7 +391,7 @@ func TestList_putsCommentTextIntoTextLine_whenStoryTextEmpty(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -429,7 +429,7 @@ func TestList_omitsLinksLine_whenStoryURLAbsent(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -474,7 +474,7 @@ func TestList_dropsFailedCommentButKeepsRest_whenOneCommentFetchFails(t *testing
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -500,7 +500,7 @@ func TestList_failsEntirely_whenTopStoriesFetchFails(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if got != nil {
@@ -548,7 +548,7 @@ func TestList_retriesOnceOnTransientError_whenSecondAttemptSucceeds(t *testing.T
 	source := hackernews.NewListItemSource(&http.Client{Transport: transientRT}, hackernews.MaxStoriesScanned)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と topstories fetch 回数
 	if err != nil {
@@ -573,7 +573,7 @@ func TestList_dropsStory_whenItemJSONIsBroken(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -601,7 +601,7 @@ func TestList_normalizesHTMLInStoryText_whenTagsAndEntitiesPresent(t *testing.T)
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -627,7 +627,7 @@ func TestList_skipsCommentWithEmptyBody_whenCommentTextBlank(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -658,7 +658,7 @@ func TestList_stopsScanningAfterCollectingMaxStoriesScanned_whenEnoughStoriesInW
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と fetch 回数
 	if err != nil {
@@ -692,7 +692,7 @@ func TestList_stopsScanningAtMaxItems_whenMaxItemsBelowMaxStoriesScanned(t *test
 	source := hackernews.NewListItemSource(&http.Client{Transport: rt}, maxItems)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 結果は maxItems 件で打ち切る
 	if err != nil {
@@ -731,7 +731,7 @@ func TestList_collectsWindowStoriesBeyondFirstMaxStoriesScanned_whenTopStoriesEx
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -770,7 +770,7 @@ func TestList_scansEntireIDListForWindowStories_whenOldStoriesPrecedeFreshOnes(t
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -804,7 +804,7 @@ func TestList_failsAfterRetry_whenSecondTopStoriesAttemptAlsoFails(t *testing.T)
 	source := hackernews.NewListItemSource(&http.Client{Transport: rt}, hackernews.MaxStoriesScanned)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と再試行回数
 	if got != nil {
@@ -835,7 +835,7 @@ func TestList_returnsInfrastructureError_whenResponseBodyReadFails(t *testing.T)
 	source := hackernews.NewListItemSource(&http.Client{Transport: rt}, hackernews.MaxStoriesScanned)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if got != nil {

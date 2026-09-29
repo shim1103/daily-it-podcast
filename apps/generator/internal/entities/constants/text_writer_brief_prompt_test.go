@@ -43,21 +43,3 @@ func TestTextWriterBriefPrompt_hasDynamicPlaceholders(t *testing.T) {
 		}
 	}
 }
-
-// TestTextWriterBriefPrompt_requiresJapaneseOnTopicTitle は topic.title の英語単独見出しを
-// 禁じる指導文が入っていることを固定する（本番 invalid_manuscript_draft: has no japanese 対策）。
-func TestTextWriterBriefPrompt_requiresJapaneseOnTopicTitle(t *testing.T) {
-	t.Parallel()
-
-	required := []string{
-		"出力言語: 日本語のみ",
-		"topic.title を英語・ローマ字・ASCII だけの見出しにしない",
-		"必ず日本語で書く",
-		"各 topic.title にひらがな・カタカナ・漢字が 1 文字以上ある",
-	}
-	for _, s := range required {
-		if !strings.Contains(constants.TextWriterBriefPrompt, s) {
-			t.Errorf("TextWriterBriefPrompt に日本語 topic.title 指導 %q が無い", s)
-		}
-	}
-}

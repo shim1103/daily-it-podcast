@@ -13,51 +13,28 @@ import (
 
 var testFetchLocation = time.FixedZone("JST", 9*3600)
 
-func TestFetchSourceItems_passesYesterdaySince_whenNowGiven(t *testing.T) {
+func TestFetchSourceItems_passesYesterdayWindow_whenNowGiven(t *testing.T) {
 	// Given: 固定 now（JST 05:00）と表示 Location
 	fake := &fakeItemSource{}
 	uc := application.NewFetchSourceItems(fake, testFetchLocation)
 	now := time.Date(2026, 9, 27, 5, 0, 0, 0, testFetchLocation)
-	wantSince, _ := constants.YesterdayHalfOpenWindow(now, testFetchLocation)
+	wantSince, wantUntil := constants.YesterdayHalfOpenWindow(now, testFetchLocation)
 
 	// When: Run を呼ぶ
 	_, err := uc.Run(context.Background(), now)
 
-	// Then: List は 1 回、since は昨日 00:00（JST）
+	// Then: List は 1 回、since/until は昨日 half-open 窓
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if len(fake.calls) != 1 {
 		t.Fatalf("List calls = %d, want 1", len(fake.calls))
 	}
-	if !fake.calls[0].Equal(wantSince) {
-		t.Fatalf("since = %v, want %v", fake.calls[0], wantSince)
+	if !fake.calls[0].since.Equal(wantSince) {
+		t.Fatalf("since = %v, want %v", fake.calls[0].since, wantSince)
 	}
-}
-
-func TestFetchSourceItems_excludesItemsAtOrAfterUntil_whenListReturnsBorderItems(t *testing.T) {
-	// Given: since ちょうど・until ちょうど・until 以降の item を混ぜた List 結果
-	now := time.Date(2026, 9, 27, 5, 0, 0, 0, testFetchLocation)
-	since, until := constants.YesterdayHalfOpenWindow(now, testFetchLocation)
-	inWindow := models.SourceItem{SourceID: "x", OccurredAt: since.Add(time.Hour), Summary: "in"}
-	atSince := models.SourceItem{SourceID: "x", OccurredAt: since, Summary: "at-since"}
-	atUntil := models.SourceItem{SourceID: "x", OccurredAt: until, Summary: "at-until"}
-	afterUntil := models.SourceItem{SourceID: "x", OccurredAt: until.Add(time.Hour), Summary: "after-until"}
-	fake := &fakeItemSource{items: []models.SourceItem{inWindow, atSince, atUntil, afterUntil}}
-	uc := application.NewFetchSourceItems(fake, testFetchLocation)
-
-	// When
-	got, err := uc.Run(context.Background(), now)
-
-	// Then: [since, until) のみ。atUntil / afterUntil は落ちる
-	if err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if len(got) != 2 {
-		t.Fatalf("len = %d, want 2: %+v", len(got), got)
-	}
-	if got[0].Summary != "in" || got[1].Summary != "at-since" {
-		t.Fatalf("got = %+v, want in then at-since", got)
+	if !fake.calls[0].until.Equal(wantUntil) {
+		t.Fatalf("until = %v, want %v", fake.calls[0].until, wantUntil)
 	}
 }
 
@@ -75,7 +52,7 @@ func TestFetchSourceItems_returnsItemsFromSource_whenListSucceeds(t *testing.T) 
 	// When: Run を呼ぶ
 	got, err := uc.Run(context.Background(), now)
 
-	// Then: source の配列をそのまま返す
+	// Then: source の配列をそのまま返す（再 filter しない）
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

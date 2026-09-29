@@ -145,7 +145,7 @@ func TestList_mapsRSSItemToSourceItem_whenItemInWindow(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と写像
 	if err != nil {
@@ -208,7 +208,7 @@ func TestList_excludesItemsOlderThanSince_atBoundary(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -241,7 +241,7 @@ func TestList_stopsAfterCollectingMaxStoriesScanned_whenEnoughItemsInWindow(t *t
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 結果は MaxStoriesScanned 件で打ち切る
 	if err != nil {
@@ -273,7 +273,7 @@ func TestList_stopsScanningAtMaxItems_whenMaxItemsBelowMaxStoriesScanned(t *test
 	source := techcrunch.NewListItemSource(&http.Client{Transport: rt}, maxItems)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 結果は maxItems 件で打ち切る
 	if err != nil {
@@ -305,7 +305,7 @@ func TestList_returnsNonNilEmptySlice_whenNothingInWindow(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -327,7 +327,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 		source := techcrunch.NewListItemSource(nil, techcrunch.MaxStoriesScanned)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -343,7 +343,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 		source := newStubListItemSource(rt)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -359,7 +359,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 		source := newStubListItemSource(rt)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -402,7 +402,7 @@ func TestList_retriesOnceOnTransientError_whenSecondAttemptSucceeds(t *testing.T
 	source := techcrunch.NewListItemSource(&http.Client{Transport: transientRT}, techcrunch.MaxStoriesScanned)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と feed fetch 回数
 	if err != nil {
@@ -437,7 +437,7 @@ func TestList_dropsItem_whenPubDateInvalid(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -466,7 +466,7 @@ func TestList_discardsContentEncoded_whenPresent(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then Detail.Text は description のみ
 	if err != nil {

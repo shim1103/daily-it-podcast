@@ -147,7 +147,7 @@ func TestList_mapsAtomEntryToSourceItem_whenEntryInWindow(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と写像
 	if err != nil {
@@ -206,7 +206,7 @@ func TestList_excludesEntriesOlderThanSince_atBoundary(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -238,7 +238,7 @@ func TestList_stopsAfterCollectingMaxStoriesScanned_whenEnoughEntriesInWindow(t 
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 結果は MaxStoriesScanned 件で打ち切る
 	if err != nil {
@@ -269,7 +269,7 @@ func TestList_stopsScanningAtMaxItems_whenMaxItemsBelowMaxStoriesScanned(t *test
 	source := publickey.NewListItemSource(&http.Client{Transport: rt}, maxItems)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 結果は maxItems 件で打ち切る
 	if err != nil {
@@ -299,7 +299,7 @@ func TestList_returnsNonNilEmptySlice_whenNothingInWindow(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -321,7 +321,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 		source := publickey.NewListItemSource(nil, publickey.MaxStoriesScanned)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -337,7 +337,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 		source := newStubListItemSource(rt)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -353,7 +353,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 		source := newStubListItemSource(rt)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -396,7 +396,7 @@ func TestList_retriesOnceOnTransientError_whenSecondAttemptSucceeds(t *testing.T
 	source := publickey.NewListItemSource(&http.Client{Transport: transientRT}, publickey.MaxStoriesScanned)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と feed fetch 回数
 	if err != nil {
@@ -432,7 +432,7 @@ func TestList_dropsEntry_whenPublishedAndUpdatedAreInvalid(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -460,7 +460,7 @@ func TestList_usesUpdated_whenPublishedAbsent(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と OccurredAt
 	if err != nil {
@@ -487,7 +487,7 @@ func TestList_selectsAlternateLinkOnly_whenSelfLinkAlsoPresent(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then Detail.Links は alternate のみ
 	if err != nil {
