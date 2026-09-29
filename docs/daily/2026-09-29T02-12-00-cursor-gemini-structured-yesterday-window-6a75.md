@@ -23,4 +23,7 @@ Fetch を表示 TZ の昨日 half-open 暦日へ切り替え、Gemini TextWriter
 3. `99c8370` — docs(generator): brief prompt で topic.title の日本語必須を強化する
 4. `ec18349` — refactor(generator): Fetch 窓の until 判定を Adapter へ移す
 5. `9576f38` — refactor(generator): WriterOutput schema を contracts 経由で Gemini へ渡す
-6. （後続）prompt_test 余計 assert 禁止 declare / schema を models へ / Adapter until 境界 test
+6. `bd3ce33` — test(generator): brief prompt test に余計な文言 assert 禁止を declare する
+7. `5695527` — refactor(generator): WriterOutput schema 正本を entities/models へ移す
+8. `5e699d1` — test(generator): ItemSource Adapter に until 境界 SU を追加する
+9. `0778fa3` — docs(log): WriterOutput models 正本と until 境界 test の lessons を直す
