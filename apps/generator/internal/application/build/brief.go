@@ -1,7 +1,6 @@
 package build
 
 import (
-	_ "embed"
 	"strings"
 	"time"
 
@@ -9,9 +8,6 @@ import (
 	domainerrors "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
-
-//go:embed writer_output_example.json
-var writerOutputExampleJSON string
 
 // ComposeBrief は Fetch 結果から TextWriter へ渡す brief 平文 1 本を組み立てる。
 // 固定 Prompt は entities/constants.TextWriterBriefPrompt。期待 topic 数は
@@ -21,7 +17,7 @@ var writerOutputExampleJSON string
 // @ensure len(items) > 0 のとき戻りは trim 後に非空の brief 平文 1 本。
 // @ensure len(items) == 0 のとき ("", Domain Error Op = no_source_items) を返す。
 // @ensure constants.TextWriterBriefPrompt の {{SOURCES}} {{JSON_EXAMPLE}} と数値 placeholder を置換して完成させる。
-// @ensure 数値 placeholder は manuscript_draft_limits 定数を embedManuscriptDraftLimits で埋める。{{SOURCES}} は各 item の SourceID・OccurredAt・Summary・Detail・Discourse・Meta を平文列挙（窓幅説明なし）。{{JSON_EXAMPLE}} は writer_output_example.json を読込・検証して埋める。
+// @ensure 数値 placeholder は manuscript_draft_limits 定数を embedManuscriptDraftLimits で埋める。{{SOURCES}} は各 item の SourceID・OccurredAt・Summary・Detail・Discourse・Meta を平文列挙（窓幅説明なし）。{{JSON_EXAMPLE}} は models.WriterOutputExampleJSON を読込・検証して埋める。
 // @ensure OpeningGreeting / ClosingFarewell は含めない。
 // @invariant Prompt 散文を本 package に hardcode しない。Summary / Detail / Discourse / Meta を structured parse しない。
 func ComposeBrief(items []models.SourceItem) (string, error) {
@@ -37,11 +33,11 @@ func ComposeBrief(items []models.SourceItem) (string, error) {
 // @require items は Fetch 成功後の slice。template は brief prompt template（parse しない）。topicCount >= 0。
 // @ensure template の {{…_MIN}} 等の数値 placeholder を topicCount に基づく manuscript_draft_limits 定数で、
 //
-//	{{SOURCES}} を items の平文列挙で、{{JSON_EXAMPLE}} を writer_output_example.json（topicCount で検証済み）で埋める。
+//	{{SOURCES}} を items の平文列挙で、{{JSON_EXAMPLE}} を models.WriterOutputExampleJSON（topicCount で検証済み）で埋める。
 //
 // @ensure ComposeBriefWithTemplate(items, constants.TextWriterBriefPrompt, constants.DraftTopicCountTarget) は ComposeBrief(items) と同一出力。
 // @ensure len(items) == 0 のとき ("", Domain Error Op = no_source_items) を返す。
-// @ensure writer_output_example.json が ManuscriptDraftFromWriterOutput に落ちるとき、その error をそのまま返す。
+// @ensure models.WriterOutputExampleJSON が ManuscriptDraftFromWriterOutput に落ちるとき、その error をそのまま返す。
 func ComposeBriefWithTemplate(items []models.SourceItem, template string, topicCount int) (string, error) {
 	if len(items) == 0 {
 		return "", domainerrors.DomainErr(domainerrors.OpNoSourceItems, nil)
@@ -49,12 +45,12 @@ func ComposeBriefWithTemplate(items []models.SourceItem, template string, topicC
 
 	brief := embedManuscriptDraftLimits(template, topicCount)
 	brief = strings.Replace(brief, "{{SOURCES}}", formatSourceItems(items), 1)
-	// why: {{JSON_EXAMPLE}} は writer_output_example.json という固定 topic 数
+	// why: {{JSON_EXAMPLE}} は models.WriterOutputExampleJSON という固定 topic 数
 	// （constants.DraftTopicCountTarget 件）の embed fixture であり、topicCount の
 	// 実行時値とは独立した「LLM へ見せる wire 形の例示」である。topicCount を渡すと
 	// topicCount != DraftTopicCountTarget のとき fixture 自身の topic 数と矛盾し、
 	// example が常に invalid 判定になる。
-	jsonExample, err := loadWriterOutputExampleJSON(writerOutputExampleJSON, constants.DraftTopicCountTarget)
+	jsonExample, err := loadWriterOutputExampleJSON(models.WriterOutputExampleJSON, constants.DraftTopicCountTarget)
 	if err != nil {
 		return "", err
 	}

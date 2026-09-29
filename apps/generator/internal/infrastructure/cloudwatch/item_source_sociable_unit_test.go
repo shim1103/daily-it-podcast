@@ -149,7 +149,7 @@ func TestList_mapsRDFItemToSourceItem_whenItemInWindow(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と写像
 	if err != nil {
@@ -207,7 +207,41 @@ func TestList_excludesItemsOlderThanSince_atBoundary(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
+
+	// @then 戻り値と error
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
+	}
+	if got[0].Summary != "境界ちょうど" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "境界ちょうど")
+	}
+}
+
+func TestList_excludesItemsAtOrAfterUntil_atBoundary(t *testing.T) {
+	// @given dc:date==until-1s の item と dc:date==until の item を混ぜた double
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	until := since.Add(24 * time.Hour)
+	rt := newStubRoundTripper()
+	rt.setFeed(rdfXML(
+		rdfItemFixture{
+			title: "境界ちょうど",
+			link:  "https://cloud.watch.impress.co.jp/docs/news/in.html",
+			date:  until.Add(-time.Second).Format(time.RFC3339),
+		},
+		rdfItemFixture{
+			title: "境界の外",
+			link:  "https://cloud.watch.impress.co.jp/docs/news/out.html",
+			date:  until.Format(time.RFC3339),
+		},
+	))
+	source := newStubListItemSource(rt)
+
+	// @when
+	got, err := source.List(context.Background(), since, until)
 
 	// @then 戻り値と error
 	if err != nil {
@@ -240,7 +274,7 @@ func TestList_stopsAfterCollectingMaxStoriesScanned_whenEnoughItemsInWindow(t *t
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 結果は MaxStoriesScanned 件で打ち切る
 	if err != nil {
@@ -272,7 +306,7 @@ func TestList_stopsScanningAtMaxItems_whenMaxItemsBelowMaxStoriesScanned(t *test
 	source := cloudwatch.NewListItemSource(&http.Client{Transport: rt}, maxItems, nil)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 結果は maxItems 件で打ち切る
 	if err != nil {
@@ -302,7 +336,7 @@ func TestList_returnsNonNilEmptySlice_whenNothingInWindow(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -324,7 +358,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 		source := cloudwatch.NewListItemSource(nil, cloudwatch.MaxStoriesScanned, nil)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -340,7 +374,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 		source := newStubListItemSource(rt)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -356,7 +390,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidXML(t *te
 		source := newStubListItemSource(rt)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -398,7 +432,7 @@ func TestList_retriesOnceOnTransientError_whenSecondAttemptSucceeds(t *testing.T
 	source := cloudwatch.NewListItemSource(&http.Client{Transport: transientRT}, cloudwatch.MaxStoriesScanned, &retryReporterSpy{})
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と feed fetch 回数
 	if err != nil {
@@ -431,7 +465,7 @@ func TestList_dropsItem_whenDateInvalid(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -459,7 +493,7 @@ func TestList_parsesDateWithTimezoneOffset_toUTC(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と OccurredAt
 	if err != nil {

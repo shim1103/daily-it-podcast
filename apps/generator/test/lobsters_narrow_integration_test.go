@@ -84,7 +84,7 @@ func TestLobstersListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucceed
 	})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: upstream は GET・Authorization 空、戻りは SourceID=lobsters の 1 件以上
 	if err != nil {
@@ -119,7 +119,7 @@ func TestLobstersListItemSource_returnsInfrastructureError_whenUpstreamFails(t *
 	})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: *adaptererror.Error（lobsters: prefix）かつ top-level 5xx で 2 回 request（retry once）
 	if got != nil {

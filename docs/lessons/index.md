@@ -21,3 +21,7 @@
 - 2026-09-26 [feature/generator-logging-mature] 「開始と完了の2点でログを出す」規約は、処理の所要時間とhang検出の価値に依存するトレードオフのある設計選択であり、普遍的な正解ではない。数百ms級の個々の外部呼び出しには完了ログ1本で足りる場合が多く、数十秒級の粗い処理段階には両方が有効  # → layer:terms
 - 2026-09-26 [feature/generator-logging-mature] 複数goroutineから共有される出力先（ログwriter等）への書き込み排他は、並行処理を実装するタイミングを待たず、その型の契約として先に保証しておいてよい。単一goroutineから呼ばれ続ける間は悪影響もコストもほぼゼロで、後から追加すると発見しにくい競合を後日埋め込むリスクが残る  # → layer:terms
 - 2026-09-26 [feature/generator-logging-mature] agent実行環境がユーザー確認用tool（質問ダイアログ等）を明示的に無効化している場合、同一session内で一度denyされた後も同じtoolを再度使おうとする再発が起きやすい。deny理由を読んだ直後だけでなく、判断が必要な場面に来るたびに運用制約の記録を再確認する  # → layer:0:meta
+- 2026-09-29 [cursor/gemini-structured-yesterday-window-6a75] Port が時間窓を返すなら両端判定の所有者は Adapter。Application 再 filter と境界 test の付け替えは所有者違い  # → layer:terms
+- 2026-09-29 [cursor/gemini-structured-yesterday-window-6a75] structured 出力の schema は Unmarshal 正本の型から生成する。手書き schema は第二 SSOT  # → layer:terms
+- 2026-09-29 [cursor/gemini-structured-yesterday-window-6a75] SSoT 本文の文言存在 assert は値の二重管理で検出力が無い。消費側の振る舞い test に寄せる  # → layer:terms
+- 2026-09-29 [cursor/gemini-structured-yesterday-window-6a75] bookend field 名は opening / ending と対称にする。無修飾 summary は他 Summary 概念と衝突する  # → layer:terms

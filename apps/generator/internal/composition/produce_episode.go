@@ -44,13 +44,14 @@ func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter
 	if topicCount != constants.DraftTopicCountTarget {
 		sourceMaxItems = topicCount * constants.SourceItemsPerTopic
 	}
+	displayLoc := appruntime.DisplayLocation()
 	fetchUC := fetch.NewFetchSourceItems(newCompositeItemSource(
 		newHackerNewsItemSource(httpClient, sourceMaxItems, logw),
 		newLobstersItemSource(httpClient, sourceMaxItems, logw),
 		newPublickeyItemSource(httpClient, sourceMaxItems, logw),
 		newTechCrunchItemSource(httpClient, sourceMaxItems, logw),
 		newCloudWatchItemSource(httpClient, sourceMaxItems, logw),
-	))
+	), displayLoc)
 	lookup := newR2CompletedEpisodeLookup(httpClient, cfg.R2, logw)
 	// logw は port.FallbackReporter / port.ProgressReporter を満たす。application 用 callback の
 	// 組み立ては delivery.LogWriter が持ち、Composition は結線だけ行う。
@@ -76,7 +77,7 @@ func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter
 	)
 	encode := newFFmpegWAVToMP3Encoder()
 	writeEpisode := newR2WriteEpisode(httpClient, cfg.R2, logw)
-	return application.NewProduceEpisode(fetchUC, lookup, textWriter, speech, encode, writeEpisode, newEpisodeID, appruntime.DisplayLocation(), logw, topicCount)
+	return application.NewProduceEpisode(fetchUC, lookup, textWriter, speech, encode, writeEpisode, newEpisodeID, displayLoc, logw, topicCount)
 }
 
 // NewProduceEpisodeFromEnv は process environment から Config を読み、

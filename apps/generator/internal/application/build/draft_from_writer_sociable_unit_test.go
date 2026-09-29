@@ -16,7 +16,7 @@ func jaRunes(n int) string {
 }
 
 // jaField は日本語 n rune + 末尾句点（合計 n+1 rune）の朗読 field を返す。
-// 朗読 field（intro / closingSummary / topic.preface / topic.detail）は末尾句点を課されるため、
+// 朗読 field（intro / endingSummary / topic.preface / topic.detail）は末尾句点を課されるため、
 // 検証を通す default fixture はこの helper で作る。
 func jaField(n int) string {
 	return jaRunes(n) + string(constants.DraftSentenceSuffixRune)
@@ -36,8 +36,8 @@ func topicJSON(titleRunes, prefaceRunes, detailRunes int) string {
 // これにより reject fixture を「意図した field を明示的に不正化」した形で直接組み立てられる。
 type wireOverride struct {
 	title   *string // "title"（見出し。空白のみ・ASCII のみ・rune 数逸脱などを注入する）
-	intro   *string // "intro"（朗読 field。末尾句点なし・ASCII のみ・空白のみなどを注入する）
-	closing *string // "closingSummary"（朗読 field。rune 数 range 逸脱などを注入する）
+	intro   *string // "openingIntro"（朗読 field。末尾句点なし・ASCII のみ・空白のみなどを注入する）
+	closing *string // "endingSummary"（朗読 field。rune 数 range 逸脱などを注入する）
 }
 
 // buildWireJSON は指定 topic 数の wire JSON を組み立てる。
@@ -92,9 +92,9 @@ func buildWireJSONWith(topicCount int, ov wireOverride) string {
 			detailRunes,
 		))
 	}
-	return `{"title":"` + title + `","intro":"` + intro +
+	return `{"title":"` + title + `","openingIntro":"` + intro +
 		`","topics":[` + strings.Join(topics, ",") +
-		`],"closingSummary":"` + closing + `"}`
+		`],"endingSummary":"` + closing + `"}`
 }
 
 // strPtr は string literal を *string へ変換する（wireOverride 用）。
@@ -155,8 +155,8 @@ func TestManuscriptDraftFromWriterOutput_returnsDraft_whenWireIsValid(t *testing
 	if err != nil {
 		t.Fatalf("ManuscriptDraftFromWriterOutput: 予期しない error: %v", err)
 	}
-	// Then: Title / Intro / ClosingSummary が転記される
-	if got.Title == "" || got.Intro == "" || got.ClosingSummary == "" {
+	// Then: Title / Intro / EndingSummary が転記される
+	if got.Title == "" || got.OpeningIntro == "" || got.EndingSummary == "" {
 		t.Fatalf("ManuscriptDraftFromWriterOutput: field 転記漏れ: %+v", got)
 	}
 	// Then: topic 数が一致する
@@ -207,7 +207,7 @@ func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenJSONI
 	t.Parallel()
 
 	// Given: 途中で切れて object を閉じない wire
-	raw := `{"title": "あ。", "intro":`
+	raw := `{"title": "あ。", "openingIntro":`
 
 	// When: parse する
 	_, err := build.ManuscriptDraftFromWriterOutput(raw, constants.DraftTopicCountTarget)
@@ -398,12 +398,12 @@ func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenTitle
 	assertInvalidDraft(t, err)
 }
 
-// --- 境界: closingSummary rune 数 ---
+// --- 境界: endingSummary rune 数 ---
 
-func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenClosingSummaryRuneCountBelowMin(t *testing.T) {
+func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenEndingSummaryRuneCountBelowMin(t *testing.T) {
 	t.Parallel()
 
-	// Given: closingSummary の rune 数を下限 - 1 にした wire
+	// Given: endingSummary の rune 数を下限 - 1 にした wire
 	raw := buildWireJSONWith(constants.DraftTopicCountTarget, wireOverride{
 		closing: strPtr(jaField(constants.DraftClosingMinLen - 2)), // rune 数 = Min-1
 	})
@@ -418,10 +418,10 @@ func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenClosi
 	assertInvalidDraft(t, err)
 }
 
-func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenClosingSummaryRuneCountAboveMax(t *testing.T) {
+func TestManuscriptDraftFromWriterOutput_returnsInvalidManuscriptDraft_whenEndingSummaryRuneCountAboveMax(t *testing.T) {
 	t.Parallel()
 
-	// Given: closingSummary の rune 数を上限 + 1 にした wire
+	// Given: endingSummary の rune 数を上限 + 1 にした wire
 	raw := buildWireJSONWith(constants.DraftTopicCountTarget, wireOverride{
 		closing: strPtr(jaField(constants.DraftClosingMaxLen)), // rune 数 = Max+1
 	})

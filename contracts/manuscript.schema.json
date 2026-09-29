@@ -82,7 +82,7 @@
           "properties": {
             "text": {
               "type": "string",
-              "description": "締めの朗読全文。closingSummary と定型締め（ClosingFarewell）をこの順で連結した、TTS が読み上げる原稿そのもの。"
+              "description": "締めの朗読全文。endingSummary と定型締め（ClosingFarewell）をこの順で連結した、TTS が読み上げる原稿そのもの。"
             },
             "startSec": {
               "type": "number",

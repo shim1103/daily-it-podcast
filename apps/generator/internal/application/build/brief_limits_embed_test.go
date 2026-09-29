@@ -7,6 +7,7 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	domainerr "github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/errors"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
 func TestEmbedManuscriptDraftLimits_replacesNumericPlaceholdersButKeepsDynamicOnes(t *testing.T) {
@@ -62,8 +63,8 @@ func TestEmbedManuscriptDraftLimits_leavesNoNumericPlaceholder_whenTemplateLists
 func TestLoadWriterOutputExampleJSON_returnsRaw_whenValid(t *testing.T) {
 	t.Parallel()
 
-	// Given: embed 済みの WriterOutput JSON 平文（topic 数は固定 DraftTopicCountTarget 件）
-	raw := strings.TrimSpace(writerOutputExampleJSON)
+	// Given: models に embed 済みの WriterOutput JSON 平文（topic 数は固定 DraftTopicCountTarget 件）
+	raw := strings.TrimSpace(models.WriterOutputExampleJSON)
 
 	// When: 読込と正当性検査をする
 	got, err := loadWriterOutputExampleJSON(raw, constants.DraftTopicCountTarget)
@@ -86,7 +87,7 @@ func TestLoadWriterOutputExampleJSON_returnsValidationErrorAsIs_whenInvalid(t *t
 	t.Parallel()
 
 	// Given: draft 検証に落ちる短い JSON と、同一 raw を直接検証したときの error
-	raw := `{"title":"短すぎる題","intro":"短い。","topics":[],"closingSummary":"短い。"}`
+	raw := `{"title":"短すぎる題","openingIntro":"短い。","topics":[],"endingSummary":"短い。"}`
 	wantErr := mustManuscriptDraftErrForExampleLoad(t, raw)
 
 	// When: 読込検査する

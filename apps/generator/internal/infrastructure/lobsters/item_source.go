@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpget"
 )
@@ -82,14 +83,14 @@ type storyComment struct {
 	IsModerated  bool   `json:"is_moderated"`
 }
 
-// List は since 以降に発生した Lobsters story を SourceItem slice で返す。
+// List は [since, until) に発生した Lobsters story を SourceItem slice で返す。
 //
-// @require since は OccurredAt の inclusive 下限。
-// @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ since 以上。
-// @ensure 結果は created_at >= since を満たす story のみ。最大 min(maxItems, MaxStoriesScanned) 件（maxItems <= 0 は MaxStoriesScanned）。
+// @require since は OccurredAt の inclusive 下限。until は exclusive 上限。
+// @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ [since, until)。
+// @ensure 結果は created_at ∈ [since, until) を満たす story のみ。最大 min(maxItems, MaxStoriesScanned) 件（maxItems <= 0 は MaxStoriesScanned）。
 // @ensure 該当なしは空 slice（nil ではない）。
 // @invariant vendor 固有型・監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
-func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
+func (s *ListItemSource) List(ctx context.Context, since, until time.Time) ([]models.SourceItem, error) {
 	if s == nil || s.client == nil {
 		return nil, infraErr("list", fmt.Errorf("client is nil"))
 	}
@@ -99,11 +100,11 @@ func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.So
 		return nil, err
 	}
 
-	targets := filterSummariesInWindow(summaries, since, s.effectiveMaxStories())
+	targets := filterSummariesInWindow(summaries, since, until, s.effectiveMaxStories())
 
 	out := make([]models.SourceItem, 0, len(targets))
 	for _, summary := range targets {
-		detail, occurredAt, ok := s.fetchStoryDetail(ctx, summary.ShortID, since)
+		detail, occurredAt, ok := s.fetchStoryDetail(ctx, summary.ShortID, since, until)
 		if !ok {
 			continue
 		}
@@ -125,12 +126,12 @@ func (s *ListItemSource) fetchHottest(ctx context.Context) ([]hottestSummary, er
 	return summaries, nil
 }
 
-// filterSummariesInWindow は created_at >= since の summary を先頭 limit 件まで返す。
-func filterSummariesInWindow(summaries []hottestSummary, since time.Time, limit int) []hottestSummary {
+// filterSummariesInWindow は created_at ∈ [since, until) の summary を先頭 limit 件まで返す。
+func filterSummariesInWindow(summaries []hottestSummary, since, until time.Time, limit int) []hottestSummary {
 	out := make([]hottestSummary, 0, limit)
 	for _, summary := range summaries {
 		createdAt, err := parseCreatedAt(summary.CreatedAt)
-		if err != nil || createdAt.Before(since) {
+		if err != nil || !constants.OccurredInHalfOpen(createdAt, since, until) {
 			continue
 		}
 		out = append(out, summary)
@@ -141,9 +142,9 @@ func filterSummariesInWindow(summaries []hottestSummary, since time.Time, limit 
 	return out
 }
 
-// fetchStoryDetail は /s/<short_id>.json を取得し、window 内なら (detail, occurredAt, true) を返す。
+// fetchStoryDetail は /s/<short_id>.json を取得し、[since, until) 内なら (detail, occurredAt, true) を返す。
 // 個別 story の取得・decode 失敗・created_at parse 失敗・window 外は (zero, zero, false) を返す（List は続行）。
-func (s *ListItemSource) fetchStoryDetail(ctx context.Context, shortID string, since time.Time) (storyDetail, time.Time, bool) {
+func (s *ListItemSource) fetchStoryDetail(ctx context.Context, shortID string, since, until time.Time) (storyDetail, time.Time, bool) {
 	url := fmt.Sprintf("%s/s/%s.json", apiBaseURL, shortID)
 	body, err := s.getWithRetry(ctx, url, "fetch_story")
 	if err != nil {
@@ -154,7 +155,7 @@ func (s *ListItemSource) fetchStoryDetail(ctx context.Context, shortID string, s
 		return storyDetail{}, time.Time{}, false
 	}
 	createdAt, err := parseCreatedAt(detail.CreatedAt)
-	if err != nil || createdAt.Before(since) {
+	if err != nil || !constants.OccurredInHalfOpen(createdAt, since, until) {
 		return storyDetail{}, time.Time{}, false
 	}
 	return detail, createdAt, true

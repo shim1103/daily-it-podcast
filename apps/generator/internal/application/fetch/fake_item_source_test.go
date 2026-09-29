@@ -10,14 +10,19 @@ import (
 
 var _ port.ItemSource = (*fakeItemSource)(nil)
 
+type listCall struct {
+	since time.Time
+	until time.Time
+}
+
 type fakeItemSource struct {
-	calls []time.Time
+	calls []listCall
 	items []models.SourceItem
 	err   error
 }
 
-func (f *fakeItemSource) List(_ context.Context, since time.Time) ([]models.SourceItem, error) {
-	f.calls = append(f.calls, since)
+func (f *fakeItemSource) List(_ context.Context, since, until time.Time) ([]models.SourceItem, error) {
+	f.calls = append(f.calls, listCall{since: since, until: until})
 	if f.err != nil {
 		return nil, f.err
 	}

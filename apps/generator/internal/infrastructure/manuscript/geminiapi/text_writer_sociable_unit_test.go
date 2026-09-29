@@ -355,6 +355,50 @@ func TestGenerateContent_sendsURLContextAndGoogleSearchTools_onEveryRequest(t *t
 	}
 }
 
+func TestGenerateContent_sendsJSONResponseSchema_onEveryRequest(t *testing.T) {
+	t.Parallel()
+
+	// Given: 成功応答 1 件
+	w, rt := newFakeTextWriter(successResponse("STOP", `{"title":"題","openingIntro":"あ。","topics":[],"endingSummary":"あ。"}`))
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
+
+	// Then: generationConfig は application/json と models.WriterOutputSchema を載せる
+	if err != nil {
+		t.Fatalf("Write() error = %v, want nil", err)
+	}
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(rt.calls))
+	}
+	var reqBody struct {
+		GenerationConfig *struct {
+			ResponseMIMEType string          `json:"responseMimeType"`
+			ResponseSchema   json.RawMessage `json:"responseSchema"`
+		} `json:"generationConfig"`
+	}
+	if err := json.Unmarshal(rt.calls[0].Body, &reqBody); err != nil {
+		t.Fatalf("decode request body: %v", err)
+	}
+	if reqBody.GenerationConfig == nil {
+		t.Fatal("generationConfig = nil, want set")
+	}
+	if reqBody.GenerationConfig.ResponseMIMEType != "application/json" {
+		t.Fatalf("responseMimeType = %q, want application/json", reqBody.GenerationConfig.ResponseMIMEType)
+	}
+	var gotSchema, wantSchema any
+	if err := json.Unmarshal(reqBody.GenerationConfig.ResponseSchema, &gotSchema); err != nil {
+		t.Fatalf("decode got responseSchema: %v", err)
+	}
+	if err := json.Unmarshal(models.WriterOutputSchema, &wantSchema); err != nil {
+		t.Fatalf("decode want WriterOutputSchema: %v", err)
+	}
+	if !reflect.DeepEqual(gotSchema, wantSchema) {
+		t.Fatalf("responseSchema が models.WriterOutputSchema と不一致\ngot=%s\nwant=%s",
+			reqBody.GenerationConfig.ResponseSchema, models.WriterOutputSchema)
+	}
+}
+
 // requestToolsOf は fakeRoundTripper が記録した request body から tools 配列を取り出す。
 func requestToolsOf(t *testing.T, body []byte) []map[string]map[string]any {
 	t.Helper()

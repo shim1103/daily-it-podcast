@@ -7,6 +7,11 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 )
 
+// @invariant 本 file は brief template の placeholder 存在確認だけを持つ。
+//
+//	prompt 本文の指導文・禁止例・Language 節などの文言存在 assert を追加しない
+//	（SSoT 本文の写しは検出力が無く、値変更の二重管理になる。testing-strategy §4.2）。
+
 // TestTextWriterBriefPrompt_hasAllNumericPlaceholders は、brief template が
 // build.embedManuscriptDraftLimits が埋める数値 placeholder 一式を漏れなく含むことを固定する。
 // prompt variant（testdata/brief_prompt_variant_*.txt）も同じ placeholder 集合を保つ前提。

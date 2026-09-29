@@ -84,11 +84,11 @@ func seedSourceItems() []models.SourceItem {
 }
 
 // draftTotalRunes は build.ManuscriptDraftFromWriterOutput の合計対象と同じ数え方で
-// 全体文字数を数える（intro + closingSummary + Σ_topics(preface + detail)）。
+// 全体文字数を数える（openingIntro + endingSummary + Σ_topics(preface + detail)）。
 // title / topic.title は朗読されない見出しなので数えない。
 func draftTotalRunes(d models.ManuscriptDraft) int {
-	total := utf8.RuneCountInString(strings.TrimSpace(d.Intro)) +
-		utf8.RuneCountInString(strings.TrimSpace(d.ClosingSummary))
+	total := utf8.RuneCountInString(strings.TrimSpace(d.OpeningIntro)) +
+		utf8.RuneCountInString(strings.TrimSpace(d.EndingSummary))
 	for _, tp := range d.Topics {
 		total += utf8.RuneCountInString(strings.TrimSpace(tp.Preface))
 		total += utf8.RuneCountInString(strings.TrimSpace(tp.Detail))
