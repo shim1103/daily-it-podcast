@@ -8,7 +8,7 @@ prev: なし
 
 ## 1. Summary
 
-Fetch を表示 TZ の昨日 half-open 暦日へ切り替え、Gemini TextWriter だけに JSON structured 拘束を載せ、brief prompt で topic.title の日本語必須を強化した。shim 査読後、Application 再 filter をやめ Adapter に until を渡し、WriterOutput schema を entities/models 正本へ移し、until 境界 test を各 Adapter へ足した。
+Fetch を表示 TZ の昨日 half-open 暦日へ切り替え、Gemini TextWriter だけに JSON structured 拘束を載せた。査読後、until は Adapter、schema は WriterOutput 型から生成、bookend は openingIntro/endingSummary に対称化した。
 
 ## 2. Changes
 
@@ -27,3 +27,7 @@ Fetch を表示 TZ の昨日 half-open 暦日へ切り替え、Gemini TextWriter
 7. `5695527` — refactor(generator): WriterOutput schema 正本を entities/models へ移す
 8. `5e699d1` — test(generator): ItemSource Adapter に until 境界 SU を追加する
 9. `0778fa3` — docs(log): WriterOutput models 正本と until 境界 test の lessons を直す
+10.  — refactor(generator): WriterOutput から schema 生成し bookend field を対称化する
+11.  — docs(generator): WriterOutput 型生成 schema と bookend rename の Decision を残す
+10.  — refactor(generator): WriterOutput から schema 生成し bookend field を対称化する
+11.  — docs(generator): WriterOutput 型生成 schema と bookend rename の Decision を残す
