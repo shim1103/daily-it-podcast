@@ -90,7 +90,7 @@ func ctxSleep(ctx context.Context, d time.Duration) {
 //	2 回目以降の試行は port.BuildRejectionBrief で前回の raw response と rejection 理由を
 //	区別可能な形で brief へ埋め込む。
 //
-// @invariant generateContent は idempotent（同 body は同じ生成試行・副作用なし）。client.Do error / 5xx を 1 回、429 を MaxAttempts まで backoff で再試行し、429 の使い切りは Tier に関係なく port.ErrSourceExhausted を wrap する。401 / 403 / その他 4xx、finishReason が STOP 以外、空 text、parse 失敗は再試行しない。secret 実値を error へ出さない。model は ModelID 固定。
+// @invariant generateContent は idempotent（同 body は同じ生成試行・副作用なし）。client.Do error / 5xx を 1 回、429 を MaxAttempts まで backoff で再試行し、429 の使い切りは Tier に関係なく port.ErrSourceExhausted を wrap する。401 / 403 / その他 4xx、finishReason が STOP 以外、空 text、parse 失敗は再試行しない。secret 実値を error へ出さない。model は ModelID 固定。毎回 generationConfig（responseMimeType=application/json + WriterOutput responseSchema）を送る。
 func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(string) (models.ManuscriptDraft, error)) (models.ManuscriptDraft, error) {
 	if w == nil || w.client == nil {
 		return models.ManuscriptDraft{}, geminiErr("build_request", fmt.Errorf("client is nil"))
@@ -125,8 +125,9 @@ func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(strin
 }
 
 type generateContentRequest struct {
-	Contents []requestContent `json:"contents"`
-	Tools    []requestTool    `json:"tools,omitempty"`
+	Contents         []requestContent  `json:"contents"`
+	Tools            []requestTool     `json:"tools,omitempty"`
+	GenerationConfig *generationConfig `json:"generationConfig,omitempty"`
 }
 
 type requestContent struct {
@@ -189,8 +190,9 @@ const (
 // why: Decision §7。Do error / 5xx は 1 回だけ（generateContent は idempotent）、429 を MaxAttempts まで backoff。
 func (w *TextWriter) generateContent(ctx context.Context, brief string) (string, error) {
 	body, err := json.Marshal(generateContentRequest{
-		Contents: []requestContent{{Parts: []requestPart{{Text: brief}}}},
-		Tools:    generateContentTools,
+		Contents:         []requestContent{{Parts: []requestPart{{Text: brief}}}},
+		Tools:            generateContentTools,
+		GenerationConfig: &writerOutputGenerationConfig,
 	})
 	if err != nil {
 		return "", geminiErr("marshal_request", err)
