@@ -17,4 +17,6 @@ Fetch を表示 TZ の昨日 half-open 暦日へ切り替え、Gemini TextWriter
 
 ### Commits
 
-（commit 後に hash を埋める）
+1. `f01ad81` — feat(generator): Fetch 窓を表示 TZ の昨日 half-open 暦日へ切り替える
+2. `b722a1f` — feat(generator): Gemini TextWriter だけに WriterOutput JSON schema 拘束を載せる
+3. `99c8370` — docs(generator): brief prompt で topic.title の日本語必須を強化する
