@@ -364,8 +364,7 @@ func TestGenerateContent_sendsResponseJsonSchemaNotResponseSchema_onEveryRequest
 	// When: Write する
 	_, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
 
-	// Then: generationConfig は application/json と models.WriterOutputSchema を responseJsonSchema（JSON Schema 用）へ載せる。
-	//       OpenAPI subset 用の responseSchema は additionalProperties を受け付けず 400 になるので送らない
+	// Then: generationConfig は application/json と models.WriterOutputSchema を responseJsonSchema へ載せ、responseSchema は送らない
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}

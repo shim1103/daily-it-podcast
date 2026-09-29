@@ -7,12 +7,8 @@ import (
 )
 
 // writerOutputGenerationConfig は models.WriterOutputSchema を responseJsonSchema に載せる。
-// why: schema は WriterOutput の json tag から生成する。手書き .schema.json を置かない。
-//
-//	生成する schema は JSON Schema（additionalProperties を含む）であり、OpenAPI 3.0 subset の
-//	`responseSchema`（Schema object）は additionalProperties を受け付けず 400 INVALID_ARGUMENT になる
-//	（generateContent 本番 System test run 36538248785）。JSON Schema は `responseJsonSchema` へ載せる。
-//	両 field は排他で、いずれも responseMimeType=application/json が必須。
+// why: schema は WriterOutput の json tag から生成する。additionalProperties を含む JSON Schema は
+// OpenAPI subset の responseSchema が拒否するため、載せ先は responseJsonSchema にする。
 var writerOutputGenerationConfig = generationConfig{
 	ResponseMIMEType:   "application/json",
 	ResponseJSONSchema: json.RawMessage(models.WriterOutputSchema),
