@@ -220,6 +220,42 @@ func TestList_excludesEntriesOlderThanSince_atBoundary(t *testing.T) {
 	}
 }
 
+func TestList_excludesEntriesAtOrAfterUntil_atBoundary(t *testing.T) {
+	// @given published==until-1s の entry と published==until の entry を混ぜた double
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	until := since.Add(24 * time.Hour)
+	rt := newStubRoundTripper()
+	rt.setFeed(atomXML(
+		atomEntryFixture{
+			title:     "境界ちょうど",
+			id:        "in",
+			published: until.Add(-time.Second).Format(time.RFC3339),
+			href:      "https://www.publickey1.jp/in.html",
+		},
+		atomEntryFixture{
+			title:     "境界の外",
+			id:        "out",
+			published: until.Format(time.RFC3339),
+			href:      "https://www.publickey1.jp/out.html",
+		},
+	))
+	source := newStubListItemSource(rt)
+
+	// @when
+	got, err := source.List(context.Background(), since, until)
+
+	// @then 戻り値と error
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
+	}
+	if got[0].Summary != "境界ちょうど" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "境界ちょうど")
+	}
+}
+
 func TestList_stopsAfterCollectingMaxStoriesScanned_whenEnoughEntriesInWindow(t *testing.T) {
 	// @given window 内 entry を MaxStoriesScanned+3 件持つ Atom double
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)

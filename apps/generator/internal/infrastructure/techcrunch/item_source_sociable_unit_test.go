@@ -222,6 +222,42 @@ func TestList_excludesItemsOlderThanSince_atBoundary(t *testing.T) {
 	}
 }
 
+func TestList_excludesItemsAtOrAfterUntil_atBoundary(t *testing.T) {
+	// @given pubDate==until-1s の item と pubDate==until の item を混ぜた double
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	until := since.Add(24 * time.Hour)
+	rt := newStubRoundTripper()
+	rt.setFeed(rssXML(
+		rssItemFixture{
+			title:   "境界ちょうど",
+			link:    "https://techcrunch.com/in/",
+			pubDate: formatRFC1123Z(until.Add(-time.Second)),
+			guid:    "https://techcrunch.com/?p=1",
+		},
+		rssItemFixture{
+			title:   "境界の外",
+			link:    "https://techcrunch.com/out/",
+			pubDate: formatRFC1123Z(until),
+			guid:    "https://techcrunch.com/?p=2",
+		},
+	))
+	source := newStubListItemSource(rt)
+
+	// @when
+	got, err := source.List(context.Background(), since, until)
+
+	// @then 戻り値と error
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
+	}
+	if got[0].Summary != "境界ちょうど" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "境界ちょうど")
+	}
+}
+
 func TestList_stopsAfterCollectingMaxStoriesScanned_whenEnoughItemsInWindow(t *testing.T) {
 	// @given window 内 item を MaxStoriesScanned+3 件持つ RSS double
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)

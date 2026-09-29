@@ -238,6 +238,31 @@ func TestList_excludesItemsOlderThanSince_atBoundary(t *testing.T) {
 	}
 }
 
+func TestList_excludesItemsAtOrAfterUntil_atBoundary(t *testing.T) {
+	// @given time==until-1s の story と time==until の story を混ぜた double
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	until := since.Add(24 * time.Hour)
+	rt := newStubRoundTripper()
+	rt.setTopStories(22, 23)
+	rt.setItem(22, storyJSON(22, until.Add(-time.Second).Unix(), "境界ちょうど", "", ""))
+	rt.setItem(23, storyJSON(23, until.Unix(), "境界の外", "", ""))
+	source := newStubListItemSource(rt)
+
+	// @when
+	got, err := source.List(context.Background(), since, until)
+
+	// @then 戻り値と error
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
+	}
+	if got[0].Summary != "境界ちょうど" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "境界ちょうど")
+	}
+}
+
 func TestList_fetchesTopLevelCommentsUpToMaxCommentsPerStory(t *testing.T) {
 	// @given kids を MaxCommentsPerStory 超で持つ story の double。全 kid comment を仕込む
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)

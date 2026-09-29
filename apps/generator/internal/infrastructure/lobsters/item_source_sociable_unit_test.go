@@ -210,6 +210,36 @@ func TestList_excludesStoriesOlderThanSince_atBoundary(t *testing.T) {
 	}
 }
 
+func TestList_excludesStoriesAtOrAfterUntil_atBoundary(t *testing.T) {
+	// @given created_at==until-1s の story と created_at==until の story を混ぜた double
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	until := since.Add(24 * time.Hour)
+	justInside := until.Add(-time.Second).Format(time.RFC3339)
+	atUntil := until.Format(time.RFC3339)
+	rt := newStubRoundTripper()
+	rt.setHottest(
+		hottestEntry{ShortID: "inwin", CreatedAt: justInside},
+		hottestEntry{ShortID: "outwin", CreatedAt: atUntil},
+	)
+	rt.setStory("inwin", storyJSON("inwin", justInside, "u", "境界ちょうど", "", "", "https://lobste.rs/s/inwin", ""))
+	rt.setStory("outwin", storyJSON("outwin", atUntil, "u", "境界の外", "", "", "https://lobste.rs/s/outwin", ""))
+	source := newStubListItemSource(rt)
+
+	// @when
+	got, err := source.List(context.Background(), since, until)
+
+	// @then 戻り値と error
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
+	}
+	if got[0].Summary != "境界ちょうど" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "境界ちょうど")
+	}
+}
+
 func TestList_excludesDeletedOrModeratedComments(t *testing.T) {
 	// @given deleted / moderated な comment を混ぜた double
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)

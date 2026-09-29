@@ -209,6 +209,40 @@ func TestList_excludesItemsOlderThanSince_atBoundary(t *testing.T) {
 	}
 }
 
+func TestList_excludesItemsAtOrAfterUntil_atBoundary(t *testing.T) {
+	// @given dc:date==until-1s の item と dc:date==until の item を混ぜた double
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	until := since.Add(24 * time.Hour)
+	rt := newStubRoundTripper()
+	rt.setFeed(rdfXML(
+		rdfItemFixture{
+			title: "境界ちょうど",
+			link:  "https://cloud.watch.impress.co.jp/docs/news/in.html",
+			date:  until.Add(-time.Second).Format(time.RFC3339),
+		},
+		rdfItemFixture{
+			title: "境界の外",
+			link:  "https://cloud.watch.impress.co.jp/docs/news/out.html",
+			date:  until.Format(time.RFC3339),
+		},
+	))
+	source := newStubListItemSource(rt)
+
+	// @when
+	got, err := source.List(context.Background(), since, until)
+
+	// @then 戻り値と error
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
+	}
+	if got[0].Summary != "境界ちょうど" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "境界ちょうど")
+	}
+}
+
 func TestList_stopsAfterCollectingMaxStoriesScanned_whenEnoughItemsInWindow(t *testing.T) {
 	// @given window 内 item を MaxStoriesScanned+3 件持つ RDF double
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)

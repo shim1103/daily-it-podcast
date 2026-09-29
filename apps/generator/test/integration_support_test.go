@@ -72,7 +72,7 @@ var integrationTestFixedNow = time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
 // integrationTestSourceOccurredAt は Fetch の昨日 half-open 窓内に入る固定発生時刻。
 // why: Run 引数 now 自体は今日側にあり、窓 [昨日 00:00, 今日 00:00) の外。fixture の OccurredAt を
 //
-//	now にすると Application の until filter で落ちて 0 件になる。
+//	now にすると Adapter の until 判定で落ちて 0 件になる。
 func integrationTestSourceOccurredAt() time.Time {
 	since, until := constants.YesterdayHalfOpenWindow(integrationTestFixedNow, integrationTestDisplayLocation)
 	return since.Add(until.Sub(since) / 2)
