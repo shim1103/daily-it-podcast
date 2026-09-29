@@ -27,7 +27,6 @@ Fetch を表示 TZ の昨日 half-open 暦日へ切り替え、Gemini TextWriter
 7. `5695527` — refactor(generator): WriterOutput schema 正本を entities/models へ移す
 8. `5e699d1` — test(generator): ItemSource Adapter に until 境界 SU を追加する
 9. `0778fa3` — docs(log): WriterOutput models 正本と until 境界 test の lessons を直す
-10.  — refactor(generator): WriterOutput から schema 生成し bookend field を対称化する
-11.  — docs(generator): WriterOutput 型生成 schema と bookend rename の Decision を残す
-10.  — refactor(generator): WriterOutput から schema 生成し bookend field を対称化する
-11.  — docs(generator): WriterOutput 型生成 schema と bookend rename の Decision を残す
+10. `a366177` — refactor(generator): WriterOutput から schema 生成し bookend field を対称化する
+11. `d736191` — docs(generator): WriterOutput 型生成 schema と bookend rename の Decision を残す
+12. `aa1bf75` — docs(log): daily に schema 型生成・bookend rename の commit hash を追記する
