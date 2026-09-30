@@ -154,7 +154,15 @@ local 実行時の path env 名は `PLAYWRIGHT_STORAGE_STATE`（GHA には登録
 
 **`storageState` 更新（初回・session 失効時）**
 
-失効は、e2e workflow の最初の step「Access session の期限を確認」が「Access session が失効している」と明示して失敗するので分かる。一覧が出ない失敗には、失効のほかに Worker 側の失敗（`503` 等）もあるため、まずこの step の結果で切り分ける。
+e2e が「一覧が出ない」で落ちた時は、最初の step「Access session の期限を確認」の結果と、失敗時に残る画面（artifact `playback-e2e-failure`）で切り分ける。
+
+| 観測 | 意味 | 次にやること |
+|---|---|---|
+| 最初の step が「Access session が失効している」で失敗 | cookie の期限切れ | 下の更新手順 |
+| 最初の step は「期限は有効」で、画面が Cloudflare Access の login | Access が cookie を受理していない。期限切れではない。候補は、コピーした cookie が app の host のものと別物、必要な別の cookie を欠く、登録した origin と `PLAYWRIGHT_BASE_URL` の不一致（いずれも未確認） | 更新手順をやり直し、DevTools で、app の host の cookie 一覧と domain を確かめる |
+| 最初の step は「期限は有効」で、画面が login ではない | Worker 側の失敗（`503` 等） | Worker の log を見る（`npx wrangler tail`） |
+
+「期限は有効」は、期限だけの確認である。Access が受理するかは E2E が確かめる。
 
 1. 普段の browser で本番 URL を開き、許可 email の OTP で入場する（Playwright の browser は使わない）
 2. DevTools の Application（Storage）の Cookies から、本番 origin の `CF_Authorization` の値をコピーする
