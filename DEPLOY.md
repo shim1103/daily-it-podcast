@@ -154,11 +154,16 @@ local 実行時の path env 名は `PLAYWRIGHT_STORAGE_STATE`（GHA には登録
 
 **`storageState` 更新（初回・session 失効時）**
 
-1. 許可 email で本番 URL に OTP 入場する
-2. Playwright で `storageState` を書き出す（例: headed browser で `CF_Authorization` 付与後に保存）
-3. JSON 本文を Secret `PLAYWRIGHT_STORAGE_STATE_JSON` に登録する
+失効は、e2e workflow の最初の step「Access session の期限を確認」が「Access session が失効している」と明示して失敗するので分かる。一覧が出ない失敗には、失効のほかに Worker 側の失敗（`503` 等）もあるため、まずこの step の結果で切り分ける。
 
-手動確認: `gh workflow run playback-e2e.yml --ref <branch>`（Secret 付き）。
+1. 普段の browser で本番 URL を開き、許可 email の OTP で入場する（Playwright の browser は使わない）
+2. DevTools の Application（Storage）の Cookies から、本番 origin の `CF_Authorization` の値をコピーする
+3. `./scripts/playback/register-e2e-session.sh` を実行し、origin（env `PLAYWRIGHT_BASE_URL` があれば省略される）と、コピーした値を prompt に貼る。値は画面に出ない。JWT の `exp` を期限とする storageState を組み立て、Secret `PLAYWRIGHT_STORAGE_STATE_JSON` へ登録する。既に失効した値と JWT でない値は登録されない
+4. 動作確認をする（下記）
+
+値は argv にも file にも残らない。期限と残り日数は、e2e の最初の step が log に出す（残り 7 日未満は「失効間近」と表示する）。
+
+手動確認: `gh workflow run playback-e2e.yml --ref <branch>`（Secret 付き）。失敗時は、画面と error context が artifact `playback-e2e-failure` に 7 日残る。trace は request の cookie を含みうるため、upload しない。
 
 安定 fixture（`apps/playback/test/e2e/fixtures/stable-episode/`）は本番 R2 bucket **直下**に置く。配置契約は mp3（`contracts/episode-layout.md`）。日次 produce が増えても fixture pair は残す。
 
