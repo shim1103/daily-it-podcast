@@ -107,6 +107,38 @@ export default {
         path: "^web/src/(api|lib|pages|view-models|components/feature)/|^contracts/",
       },
     },
+    {
+      name: "cli-no-other-runtime",
+      severity: "error",
+      comment:
+        "cli（Node の運用 CLI）は web・worker・contracts を import しない（runtime は互いに import しない）。例外は出力の実体 1 点（worker/src/routes/logger.ts）だけ",
+      from: { path: "^cli/" },
+      to: {
+        path: "^(web|worker)/src/|^contracts/",
+        pathNot: "^worker/src/routes/logger\\.ts$",
+      },
+    },
+    {
+      name: "cli-only-main-uses-output",
+      severity: "error",
+      comment: "出力の実体（logger.ts）を呼んでよいのは結線の main.ts だけ。command と storage-state は注入された関数を呼ぶ",
+      from: { path: "^cli/", pathNot: "^cli/access-session/main\\.ts$" },
+      to: { path: "^worker/src/routes/logger\\.ts$" },
+    },
+    {
+      name: "runtime-no-cli",
+      severity: "error",
+      comment: "web・worker・contracts は cli を import しない",
+      from: { path: "^(web|worker)/src/|^contracts/" },
+      to: { path: "^cli/" },
+    },
+    {
+      name: "cli-storage-state-pure",
+      severity: "error",
+      comment: "storage-state は IO を持たない。出力・入口へ依存しない",
+      from: { path: "^cli/access-session/storage-state\\.ts$" },
+      to: { path: "^cli/access-session/(command|main|read-stream)\\.ts$" },
+    },
   ],
   options: {
     doNotFollow: { path: "node_modules" },
