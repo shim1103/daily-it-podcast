@@ -4,9 +4,11 @@ import {
   ACCESS_SESSION_WARNING_SEC,
   checkAccessSession,
   judgeAccessSession,
+  normalizeAccessSession,
 } from "./storage-state.ts";
 
 const EXPIRES_AT_SEC = 1_800_000_000;
+const EXPIRES_AT_ISO = "2027-01-15T08:00:00.000Z";
 
 function createAccessCookie(expiresAtSec: number) {
   return {
@@ -108,6 +110,112 @@ describe("checkAccessSession", () => {
 
     // When / Then: 期限を読めないので拒否する
     expect(() => checkAccessSession(json, EXPIRES_AT_SEC)).toThrow(ACCESS_COOKIE_NAME);
+  });
+});
+
+describe("expires given as a DevTools date string", () => {
+  function createStateWithExpires(expires: unknown): string {
+    return JSON.stringify({
+      cookies: [{ ...createAccessCookie(0), expires }],
+      origins: [],
+    });
+  }
+
+  it("checks_the_expiry_of_an_iso_date_string_as_unix_seconds", () => {
+    // Given: DevTools の Expires 列の日時（小数秒と Z 付き）をそのまま expires に貼った storageState
+    const json = createStateWithExpires(EXPIRES_AT_ISO);
+    const expiresAtSec = Date.parse(EXPIRES_AT_ISO) / 1000;
+
+    // When: 期限を確認する
+    const status = checkAccessSession(json, expiresAtSec - 100);
+
+    // Then: Unix 秒に直した期限と残り秒が返る
+    expect(status).toEqual({ expiresAtSec, remainingSec: 100 });
+  });
+
+  it("rejects_an_access_cookie_without_an_expires_field", () => {
+    // Given: expires を持たない Access cookie
+    const json = createStateWithExpires(undefined);
+
+    // When / Then: 期限を読めないので拒否する
+    expect(() => checkAccessSession(json, EXPIRES_AT_SEC)).toThrow(ACCESS_COOKIE_NAME);
+  });
+
+  it("rejects_a_string_that_is_not_an_iso_date", () => {
+    // Given: 日時ではない文字列（placeholder の置き換え忘れ）
+    const json = createStateWithExpires("<期限の日時>");
+
+    // When / Then: 期限を読めないので拒否する
+    expect(() => checkAccessSession(json, EXPIRES_AT_SEC)).toThrow(ACCESS_COOKIE_NAME);
+  });
+
+  it("rejects_a_string_that_starts_like_a_date_but_cannot_be_parsed", () => {
+    // Given: 日時の形に見えるが、存在しない日時
+    const json = createStateWithExpires("2027-13-45T99:99:99Z");
+
+    // When / Then: 期限を読めないので拒否する
+    expect(() => checkAccessSession(json, EXPIRES_AT_SEC)).toThrow(ACCESS_COOKIE_NAME);
+  });
+});
+
+describe("normalizeAccessSession", () => {
+  it("rewrites_an_iso_expiry_to_unix_seconds_and_keeps_the_other_fields", () => {
+    // Given: expires に日時の文字列を貼った storageState
+    const json = JSON.stringify({
+      cookies: [{ ...createAccessCookie(0), expires: EXPIRES_AT_ISO }],
+      origins: [],
+    });
+
+    // When: Playwright へ渡せる形へ直す
+    const normalized = JSON.parse(normalizeAccessSession(json));
+
+    // Then: expires だけが Unix 秒（数値）になり、他の項目は変わらない
+    expect(normalized).toEqual({
+      cookies: [createAccessCookie(Date.parse(EXPIRES_AT_ISO) / 1000)],
+      origins: [],
+    });
+  });
+
+  it("keeps_a_numeric_expiry_as_it_is", () => {
+    // Given: expires が既に Unix 秒の storageState
+    const json = createStorageStateJson(EXPIRES_AT_SEC);
+
+    // When: 直す
+    const normalized = JSON.parse(normalizeAccessSession(json));
+
+    // Then: 期限は変わらない
+    expect(normalized.cookies[0].expires).toBe(EXPIRES_AT_SEC);
+  });
+
+  it("rewrites_only_the_access_cookie_when_other_cookies_are_present", () => {
+    // Given: 他の cookie の後ろに Access cookie がある storageState
+    const other = { name: "CF_Other", value: "x", expires: "keep-me" };
+    const json = JSON.stringify({
+      cookies: [other, { ...createAccessCookie(0), expires: EXPIRES_AT_ISO }],
+      origins: [],
+    });
+
+    // When: 直す
+    const normalized = JSON.parse(normalizeAccessSession(json));
+
+    // Then: 他の cookie は変わらず、Access cookie だけが直る
+    expect(normalized.cookies[0]).toEqual(other);
+    expect(normalized.cookies[1].expires).toBe(Date.parse(EXPIRES_AT_ISO) / 1000);
+  });
+
+  it("rejects_a_storage_state_whose_expiry_cannot_be_read", () => {
+    // Given: 期限を読めない storageState
+    const json = JSON.stringify({ cookies: [{ name: ACCESS_COOKIE_NAME, expires: "soon" }] });
+
+    // When / Then: 直せないので拒否する
+    expect(() => normalizeAccessSession(json)).toThrow(ACCESS_COOKIE_NAME);
+  });
+
+  it("rejects_input_that_is_not_json", () => {
+    // Given: JSON ではない文字列
+
+    // When / Then: 拒否する
+    expect(() => normalizeAccessSession("not json")).toThrow("JSON");
   });
 });
 

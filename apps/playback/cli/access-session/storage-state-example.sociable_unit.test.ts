@@ -10,7 +10,8 @@ const EXAMPLE_PATH = path.join(
   "storage-state.example.json",
 );
 
-const EXPIRES_AT_SEC = 1_800_000_000;
+const EXPIRES_AT_ISO = "2027-01-15T08:00:00.000Z";
+const EXPIRES_AT_SEC = Date.parse(EXPIRES_AT_ISO) / 1000;
 
 type ExampleCookie = {
   name: string;
@@ -35,13 +36,13 @@ describe("storage-state.example.json", () => {
   });
 
   it("is_readable_by_the_check_once_the_placeholders_are_replaced", () => {
-    // Given: placeholder を実値へ置き換えた JSON の構造の例
+    // Given: placeholder を実値へ置き換えた JSON の構造の例（expires は DevTools の日時をそのまま貼る）
     const example = readExample();
     example.cookies = example.cookies.map((cookie) => ({
       ...cookie,
       value: "fake-cookie-value",
       domain: "playback.example.workers.dev",
-      expires: EXPIRES_AT_SEC,
+      expires: EXPIRES_AT_ISO,
     }));
 
     // When: 期限確認で読む

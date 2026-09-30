@@ -18,20 +18,28 @@ const COOKIE_VALUE = "fake-cookie-value";
 type FakeIoOptions = {
   storageStateEnv?: string;
   nowSec?: () => number;
+  writeFile?: (filePath: string, content: string) => void;
 };
 
-type FakeIo = { io: AccessSessionCommandIo; stdout: string[]; stderr: string[] };
+type FakeIo = {
+  io: AccessSessionCommandIo;
+  stdout: string[];
+  stderr: string[];
+  files: Map<string, string>;
+};
 
 function createFakeIo(options: FakeIoOptions = {}): FakeIo {
   const stdout: string[] = [];
   const stderr: string[] = [];
+  const files = new Map<string, string>();
   const io: AccessSessionCommandIo = {
     storageStateEnv: options.storageStateEnv,
     nowSec: options.nowSec ?? (() => NOW_SEC),
+    writeFile: options.writeFile ?? ((filePath, content) => files.set(filePath, content)),
     writeStdout: (line) => stdout.push(line),
     writeStderr: (line) => stderr.push(line),
   };
-  return { io, stdout, stderr };
+  return { io, stdout, stderr, files };
 }
 
 function createStorageStateJson(expiresAtSec: number): string {
@@ -126,6 +134,90 @@ describe("runAccessSessionCommand check", () => {
     // Then: 失敗し、探した cookie の名前を示す
     expect(status).toBe(EXIT_FAILED);
     expect(stderr[0]).toContain(ACCESS_COOKIE_NAME);
+  });
+});
+
+describe("runAccessSessionCommand normalize", () => {
+  const OUT_PATH = "/tmp/state.json";
+  const EXPIRES_AT_ISO = "2027-01-15T08:00:00.000Z";
+
+  function createIsoStorageStateJson(): string {
+    return JSON.stringify({
+      cookies: [{ name: ACCESS_COOKIE_NAME, value: COOKIE_VALUE, expires: EXPIRES_AT_ISO }],
+      origins: [],
+    });
+  }
+
+  it("writes_the_playwright_ready_json_to_the_given_path_without_printing_the_cookie_value", async () => {
+    // Given: expires に日時の文字列を貼った storageState を env に持つ
+    const { io, stdout, stderr, files } = createFakeIo({
+      storageStateEnv: createIsoStorageStateJson(),
+    });
+
+    // When: normalize で出力先の path を渡す
+    const status = await runAccessSessionCommand(["normalize", OUT_PATH], io);
+
+    // Then: 成功し、path へ expires が Unix 秒の JSON が書かれ、cookie の値は出力されない
+    expect(status).toBe(EXIT_OK);
+    expect(JSON.parse(files.get(OUT_PATH) ?? "").cookies[0].expires).toBe(
+      Date.parse(EXPIRES_AT_ISO) / 1000,
+    );
+    expect(`${stdout.join("\n")}${stderr.join("\n")}`).not.toContain(COOKIE_VALUE);
+  });
+
+  it("returns_the_usage_status_when_the_output_path_is_missing", async () => {
+    // Given: 出力先の path を渡さない
+    const { io, stderr, files } = createFakeIo({ storageStateEnv: createIsoStorageStateJson() });
+
+    // When: normalize を実行する
+    const status = await runAccessSessionCommand(["normalize"], io);
+
+    // Then: 使い方の終了 status を返し、何も書かない
+    expect(status).toBe(EXIT_USAGE);
+    expect(stderr[0]).toContain("使い方");
+    expect(files.size).toBe(0);
+  });
+
+  it("returns_the_usage_status_when_the_output_path_is_empty", async () => {
+    // Given: 出力先の path が空文字（workflow で変数が空になった場合）
+    const { io, files } = createFakeIo({ storageStateEnv: createIsoStorageStateJson() });
+
+    // When: normalize を実行する
+    const status = await runAccessSessionCommand(["normalize", ""], io);
+
+    // Then: 使い方の終了 status を返し、何も書かない
+    expect(status).toBe(EXIT_USAGE);
+    expect(files.size).toBe(0);
+  });
+
+  it("fails_and_writes_nothing_when_the_storage_state_env_is_unset", async () => {
+    // Given: 環境変数が未設定
+    const { io, stderr, files } = createFakeIo();
+
+    // When: normalize を実行する
+    const status = await runAccessSessionCommand(["normalize", OUT_PATH], io);
+
+    // Then: 失敗し、何も書かない
+    expect(status).toBe(EXIT_FAILED);
+    expect(stderr[0]).toContain("PLAYWRIGHT_STORAGE_STATE_JSON");
+    expect(files.size).toBe(0);
+  });
+
+  it("fails_and_writes_nothing_when_the_expiry_cannot_be_read", async () => {
+    // Given: 期限を読めない storageState（placeholder の置き換え忘れ）
+    const { io, stderr, files } = createFakeIo({
+      storageStateEnv: JSON.stringify({
+        cookies: [{ name: ACCESS_COOKIE_NAME, value: COOKIE_VALUE, expires: "<期限>" }],
+      }),
+    });
+
+    // When: normalize を実行する
+    const status = await runAccessSessionCommand(["normalize", OUT_PATH], io);
+
+    // Then: 失敗し、何も書かず、cookie の値も出さない
+    expect(status).toBe(EXIT_FAILED);
+    expect(files.size).toBe(0);
+    expect(stderr.join("\n")).not.toContain(COOKIE_VALUE);
   });
 });
 

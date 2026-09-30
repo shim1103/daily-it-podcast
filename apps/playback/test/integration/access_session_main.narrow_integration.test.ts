@@ -1,5 +1,7 @@
 // @vitest-environment node
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -76,6 +78,32 @@ describe("access-session main", () => {
     // Then: 終了 status が失敗になり、標準エラーに失効を示す
     expect(result.status).toBe(EXIT_FAILED);
     expect(result.stderr).toContain("失効している");
+  });
+
+  it("writes_an_owner_only_file_with_the_unix_second_expiry_when_normalizing_a_pasted_date", () => {
+    // Given: expires に DevTools の日時をそのまま貼った storageState を env に渡し、一時 dir を出力先にする
+    const expiresAtIso = "2999-01-01T00:00:00.000Z";
+    const storageStateJson = JSON.stringify({
+      cookies: [{ name: ACCESS_COOKIE_NAME, value: COOKIE_VALUE, expires: expiresAtIso }],
+      origins: [],
+    });
+    const dir = mkdtempSync(path.join(tmpdir(), "access-session-"));
+    const outputPath = path.join(dir, "state.json");
+
+    try {
+      // When: normalize で入口を起動する
+      const result = runMain(["normalize", outputPath], storageStateJson);
+
+      // Then: 成功し、file は expires が Unix 秒で、所有者だけが読め、cookie の値は標準出力に出ない
+      expect(result.status).toBe(EXIT_OK);
+      expect(JSON.parse(readFileSync(outputPath, "utf8")).cookies[0].expires).toBe(
+        Date.parse(expiresAtIso) / 1000,
+      );
+      expect(statSync(outputPath).mode & 0o777).toBe(0o600);
+      expect(`${result.stdout}${result.stderr}`).not.toContain(COOKIE_VALUE);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("returns_the_usage_status_when_no_command_is_given", () => {

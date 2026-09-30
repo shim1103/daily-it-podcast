@@ -1,4 +1,9 @@
-import { checkAccessSession, judgeAccessSession, SECONDS_PER_DAY } from "./storage-state.ts";
+import {
+  checkAccessSession,
+  judgeAccessSession,
+  normalizeAccessSession,
+  SECONDS_PER_DAY,
+} from "./storage-state.ts";
 
 export const EXIT_OK = 0;
 export const EXIT_FAILED = 1;
@@ -13,6 +18,7 @@ export type AccessSessionCommandIo = {
   /** env PLAYWRIGHT_STORAGE_STATE_JSON の値。未設定なら undefined。 */
   storageStateEnv: string | undefined;
   nowSec: () => number;
+  writeFile: (filePath: string, content: string) => void;
   writeStdout: (line: string) => void;
   writeStderr: (line: string) => void;
 };
@@ -23,9 +29,14 @@ function formatExpiry(expiresAtSec: number, remainingSec: number): string {
   return `期限 ${expiresAt}（残り ${remainingDays} 日）`;
 }
 
-function runCheck(io: AccessSessionCommandIo): number {
+function readStorageStateEnv(io: AccessSessionCommandIo): string | undefined {
   const storageStateJson = io.storageStateEnv?.trim();
-  if (storageStateJson === undefined || storageStateJson === "") {
+  return storageStateJson === "" ? undefined : storageStateJson;
+}
+
+function runCheck(io: AccessSessionCommandIo): number {
+  const storageStateJson = readStorageStateEnv(io);
+  if (storageStateJson === undefined) {
     io.writeStdout(
       "PLAYWRIGHT_STORAGE_STATE_JSON が未設定のため、remote e2e の session 確認は skip する",
     );
@@ -47,16 +58,34 @@ function runCheck(io: AccessSessionCommandIo): number {
   return EXIT_OK;
 }
 
+function runNormalize(outputPath: string | undefined, io: AccessSessionCommandIo): number {
+  if (outputPath === undefined || outputPath === "") {
+    io.writeStderr("使い方: normalize <出力先の path>");
+    return EXIT_USAGE;
+  }
+  const storageStateJson = readStorageStateEnv(io);
+  if (storageStateJson === undefined) {
+    io.writeStderr("PLAYWRIGHT_STORAGE_STATE_JSON が未設定のため、storageState を書けない");
+    return EXIT_FAILED;
+  }
+  io.writeFile(outputPath, normalizeAccessSession(storageStateJson));
+  io.writeStdout(`storageState を ${outputPath} へ書いた`);
+  return EXIT_OK;
+}
+
 function dispatch(args: string[], io: AccessSessionCommandIo): number {
-  const [command] = args;
+  const [command, outputPath] = args;
   if (command === "check") {
     return runCheck(io);
   }
-  io.writeStderr("使い方: check");
+  if (command === "normalize") {
+    return runNormalize(outputPath, io);
+  }
+  io.writeStderr("使い方: <check | normalize <出力先の path>>");
   return EXIT_USAGE;
 }
 
-/** subcommand（check）を実行し、終了 status を返す。失敗は標準エラーへ書いて EXIT_FAILED にする。 */
+/** subcommand（check / normalize）を実行し、終了 status を返す。失敗は標準エラーへ書いて EXIT_FAILED にする。 */
 export async function runAccessSessionCommand(
   args: string[],
   io: AccessSessionCommandIo,
