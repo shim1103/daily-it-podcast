@@ -5,8 +5,11 @@ import {
   buildAccessSessionStorageState,
   checkAccessSession,
   judgeAccessSession,
-} from "./access-session-storage-state.ts";
-import { createFakeAccessJwt, createFakeAccessJwtWithoutExpiry } from "./fake-access-jwt.ts";
+} from "./storage-state.ts";
+import {
+  createFakeAccessJwt,
+  createFakeAccessJwtWithoutExpiry,
+} from "../../test/support/fake-access-jwt.ts";
 
 const ORIGIN = "https://playback.example.workers.dev";
 const EXPIRES_AT_SEC = 1_800_000_000;
@@ -51,6 +54,15 @@ describe("buildAccessSessionStorageState", () => {
 
     // When / Then: 期限が分からないので組み立てを拒否する
     expect(() => buildAccessSessionStorageState(ORIGIN, jwt)).toThrow("exp");
+  });
+
+  it("rejects_a_jwt_whose_payload_is_not_json", () => {
+    // Given: payload segment が JSON ではない JWT
+    const [header] = createFakeAccessJwt(EXPIRES_AT_SEC).split(".");
+    const jwt = `${header}.${Buffer.from("not json").toString("base64url")}.signature`;
+
+    // When / Then: payload を読めないので組み立てを拒否する
+    expect(() => buildAccessSessionStorageState(ORIGIN, jwt)).toThrow("JSON");
   });
 
   it("rejects_an_origin_that_is_not_a_url", () => {
@@ -103,6 +115,38 @@ describe("checkAccessSession", () => {
 
     // When / Then: 拒否する
     expect(() => checkAccessSession(json, EXPIRES_AT_SEC)).toThrow("JSON");
+  });
+
+  it("rejects_a_storage_state_that_is_json_but_not_an_object", () => {
+    // Given: JSON としては正しいが object ではない値（null）
+    const json = "null";
+
+    // When / Then: cookie を読めないので拒否する
+    expect(() => checkAccessSession(json, EXPIRES_AT_SEC)).toThrow(ACCESS_COOKIE_NAME);
+  });
+
+  it("rejects_a_storage_state_without_a_cookies_field", () => {
+    // Given: cookies を持たない object
+    const json = JSON.stringify({ origins: [] });
+
+    // When / Then: cookie を読めないので拒否する
+    expect(() => checkAccessSession(json, EXPIRES_AT_SEC)).toThrow(ACCESS_COOKIE_NAME);
+  });
+
+  it("rejects_a_storage_state_whose_cookies_field_is_not_an_array", () => {
+    // Given: cookies が配列ではない object
+    const json = JSON.stringify({ cookies: "not an array" });
+
+    // When / Then: cookie を読めないので拒否する
+    expect(() => checkAccessSession(json, EXPIRES_AT_SEC)).toThrow(ACCESS_COOKIE_NAME);
+  });
+
+  it("rejects_an_access_cookie_whose_expiry_is_not_a_number", () => {
+    // Given: Access cookie はあるが、expires が数値ではない
+    const json = JSON.stringify({ cookies: [{ name: ACCESS_COOKIE_NAME, expires: "soon" }] });
+
+    // When / Then: 期限を読めないので拒否する
+    expect(() => checkAccessSession(json, EXPIRES_AT_SEC)).toThrow(ACCESS_COOKIE_NAME);
   });
 });
 

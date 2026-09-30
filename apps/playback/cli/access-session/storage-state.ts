@@ -57,9 +57,7 @@ function readJwtExpiry(jwt: string): number {
   }
   let payload: unknown;
   try {
-    payload = JSON.parse(
-      Buffer.from(segments[JWT_PAYLOAD_INDEX] ?? "", "base64url").toString("utf8"),
-    );
+    payload = JSON.parse(Buffer.from(segments[JWT_PAYLOAD_INDEX], "base64url").toString("utf8"));
   } catch {
     throw new Error("JWT の payload を JSON として読めない");
   }
