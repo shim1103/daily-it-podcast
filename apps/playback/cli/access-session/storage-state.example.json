@@ -1,0 +1,15 @@
+{
+  "cookies": [
+    {
+      "name": "CF_Authorization",
+      "value": "<CF_Authorization の値>",
+      "domain": "<本番 host（scheme と path を除く）>",
+      "path": "/",
+      "expires": 0,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}
