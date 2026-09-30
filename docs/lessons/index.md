@@ -44,3 +44,17 @@
 - 2026-09-29 [develop] CI/CD連鎖の成功は、その成功が実経路を通ったかまで観測して完了とする。所要時間や短絡logの有無は、緑の中身を疑う手がかりになる  # → layer:workflow
 - 2026-09-29 [develop] 資格情報や共有bucketなど外部の共有状態へ書く検証は、必要性があっても指示なしに実行しない。検証の必要性は実行の許可にならず、実行前に確認する  # → layer:terms
 - 2026-09-29 [develop] 共有repoへcommit・pushする前に現在branchを毎回確認する。以前確認した時点のbranchが維持されている保証は無い  # → layer:terms
+- 2026-09-30 [feature/playback-progress-d1-smoke] 実物へ届いたことは、経路を通る往復の成功だけでは言えない。模擬（emulator）が同じ面を実装していると、空の資源への put→get は模擬でも成功する。経路とは独立な手段で実物側を読み戻して初めて到達を確かめられる  # → layer:terms
+- 2026-09-30 [feature/playback-progress-d1-smoke] wrangler の getPlatformProxy は、binding 定義に remote: true が無いと、remoteBindings を有効にしてもその binding を local の模擬として返す。R2・D1 とも同じ  # → layer:platform
+- 2026-09-30 [feature/playback-progress-d1-smoke] wrangler d1 migrations apply は適用済みを D1 側の台帳（d1_migrations）へ file 名で記録し、非対話の CI では確認 prompt を既定値（yes）で進める。execute --file は台帳に載らず、後続の apply と衝突する  # → layer:platform
+- 2026-09-30 [feature/playback-progress-d1-smoke] GitHub Actions の vars 参照は、未登録の名前が空文字に解決され workflow は静かに続く。登録の実在は gh variable list 等で確認し、前提の env は script 冒頭で fail-fast にする  # → layer:platform
+- 2026-09-30 [feature/playback-progress-d1-smoke] API token の権限は token 自身に紐づき、操作するユーザーの役割（管理者）とは別である。権限不足の切り分けは、token が見ている account の一覧と、読取 API の成否を log に出して行う。設定変更は保存の操作が済むまで token に反映されない  # → layer:terms
+- 2026-09-30 [feature/playback-progress-d1-smoke] 診断出力から機密を除く時は、該当行を丸ごと削除せず、値だけを置換して伏せる。行ごと削除すると、診断に要る他の情報（account の一覧など）まで消える  # → layer:terms
+- 2026-09-30 [feature/playback-progress-d1-smoke] 症状が同じでも原因が複数ある失敗（期限切れ、サーバ側の失敗）は、本体の前に原因を切り分ける確認 step を置き、失敗時の画面を残す。trace 等は資格情報の cookie を含みうるため、artifact にしない  # → layer:terms
+- 2026-09-30 [feature/playback-progress-d1-smoke] sub-feature へ production 線を取り込まない。階層は integration→epic→sub-feature の一方向で、production 側に残る使い捨て物の削除は、production 向けの別 PR で届ける  # → layer:workflow
+- 2026-09-30 [feature/playback-progress-d1-smoke] 運用文書には要求する権限だけを書き、現在充足しているかを断定しない。実行結果で覆る断定は、確認できるまで書かない  # → layer:terms
+- 2026-09-30 [feature/playback-progress-d1-smoke] 独立して失敗しうる工程（書く・読む・消す・消えたことを読む）は、1 case に束ねず工程ごとの case に分け、失敗した case 名で工程を特定できるようにする。前提は各 case の Given で整える  # → layer:terms
+- 2026-09-30 [feature/playback-progress-d1-smoke] zsh は未引用の変数を単語分割しない。command 文字列を変数へ入れて呼ぶ検証は、関数にして呼ぶ  # → layer:platform
+- 2026-09-30 [feature/playback-progress-d1-smoke] hook が branch 操作を止めた時は、hook の指示（既存の適切な branch を使う）に従う。同じ結果を別の書き方で通そうとしない  # → layer:workflow
+- 2026-09-30 [feature/playback-progress-d1-smoke] commit の hook が作業ツリー全体（未追跡の file を含む）を検査する環境では、Scope 外の未 commit 物の違反が、無関係な commit を止める。Scope 外の作業は、別 branch か別 worktree に置く。やむを得ず同じ tree にある時は、違反の無い別 worktree で commit する  # → layer:workflow
+- 2026-09-30 [feature/playback-progress-d1-smoke] hook の起動 command を相対 path で登録すると、shell の cwd が project root からずれた時に script が見つからず、非ブロックのエラーで素通りする。保護の hook ほど、project root を指す変数から絶対 path で参照する。cwd を変える操作は subshell に閉じ込める  # → layer:platform
