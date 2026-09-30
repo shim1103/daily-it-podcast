@@ -13,6 +13,17 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
+// retryReporterSpy は port.RetryReporter を満たし、Retry 呼び出しを記録する Spy。
+// rate 計測 test は実 API へ到達するため、応答次第で retry が実際に発生し得る。
+// 呼ばれるかどうかを見極めず、常に Spy を渡して安全に倒す。
+type retryReporterSpy struct {
+	calls int
+}
+
+func (s *retryReporterSpy) Retry(step string, attempt, max int, reason string) {
+	s.calls++
+}
+
 // seedSourceItems は Cursor 単体到達 / draft rate 計測 test 用の固定擬似ソース。
 // 実在企業名は避け「あるクラウド事業者」等に一般化する。各 Detail は複数トピック分の
 // 素材になる濃さ（各 200〜400 字程度の日本語）にして、目安件数の topic を書けるだけの入力にする。
@@ -73,11 +84,11 @@ func seedSourceItems() []models.SourceItem {
 }
 
 // draftTotalRunes は build.ManuscriptDraftFromWriterOutput の合計対象と同じ数え方で
-// 全体文字数を数える（intro + closingSummary + Σ_topics(preface + detail)）。
+// 全体文字数を数える（openingIntro + endingSummary + Σ_topics(preface + detail)）。
 // title / topic.title は朗読されない見出しなので数えない。
 func draftTotalRunes(d models.ManuscriptDraft) int {
-	total := utf8.RuneCountInString(strings.TrimSpace(d.Intro)) +
-		utf8.RuneCountInString(strings.TrimSpace(d.ClosingSummary))
+	total := utf8.RuneCountInString(strings.TrimSpace(d.OpeningIntro)) +
+		utf8.RuneCountInString(strings.TrimSpace(d.EndingSummary))
 	for _, tp := range d.Topics {
 		total += utf8.RuneCountInString(strings.TrimSpace(tp.Preface))
 		total += utf8.RuneCountInString(strings.TrimSpace(tp.Detail))

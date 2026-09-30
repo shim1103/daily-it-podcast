@@ -91,7 +91,19 @@ func (rt *stubRoundTripper) storyCalls(shortID string) int {
 }
 
 func newStubListItemSource(rt *stubRoundTripper) *lobsters.ListItemSource {
-	return lobsters.NewListItemSource(&http.Client{Transport: rt}, lobsters.MaxStoriesScanned)
+	// why: 500 応答で retry を発生させる test（non-200 系）と発生させない test を共有する。
+	//      呼ばれるかどうかをテストごとに見極めず、常に Spy を渡して安全に倒す。
+	return lobsters.NewListItemSource(&http.Client{Transport: rt}, lobsters.MaxStoriesScanned, &retryReporterSpy{})
+}
+
+// retryReporterSpy は port.RetryReporter を満たし、Retry 呼び出しを記録する Spy。
+// retry が実際に発生する test（transient error からの再試行）専用。
+type retryReporterSpy struct {
+	calls int
+}
+
+func (s *retryReporterSpy) Retry(step string, attempt, max int, reason string) {
+	s.calls++
 }
 
 type hottestEntry struct {
@@ -101,10 +113,7 @@ type hottestEntry struct {
 
 // storyJSON は story 詳細 JSON を組む helper。
 func storyJSON(shortID, createdAt, submitter, title, descriptionPlain, url, shortIDURL, commentsURL string, comments ...string) string {
-	commentParts := make([]string, 0, len(comments))
-	for _, c := range comments {
-		commentParts = append(commentParts, c)
-	}
+	commentParts := append([]string{}, comments...)
 	commentsField := "[]"
 	if len(commentParts) > 0 {
 		commentsField = "[" + strings.Join(commentParts, ",") + "]"
@@ -135,7 +144,7 @@ func TestList_mapsHottestStoryToSourceItem_whenStoryInWindow(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -196,7 +205,37 @@ func TestList_excludesStoriesOlderThanSince_atBoundary(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
+
+	// @then 戻り値と error
+	if err != nil {
+		t.Fatalf("List() error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1 (%+v)", len(got), got)
+	}
+	if got[0].Summary != "境界ちょうど" {
+		t.Fatalf("Summary = %q, want %q", got[0].Summary, "境界ちょうど")
+	}
+}
+
+func TestList_excludesStoriesAtOrAfterUntil_atBoundary(t *testing.T) {
+	// @given created_at==until-1s の story と created_at==until の story を混ぜた double
+	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	until := since.Add(24 * time.Hour)
+	justInside := until.Add(-time.Second).Format(time.RFC3339)
+	atUntil := until.Format(time.RFC3339)
+	rt := newStubRoundTripper()
+	rt.setHottest(
+		hottestEntry{ShortID: "inwin", CreatedAt: justInside},
+		hottestEntry{ShortID: "outwin", CreatedAt: atUntil},
+	)
+	rt.setStory("inwin", storyJSON("inwin", justInside, "u", "境界ちょうど", "", "", "https://lobste.rs/s/inwin", ""))
+	rt.setStory("outwin", storyJSON("outwin", atUntil, "u", "境界の外", "", "", "https://lobste.rs/s/outwin", ""))
+	source := newStubListItemSource(rt)
+
+	// @when
+	got, err := source.List(context.Background(), since, until)
 
 	// @then 戻り値と error
 	if err != nil {
@@ -226,7 +265,7 @@ func TestList_excludesDeletedOrModeratedComments(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -269,7 +308,7 @@ func TestList_usesCommentPlainForCommentBody(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -304,7 +343,7 @@ func TestList_returnsNonNilEmptySlice_whenNothingInWindow(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -323,10 +362,10 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidJSON(t *t
 
 	t.Run("client nil", func(t *testing.T) {
 		// @given client を持たない ListItemSource
-		source := lobsters.NewListItemSource(nil, lobsters.MaxStoriesScanned)
+		source := lobsters.NewListItemSource(nil, lobsters.MaxStoriesScanned, nil)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -342,7 +381,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidJSON(t *t
 		source := newStubListItemSource(rt)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -358,7 +397,7 @@ func TestList_returnsInfrastructureError_whenClientNilOrNon200OrInvalidJSON(t *t
 		source := newStubListItemSource(rt)
 
 		// @when
-		got, err := source.List(context.Background(), since)
+		got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 		// @then 戻り値と error
 		if got != nil {
@@ -382,7 +421,7 @@ func TestList_dropsFailedStoryButKeepsRest_whenOneStoryDetailFetchFails(t *testi
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -404,7 +443,7 @@ func TestList_failsEntirely_whenHottestFetchFails(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if got != nil {
@@ -437,7 +476,7 @@ func TestList_dropsStory_whenDetailCreatedAtIsInvalid(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -462,7 +501,7 @@ func TestList_dropsStory_whenStoryJSONIsBroken(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と error
 	if err != nil {
@@ -494,7 +533,7 @@ func TestList_stopsScanningAfterCollectingMaxStoriesScanned_whenEnoughStoriesInW
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と fetch 回数
 	if err != nil {
@@ -527,10 +566,10 @@ func TestList_stopsScanningAtMaxItems_whenMaxItemsBelowMaxStoriesScanned(t *test
 		rt.setStory(e.ShortID, storyJSON(e.ShortID, createdAt, "u", "story", "本文", "", "https://lobste.rs/s/"+e.ShortID, ""))
 	}
 	maxItems := lobsters.MaxStoriesScanned - 2
-	source := lobsters.NewListItemSource(&http.Client{Transport: rt}, maxItems)
+	source := lobsters.NewListItemSource(&http.Client{Transport: rt}, maxItems, nil)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 結果は maxItems 件で打ち切る
 	if err != nil {
@@ -584,10 +623,10 @@ func TestList_retriesOnceOnTransientError_whenSecondAttemptSucceeds(t *testing.T
 			return nil, fmt.Errorf("sequenceRoundTripper: unexpected path %q", req.URL.Path)
 		},
 	}
-	source := lobsters.NewListItemSource(&http.Client{Transport: transientRT}, lobsters.MaxStoriesScanned)
+	source := lobsters.NewListItemSource(&http.Client{Transport: transientRT}, lobsters.MaxStoriesScanned, &retryReporterSpy{})
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と hottest fetch 回数
 	if err != nil {
@@ -612,7 +651,7 @@ func TestList_parsesCreatedAtWithTimezoneOffset_toUTC(t *testing.T) {
 	source := newStubListItemSource(rt)
 
 	// @when
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// @then 戻り値と OccurredAt
 	if err != nil {

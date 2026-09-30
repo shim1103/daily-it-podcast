@@ -28,3 +28,19 @@
 - 2026-09-25 [develop] どの ref からも辿れない tip は orphan（dangling）になりやすい。SHA を知れば一時的に戻せる場合もあるが、保証は弱い  # → layer:platform
 - 2026-09-25 [develop] hosting の「履歴が見える」ことは未 merge tip を残す理由にならない。進行中 work の正本参照は branch / tag / PR tip のどれかで明示する  # → layer:platform
 - 2026-09-25 [develop] branch の残置基準は「いま必要な参照か」だけ。残すのは保護ブランチと進行中の未完了 work。release 済み・直接/間接 merge 済み・再開しない tip は残置しない  # → layer:terms
+- 2026-09-26 [feature/generator-logging-mature] 「未注入時に本物の別実装へ黒魔術的に切り替わる」（暗黙default）と「未注入時にその1件の観測イベントだけを送らない」（optional observerの省略）は別category。前者は主処理の手段が注入なしで動き続けるため注入忘れが隠れる。後者は主処理に影響せず観測データが1件欠けるだけ。区別は「防御の置き場所」を決めるためであり「防御してよいか」を決めるものではない  # → layer:terms
+- 2026-09-26 [feature/generator-logging-mature] typed nil問題（具体型のnil pointerをinterfaceへ代入すると`== nil`比較がfalseになる）を持つ言語では、必須依存の未注入検査はinterface型の変数に対して行っても効かない。値が具体型のまま存在する最も内側の地点（値の生成元・結線の入口）で1点だけ検査する  # → layer:platform
+- 2026-09-26 [feature/generator-logging-mature] 必須依存の未注入をfail-fastで検出する検査は、値が生まれる場所へ1点だけ置く。各利用箇所（Adapter等）へ同じ検査を複製すると、検査対象が増えるたびに機械的な複製が要り、かつ言語のnil判定の効かない経路（typed nil等）を踏まえないと検査自体が空文になる  # → layer:terms
+- 2026-09-26 [feature/generator-logging-mature] test専用のDummy実装（何もしない実装）を、interfaceを定義するproduction packageへ置くべきではない。production的な正当化（標準ライブラリのdiscard実装のような実運用ユースケース）が無い限り、既存のtest double配置慣習（test fileごとの個別定義等）に従う  # → layer:terms
+- 2026-09-26 [feature/generator-logging-mature] 「開始と完了の2点でログを出す」規約は、処理の所要時間とhang検出の価値に依存するトレードオフのある設計選択であり、普遍的な正解ではない。数百ms級の個々の外部呼び出しには完了ログ1本で足りる場合が多く、数十秒級の粗い処理段階には両方が有効  # → layer:terms
+- 2026-09-26 [feature/generator-logging-mature] 複数goroutineから共有される出力先（ログwriter等）への書き込み排他は、並行処理を実装するタイミングを待たず、その型の契約として先に保証しておいてよい。単一goroutineから呼ばれ続ける間は悪影響もコストもほぼゼロで、後から追加すると発見しにくい競合を後日埋め込むリスクが残る  # → layer:terms
+- 2026-09-26 [feature/generator-logging-mature] agent実行環境がユーザー確認用tool（質問ダイアログ等）を明示的に無効化している場合、同一session内で一度denyされた後も同じtoolを再度使おうとする再発が起きやすい。deny理由を読んだ直後だけでなく、判断が必要な場面に来るたびに運用制約の記録を再確認する  # → layer:0:meta
+- 2026-09-29 [cursor/gemini-structured-yesterday-window-6a75] Port が時間窓を返すなら両端判定の所有者は Adapter。Application 再 filter と境界 test の付け替えは所有者違い  # → layer:terms
+- 2026-09-29 [cursor/gemini-structured-yesterday-window-6a75] structured 出力の schema は Unmarshal 正本の型から生成する。手書き schema は第二 SSOT  # → layer:terms
+- 2026-09-29 [cursor/gemini-structured-yesterday-window-6a75] SSoT 本文の文言存在 assert は値の二重管理で検出力が無い。消費側の振る舞い test に寄せる  # → layer:terms
+- 2026-09-29 [cursor/gemini-structured-yesterday-window-6a75] bookend field 名は opening / ending と対称にする。無修飾 summary は他 Summary 概念と衝突する  # → layer:terms
+- 2026-09-29 [develop] 外部APIのschema欄へ載せる文書は、文書の記法と欄が受ける型が一致するかを公式reference上の欄定義で確認する。fakeのtransportはAPIが欄を受理するかを検証できない  # → layer:platform
+- 2026-09-29 [develop] 同日の冪等性で早期returnする入口のSystem testは、別runの残骸があると実経路を通らずpassする。冪等な入口のe2eは再実行ごとに独立した状態を持たせる  # → layer:terms
+- 2026-09-29 [develop] CI/CD連鎖の成功は、その成功が実経路を通ったかまで観測して完了とする。所要時間や短絡logの有無は、緑の中身を疑う手がかりになる  # → layer:workflow
+- 2026-09-29 [develop] 資格情報や共有bucketなど外部の共有状態へ書く検証は、必要性があっても指示なしに実行しない。検証の必要性は実行の許可にならず、実行前に確認する  # → layer:terms
+- 2026-09-29 [develop] 共有repoへcommit・pushする前に現在branchを毎回確認する。以前確認した時点のbranchが維持されている保証は無い  # → layer:terms

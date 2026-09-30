@@ -24,14 +24,15 @@ type EpisodeWriter struct {
 	accountID       string
 	bucket          string
 	now             func() time.Time
+	retry           port.RetryReporter
 }
 
 // NewEpisodeWriter は R2 EpisodeWriter を返す。
 //
-// @require httpClient は非 nil（Write 時に検証）。accessKeyID / secretAccessKey / accountID / bucket は Composition が検証済み値を渡す。
+// @require httpClient は非 nil（Write 時に検証）。accessKeyID / secretAccessKey / accountID / bucket は Composition が検証済み値を渡す。retry != nil（Composition Root の結線責務）。
 // @ensure 戻りは非 nil の *EpisodeWriter（port.EpisodeWriter）。
 // @invariant bucket・key・Account ID・Access Key・secret 実値を error / log へ載せない。
-func NewEpisodeWriter(httpClient *http.Client, accessKeyID, secretAccessKey, accountID, bucket string) *EpisodeWriter {
+func NewEpisodeWriter(httpClient *http.Client, accessKeyID, secretAccessKey, accountID, bucket string, retry port.RetryReporter) *EpisodeWriter {
 	return &EpisodeWriter{
 		client:          httpClient,
 		accessKeyID:     accessKeyID,
@@ -39,6 +40,7 @@ func NewEpisodeWriter(httpClient *http.Client, accessKeyID, secretAccessKey, acc
 		accountID:       accountID,
 		bucket:          bucket,
 		now:             time.Now,
+		retry:           retry,
 	}
 }
 
@@ -62,7 +64,7 @@ func (w *EpisodeWriter) Write(ctx context.Context, episodeID string, manuscript 
 }
 
 func (w *EpisodeWriter) putObject(ctx context.Context, objectName, mime string, content []byte) error {
-	_, err := retryLoop(maxPutAttempts, func() (bool, struct{}, error) {
+	_, err := retryLoop(w.retry, "write_episode", maxPutAttempts, func() (bool, struct{}, error) {
 		retryable, opErr := w.putOnce(ctx, objectName, mime, content)
 		return retryable, struct{}{}, opErr
 	})

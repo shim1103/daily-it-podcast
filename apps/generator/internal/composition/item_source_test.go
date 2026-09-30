@@ -22,7 +22,7 @@ type fakeItemSource struct {
 
 var _ port.ItemSource = fakeItemSource{}
 
-func (f fakeItemSource) List(_ context.Context, _ time.Time) ([]models.SourceItem, error) {
+func (f fakeItemSource) List(_ context.Context, _, _ time.Time) ([]models.SourceItem, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -42,7 +42,7 @@ func TestCompositeItemSource_concatsListResultsInRegistrationOrder(t *testing.T)
 	}}
 
 	// When: composite の List を呼ぶ
-	got, err := newCompositeItemSource(first, second).List(context.Background(), fixedNow)
+	got, err := newCompositeItemSource(first, second).List(context.Background(), fixedNow, fixedNow.Add(24*time.Hour))
 
 	// Then: 戻り slice が登録順に並ぶ
 	if err != nil {
@@ -69,7 +69,7 @@ func TestCompositeItemSource_returnsNonNilEmptySlice_whenAllSourcesEmpty(t *test
 	)
 
 	// When: composite の List を呼ぶ
-	got, err := empties.List(context.Background(), fixedNow)
+	got, err := empties.List(context.Background(), fixedNow, fixedNow.Add(24*time.Hour))
 
 	// Then: 非 nil の空 slice が返る
 	if err != nil {
@@ -90,7 +90,7 @@ func TestCompositeItemSource_returnsNonNilEmptySlice_whenNoSources(t *testing.T)
 	empty := newCompositeItemSource()
 
 	// When: composite の List を呼ぶ
-	got, err := empty.List(context.Background(), fixedNow)
+	got, err := empty.List(context.Background(), fixedNow, fixedNow.Add(24*time.Hour))
 
 	// Then: 非 nil の空 slice が返る
 	if err != nil {
@@ -115,7 +115,7 @@ func TestCompositeItemSource_propagatesError_whenAnySourceFails(t *testing.T) {
 	)
 
 	// When: composite の List を呼ぶ
-	got, err := failing.List(context.Background(), fixedNow)
+	got, err := failing.List(context.Background(), fixedNow, fixedNow.Add(24*time.Hour))
 
 	// Then: その error がそのまま返り、成功分は返さない
 	if !errors.Is(err, sentinel) {

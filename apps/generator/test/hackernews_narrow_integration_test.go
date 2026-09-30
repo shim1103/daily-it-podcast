@@ -62,7 +62,7 @@ func newHackerNewsListItemSourceWithProxy(t *testing.T, handler http.HandlerFunc
 			},
 		},
 	}
-	return hackernews.NewListItemSource(httpClient, hackernews.MaxStoriesScanned), probe
+	return hackernews.NewListItemSource(httpClient, hackernews.MaxStoriesScanned, &retryReporterSpy{}), probe
 }
 
 func TestHackerNewsListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucceeds(t *testing.T) {
@@ -84,7 +84,7 @@ func TestHackerNewsListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucce
 	})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: upstream は GET・Authorization 空、戻りは SourceID=hackernews の 1 件以上
 	if err != nil {
@@ -119,7 +119,7 @@ func TestHackerNewsListItemSource_returnsInfrastructureError_whenUpstreamFails(t
 	})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: *adaptererror.Error（hackernews: prefix）かつ top-level 5xx で 2 回 request（retry once）
 	if got != nil {

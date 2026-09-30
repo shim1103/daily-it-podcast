@@ -78,7 +78,7 @@ func resolveDraftAPITarget(t *testing.T, api string) draftAPITarget {
 			name:   "cursor",
 			keyEnv: "CURSOR_API_KEY",
 			newWriter: func(apiKey string) port.TextWriter {
-				return cursorapi.NewTextWriter(&http.Client{}, apiKey)
+				return cursorapi.NewTextWriter(&http.Client{}, apiKey, &retryReporterSpy{})
 			},
 		}
 	case "gemini":
@@ -86,7 +86,7 @@ func resolveDraftAPITarget(t *testing.T, api string) draftAPITarget {
 			name:   "gemini",
 			keyEnv: "TEST_GEMINI_API_KEY",
 			newWriter: func(apiKey string) port.TextWriter {
-				return geminiapi.NewTextWriter(&http.Client{}, apiKey, geminiapi.TierFree)
+				return geminiapi.NewTextWriter(&http.Client{}, apiKey, geminiapi.TierFree, &retryReporterSpy{})
 			},
 		}
 	default:

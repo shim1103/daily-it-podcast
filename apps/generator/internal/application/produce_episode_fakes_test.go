@@ -16,7 +16,7 @@ type fakeItemSource struct {
 	err   error
 }
 
-func (f *fakeItemSource) List(_ context.Context, since time.Time) ([]models.SourceItem, error) {
+func (f *fakeItemSource) List(_ context.Context, since, _ time.Time) ([]models.SourceItem, error) {
 	f.calls = append(f.calls, since)
 	if f.err != nil {
 		return nil, f.err
