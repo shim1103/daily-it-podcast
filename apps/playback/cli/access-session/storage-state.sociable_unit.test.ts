@@ -2,84 +2,33 @@ import { describe, expect, it } from "vitest";
 import {
   ACCESS_COOKIE_NAME,
   ACCESS_SESSION_WARNING_SEC,
-  buildAccessSessionStorageState,
   checkAccessSession,
   judgeAccessSession,
 } from "./storage-state.ts";
-import {
-  createFakeAccessJwt,
-  createFakeAccessJwtWithoutExpiry,
-} from "../../test/support/fake-access-jwt.ts";
 
-const ORIGIN = "https://playback.example.workers.dev";
 const EXPIRES_AT_SEC = 1_800_000_000;
 
-describe("buildAccessSessionStorageState", () => {
-  it("builds_the_access_cookie_with_the_jwt_exp_as_expiry_when_given_a_valid_jwt", () => {
-    // Given: exp を持つ JWT と本番 origin
-    const jwt = createFakeAccessJwt(EXPIRES_AT_SEC);
+function createAccessCookie(expiresAtSec: number) {
+  return {
+    name: ACCESS_COOKIE_NAME,
+    value: "fake-cookie-value",
+    domain: "playback.example.workers.dev",
+    path: "/",
+    expires: expiresAtSec,
+    httpOnly: true,
+    secure: true,
+    sameSite: "Lax",
+  };
+}
 
-    // When: storageState を組み立てる
-    const state = buildAccessSessionStorageState(ORIGIN, jwt);
-
-    // Then: origin の host に属する Access cookie が 1 つあり、期限は JWT の exp と一致する
-    expect(state).toEqual({
-      cookies: [
-        {
-          name: ACCESS_COOKIE_NAME,
-          value: jwt,
-          domain: "playback.example.workers.dev",
-          path: "/",
-          expires: EXPIRES_AT_SEC,
-          httpOnly: true,
-          secure: true,
-          sameSite: "Lax",
-        },
-      ],
-      origins: [],
-    });
-  });
-
-  it("rejects_a_jwt_that_does_not_have_three_segments", () => {
-    // Given: 2 segment しか無い値
-    const notJwt = createFakeAccessJwt(EXPIRES_AT_SEC).split(".").slice(0, 2).join(".");
-
-    // When / Then: JWT ではないので組み立てを拒否する
-    expect(() => buildAccessSessionStorageState(ORIGIN, notJwt)).toThrow("JWT");
-  });
-
-  it("rejects_a_jwt_whose_payload_has_no_numeric_exp", () => {
-    // Given: exp を持たない payload の JWT
-    const jwt = createFakeAccessJwtWithoutExpiry();
-
-    // When / Then: 期限が分からないので組み立てを拒否する
-    expect(() => buildAccessSessionStorageState(ORIGIN, jwt)).toThrow("exp");
-  });
-
-  it("rejects_a_jwt_whose_payload_is_not_json", () => {
-    // Given: payload segment が JSON ではない JWT
-    const [header] = createFakeAccessJwt(EXPIRES_AT_SEC).split(".");
-    const jwt = `${header}.${Buffer.from("not json").toString("base64url")}.signature`;
-
-    // When / Then: payload を読めないので組み立てを拒否する
-    expect(() => buildAccessSessionStorageState(ORIGIN, jwt)).toThrow("JSON");
-  });
-
-  it("rejects_an_origin_that_is_not_a_url", () => {
-    // Given: URL ではない origin
-    const jwt = createFakeAccessJwt(EXPIRES_AT_SEC);
-
-    // When / Then: host を取り出せないので組み立てを拒否する
-    expect(() => buildAccessSessionStorageState("not a url", jwt)).toThrow("origin");
-  });
-});
+function createStorageStateJson(expiresAtSec: number): string {
+  return JSON.stringify({ cookies: [createAccessCookie(expiresAtSec)], origins: [] });
+}
 
 describe("checkAccessSession", () => {
   it("reports_the_expiry_and_remaining_seconds_when_the_access_cookie_is_present", () => {
-    // Given: 組み立て済みの storageState JSON と、期限の 100 秒前の現在時刻
-    const json = JSON.stringify(
-      buildAccessSessionStorageState(ORIGIN, createFakeAccessJwt(EXPIRES_AT_SEC)),
-    );
+    // Given: Access cookie を持つ storageState の JSON と、期限の 100 秒前の現在時刻
+    const json = createStorageStateJson(EXPIRES_AT_SEC);
 
     // When: 期限を確認する
     const status = checkAccessSession(json, EXPIRES_AT_SEC - 100);
@@ -89,16 +38,28 @@ describe("checkAccessSession", () => {
   });
 
   it("reports_zero_remaining_seconds_when_now_equals_the_expiry", () => {
-    // Given: 組み立て済みの storageState JSON
-    const json = JSON.stringify(
-      buildAccessSessionStorageState(ORIGIN, createFakeAccessJwt(EXPIRES_AT_SEC)),
-    );
+    // Given: Access cookie を持つ storageState の JSON
+    const json = createStorageStateJson(EXPIRES_AT_SEC);
 
     // When: 期限ちょうどの時刻で確認する
     const status = checkAccessSession(json, EXPIRES_AT_SEC);
 
     // Then: 残りは 0 秒
     expect(status.remainingSec).toBe(0);
+  });
+
+  it("finds_the_access_cookie_when_other_cookies_are_present", () => {
+    // Given: 他の cookie の後ろに Access cookie がある storageState（人が cookie を足した場合）
+    const json = JSON.stringify({
+      cookies: [{ name: "CF_Other", value: "x", expires: 1 }, createAccessCookie(EXPIRES_AT_SEC)],
+      origins: [],
+    });
+
+    // When: 期限を確認する
+    const status = checkAccessSession(json, EXPIRES_AT_SEC - 100);
+
+    // Then: 他の cookie ではなく Access cookie の期限を読む
+    expect(status.expiresAtSec).toBe(EXPIRES_AT_SEC);
   });
 
   it("rejects_a_storage_state_without_the_access_cookie", () => {

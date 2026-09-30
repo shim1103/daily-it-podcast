@@ -137,7 +137,7 @@ export default {
       severity: "error",
       comment: "storage-state は IO を持たない。出力・入口へ依存しない",
       from: { path: "^cli/access-session/storage-state\\.ts$" },
-      to: { path: "^cli/access-session/(command|main|read-stream)\\.ts$" },
+      to: { path: "^cli/access-session/(command|main)\\.ts$" },
     },
   ],
   options: {

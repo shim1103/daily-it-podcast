@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { createFakeAccessJwt } from "../../test/support/fake-access-jwt.ts";
 import {
   type AccessSessionCommandIo,
   EXIT_FAILED,
@@ -10,17 +9,15 @@ import {
 import {
   ACCESS_COOKIE_NAME,
   ACCESS_SESSION_WARNING_SEC,
-  buildAccessSessionStorageState,
   SECONDS_PER_DAY,
 } from "./storage-state.ts";
 
-const ORIGIN = "https://playback.example.workers.dev";
 const NOW_SEC = 1_800_000_000;
+const COOKIE_VALUE = "fake-cookie-value";
 
 type FakeIoOptions = {
-  stdin?: string;
   storageStateEnv?: string;
-  readStdin?: () => Promise<string>;
+  nowSec?: () => number;
 };
 
 type FakeIo = { io: AccessSessionCommandIo; stdout: string[]; stderr: string[] };
@@ -29,9 +26,8 @@ function createFakeIo(options: FakeIoOptions = {}): FakeIo {
   const stdout: string[] = [];
   const stderr: string[] = [];
   const io: AccessSessionCommandIo = {
-    readStdin: options.readStdin ?? (async () => options.stdin ?? ""),
     storageStateEnv: options.storageStateEnv,
-    nowSec: () => NOW_SEC,
+    nowSec: options.nowSec ?? (() => NOW_SEC),
     writeStdout: (line) => stdout.push(line),
     writeStderr: (line) => stderr.push(line),
   };
@@ -39,77 +35,11 @@ function createFakeIo(options: FakeIoOptions = {}): FakeIo {
 }
 
 function createStorageStateJson(expiresAtSec: number): string {
-  return JSON.stringify(buildAccessSessionStorageState(ORIGIN, createFakeAccessJwt(expiresAtSec)));
+  return JSON.stringify({
+    cookies: [{ name: ACCESS_COOKIE_NAME, value: COOKIE_VALUE, expires: expiresAtSec }],
+    origins: [],
+  });
 }
-
-describe("runAccessSessionCommand build", () => {
-  it("writes_the_storage_state_json_to_stdout_and_the_expiry_to_stderr_when_given_a_valid_jwt", async () => {
-    // Given: 30 日後に失効する JWT を標準入力から受け取る
-    const jwt = createFakeAccessJwt(NOW_SEC + 30 * SECONDS_PER_DAY);
-    const { io, stdout, stderr } = createFakeIo({ stdin: jwt });
-
-    // When: build を実行する
-    const status = await runAccessSessionCommand(["build", ORIGIN], io);
-
-    // Then: 成功し、標準出力は JWT の exp を期限とする storageState の JSON 1 行、標準エラーは期限の表示
-    expect(status).toBe(EXIT_OK);
-    expect(stdout).toEqual([JSON.stringify(buildAccessSessionStorageState(ORIGIN, jwt))]);
-    expect(stderr).toHaveLength(1);
-    expect(stderr[0]).toContain("期限");
-  });
-
-  it("fails_and_writes_nothing_to_stdout_when_the_jwt_is_already_expired", async () => {
-    // Given: 既に失効した JWT
-    const { io, stdout, stderr } = createFakeIo({ stdin: createFakeAccessJwt(NOW_SEC - 60) });
-
-    // When: build を実行する
-    const status = await runAccessSessionCommand(["build", ORIGIN], io);
-
-    // Then: 失敗し、登録されうる JSON を標準出力へ出さない
-    expect(status).toBe(EXIT_FAILED);
-    expect(stdout).toEqual([]);
-    expect(stderr[0]).toContain("失効");
-  });
-
-  it("returns_the_usage_status_when_the_origin_is_missing", async () => {
-    // Given: origin を渡さない
-    const { io, stdout, stderr } = createFakeIo({ stdin: createFakeAccessJwt(NOW_SEC + 1) });
-
-    // When: build を実行する
-    const status = await runAccessSessionCommand(["build"], io);
-
-    // Then: 使い方の終了 status を返し、標準出力は空
-    expect(status).toBe(EXIT_USAGE);
-    expect(stdout).toEqual([]);
-    expect(stderr[0]).toContain("使い方");
-  });
-
-  it("returns_the_usage_status_when_the_origin_is_empty", async () => {
-    // Given: 空の origin
-    const { io, stdout } = createFakeIo({ stdin: createFakeAccessJwt(NOW_SEC + 1) });
-
-    // When: build を実行する
-    const status = await runAccessSessionCommand(["build", ""], io);
-
-    // Then: 使い方の終了 status を返し、標準出力は空
-    expect(status).toBe(EXIT_USAGE);
-    expect(stdout).toEqual([]);
-  });
-
-  it("fails_without_echoing_the_value_when_the_input_is_not_a_jwt", async () => {
-    // Given: JWT の形ではない入力
-    const notJwt = "not-a-jwt-value";
-    const { io, stdout, stderr } = createFakeIo({ stdin: notJwt });
-
-    // When: build を実行する
-    const status = await runAccessSessionCommand(["build", ORIGIN], io);
-
-    // Then: 失敗し、入力の値を標準出力にも標準エラーにも出さない
-    expect(status).toBe(EXIT_FAILED);
-    expect(stdout).toEqual([]);
-    expect(stderr.join("\n")).not.toContain(notJwt);
-  });
-});
 
 describe("runAccessSessionCommand check", () => {
   it("reports_the_session_as_alive_when_the_expiry_is_beyond_the_warning_window", async () => {
@@ -123,7 +53,7 @@ describe("runAccessSessionCommand check", () => {
     // When: check を実行する
     const status = await runAccessSessionCommand(["check"], io);
 
-    // Then: 成功し、有効と表示する（失効間近の表示は出ない）
+    // Then: 成功し、有効と表示する（失効間近の表示は出ず、期限だけの確認だと添える）
     expect(status).toBe(EXIT_OK);
     expect(stdout[0]).toContain("有効");
     expect(stdout[0]).not.toContain("失効間近");
@@ -146,9 +76,8 @@ describe("runAccessSessionCommand check", () => {
 
   it("fails_and_points_to_the_recovery_procedure_when_the_session_is_expired", async () => {
     // Given: 既に失効した storageState
-    const jwt = createFakeAccessJwt(NOW_SEC - 60);
     const { io, stdout, stderr } = createFakeIo({
-      storageStateEnv: JSON.stringify(buildAccessSessionStorageState(ORIGIN, jwt)),
+      storageStateEnv: createStorageStateJson(NOW_SEC - 60),
     });
 
     // When: check を実行する
@@ -158,7 +87,7 @@ describe("runAccessSessionCommand check", () => {
     expect(status).toBe(EXIT_FAILED);
     expect(stderr.join("\n")).toContain("失効している");
     expect(stderr.join("\n")).toContain("DEPLOY.md");
-    expect(`${stdout.join("\n")}${stderr.join("\n")}`).not.toContain(jwt);
+    expect(`${stdout.join("\n")}${stderr.join("\n")}`).not.toContain(COOKIE_VALUE);
   });
 
   it("skips_and_succeeds_when_the_storage_state_env_is_unset", async () => {
@@ -214,11 +143,11 @@ describe("runAccessSessionCommand dispatch", () => {
   });
 
   it("returns_the_usage_status_when_the_command_is_unknown", async () => {
-    // Given: 存在しない subcommand
+    // Given: 存在しない subcommand（登録用の build は持たない）
     const { io, stderr } = createFakeIo();
 
     // When: 実行する
-    const status = await runAccessSessionCommand(["register"], io);
+    const status = await runAccessSessionCommand(["build"], io);
 
     // Then: 使い方の終了 status を返す
     expect(status).toBe(EXIT_USAGE);
@@ -226,13 +155,16 @@ describe("runAccessSessionCommand dispatch", () => {
   });
 
   it("fails_with_a_generic_message_when_a_non_error_value_is_thrown", async () => {
-    // Given: 標準入力の読み取りが Error でない値で失敗する
+    // Given: 時刻の取得が、Error ではない値で失敗する
     const { io, stderr } = createFakeIo({
-      readStdin: () => Promise.reject("not an error object"),
+      storageStateEnv: createStorageStateJson(NOW_SEC + SECONDS_PER_DAY),
+      nowSec: () => {
+        throw "not an error object";
+      },
     });
 
-    // When: build を実行する
-    const status = await runAccessSessionCommand(["build", ORIGIN], io);
+    // When: check を実行する
+    const status = await runAccessSessionCommand(["check"], io);
 
     // Then: 失敗し、想定外の失敗と表示する
     expect(status).toBe(EXIT_FAILED);
