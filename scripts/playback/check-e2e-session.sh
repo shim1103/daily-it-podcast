@@ -11,5 +11,5 @@ root="$(git rev-parse --show-toplevel)"
 
 (
   cd "$root/apps/playback"
-  node --experimental-strip-types --no-warnings test/support/access-session-cli.ts check
+  node --experimental-strip-types --no-warnings cli/access-session/main.ts check
 )

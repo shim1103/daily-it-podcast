@@ -22,7 +22,7 @@ echo >&2
 
 state_json="$(
   cd "$root/apps/playback"
-  printf '%s' "$token" | node --experimental-strip-types --no-warnings test/support/access-session-cli.ts build "$origin"
+  printf '%s' "$token" | node --experimental-strip-types --no-warnings cli/access-session/main.ts build "$origin"
 )" || { echo "storageState を組み立てられなかった。Secret は変更していない" >&2; exit 1; }
 
 printf '%s' "$state_json" | gh secret set PLAYWRIGHT_STORAGE_STATE_JSON
