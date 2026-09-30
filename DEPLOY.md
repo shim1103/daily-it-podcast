@@ -166,13 +166,13 @@ e2e が「一覧が出ない」で落ちた時は、最初の step「Access sess
 
 1. 普段の browser で本番 URL を開き、許可 email の OTP で入場する（Playwright の browser は使わない）
 2. DevTools の Application（Storage）の Cookies から、本番 origin の `CF_Authorization` の値をコピーする
-3. 雛形 `apps/playback/cli/access-session/storage-state.example.json` を手元へコピーし、`<...>` の 3 箇所と `expires` を実値へ置き換える（repo へ戻さない）
+3. 雛形 `apps/playback/cli/access-session/storage-state.example.json` を手元へコピーし、`<...>` で書かれた 3 箇所を実値へ置き換える（repo へ戻さない）。置き換え忘れは、最初の step が期限を読めず失敗する
 
 | 項目 | 入れる値 |
 |---|---|
 | `value` | 手順 2 でコピーした `CF_Authorization` の値 |
 | `domain` | 本番 host のみ（scheme と path を除く。例 `playback.example.workers.dev`） |
-| `expires` | 期限の Unix 秒（数値）。DevTools の Expires 列の日時から求める。macOS なら `date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "<日時>" +%s`。`0` と `-1` は失効として扱われる |
+| `expires` | 期限の Unix 秒。**数値**で入れ、引用符（`"`）は外す。DevTools の Expires 列の日時（例 `2026-10-30T16:44:30.650Z`）から、`node -e 'console.log(Math.floor(Date.parse("<日時>")/1000))'` で求める（小数秒があっても、`Z` があっても使える）。`0` と `-1` は失効として扱われる |
 
 4. Secret `PLAYWRIGHT_STORAGE_STATE_JSON` へ、JSON 本文を登録する。shell の履歴と process 一覧に値を残さないよう、file から渡す
 
