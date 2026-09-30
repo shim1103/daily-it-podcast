@@ -16,7 +16,7 @@ branch: feature/playback-e2e-session-recovery
 1. `test/support/` は test 専用の double と helper の置き場である。運用に使う production の code を置くと、責務が2つになり（SRP）、coverage の分母からも外れる。CLI は test を支えるのではなく、運用の手段として動く。
 2. `DESIGN.md` §1 は、runtime を互いに import させない。CLI は Node の runtime で動くので、Worker の BFF（`worker`）にも、ブラウザの `web` にも混ぜず、独立した区画にする。root 直下の dir は層の名前とし、共有物は責務を名乗る package に置く（`ring-model` §4-7）。
 3. 出力の実体（`console` への直接書き込み）は境界 1 点が持つ（`logging-boundary` §1・§6）。この repo では、その 1 点が `logger.ts` である。例外の file を増やすほど、1 点の保証が崩れる。
-4. 除外を増やして gate を通すと、gate が守るものが減る。到達できない分岐はコードから消し、実在する入力は test で覆う。標準入力を読む部分を、テストできる関数に切り出せば、`main.ts` は分岐が 0 になり、除外せずに分母へ入る。
+4. 除外を増やして gate を通すと、gate が守るものが減る。到達できない分岐はコードから消し、実在する入力は test で覆う。判断を `command.ts` に集め、`main.ts` を結線だけにすれば、分岐が 0 になり、除外せずに分母へ入る。
 
 ## 3. Rejected
 

@@ -22,7 +22,7 @@ Non-scope（書かない・写さない）:
 | `apps/generator` | 取得 → 原稿 → TTS → R2 書込 | 外部 API / CLI（Infrastructure） |
 | `apps/playback/web` | 一覧・再生・原稿表示 | `worker` の HTTP のみ |
 | `apps/playback/worker` | R2 読取 BFF | R2 binding（入場境界は `DEPLOY.md`） |
-| `apps/playback/cli` | e2e の Access session の運用（storageState の組み立て・期限確認）。Node の CLI | Access の JWT と Playwright の storageState の形だけ。`web`・`worker`・`contracts` は import しない（出力の実体 `worker/src/routes/logger.ts` の 1 点だけが例外） |
+| `apps/playback/cli` | e2e の Access session の期限確認。Node の CLI（storageState の JSON は人が組み立てて登録する。構造の例は `storage-state.example.json`） | Playwright の storageState の形（`CF_Authorization` cookie の `expires`）だけ。`web`・`worker`・`contracts` は import しない（出力の実体 `worker/src/routes/logger.ts` の 1 点だけが例外） |
 
 禁止: `playback` ↔ `generator` の直接依存。二系統の runtime は互いに import しない。つながるのは共有 storage 上の file だけ（形の正本は repo 根 `contracts/`）。**現行 runtime の storage は Cloudflare R2**（書込・読取とも）。
 
@@ -54,9 +54,9 @@ Non-scope（書かない・写さない）:
 | `playback/worker/src/entities` 等 | 上に同じ（BFF） |
 | `playback/web/src/{pages,components/feature,components/primitive,view-models,api,utils,lib}` | frontend（role と dir は 1 対 1） |
 | `playback/contracts` | web↔worker HTTP 境界共有型（Infrastructure は import 禁止） |
-| `playback/cli/access-session/storage-state.ts` | Entities（storageState の組み立てと期限判定。IO を持たない） |
+| `playback/cli/access-session/storage-state.ts` | Entities（storageState の期限の読み取りと判定。IO を持たない） |
 | `playback/cli/access-session/command.ts` | Delivery Mechanism（引数と入出力を終了 status へ変換する。IO は注入される） |
-| `playback/cli/access-session/main.ts` | Composition Root（process の stdin・env・時刻・出力を結線する。分岐を持たない） |
+| `playback/cli/access-session/main.ts` | Composition Root（process の env・時刻・出力を結線する。分岐を持たない） |
 
 `playback/web` は Vite + TypeScript + React + Pico.css classless。`playback/worker` 入口は Hono、型同期は Hono RPC。Next.js / shadcn / TanStack は使わない。
 

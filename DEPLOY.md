@@ -166,10 +166,25 @@ e2e が「一覧が出ない」で落ちた時は、最初の step「Access sess
 
 1. 普段の browser で本番 URL を開き、許可 email の OTP で入場する（Playwright の browser は使わない）
 2. DevTools の Application（Storage）の Cookies から、本番 origin の `CF_Authorization` の値をコピーする
-3. `./scripts/playback/register-e2e-session.sh` を実行し、origin（env `PLAYWRIGHT_BASE_URL` があれば省略される）と、コピーした値を prompt に貼る。値は画面に出ない。JWT の `exp` を期限とする storageState を組み立て、Secret `PLAYWRIGHT_STORAGE_STATE_JSON` へ登録する。既に失効した値と JWT でない値は登録されない
-4. 動作確認をする（下記）
+3. 雛形 `apps/playback/cli/access-session/storage-state.example.json` を手元へコピーし、`<...>` の 3 箇所と `expires` を実値へ置き換える（repo へ戻さない）
 
-値は argv にも file にも残らない。期限と残り日数は、e2e の最初の step が log に出す（残り 7 日未満は「失効間近」と表示する）。
+| 項目 | 入れる値 |
+|---|---|
+| `value` | 手順 2 でコピーした `CF_Authorization` の値 |
+| `domain` | 本番 host のみ（scheme と path を除く。例 `playback.example.workers.dev`） |
+| `expires` | 期限の Unix 秒（数値）。DevTools の Expires 列の日時から求める。macOS なら `date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "<日時>" +%s`。`0` と `-1` は失効として扱われる |
+
+4. Secret `PLAYWRIGHT_STORAGE_STATE_JSON` へ、JSON 本文を登録する。shell の履歴と process 一覧に値を残さないよう、file から渡す
+
+```bash
+gh secret set PLAYWRIGHT_STORAGE_STATE_JSON < ./storage-state.json
+```
+
+GitHub の Settings → Secrets and variables → Actions → 同名の Secret を更新してもよい。登録後、手元の file は消す（`rm ./storage-state.json`）
+
+5. 動作確認をする（下記）
+
+期限と残り日数は、e2e の最初の step が log に出す（残り 7 日未満は「失効間近」と表示する）。
 
 手動確認: `gh workflow run playback-e2e.yml --ref <branch>`（Secret 付き）。失敗時は、画面と error context が artifact `playback-e2e-failure` に 7 日残る。trace は request の cookie を含みうるため、upload しない。
 
