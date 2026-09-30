@@ -6,7 +6,8 @@
   "r2_buckets": [
     {
       "binding": "EPISODES",
-      "bucket_name": "daily-it-podcast-dev"
+      "bucket_name": "daily-it-podcast-dev",
+      "remote": true
     }
   ],
   "d1_databases": [
@@ -14,6 +15,7 @@
       "binding": "EPISODE_PROGRESS",
       "database_name": "daily-it-podcast-progress-dev",
       "database_id": "51ddafa0-f337-4097-b3bb-3172d5588373",
+      "remote": true,
       "migrations_dir": "../../worker/migrations"
     }
   ]
