@@ -20,8 +20,8 @@ root="$(git rev-parse --show-toplevel)"
 echo "d1-smoke: playback (認証の診断。token が見ている account と権限)"
 (
   cd "$root/apps/playback"
-  # why: 権限不足と account 不一致を log から切り分ける診断。メールは log に残さない。診断の失敗で疎通を止めない
-  npx wrangler whoami 2>&1 | { grep -v '@' || true; } || true
+  # why: 権限不足と account 不一致を log から切り分ける診断。account 名はメールを含みうるので伏せる。診断の失敗で疎通を止めない
+  npx wrangler whoami 2>&1 | sed -E 's/[[:alnum:]._+-]+@[[:alnum:].-]+/<email>/g' || true
 )
 
 echo "d1-smoke: playback (migration を TEST D1 へ適用)"
