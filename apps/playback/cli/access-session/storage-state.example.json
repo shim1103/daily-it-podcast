@@ -5,7 +5,7 @@
       "value": "<CF_Authorization の値>",
       "domain": "<本番 host（scheme と path を除く）>",
       "path": "/",
-      "expires": 0,
+      "expires": "<期限の Unix 秒（数値。引用符を外す）>",
       "httpOnly": true,
       "secure": true,
       "sameSite": "Lax"
