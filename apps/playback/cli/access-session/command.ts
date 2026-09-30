@@ -67,7 +67,7 @@ function runCheck(io: AccessSessionCommandIo): number {
     return EXIT_FAILED;
   }
   io.writeStdout(
-    `Access session は有効${verdict === "expiring" ? "だが、失効間近" : ""}。${expiry}`,
+    `Access session の期限は有効${verdict === "expiring" ? "だが、失効間近" : ""}。${expiry}。期限だけの確認で、Access が受理するかは E2E が確かめる`,
   );
   return EXIT_OK;
 }

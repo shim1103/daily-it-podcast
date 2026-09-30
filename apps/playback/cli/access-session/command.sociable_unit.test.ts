@@ -127,6 +127,7 @@ describe("runAccessSessionCommand check", () => {
     expect(status).toBe(EXIT_OK);
     expect(stdout[0]).toContain("有効");
     expect(stdout[0]).not.toContain("失効間近");
+    expect(stdout[0]).toContain("Access が受理するかは E2E");
   });
 
   it("reports_the_session_as_expiring_when_less_than_the_warning_window_remains", async () => {
