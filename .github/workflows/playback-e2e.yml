@@ -56,7 +56,7 @@ jobs:
         if: ${{ github.event_name == 'workflow_run' }}
         run: sleep 30
 
-      # Secret が無い（placeholder のみ）でも落ちない。値があるときだけ file 化して env へ渡す。
+      # Secret が無い（placeholder のみ）でも落ちない。値があるときだけ、expires を Unix 秒に直して file 化し、env へ渡す。
       - name: storageState を file 化し E2E を実行
         env:
           PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}
@@ -65,7 +65,8 @@ jobs:
           set -euo pipefail
           if [ -n "${PLAYWRIGHT_STORAGE_STATE_JSON:-}" ]; then
             state_path="${RUNNER_TEMP}/playback-storage-state.json"
-            printf '%s' "$PLAYWRIGHT_STORAGE_STATE_JSON" >"$state_path"
+            node --experimental-strip-types --no-warnings \
+              apps/playback/cli/access-session/main.ts normalize "$state_path"
             export PLAYWRIGHT_STORAGE_STATE="$state_path"
           fi
           ./scripts/playback/test-e2e.sh

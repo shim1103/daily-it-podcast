@@ -172,7 +172,7 @@ e2e が「一覧が出ない」で落ちた時は、最初の step「Access sess
 |---|---|
 | `value` | 手順 2 でコピーした `CF_Authorization` の値 |
 | `domain` | 本番 host のみ（scheme と path を除く。例 `playback.example.workers.dev`） |
-| `expires` | 期限の Unix 秒。**数値**で入れ、引用符（`"`）は外す。DevTools の Expires 列の日時（例 `2026-10-30T16:44:30.650Z`）から、`node -e 'console.log(Math.floor(Date.parse("<日時>")/1000))'` で求める（小数秒があっても、`Z` があっても使える）。`0` と `-1` は失効として扱われる |
+| `expires` | DevTools の Expires 列の日時を、**変換せずそのまま文字列で**貼る（例 `"2026-10-30T16:44:30.650Z"`）。E2E を実行する step が Unix 秒へ直して Playwright へ渡す。Unix 秒の数値も受け付ける（`0` と `-1` は失効として扱われる） |
 
 4. Secret `PLAYWRIGHT_STORAGE_STATE_JSON` へ、JSON 本文を登録する。shell の履歴と process 一覧に値を残さないよう、file から渡す
 

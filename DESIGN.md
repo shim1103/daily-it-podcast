@@ -22,7 +22,7 @@ Non-scope（書かない・写さない）:
 | `apps/generator` | 取得 → 原稿 → TTS → R2 書込 | 外部 API / CLI（Infrastructure） |
 | `apps/playback/web` | 一覧・再生・原稿表示 | `worker` の HTTP のみ |
 | `apps/playback/worker` | R2 読取 BFF | R2 binding（入場境界は `DEPLOY.md`） |
-| `apps/playback/cli` | e2e の Access session の期限確認。Node の CLI（storageState の JSON は人が組み立てて登録する。構造の例は `storage-state.example.json`） | Playwright の storageState の形（`CF_Authorization` cookie の `expires`）だけ。`web`・`worker`・`contracts` は import しない（出力の実体 `worker/src/routes/logger.ts` の 1 点だけが例外） |
+| `apps/playback/cli` | e2e の Access session の期限確認と、`expires` を Unix 秒へ直した storageState の書き出し。Node の CLI（storageState の JSON は人が組み立てて登録する。構造の例は `storage-state.example.json`） | Playwright の storageState の形（`CF_Authorization` cookie の `expires`）だけ。`web`・`worker`・`contracts` は import しない（出力の実体 `worker/src/routes/logger.ts` の 1 点だけが例外） |
 
 禁止: `playback` ↔ `generator` の直接依存。二系統の runtime は互いに import しない。つながるのは共有 storage 上の file だけ（形の正本は repo 根 `contracts/`）。**現行 runtime の storage は Cloudflare R2**（書込・読取とも）。
 
