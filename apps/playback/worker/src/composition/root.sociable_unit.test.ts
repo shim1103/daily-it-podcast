@@ -125,14 +125,15 @@ describe("createPlaybackControllers", () => {
       positionSec: 2,
       clientAt: "2026-09-22T10:01:00.000Z",
     });
-    const complete = await got.completeProgressController("ep-1", {
+    const complete = got.completeProgressController("ep-1", {
       positionSec: 57,
       clientAt: "2026-09-22T10:05:00.000Z",
     });
     const pull = await got.pullProgressController("2026-09-22T10:00:00.000Z");
 
     // Then: 空 repository を検証純関数が通し、一覧は空・音声は Domain 経由の External NotFound
-    // Stub Progress は永続しないため create は merge 応答・update は行なし 404。complete は A 足場 sentinel
+    // Stub Progress は永続しないため create は merge 応答・update は行なし 404
+    // complete は原稿無しで EpisodeContentError → External NotFound
     expect(list.episodes).toEqual([]);
     await expect(audio).rejects.toMatchObject({ name: "NotFoundError" });
     expect(write).toEqual({
@@ -140,10 +141,7 @@ describe("createPlaybackControllers", () => {
       firstCompletedAt: null,
     });
     await expect(update).rejects.toMatchObject({ name: "NotFoundError" });
-    expect(complete).toEqual({
-      firstPlayedAt: "1970-01-01T00:00:00.000Z",
-      firstCompletedAt: null,
-    });
+    await expect(complete).rejects.toMatchObject({ name: "NotFoundError" });
     expect(pull).toEqual({ episodes: [] });
   });
 
