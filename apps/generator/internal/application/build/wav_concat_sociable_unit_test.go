@@ -19,17 +19,13 @@ func TestConcatWAV_insertsConstantSilence_betweenAdjacentParts(t *testing.T) {
 	// When: 結合する
 	joined, err := build.ConcatWAV(a, b)
 
-	// Then: 結合結果の再生尺は 0.5 + 0.5 + SegmentSilenceSec
+	// Then: data 長は 0.5 秒分 + 0.5 秒分 + SegmentSilenceSec 分
 	if err != nil {
 		t.Fatalf("ConcatWAV: unexpected error: %v", err)
 	}
-	got, err := build.WavDurationSec(joined)
-	if err != nil {
-		t.Fatalf("WavDurationSec(joined): unexpected error: %v", err)
-	}
-	want := 0.5 + 0.5 + constants.SegmentSilenceSec
-	if math.Abs(got-want) > 1e-9 {
-		t.Fatalf("ConcatWAV: want joined duration ~%v, got %v", want, got)
+	want := pcmDataBytes(0.5) + pcmDataBytes(0.5) + pcmDataBytes(constants.SegmentSilenceSec)
+	if got := readDataChunkLen(t, joined); got != want {
+		t.Fatalf("ConcatWAV: joined data len = %d, want %d", got, want)
 	}
 }
 
@@ -80,21 +76,17 @@ func TestConcatWAV_insertsSilenceOnlyBetweenParts_soCountIsNMinusOne(t *testing.
 	// When: 結合する
 	joined, err := build.ConcatWAV(parts...)
 
-	// Then: 無音は 2 箇所（part 数 3 - 1）だけ入り、尺は 1.5 + 2*SegmentSilenceSec
+	// Then: 無音は 2 箇所（part 数 3 - 1）だけ入り、data 長は 3 本分 + 無音 2 区間分
 	if err != nil {
 		t.Fatalf("ConcatWAV: unexpected error: %v", err)
 	}
-	got, err := build.WavDurationSec(joined)
-	if err != nil {
-		t.Fatalf("WavDurationSec(joined): unexpected error: %v", err)
-	}
-	want := 1.5 + 2*constants.SegmentSilenceSec
-	if math.Abs(got-want) > 1e-9 {
-		t.Fatalf("ConcatWAV: want joined duration ~%v, got %v", want, got)
+	want := 3*pcmDataBytes(0.5) + 2*pcmDataBytes(constants.SegmentSilenceSec)
+	if got := readDataChunkLen(t, joined); got != want {
+		t.Fatalf("ConcatWAV: joined data len = %d, want %d", got, want)
 	}
 }
 
-func TestConcatWAV_returnsSameDuration_whenSinglePart(t *testing.T) {
+func TestConcatWAV_returnsSameDataLen_whenSinglePart(t *testing.T) {
 	t.Parallel()
 
 	// Given: 0.7 秒の WAVE 1 本
@@ -103,16 +95,12 @@ func TestConcatWAV_returnsSameDuration_whenSinglePart(t *testing.T) {
 	// When: 結合する
 	joined, err := build.ConcatWAV(only)
 
-	// Then: 無音は入らず尺は 0.7 秒のまま
+	// Then: 無音は入らず data 長は 0.7 秒分のまま
 	if err != nil {
 		t.Fatalf("ConcatWAV: unexpected error: %v", err)
 	}
-	got, err := build.WavDurationSec(joined)
-	if err != nil {
-		t.Fatalf("WavDurationSec(joined): unexpected error: %v", err)
-	}
-	if math.Abs(got-0.7) > 1e-9 {
-		t.Fatalf("ConcatWAV: want ~0.7, got %v", got)
+	if got, want := readDataChunkLen(t, joined), pcmDataBytes(0.7); got != want {
+		t.Fatalf("ConcatWAV: joined data len = %d, want %d", got, want)
 	}
 }
 
