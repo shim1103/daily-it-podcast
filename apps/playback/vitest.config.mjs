@@ -35,7 +35,7 @@ export default defineConfig({
             "web/vite-config.sociable_unit.test.ts",
             "web/src/**/*sociable_unit*.test.ts",
             "worker/src/**/*sociable_unit*.test.ts",
-            // why: C1 Fake（getPlatformProxy を起動しない）。support は製品 coverage 分母外
+            // why: Fake local binding の SU（getPlatformProxy を起動しない）。support は製品 coverage 分母外
             "test/support/**/*sociable_unit*.test.ts",
             // why: secret なし NI を Unit coverage 分母へ算入する（Decision 2026-08-30T16-20-01）
             "test/integration/**/*narrow_integration*.test.ts",
