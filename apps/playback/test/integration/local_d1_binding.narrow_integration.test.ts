@@ -5,7 +5,7 @@
  * Double: 本番 remote D1 は使わない（remoteBindings: false）
  *
  * @require createLocalD1Binding が実 proxy を起動し、migration を適用した空の D1 を得られる
- * @ensure prepare→bind→run→first で binding が観測可能（D1 adapter が刺せる入口）
+ * @ensure prepare→bind→run／first／all で binding が観測可能（D1 adapter が刺せる入口。adapter が呼ぶ first と all を実 binding で確かめる）
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { D1DatabaseBinding } from "../../worker/src/infrastructure/d1/d1-database-binding.ts";
@@ -23,6 +23,7 @@ const columns = episodeProgressColumns;
 
 const INSERT_PROGRESS = `INSERT INTO ${EPISODE_PROGRESS_TABLE} (${columns.episodeId}, ${columns.positionSec}, ${columns.firstPlayedAt}, ${columns.firstCompletedAt}, ${columns.lastPlayedAt}) VALUES (?, ?, ?, ?, ?)`;
 const SELECT_PROGRESS = `SELECT * FROM ${EPISODE_PROGRESS_TABLE} WHERE ${columns.episodeId} = ?`;
+const SELECT_ALL_PROGRESS = `SELECT * FROM ${EPISODE_PROGRESS_TABLE} ORDER BY ${columns.episodeId}`;
 
 // why: proxy の起動は重く、test ごとに起動すると既定 timeout に余裕が薄い。1 回だけ起動し、分離は beforeEach の DELETE で担保する。
 //   起動に失敗すると handle は未代入のまま afterAll に来る。dispose の TypeError で元の失敗原因を隠さない
@@ -90,5 +91,38 @@ describe("createLocalD1Binding", () => {
 
     // Then: 一致行が無いので null
     expect(row).toBeNull();
+  });
+
+  it("returns_all_inserted_rows_in_results_on_all_when_selecting_multiple_rows", async () => {
+    // Given: 2 行を INSERT 済みの表
+    await database
+      .prepare(INSERT_PROGRESS)
+      .bind("ep-1", 12.5, "2026-10-01T00:00:00Z", null, "2026-10-01T00:00:00Z")
+      .run();
+    await database
+      .prepare(INSERT_PROGRESS)
+      .bind("ep-2", 30, "2026-10-01T01:00:00Z", "2026-10-01T02:00:00Z", "2026-10-01T02:00:00Z")
+      .run();
+
+    // When: 全行を SELECT して all を取る
+    const rows = await database.prepare(SELECT_ALL_PROGRESS).all();
+
+    // Then: results に全行が列名どおり episode_id 順で入る
+    expect(rows.results).toEqual([
+      {
+        [columns.episodeId]: "ep-1",
+        [columns.positionSec]: 12.5,
+        [columns.firstPlayedAt]: "2026-10-01T00:00:00Z",
+        [columns.firstCompletedAt]: null,
+        [columns.lastPlayedAt]: "2026-10-01T00:00:00Z",
+      },
+      {
+        [columns.episodeId]: "ep-2",
+        [columns.positionSec]: 30,
+        [columns.firstPlayedAt]: "2026-10-01T01:00:00Z",
+        [columns.firstCompletedAt]: "2026-10-01T02:00:00Z",
+        [columns.lastPlayedAt]: "2026-10-01T02:00:00Z",
+      },
+    ]);
   });
 });
