@@ -7,7 +7,7 @@ branch: feature/playback-now-playing-audio-listenability
 ## 1. Decision
 
 1. Drive 上の完成音声と playback HTTP 成功 body の形式は **mp3 のみ**とする。拡張子・Content-Type・`EncodeWAVToMP3` の正本は A（`contracts/drive-layout.md` / `apps/playback/contracts` / `build.EncodeWAVToMP3`）。
-2. `SpeechSynthesizer`（TTS Port）の成功戻りは **セグメント WAV のまま**。Gemini が返す PCM の wrap・結合・尺計算（`ConcatWAV` / `WavDurationSec`）は Application 非公開 helper が WAV で行う。
+2. `SpeechSynthesizer`（TTS Port）の成功戻りは **セグメント WAV のまま**。Gemini が返す PCM の wrap・結合・episode 尺方針（`ConcatWAV`・無音挿入・`Timeline`）は Application 非公開 helper が WAV で行う。segment 単位の尺は `SpeechSynthesizer` の戻り値が持つ（[[2026-09-23T17-21-30-refactor-generator-go-performance]]・[[2026-10-01T11-50-38-refactor-generator-wav-duration]]）。
 3. WAV→mp3 は `EncodeWAVToMP3` を **ConcatWAV 成功直後・WriteEpisode 直前**に 1 回呼ぶ。再生 GET のたびに encode しない。
 4. `EncodeWAVToMP3` の実装手段は **ffmpeg の subprocess**（OS / CI 上の `ffmpeg`）。Port にも TTS Adapter にも出さない。
 5. 既存 `{episodeId}.wav` は **一括 batch migration** で `{episodeId}.mp3` へ変換・置換する。配信の wav/mp3 二系統は採らない。
