@@ -26,9 +26,15 @@ prev: 2026-09-29T18-18-32-develop.md
 4. 雛形 `storage-state.example.json` の `expires` を数値の `0` から文字列の placeholder へ直したのは、`0` が置き換え忘れに見えなかったため。DevTools の日時（例 `2026-10-30T16:44:30.650Z`）は、そのまま貼れる。
 5. 検証: `check-static`・`test-unit`・`test-integration` が終了 status 0。unit は 426 test 通過、branch coverage は 100%。`actionlint` と `shellcheck` は手元に無く、workflow の yml は実 run で確かめた。
 6. biome の `--write` が、無関係な file の import 順を変えたことがあった。commit の前に元へ戻した。
-7. PR は作っていない（shim の許可待ち）。wiki は編集していない。
-8. 同じ session で、agent-standards へ新 skill `3:workflow/transient-smoke` を作成した。agent-standards 側の commit と log-session は、shim の指示で行っていない。
+7. 同じ session で、agent-standards へ skill `3:workflow/transient-smoke` を作った。最初の版は shim が commit した（`9157e9c`）。
+8. shim の指摘で、疎通の知識を `lifecycle/smoke.md` へ移し、skill を手順だけに書き直した。ymlだけを base branch 起点の tmp-branch に置き、実装は current-branch に置く。yml の commit は、base への merge 後に `rebase --onto` で載せ替えて取り込む。base は取り込まない。
+9. PR #210（`closes #195`、base は epic）は merge されたが、#195 は OPEN のままだった。GitHub の `closes` は、既定 branch への merge でしか Issue を閉じない。shim の指示で、sub-feature の達成契約 Issue は shim が手動で close する規則を `lifecycle/release.md` §7 へ書いた（#195 は未 close）。
+10. agent-standards の commit は 4 件（`39464a5` `70f0e3d` `198e74a` `847c394`）。Decision は 2 件で、疎通の配置と同期、Issue の close。既存の `2026-09-22T18-48-51-main.md` が `base branch` を role の呼称として退けているため、`smoke.md` では限定した意味でだけ使った。
+11. label=`lesson` を作り、Issue #211 を起こした。`docs/lessons/index.md` の 30 行と、今回の 9 行を移し、file を消した。
+12. wiki #192 の「e2e が Access session の失効で赤」の行を、`domain` 誤入力の検知が未実装であることの行へ置き換えた。
+13. `develop` 向けの PR を、この後に作る。
 
 ### Commits
 
-- `dc4eb2d` `04034c1` `938ebae` `36c82d1` `f599e3c` `58bb2b0` `208194e` `da8b8a6` `b777aa7` `8ddf0b8` `5ae30c8` `9a3801e` `8a4d182` `5fd10b1` `c06718d` `8730dfb` `f9511c8` `4426065` `d02de59` `7ec5581` `971e0ba`
+- daily-it-podcast: `dc4eb2d` `04034c1` `938ebae` `36c82d1` `f599e3c` `58bb2b0` `208194e` `da8b8a6` `b777aa7` `8ddf0b8` `5ae30c8` `9a3801e` `8a4d182` `5fd10b1` `c06718d` `8730dfb` `f9511c8` `4426065` `d02de59` `7ec5581` `971e0ba` `d0cba4b` `684f866`
+- agent-standards: `39464a5` `70f0e3d` `198e74a` `847c394`
