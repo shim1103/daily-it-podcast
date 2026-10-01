@@ -11,9 +11,10 @@ export default defineConfig({
         "web/main.ts",
         "web/src/api/api-result.ts",
         "worker/src/application/ports/**",
-        // why: 実行文を持たない型宣言のみ file は v8 が分母 0 の 0% 行として表示し、
+        // why: 実行文を持たない型宣言のみ file（以下 2 file）は v8 が分母 0 の 0% 行として表示し、
         //   coverage 表の見た目を崩す。型の回帰は typecheck が担う（Decision 2026-09-04T18-30-01）
         "worker/src/composition/runtime-config-bindings.ts",
+        "worker/src/infrastructure/d1/d1-database-binding.ts",
       ],
       thresholds: {
         branches: 100,
