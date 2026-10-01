@@ -1,31 +1,28 @@
 import type { ProgressWriteResponse } from "../../../../contracts/index.ts";
+import {
+  loadExistingProgress,
+  persistMergedProgress,
+  toProgressWriteResponse,
+} from "../progress/persist-merged-progress.ts";
 import type { ProgressRepository, ProgressWriteCommand } from "../ports/progress-repository.ts";
-
-/** A 足場の sentinel。意味のある first* は C（merge・冪等）が決める。 */
-const SENTINEL_WRITE_RESPONSE: ProgressWriteResponse = {
-  firstPlayedAt: "1970-01-01T00:00:00.000Z",
-  firstCompletedAt: null,
-};
 
 /**
  * 進捗 create（HTTP POST progress）。初回 play の永続入口。
  *
- * A: Port upsert へ薄い委譲。冪等・merge・Domain Error は C。
+ * 行なしは merge で初回行を作る。行ありは Error にせず冪等に merge する
+ * （Decision 2026-09-22T18-58-38 / 2026-10-01T18-54-14）。
  *
  * @require command は Route 側 schema で検証済み
- * @ensure ProgressWriteResponse を返す。storage 失敗は Port が Infrastructure Error を throw する
+ * @ensure ProgressWriteResponse（勝ち側 first*）を返す。storage 失敗は Port が Infrastructure Error を throw する
  */
 export async function createProgress(
   repository: ProgressRepository,
   command: ProgressWriteCommand,
 ): Promise<ProgressWriteResponse> {
-  // todo: merge・冪等を Application に置き、sentinel upsert を消す（concern 4+）
-  await repository.upsertProgress({
-    episodeId: command.episodeId,
+  const existing = await loadExistingProgress(repository, command.episodeId);
+  const merged = await persistMergedProgress(repository, command.episodeId, existing, {
     positionSec: command.positionSec,
-    firstPlayedAt: SENTINEL_WRITE_RESPONSE.firstPlayedAt,
-    firstCompletedAt: SENTINEL_WRITE_RESPONSE.firstCompletedAt,
-    lastPlayedAt: command.clientAt,
+    clientAt: command.clientAt,
   });
-  return SENTINEL_WRITE_RESPONSE;
+  return toProgressWriteResponse(merged);
 }

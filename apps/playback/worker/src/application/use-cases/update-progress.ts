@@ -1,31 +1,32 @@
 import type { ProgressWriteResponse } from "../../../../contracts/index.ts";
+import { ProgressNotFoundError } from "../../entities/errors/progress-not-found-error.ts";
+import {
+  loadExistingProgress,
+  persistMergedProgress,
+  toProgressWriteResponse,
+} from "../progress/persist-merged-progress.ts";
 import type { ProgressRepository, ProgressWriteCommand } from "../ports/progress-repository.ts";
-
-/** A 足場の sentinel。意味のある first* は C（行なし 404・merge）が決める。 */
-const SENTINEL_WRITE_RESPONSE: ProgressWriteResponse = {
-  firstPlayedAt: "1970-01-01T00:00:00.000Z",
-  firstCompletedAt: null,
-};
 
 /**
  * 進捗 update（HTTP PATCH progress）。途中更新・stop 時の位置同期。
  *
- * A: Port upsert へ薄い委譲。行なし 404・merge は C。
+ * 行なしは {@link ProgressNotFoundError}。行ありは merge して upsert する
+ * （Decision 2026-09-22T18-58-38 / 2026-10-01T18-54-14）。
  *
  * @require command は Route 側 schema で検証済み
- * @ensure ProgressWriteResponse を返す。storage 失敗は Port が Infrastructure Error を throw する
+ * @ensure ProgressWriteResponse（勝ち側 first*）を返す。storage 失敗は Port が Infrastructure Error を throw する
  */
 export async function updateProgress(
   repository: ProgressRepository,
   command: ProgressWriteCommand,
 ): Promise<ProgressWriteResponse> {
-  // todo: 行なし 404・merge を Application に置き、sentinel upsert を消す（concern 5）
-  await repository.upsertProgress({
-    episodeId: command.episodeId,
+  const existing = await loadExistingProgress(repository, command.episodeId);
+  if (existing === null) {
+    throw new ProgressNotFoundError(`進捗行が無い: ${command.episodeId}`);
+  }
+  const merged = await persistMergedProgress(repository, command.episodeId, existing, {
     positionSec: command.positionSec,
-    firstPlayedAt: SENTINEL_WRITE_RESPONSE.firstPlayedAt,
-    firstCompletedAt: SENTINEL_WRITE_RESPONSE.firstCompletedAt,
-    lastPlayedAt: command.clientAt,
+    clientAt: command.clientAt,
   });
-  return SENTINEL_WRITE_RESPONSE;
+  return toProgressWriteResponse(merged);
 }
