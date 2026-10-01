@@ -31,6 +31,26 @@ describe("InMemoryEpisodeRepository", () => {
     expect(got).toEqual([]);
   });
 
+  it("put した json は getManuscript で stem 付きの生 payload として取り出せる", async () => {
+    // Given: json を格納（schema 適合かどうかは問わない）
+    const repository = new InMemoryEpisodeRepository();
+    repository.put("ep-1", manuscriptJson, validAudioBytes);
+
+    // When: 1 件取得する
+    const got = await repository.getManuscript("ep-1");
+
+    // Then: 検証せず生のまま返す
+    expect(got).toEqual({ stem: "ep-1", json: manuscriptJson });
+  });
+
+  it("未格納の getManuscript は undefined", async () => {
+    // Given: 空の repository
+    const repository = new InMemoryEpisodeRepository();
+
+    // When / Then: 該当なしは throw せず undefined
+    expect(await repository.getManuscript("missing")).toBeUndefined();
+  });
+
   it("put した mp3 は getAudio でそのまま取り出せる", async () => {
     // Given: json + mp3
     const repository = new InMemoryEpisodeRepository();

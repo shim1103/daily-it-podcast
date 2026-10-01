@@ -1,21 +1,14 @@
-import type {
-  EpisodeProgress,
-  ProgressPullResponse,
-  ProgressWriteRequest,
-  ProgressWriteResponse,
-} from "../../../../contracts/index.ts";
-
-/** 進捗 Write（create/update/complete）の永続入力。HTTP body に episodeId を足した形。 */
-export type ProgressWriteCommand = ProgressWriteRequest & {
-  readonly episodeId: string;
-};
+import type { EpisodeProgress, ProgressPullResponse } from "../../../../contracts/index.ts";
 
 /** pull 応答 1 件。契約の pull episodes 要素と同形。 */
 export type ProgressUpdatedEntry = ProgressPullResponse["episodes"][number];
 
+/** upsert 1 行。`episodeId` + 進捗本体。merge せずそのまま永続する。 */
+export type ProgressUpsertRow = { readonly episodeId: string } & EpisodeProgress;
+
 /**
  * 再生進捗の永続 Port。1 episode = 1 行。鍵は `episodeId` のみ（user 分割なし）。
- * merge（先勝ち / 後勝ち）の意味は Decision を正とし、本 Port は永続面の入出力契約を固定する。
+ * merge・冪等・完走判定は Application。本 Port は永続能力のみ（Decision 2026-10-01T18:54:14）。
  *
  * @invariant vendor / D1 固有型を露出しない
  */
@@ -29,24 +22,17 @@ export interface ProgressRepository {
   getByEpisodeIds(episodeIds: readonly string[]): Promise<ReadonlyMap<string, EpisodeProgress>>;
 
   /**
-   * 進捗行を create または update する（HTTP create/update の永続側）。
+   * 進捗行をそのまま永続する（create / update の区別なし。merge しない）。
    *
-   * @ensure 永続後の勝ち側 `firstPlayedAt` / `firstCompletedAt` を返す
+   * @ensure 渡された row を episodeId 鍵で置き換える。応答を返さない
    * @ensure storage I/O 失敗は Infrastructure Error を throw する
    */
-  writeProgress(command: ProgressWriteCommand): Promise<ProgressWriteResponse>;
-
-  /**
-   * 完走を記録する（HTTP complete の永続側）。
-   *
-   * @ensure 永続後の勝ち側 `firstPlayedAt` / `firstCompletedAt` を返す
-   * @ensure storage I/O 失敗は Infrastructure Error を throw する
-   */
-  completeProgress(command: ProgressWriteCommand): Promise<ProgressWriteResponse>;
+  upsertProgress(row: ProgressUpsertRow): Promise<void>;
 
   /**
    * `since` より後に更新された進捗行を返す（HTTP pull の永続側）。
    *
+   * @ensure `lastPlayedAt > since` の行だけを返す
    * @ensure 該当なしは空配列（null でない）
    * @ensure storage I/O 失敗は Infrastructure Error を throw する
    */
@@ -54,7 +40,8 @@ export interface ProgressRepository {
 }
 
 /**
- * A 固定用 stub。読取は空、書込は zero value、pull は空配列。behavior は C が置き換える。
+ * Composition 用 zero Stub。読取は空、upsert は no-op、pull は空配列。
+ * behavior 検証は Fake（C の test support）が持つ。
  */
 export class StubProgressRepository implements ProgressRepository {
   async getByEpisodeIds(
@@ -63,14 +50,7 @@ export class StubProgressRepository implements ProgressRepository {
     return new Map();
   }
 
-  async writeProgress(_command: ProgressWriteCommand): Promise<ProgressWriteResponse> {
-    // A: 契約 schema を満たす sentinel。意味のある first* は C
-    return { firstPlayedAt: "1970-01-01T00:00:00.000Z", firstCompletedAt: null };
-  }
-
-  async completeProgress(_command: ProgressWriteCommand): Promise<ProgressWriteResponse> {
-    return { firstPlayedAt: "1970-01-01T00:00:00.000Z", firstCompletedAt: null };
-  }
+  async upsertProgress(_row: ProgressUpsertRow): Promise<void> {}
 
   async listUpdatedSince(_since: string): Promise<readonly ProgressUpdatedEntry[]> {
     return [];

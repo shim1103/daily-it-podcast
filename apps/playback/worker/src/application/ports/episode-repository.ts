@@ -31,6 +31,14 @@ export interface EpisodeRepository {
   listManuscripts(): Promise<RawManuscriptEntry[]>;
 
   /**
+   * 対象 episodeId の原稿 json を 1 件、取得したまま返す。
+   *
+   * @ensure 各戻り値の `json` は取得して decode しただけの生 payload。該当なしは `undefined`（throw しない）。
+   * @ensure storage I/O 自体の失敗は Infrastructure Error を throw する。
+   */
+  getManuscript(episodeId: string): Promise<RawManuscriptEntry | undefined>;
+
+  /**
    * 対象 episodeId の音声 byte を取得したまま返す。
    *
    * @ensure 音声エントリまたは byte が無い時は `undefined` を返す（throw しない）。

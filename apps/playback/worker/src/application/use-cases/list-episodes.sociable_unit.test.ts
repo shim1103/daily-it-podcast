@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { episodeAudioPath, ListEpisodesResponseSchema } from "../../../../contracts/index.ts";
-import { StubProgressRepository } from "../ports/progress-repository.ts";
 import type { EpisodeRepository, RawManuscriptEntry } from "../ports/episode-repository.ts";
+import { createFakeProgressRepository } from "../ports/progress-repository.fake.ts";
+import type { ProgressUpsertRow } from "../ports/progress-repository.ts";
 import { listEpisodes } from "./list-episodes.ts";
 
 /**
  * scope: Sociable Unit
  * real: listEpisodes use-case, verify-manuscript の純関数
- * double: EpisodeRepository を「生 payload の配列を返す」Fake Port に差し替え
+ * double: EpisodeRepository Fake / createFakeProgressRepository
  */
 const validManuscriptJson = {
   episodeId: "ep-1",
@@ -24,9 +25,20 @@ const validManuscriptJson = {
   },
 };
 
+const seededProgress: ProgressUpsertRow = {
+  episodeId: "ep-1",
+  positionSec: 12,
+  firstPlayedAt: "2026-09-22T10:00:00.000Z",
+  firstCompletedAt: null,
+  lastPlayedAt: "2026-09-22T11:00:00.000Z",
+};
+
 function createFakeRepository(entries: RawManuscriptEntry[]): EpisodeRepository {
   return {
     listManuscripts: async () => entries,
+    getManuscript: async () => {
+      throw new Error("not used");
+    },
     getAudio: async () => {
       throw new Error("not used");
     },
@@ -34,15 +46,43 @@ function createFakeRepository(entries: RawManuscriptEntry[]): EpisodeRepository 
 }
 
 describe("listEpisodes", () => {
-  it("Port が返した生 json 配列を検証し、原稿全文付き ListEpisodesResponse に包む", async () => {
-    // Given: 適合 json 1件を返す Fake Port
+  it("進捗行がある episode は progress を embed する", async () => {
+    // Given: 適合原稿 1 件と、同じ episodeId の進捗行
     const repository = createFakeRepository([{ stem: "ep-1", json: validManuscriptJson }]);
+    const progress = createFakeProgressRepository([seededProgress]);
 
     // When: 一覧 UseCase を実行する
-    const got = await listEpisodes(repository, new StubProgressRepository());
+    const got = await listEpisodes(repository, progress);
 
-    // Then: 契約 schema を満たし、body 全文と audioRef がある
+    // Then: 契約 schema を満たし、progress が載る
     expect(ListEpisodesResponseSchema.safeParse(got).success).toBe(true);
+    expect(got.episodes).toEqual([
+      {
+        episodeId: "ep-1",
+        date: "2026-08-17",
+        title: "題",
+        durationSec: 60,
+        body: validManuscriptJson.body,
+        audioRef: episodeAudioPath("ep-1"),
+        progress: {
+          positionSec: 12,
+          firstPlayedAt: "2026-09-22T10:00:00.000Z",
+          firstCompletedAt: null,
+          lastPlayedAt: "2026-09-22T11:00:00.000Z",
+        },
+      },
+    ]);
+  });
+
+  it("進捗行が無い episode は progress: null のまま返す", async () => {
+    // Given: 適合原稿だけ（進捗 store は空）
+    const repository = createFakeRepository([{ stem: "ep-1", json: validManuscriptJson }]);
+    const progress = createFakeProgressRepository();
+
+    // When: 一覧 UseCase を実行する
+    const got = await listEpisodes(repository, progress);
+
+    // Then: 行なしは null
     expect(got.episodes).toEqual([
       {
         episodeId: "ep-1",
@@ -56,12 +96,44 @@ describe("listEpisodes", () => {
     ]);
   });
 
+  it("混在時は行ありだけ embed し、無い id は null のままにする", async () => {
+    // Given: 原稿 2 件のうち 1 件だけ進捗行あり
+    const withProgress = validManuscriptJson;
+    const withoutProgress = {
+      ...validManuscriptJson,
+      episodeId: "ep-2",
+      date: "2026-08-10",
+    };
+    const repository = createFakeRepository([
+      { stem: "ep-1", json: withProgress },
+      { stem: "ep-2", json: withoutProgress },
+    ]);
+    const progress = createFakeProgressRepository([seededProgress]);
+
+    // When: 一覧を取得する
+    const got = await listEpisodes(repository, progress);
+
+    // Then: ep-1 は object、ep-2 は null（date 降順で ep-1 が先）
+    expect(got.episodes.map((item) => ({ id: item.episodeId, progress: item.progress }))).toEqual([
+      {
+        id: "ep-1",
+        progress: {
+          positionSec: 12,
+          firstPlayedAt: "2026-09-22T10:00:00.000Z",
+          firstCompletedAt: null,
+          lastPlayedAt: "2026-09-22T11:00:00.000Z",
+        },
+      },
+      { id: "ep-2", progress: null },
+    ]);
+  });
+
   it("schema 不適合の entry は throw せず一覧から除外する", async () => {
     // Given: 不適合 json だけ
     const repository = createFakeRepository([{ stem: "bad", json: { episodeId: "bad" } }]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository, new StubProgressRepository());
+    const got = await listEpisodes(repository, createFakeProgressRepository());
 
     // Then: 除外され空一覧
     expect(got.episodes).toEqual([]);
@@ -74,7 +146,7 @@ describe("listEpisodes", () => {
     ]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository, new StubProgressRepository());
+    const got = await listEpisodes(repository, createFakeProgressRepository());
 
     // Then: 行に出ない
     expect(got.episodes).toEqual([]);
@@ -85,7 +157,7 @@ describe("listEpisodes", () => {
     const repository = createFakeRepository([{ stem: "ep-1", json: "not json" }]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository, new StubProgressRepository());
+    const got = await listEpisodes(repository, createFakeProgressRepository());
 
     // Then: 除外される
     expect(got.episodes).toEqual([]);
@@ -99,7 +171,7 @@ describe("listEpisodes", () => {
     ]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository, new StubProgressRepository());
+    const got = await listEpisodes(repository, createFakeProgressRepository());
 
     // Then: 適合分だけ
     expect(got.episodes.map((item) => item.episodeId)).toEqual(["ep-1"]);
@@ -110,7 +182,7 @@ describe("listEpisodes", () => {
     const repository = createFakeRepository([]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository, new StubProgressRepository());
+    const got = await listEpisodes(repository, createFakeProgressRepository());
 
     // Then: 空
     expect(got.episodes).toEqual([]);
@@ -128,7 +200,7 @@ describe("listEpisodes", () => {
     ]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository, new StubProgressRepository());
+    const got = await listEpisodes(repository, createFakeProgressRepository());
 
     // Then: date降順に並び替わる
     expect(got.episodes.map((item) => item.episodeId)).toEqual(["ep-new", "ep-mid", "ep-old"]);
@@ -144,7 +216,7 @@ describe("listEpisodes", () => {
     ]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository, new StubProgressRepository());
+    const got = await listEpisodes(repository, createFakeProgressRepository());
 
     // Then: 両方とも残る（順序は未規定）
     expect(got.episodes.map((item) => item.episodeId).sort()).toEqual(["ep-a", "ep-b"]);

@@ -1,5 +1,5 @@
 /**
- * 進捗行が存在しないのに update（PATCH）しようとした時の Domain Error。
+ * 進捗行が存在しないのに update／complete しようとした時の Domain Error。
  *
  * External へは NotFoundError（HTTP 404 / episode_not_found）へ写す。
  * create（POST）が既に行ありの場合は本 Error にしない（冪等成功は Use Case の契約）。
