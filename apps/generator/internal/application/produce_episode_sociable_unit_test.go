@@ -40,12 +40,13 @@ func (s *stubWriter) Write(_ context.Context, _ string, buildFn func(string) (mo
 }
 
 // spySynth は SpeechSynthesizer の Spy。SynthesizeAll が受け取った texts 束と呼び出し回数を記録し、
-// error を返すよう設定できる。各セグメントには既知尺の固定 WAV（wav）を返す。
+// error を返すよう設定できる。各セグメントには固定 WAV（wav）とその尺（durationSec）を返す。
 type spySynth struct {
-	calls      int
-	texts      []string // 最後に SynthesizeAll へ渡された texts 束
-	failAtCall int      // 0 なら成功。>0 なら SynthesizeAll が error を返す（WAV 列は返さない）
-	wav        []byte
+	calls       int
+	texts       []string // 最後に SynthesizeAll へ渡された texts 束
+	failAtCall  int      // 0 なら成功。>0 なら SynthesizeAll が error を返す（WAV 列は返さない）
+	wav         []byte
+	durationSec float64 // 各セグメントの DurationSec として返す既知秒数
 }
 
 func (s *spySynth) SynthesizeAll(_ context.Context, texts []string) ([]models.SpeechAudio, error) {
@@ -56,7 +57,7 @@ func (s *spySynth) SynthesizeAll(_ context.Context, texts []string) ([]models.Sp
 	}
 	audios := make([]models.SpeechAudio, len(texts))
 	for i := range texts {
-		audios[i] = models.SpeechAudio{Content: s.wav}
+		audios[i] = models.SpeechAudio{Content: s.wav, DurationSec: s.durationSec}
 	}
 	return audios, nil
 }
@@ -150,7 +151,7 @@ func newHarness(t *testing.T, segDurationSec float64) *harness {
 	}}
 	lookup := &fakeCompletedEpisodeLookup{}
 	writer := &stubWriter{out: buildValidWireJSON()}
-	synth := &spySynth{wav: fixedWavOfDuration(t, segDurationSec)}
+	synth := &spySynth{wav: fixedWavOfDuration(t, segDurationSec), durationSec: segDurationSec}
 	encode := &stubEncoder{}
 	episw := &fakeEpisodeWriter{}
 	progress := &spyProgress{}
@@ -179,7 +180,7 @@ func newHarnessWithTopicCount(t *testing.T, topicCount int) *harness {
 	}}
 	lookup := &fakeCompletedEpisodeLookup{}
 	writer := &stubWriter{out: buildValidWireJSONWithTopicCount(topicCount)}
-	synth := &spySynth{wav: fixedWavOfDuration(t, 1.0)}
+	synth := &spySynth{wav: fixedWavOfDuration(t, 1.0), durationSec: 1.0}
 	encode := &stubEncoder{}
 	episw := &fakeEpisodeWriter{}
 	progress := &spyProgress{}

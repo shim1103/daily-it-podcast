@@ -6,7 +6,7 @@ branch: feature/generator-system-e2e-produce-episode
 
 ## 1. Decision
 
-1. `apps/generator/test/system/` に **TTS 単体到達 test** を新規で置く。実 `GEMINI_API_KEY` で `gemini.SpeechSynthesizer` を組み、`build.SpeechTexts` が返す topic+2 本の短い朗読 text（疑似原稿から生成。Cursor / GetX は呼ばない）を順に `Synthesize` する。各戻りが非空 WAV で `build.WavDurationSec` が正の秒数を返し、**無料枠 quota（RPD / RPM）を超えず topic+2 回を完走できる**ことを ensure する。429 到達は「無料枠に収まらなかった」失敗として扱う。
+1. `apps/generator/test/system/` に **TTS 単体到達 test** を新規で置く。実 `GEMINI_API_KEY` で `gemini.SpeechSynthesizer` を組み、`build.SpeechTexts` が返す topic+2 本の短い朗読 text（疑似原稿から生成。Cursor / GetX は呼ばない）を順に `Synthesize` する。**無料枠 quota（RPD / RPM）を超えず topic+2 回を完走できる**ことを ensure する（非空・最小尺の WAV は Adapter の contract で、ここでは再確認しない。[[2026-09-04T12-40-00-feature-generator-system-e2e-produce-episode]]）。429 到達は「無料枠に収まらなかった」失敗として扱う。
 2. 既存の full produce run test（`TestProduceEpisodeSystem_writesJsonAndWavPair_whenSubprocessSucceeds`）は build tag を `system` から **`system && full`** へ移す。既定の System 実行（`scripts/generator/test-system.sh` の `-tags=system`）では compile されず走らない。full は課金枠と潤沢な RPD がある時に手動で `-tags="system full"` 実行する。
 3. Google Drive 書込経路の実到達確認は、この System suite ではなく Drive の Narrow Integration（実 OAuth / test Drive folder）で持つ。full run はそこに依存しない前提で分離する。
 4. `workflow_dispatch` の実行是非・頻度は本 Decision の対象外（運用判断）。

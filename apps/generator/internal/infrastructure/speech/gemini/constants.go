@@ -59,6 +59,7 @@ const (
 	pcmSampleRate = 24000
 	pcmChannels   = 1
 	pcmBitDepth   = 16
+	pcmByteRate   = pcmSampleRate * pcmChannels * pcmBitDepth / 8
 )
 
 // minSpeechDurationSec は「実質無音でない」とみなす raw PCM の最小尺（秒）。

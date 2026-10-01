@@ -13,33 +13,18 @@ func corruptSpeechAudio(msg string) error {
 	return domainerrors.DomainErr(domainerrors.OpCorruptSpeechAudio, errors.New(msg))
 }
 
-// wavLayout は RIFF/WAVE header から読み取った PCM パラメータと data chunk の位置。
-// vendor 定数は使わず、すべて header 由来の値のみ保持する。
+// wavLayout は RIFF/WAVE の fmt chunk の値と data chunk の本体。値はすべて header 由来で、vendor 定数を使わない。
 type wavLayout struct {
 	sampleRate    uint32
 	channels      uint16
 	bitsPerSample uint16
 	byteRate      uint32
 	blockAlign    uint16
-	data          []byte // data chunk の PCM 本体（header を含まない）
-}
-
-// WavDurationSec は RIFF/WAV header と data から再生尺（秒）を返す。
-//
-// @require wav は非空。
-// @ensure 成功時 durationSec >= 0。
-// @invariant vendor 定数を使わず header から読む。失敗時は entities/errors.Error（Op = corrupt_speech_audio）を返す。
-func WavDurationSec(wav []byte) (float64, error) {
-	layout, err := parseWAV(wav)
-	if err != nil {
-		return 0, err
-	}
-	// parseWAV が byteRate の非ゼロ、data の非空を保証済み。
-	return float64(len(layout.data)) / float64(layout.byteRate), nil
+	data          []byte // data chunk の本体（header を含まない）
 }
 
 // parseWAV は RIFF/WAVE bytes を解析し、fmt / data chunk から wavLayout を組み立てる。
-// corrupt input（非空でない / マジック不一致 / chunk 欠落 / chunk 重複 / サイズ不整合 / data 空）は
+// corrupt input（空 / マジック不一致 / chunk 欠落 / chunk 重複 / サイズ不整合 / data 空）は
 // Op = corrupt_speech_audio の Domain Error を返す。
 func parseWAV(wav []byte) (wavLayout, error) {
 	if len(wav) == 0 {
