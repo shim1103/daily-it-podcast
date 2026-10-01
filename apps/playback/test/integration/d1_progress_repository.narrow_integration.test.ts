@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Scope: Narrow Integration（local binding infra）
  * 実物境界: getPlatformProxy が返す Workers D1 binding（実 SQLite）
@@ -10,6 +11,7 @@
  * @ensure D1ProgressRepository が実 SQLite に対して Port の merge 契約を満たす
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { D1DatabaseBinding } from "../../worker/src/infrastructure/d1/d1-database-binding.ts";
 import { D1Error } from "../../worker/src/infrastructure/d1/d1-error.ts";
 import { D1ProgressRepository } from "../../worker/src/infrastructure/d1/d1-progress-repository.ts";
 import {
@@ -22,21 +24,24 @@ import {
   createLocalD1Binding,
 } from "../support/create-local-d1-binding.ts";
 
-let handle: LocalD1BindingHandle;
+// why: 起動に失敗すると handle は未代入のまま afterAll に来る。dispose の TypeError で元の失敗原因を隠さない
+let handle: LocalD1BindingHandle | undefined;
+let database: D1DatabaseBinding;
 let repository: D1ProgressRepository;
 
 beforeAll(async () => {
   handle = await createLocalD1Binding();
-  await applyEpisodeProgressMigration(handle.database);
-  repository = new D1ProgressRepository({ database: handle.database });
+  database = handle.database;
+  await applyEpisodeProgressMigration(database);
+  repository = new D1ProgressRepository({ database });
 });
 
 afterAll(async () => {
-  await handle.dispose();
+  await handle?.dispose();
 });
 
 beforeEach(async () => {
-  await handle.database.prepare(`DELETE FROM ${EPISODE_PROGRESS_TABLE}`).run();
+  await database.prepare(`DELETE FROM ${EPISODE_PROGRESS_TABLE}`).run();
 });
 
 async function progressOf(episodeId: string) {
