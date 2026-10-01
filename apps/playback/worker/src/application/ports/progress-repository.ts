@@ -54,7 +54,10 @@ export interface ProgressRepository {
 }
 
 /**
- * A 固定用 stub。読取は空、書込は zero value、pull は空配列。behavior は C が置き換える。
+ * in-memory／unit 用の代替 `ProgressRepository`。何も永続しない。
+ *
+ * @ensure 読取は空、書込は zero value、pull は空配列を返す
+ * @invariant 本番経路（r2 mode）の Composition Root は選ばない（永続されない応答を HTTP 成功で返さない）
  */
 export class StubProgressRepository implements ProgressRepository {
   async getByEpisodeIds(
@@ -64,7 +67,7 @@ export class StubProgressRepository implements ProgressRepository {
   }
 
   async writeProgress(_command: ProgressWriteCommand): Promise<ProgressWriteResponse> {
-    // A: 契約 schema を満たす sentinel。意味のある first* は C
+    // what: 永続しない代替が返す epoch。契約 schema の firstPlayedAt を満たすためだけの sentinel
     return { firstPlayedAt: "1970-01-01T00:00:00.000Z", firstCompletedAt: null };
   }
 

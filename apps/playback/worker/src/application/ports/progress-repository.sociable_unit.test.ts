@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { StubProgressRepository } from "./progress-repository.ts";
 
 /**
- * real: StubProgressRepository（A 足場。zero value のみ）
+ * real: StubProgressRepository（in-memory／unit 用。永続せず zero value のみ返す）
  */
 describe("StubProgressRepository", () => {
   it("getByEpisodeIds は常に空 Map を返す", async () => {
