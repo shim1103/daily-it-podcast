@@ -51,6 +51,8 @@ export default defineConfig({
             "test/integration/local_d1_binding.narrow_integration.test.ts",
             // why: D1 adapter の実 SQLite merge 検証も getPlatformProxy 実起動のため同様に載せない
             "test/integration/d1_progress_repository.narrow_integration.test.ts",
+            // why: R2 adapter も手書き binding 型と実 binding の一致を守るため getPlatformProxy 実起動であり、同様に載せない
+            "test/integration/r2_episode_repository.narrow_integration.test.ts",
           ],
           passWithNoTests: true,
         },
