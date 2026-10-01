@@ -17,6 +17,8 @@ export default defineConfig({
     // optional: PLAYWRIGHT_STORAGE_STATE（storageState JSON の path）。未設定時は remote e2e を skip。
     storageState: process.env.PLAYWRIGHT_STORAGE_STATE || undefined,
     trace: "retain-on-failure",
+    // why: 失敗時の画面を CI の artifact に残す。trace は request の cookie を含みうるため upload しない
+    screenshot: "only-on-failure",
   },
   projects: [
     {

@@ -20,6 +20,7 @@
     "web/src/**/*.ts",
     "web/src/**/*.tsx",
     "worker/src/**/*.ts",
+    "cli/**/*.ts",
     "contracts/**/*.ts",
     "test/**/*.ts"
   ]

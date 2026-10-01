@@ -1,6 +1,6 @@
 # 安定 E2E fixture（人手 upload）
 
-本番 Worker の `DRIVE_FOLDER_ID` **直下**へ、次の 2 file をそのまま置く（sub folder なし）。
+本番 R2 bucket（Worker の binding `EPISODES`）の **直下**へ、次の 2 file をそのまま置く（prefix なし）。
 
 | file | 役割 |
 |------|------|

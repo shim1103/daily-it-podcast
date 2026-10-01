@@ -2,9 +2,11 @@
 # 実物: scripts/playback/test-e2e.sh
 # double: なし（remote 本番 path。Drive / `/episodes*` を double しない）
 # @require Node（version は apps/playback/.nvmrc）。Playwright chromium。playback-deploy.yml が成功済み。
-# @ensure E2E 入口が exit 0。
+# @ensure E2E 入口が exit 0。Access session が失効していれば、E2E の前に「失効」と明示して失敗する。
+#   失敗時は画面と error context を artifact `playback-e2e-failure` に 7 日残す。
 # @invariant 必須 Unit / Integration gate に載せない。Service Token で Access を迂回しない。generator を触らない。
 # @invariant toolchain の playwright test を YAML に直書きしない。secret 値を log に出さない。
+#   trace は request の cookie を含みうるため artifact にしない。
 # @invariant playback-deploy（wrangler deploy）の成功後にのみ発火する。push 直後の即時実行はしない
 #   （edge 反映の遅延を待つ）。CD 連鎖全体は master push → generator-system → playback-deploy → 本
 #   workflow の順（Decision 2026-09-17T14-30-00）。
@@ -37,6 +39,11 @@ jobs:
           cache: npm
           cache-dependency-path: apps/playback/package-lock.json
 
+      - name: Access session の期限を確認
+        env:
+          PLAYWRIGHT_STORAGE_STATE_JSON: ${{ secrets.PLAYWRIGHT_STORAGE_STATE_JSON }}
+        run: ./scripts/playback/check-e2e-session.sh
+
       - name: 依存を install
         working-directory: apps/playback
         run: npm ci
@@ -49,7 +56,7 @@ jobs:
         if: ${{ github.event_name == 'workflow_run' }}
         run: sleep 30
 
-      # Secret が無い（placeholder のみ）でも落ちない。値があるときだけ file 化して env へ渡す。
+      # Secret が無い（placeholder のみ）でも落ちない。値があるときだけ、expires を Unix 秒に直して file 化し、env へ渡す。
       - name: storageState を file 化し E2E を実行
         env:
           PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}
@@ -58,7 +65,20 @@ jobs:
           set -euo pipefail
           if [ -n "${PLAYWRIGHT_STORAGE_STATE_JSON:-}" ]; then
             state_path="${RUNNER_TEMP}/playback-storage-state.json"
-            printf '%s' "$PLAYWRIGHT_STORAGE_STATE_JSON" >"$state_path"
+            node --experimental-strip-types --no-warnings \
+              apps/playback/cli/access-session/main.ts normalize "$state_path"
             export PLAYWRIGHT_STORAGE_STATE="$state_path"
           fi
           ./scripts/playback/test-e2e.sh
+
+      # why: trace は request の cookie（Access の認可 cookie は session の資格情報）を含みうる。画面と error context だけを残す
+      - name: 失敗時の画面を保存
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playback-e2e-failure
+          path: |
+            apps/playback/test-results/**/*.png
+            apps/playback/test-results/**/error-context.md
+          if-no-files-found: ignore
+          retention-days: 7
