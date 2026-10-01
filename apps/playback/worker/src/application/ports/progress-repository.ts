@@ -1,18 +1,4 @@
-import type {
-  EpisodeProgress,
-  ProgressPullResponse,
-  ProgressWriteRequest,
-} from "../../../../contracts/index.ts";
-
-/**
- * 進捗 Write（create/update/complete）の Application 入力。
- * HTTP body に episodeId を足した形。Port は持たない（UseCase 側の一時語彙）。
- *
- * todo: merge・冪等・404・完走判定を UseCase が持つ段で、この型の置き場を見直す
- */
-export type ProgressWriteCommand = ProgressWriteRequest & {
-  readonly episodeId: string;
-};
+import type { EpisodeProgress, ProgressPullResponse } from "../../../../contracts/index.ts";
 
 /** pull 応答 1 件。契約の pull episodes 要素と同形。 */
 export type ProgressUpdatedEntry = ProgressPullResponse["episodes"][number];

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ProgressWriteResponseSchema } from "../../../../contracts/index.ts";
 import { createFakeProgressRepository } from "../ports/progress-repository.fake.ts";
-import type { ProgressUpsertRow, ProgressWriteCommand } from "../ports/progress-repository.ts";
+import type { ProgressUpsertRow } from "../ports/progress-repository.ts";
+import type { ProgressWriteCommand } from "../progress/progress-write-command.ts";
 import { createProgress } from "./create-progress.ts";
 
 /**

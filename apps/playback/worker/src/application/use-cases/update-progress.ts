@@ -1,11 +1,12 @@
 import type { ProgressWriteResponse } from "../../../../contracts/index.ts";
 import { ProgressNotFoundError } from "../../entities/errors/progress-not-found-error.ts";
+import type { ProgressRepository } from "../ports/progress-repository.ts";
 import {
   loadExistingProgress,
   persistMergedProgress,
   toProgressWriteResponse,
 } from "../progress/persist-merged-progress.ts";
-import type { ProgressRepository, ProgressWriteCommand } from "../ports/progress-repository.ts";
+import type { ProgressWriteCommand } from "../progress/progress-write-command.ts";
 
 /**
  * 進捗 update（HTTP PATCH progress）。途中更新・stop 時の位置同期。

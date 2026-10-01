@@ -5,7 +5,8 @@ import { ProgressRuleError } from "../../entities/errors/progress-rule-error.ts"
 import { PROGRESS_COMPLETE_ZONE_SEC } from "../../entities/constants/progress.ts";
 import type { EpisodeRepository } from "../ports/episode-repository.ts";
 import { createFakeProgressRepository } from "../ports/progress-repository.fake.ts";
-import type { ProgressUpsertRow, ProgressWriteCommand } from "../ports/progress-repository.ts";
+import type { ProgressUpsertRow } from "../ports/progress-repository.ts";
+import type { ProgressWriteCommand } from "../progress/progress-write-command.ts";
 import { completeProgress } from "./complete-progress.ts";
 
 /**

@@ -2,14 +2,15 @@ import type { ProgressWriteResponse } from "../../../../contracts/index.ts";
 import { EpisodeContentError } from "../../entities/errors/episode-content-error.ts";
 import { ProgressRuleError } from "../../entities/errors/progress-rule-error.ts";
 import { verifyManuscript } from "../manuscript/verify-manuscript.ts";
+import type { EpisodeRepository } from "../ports/episode-repository.ts";
+import type { ProgressRepository } from "../ports/progress-repository.ts";
 import { isInCompleteZone } from "../progress/is-in-complete-zone.ts";
 import {
   loadExistingProgress,
   persistMergedProgress,
   toProgressWriteResponse,
 } from "../progress/persist-merged-progress.ts";
-import type { EpisodeRepository } from "../ports/episode-repository.ts";
-import type { ProgressRepository, ProgressWriteCommand } from "../ports/progress-repository.ts";
+import type { ProgressWriteCommand } from "../progress/progress-write-command.ts";
 
 /**
  * 進捗 complete（HTTP POST progress/complete）。完走ゾーン突入の記録。

@@ -1,10 +1,11 @@
 import type { ProgressWriteResponse } from "../../../../contracts/index.ts";
+import type { ProgressRepository } from "../ports/progress-repository.ts";
 import {
   loadExistingProgress,
   persistMergedProgress,
   toProgressWriteResponse,
 } from "../progress/persist-merged-progress.ts";
-import type { ProgressRepository, ProgressWriteCommand } from "../ports/progress-repository.ts";
+import type { ProgressWriteCommand } from "../progress/progress-write-command.ts";
 
 /**
  * 進捗 create（HTTP POST progress）。初回 play の永続入口。
