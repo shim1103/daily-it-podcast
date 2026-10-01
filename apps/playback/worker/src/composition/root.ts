@@ -23,6 +23,8 @@ import type { ProgressWriteController } from "../controllers/progress-write-cont
 import { createProgressWriteController } from "../controllers/progress-write-controller.ts";
 import type { PullProgressController } from "../controllers/pull-progress-controller.ts";
 import { createPullProgressController } from "../controllers/pull-progress-controller.ts";
+import { D1ProgressRepository } from "../infrastructure/d1/d1-progress-repository.ts";
+import { EPISODE_PROGRESS_D1_BINDING } from "../infrastructure/d1/progress-d1-constants.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/in-memory/in-memory-episode-repository.ts";
 import { R2EpisodeRepository } from "../infrastructure/r2/r2-episode-repository.ts";
 import { validatePlaybackEnv, type PlaybackRepositoryOptions } from "./runtime-config.ts";
@@ -99,14 +101,18 @@ export function createEpisodeRepository(
 }
 
 /**
- * A: D1 adapter 未実装のため常に Stub ProgressRepository。
- * binding（`EPISODE_PROGRESS`）の有無検証と D1 adapter 差し替えは C。
+ * env から `ProgressRepository` を選ぶ。
  *
- * @ensure 常に ProgressRepository を返す（無言で null にしない）
+ * @require env は Cloudflare Workers native secrets/vars。`EPISODE_PROGRESS` は D1 binding
+ * @ensure `env.EPISODE_PROGRESS` がある時は `D1ProgressRepository`、無い時は `StubProgressRepository`
+ *   を返す。binding の欠落は throw しない（in-memory / unit の経路で progress を永続しない）
  */
-// todo: D1 adapter（C）で env.EPISODE_PROGRESS を検証し具象へ差し替え。それまで Stub 固定
-export function createProgressRepository(_env: PlaybackEnv): ProgressRepository {
-  return new StubProgressRepository();
+export function createProgressRepository(env: PlaybackEnv): ProgressRepository {
+  const database = env[EPISODE_PROGRESS_D1_BINDING];
+  if (database === undefined) {
+    return new StubProgressRepository();
+  }
+  return new D1ProgressRepository({ database });
 }
 
 /**

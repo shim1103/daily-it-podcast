@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createFakeLocalD1Binding } from "../../../test/support/create-fake-local-d1-binding.ts";
 import {
   createFakeGetAudioUseCase,
   createFakeListEpisodesUseCase,
@@ -9,6 +10,13 @@ import {
   validProgressWriteResponse,
 } from "../controllers/fake-use-cases.ts";
 import { StubProgressRepository } from "../application/ports/progress-repository.ts";
+import type {
+  D1DatabaseBinding,
+  D1PreparedStatementBinding,
+  D1Row,
+} from "../infrastructure/d1/d1-database-binding.ts";
+import { D1ProgressRepository } from "../infrastructure/d1/d1-progress-repository.ts";
+import { episodeProgressColumns } from "../infrastructure/d1/progress-d1-constants.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/in-memory/in-memory-episode-repository.ts";
 import { R2EpisodeRepository } from "../infrastructure/r2/r2-episode-repository.ts";
 import { PlaybackRuntimeConfigError } from "./runtime-config-error.ts";
@@ -29,6 +37,32 @@ function fakeProgressUseCases() {
     completeProgress: createFakeProgressWriteUseCase(),
     pullProgress: createFakePullProgressUseCase(),
   };
+}
+
+/** `first` の応答を差し込める D1 binding の手書き double。prepare に渡った SQL を記録する。 */
+function createFirstRowD1Binding(firstRow: D1Row): { database: D1DatabaseBinding; sqls: string[] } {
+  const sqls: string[] = [];
+  const database: D1DatabaseBinding = {
+    prepare(sql) {
+      sqls.push(sql);
+      const statement: D1PreparedStatementBinding = {
+        bind() {
+          return statement;
+        },
+        async first<T extends D1Row = D1Row>() {
+          return firstRow as T | null;
+        },
+        async all() {
+          return { results: [] };
+        },
+        async run() {
+          throw new Error("adapter は run を使わない");
+        },
+      };
+      return statement;
+    },
+  };
+  return { database, sqls };
 }
 
 describe("createEpisodeRepository", () => {
@@ -78,12 +112,26 @@ describe("createEpisodeRepository", () => {
 });
 
 describe("createProgressRepository", () => {
-  it("A では常に StubProgressRepository を返す", () => {
-    // Given: D1 binding の有無に依らない
-    // When: ProgressRepository を選ぶ
-    const got = createProgressRepository({});
+  it("EPISODE_PROGRESS binding がある時、D1ProgressRepository を選ぶ", async () => {
+    // Given: D1 binding を持つ env（実 getPlatformProxy を起動しない Fake local binding）
+    const { database } = await createFakeLocalD1Binding();
+    const env = { EPISODE_PROGRESS: database };
 
-    // Then: Stub（D1 adapter 差し替えは C）
+    // When: ProgressRepository を選ぶ
+    const got = createProgressRepository(env);
+
+    // Then: D1 Adapter が選ばれる
+    expect(got).toBeInstanceOf(D1ProgressRepository);
+  });
+
+  it("EPISODE_PROGRESS binding が無い時、StubProgressRepository を選ぶ", () => {
+    // Given: D1 binding が無い env（in-memory / unit 用の経路）
+    const env = {};
+
+    // When: ProgressRepository を選ぶ
+    const got = createProgressRepository(env);
+
+    // Then: throw せず Stub が選ばれる
     expect(got).toBeInstanceOf(StubProgressRepository);
   });
 });
@@ -110,8 +158,8 @@ describe("createPlaybackControllers", () => {
     expect(() => createPlaybackControllers(env)).toThrow(PlaybackRuntimeConfigError);
   });
 
-  it("override 無し in-memory mode の Controller は repository → use-case → 検証純関数を通る", async () => {
-    // Given: override 無し・in-memory mode（repository は空で組み立てられる）
+  it("override 無し・D1 binding 無しの in-memory mode の Controller は、Stub の progress を通る", async () => {
+    // Given: override 無し・in-memory mode・D1 binding 無しの空 env（progress は Stub に落ちる）
     const got = createPlaybackControllers({}, { mode: localMode });
 
     // When: 一覧・音声・progress 経路を叩く
@@ -132,7 +180,7 @@ describe("createPlaybackControllers", () => {
     const pull = await got.pullProgressController("2026-09-22T10:00:00.000Z");
 
     // Then: 空 repository を検証純関数が通し、一覧は空・音声は Domain 経由の External NotFound
-    // progress は Stub の zero / 空
+    // progress は binding 無しの Stub が返す zero / 空
     expect(list.episodes).toEqual([]);
     await expect(audio).rejects.toMatchObject({ name: "NotFoundError" });
     expect(write).toEqual({
@@ -148,6 +196,25 @@ describe("createPlaybackControllers", () => {
       firstCompletedAt: null,
     });
     expect(pull).toEqual({ episodes: [] });
+  });
+
+  it("D1 binding がある時、progress Controller は D1 binding を介して応答を返す", async () => {
+    // Given: 書込の勝ち側として first* 行を返す D1 binding を持つ env
+    const { database, sqls } = createFirstRowD1Binding({
+      [episodeProgressColumns.firstPlayedAt]: "2026-10-01T00:00:00.000Z",
+      [episodeProgressColumns.firstCompletedAt]: null,
+    });
+    const got = createPlaybackControllers({ EPISODE_PROGRESS: database }, { mode: localMode });
+
+    // When: progress を作成する
+    const write = await got.createProgressController("ep-1", {
+      positionSec: 1,
+      clientAt: "2026-10-01T00:00:00.000Z",
+    });
+
+    // Then: Stub の zero 値ではなく D1 binding の応答が返り、D1 へ SQL が渡る
+    expect(write).toEqual({ firstPlayedAt: "2026-10-01T00:00:00.000Z", firstCompletedAt: null });
+    expect(sqls).toHaveLength(1);
   });
 
   it("useCases override がある時、mode 未指定を無視して stub use case を使う", async () => {
