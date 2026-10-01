@@ -27,6 +27,9 @@ const validManuscriptJson = {
 function createFakeRepository(entries: RawManuscriptEntry[]): EpisodeRepository {
   return {
     listManuscripts: async () => entries,
+    getManuscript: async () => {
+      throw new Error("not used");
+    },
     getAudio: async () => {
       throw new Error("not used");
     },

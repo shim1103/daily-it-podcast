@@ -29,6 +29,14 @@ export class InMemoryEpisodeRepository implements EpisodeRepository {
     return entries;
   }
 
+  async getManuscript(episodeId: string): Promise<RawManuscriptEntry | undefined> {
+    const entry = this.episodes.get(episodeId);
+    if (entry === undefined) {
+      return undefined;
+    }
+    return { stem: episodeId, json: entry.json };
+  }
+
   async getAudio(episodeId: string): Promise<Uint8Array | undefined> {
     return this.episodes.get(episodeId)?.audio;
   }
