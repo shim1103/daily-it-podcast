@@ -4,7 +4,7 @@ import { PlaybackRuntimeConfigError } from "./runtime-config-error.ts";
 import { validatePlaybackEnv } from "./runtime-config.ts";
 
 describe("validatePlaybackEnv", () => {
-  it("明示的 in-memory mode の時、in-memory config を返す", () => {
+  it("returns_in_memory_config_when_mode_is_explicit_in_memory", () => {
     // Given: local / unit test 用の明示的な in-memory mode
     // When: runtime config を検証する
     const got = validatePlaybackEnv({}, { mode: "in-memory" });
@@ -13,7 +13,7 @@ describe("validatePlaybackEnv", () => {
     expect(got).toEqual({ mode: "in-memory", env: {} });
   });
 
-  it("明示的 r2 mode で EPISODES と EPISODE_PROGRESS の binding が揃う時、r2 config として返す", async () => {
+  it("returns_r2_config_when_mode_is_r2_and_episodes_and_episode_progress_bindings_exist", async () => {
     // Given: R2 binding と D1 binding を持つ env と明示的な r2 mode
     const bucket = { get: async () => null, list: async () => ({ objects: [] }) };
     const { database } = await createFakeLocalD1Binding();
@@ -26,7 +26,7 @@ describe("validatePlaybackEnv", () => {
     expect(got).toEqual({ mode: "r2", bucket, progressDatabase: database });
   });
 
-  it("明示的 r2 mode で EPISODES binding が無い時、throw する", async () => {
+  it("throws_when_mode_is_r2_and_episodes_binding_is_missing", async () => {
     // Given: D1 binding だけを持つ env と明示的な r2 mode
     const { database } = await createFakeLocalD1Binding();
     const env = { EPISODE_PROGRESS: database };
@@ -36,7 +36,7 @@ describe("validatePlaybackEnv", () => {
     expect(() => validatePlaybackEnv(env, { mode: "r2" })).toThrow("EPISODES");
   });
 
-  it("明示的 r2 mode で EPISODE_PROGRESS binding が無い時、throw する", () => {
+  it("throws_when_mode_is_r2_and_episode_progress_binding_is_missing", () => {
     // Given: R2 binding だけを持つ env と明示的な r2 mode（進捗が無言で消える構成）
     const bucket = { get: async () => null, list: async () => ({ objects: [] }) };
     const env = { EPISODES: bucket };
@@ -46,7 +46,7 @@ describe("validatePlaybackEnv", () => {
     expect(() => validatePlaybackEnv(env, { mode: "r2" })).toThrow("EPISODE_PROGRESS");
   });
 
-  it("明示的 in-memory mode の時、EPISODE_PROGRESS binding が無くても throw しない", () => {
+  it("does_not_throw_when_mode_is_in_memory_and_episode_progress_binding_is_missing", () => {
     // Given: D1 binding が無い env と明示的な in-memory mode
     const env = {};
 
@@ -54,7 +54,7 @@ describe("validatePlaybackEnv", () => {
     expect(() => validatePlaybackEnv(env, { mode: "in-memory" })).not.toThrow();
   });
 
-  it("mode が未指定の時、throw する（無言 fallback をしない）", () => {
+  it("throws_without_silent_fallback_when_mode_is_unspecified", () => {
     // Given: mode を指定しない options
     const env = {};
 

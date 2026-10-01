@@ -34,7 +34,7 @@ function fakeProgressUseCases() {
 }
 
 describe("createEpisodeRepository", () => {
-  it("明示的な in-memory mode の時、InMemoryEpisodeRepository を選ぶ", () => {
+  it("selects_in_memory_episode_repository_when_mode_is_explicit_in_memory", () => {
     // Given: 空 env と明示的な local / unit test mode
 
     // When: repository を組み立てる
@@ -47,13 +47,13 @@ describe("createEpisodeRepository", () => {
     }
   });
 
-  it("mode が無い時、runtime config error を throw する", () => {
+  it("throws_runtime_config_error_when_mode_is_missing", () => {
     // Given: mode 未指定
     // When / Then: Composition Root は設定不足を返さず throw する
     expect(() => createEpisodeRepository({})).toThrow(PlaybackRuntimeConfigError);
   });
 
-  it("明示的 r2 mode で EPISODES binding がある時、R2EpisodeRepository を選ぶ", async () => {
+  it("selects_r2_episode_repository_when_mode_is_r2_and_episodes_binding_exists", async () => {
     // Given: R2 binding と D1 binding を持つ env と明示的な r2 mode
     const { database } = await createFakeLocalD1Binding();
     const env = { EPISODES: emptyBucket, EPISODE_PROGRESS: database };
@@ -68,7 +68,7 @@ describe("createEpisodeRepository", () => {
     }
   });
 
-  it("明示的 r2 mode で EPISODES binding が無い時、throw する", () => {
+  it("throws_when_mode_is_r2_and_episodes_binding_is_missing", () => {
     // Given: R2 binding が無い env と明示的な r2 mode
     const env = {};
 
@@ -80,7 +80,7 @@ describe("createEpisodeRepository", () => {
 });
 
 describe("createPlaybackControllers", () => {
-  it("明示的な in-memory mode の時、その env に基づく Controller 一式を組み立てる", () => {
+  it("builds_controllers_from_env_when_mode_is_explicit_in_memory", () => {
     // Given: 空 env（意図的な Fake 利用）
     const env = {};
 
@@ -93,7 +93,7 @@ describe("createPlaybackControllers", () => {
     expect(got.pullProgressController).toBeDefined();
   });
 
-  it("mode が無い時、throw して Controller を組み立てない", () => {
+  it("throws_without_building_controllers_when_mode_is_missing", () => {
     // Given: mode 未指定の env
     const env = {};
 
@@ -101,7 +101,7 @@ describe("createPlaybackControllers", () => {
     expect(() => createPlaybackControllers(env)).toThrow(PlaybackRuntimeConfigError);
   });
 
-  it("override 無し・D1 binding 無しの in-memory mode の Controller は、Stub の progress を通る", async () => {
+  it("routes_progress_through_stub_when_in_memory_mode_has_no_override_and_no_d1_binding", async () => {
     // Given: override 無し・in-memory mode・D1 binding 無しの空 env（in-memory は progress を永続しない Stub）
     const got = createPlaybackControllers({}, { mode: localMode });
 
@@ -141,7 +141,7 @@ describe("createPlaybackControllers", () => {
     expect(pull).toEqual({ episodes: [] });
   });
 
-  it("明示的な in-memory mode の時、env に D1 binding があっても progress は Stub を通る", async () => {
+  it("routes_progress_through_stub_when_in_memory_mode_even_if_env_has_d1_binding", async () => {
     // Given: D1 binding を持つ env と in-memory mode（in-memory は env の中身を見ない）
     const { database, calls } = await createFakeLocalD1Binding({
       first: async () => ({
@@ -162,7 +162,7 @@ describe("createPlaybackControllers", () => {
     expect(calls).toHaveLength(0);
   });
 
-  it("明示的 r2 mode で D1 binding がある時、progress Controller は D1 binding を介して応答を返す", async () => {
+  it("responds_via_d1_binding_when_mode_is_r2_and_d1_binding_exists", async () => {
     // Given: 書込の勝ち側として first* 行を返す D1 binding と、R2 binding を持つ env
     const { database, calls } = await createFakeLocalD1Binding({
       first: async () => ({
@@ -186,7 +186,7 @@ describe("createPlaybackControllers", () => {
     expect(calls).toHaveLength(1);
   });
 
-  it("明示的 r2 mode で D1 binding が無い時、Stub へ落とさず throw して Controller を組み立てない", () => {
+  it("throws_without_falling_back_to_stub_when_mode_is_r2_and_d1_binding_is_missing", () => {
     // Given: R2 binding だけを持つ env（進捗が保存できたように見えて消える構成）
     const env = { EPISODES: emptyBucket };
 
@@ -197,7 +197,7 @@ describe("createPlaybackControllers", () => {
     expect(() => createPlaybackControllers(env, { mode: r2Mode })).toThrow("EPISODE_PROGRESS");
   });
 
-  it("useCases override がある時、mode 未指定を無視して stub use case を使う", async () => {
+  it("uses_stub_use_cases_ignoring_missing_mode_when_use_cases_override_exists", async () => {
     // Given: mode 未指定の env と、stub use case 一式の override
     const env = {};
     const useCases = {
