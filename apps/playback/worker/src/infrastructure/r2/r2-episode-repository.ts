@@ -13,8 +13,10 @@ export type R2ObjectBodyLike = {
 };
 
 /**
- * Workers の R2 binding 最小面。本番型は wrangler 生成の `R2Bucket`（`apps/playback/worker-configuration.d.ts`）
- * の読み出し面に合わせる。put は generator 側の書込 Adapter が使うため、ここでは持たない。
+ * Workers の R2 binding 最小面。wrangler 生成の `R2Bucket` の読み出し面の部分集合に合わせる設計意図であり、型検査では担保していない。
+ * `worker-configuration.d.ts` は `--include-runtime false` 生成で `R2Bucket` が型 scope に無く、
+ * 実 `R2Bucket` から本型への構造的代入はどこでも検査されない。実 binding との整合は local R2 を刺す NI の実行で確かめる。
+ * put は generator 側の書込 Adapter が使うため、ここでは持たない。
  *
  * why: 配置契約（`contracts/episode-layout.md`）は object 空間を flat に保つため、`list` は
  * `prefix` を受け取らない。将来階層化する時に絞り込みが要る（YAGNI）。
