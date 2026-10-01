@@ -3,7 +3,7 @@
     {
       "name": "CF_Authorization",
       "value": "<CF_Authorization の値>",
-      "domain": "<本番 host（scheme と path を除く）>",
+      "domain": "<本番 host のみ。https:// や path を付けない>",
       "path": "/",
       "expires": "<DevTools の Expires 列の日時をそのまま貼る>",
       "httpOnly": true,

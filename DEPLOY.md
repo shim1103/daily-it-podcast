@@ -159,7 +159,7 @@ e2e が「一覧が出ない」で落ちた時は、最初の step「Access sess
 | 観測 | 意味 | 次にやること |
 |---|---|---|
 | 最初の step が「Access session が失効している」で失敗 | cookie の期限切れ | 下の更新手順 |
-| 最初の step は「期限は有効」で、画面が Cloudflare Access の login | Access が cookie を受理していない。期限切れではない。候補は、コピーした cookie が app の host のものと別物、必要な別の cookie を欠く、登録した origin と `PLAYWRIGHT_BASE_URL` の不一致（いずれも未確認） | 更新手順をやり直し、DevTools で、app の host の cookie 一覧と domain を確かめる |
+| 最初の step は「期限は有効」で、画面が Cloudflare Access の login | Access が cookie を受理していない（または cookie が送られていない）。期限切れではない。実際にあった原因は、JSON の `domain` に `https://` を付けたこと。他の候補は、コピーした cookie が app の host のものと別物、必要な別の cookie を欠く、`domain` と `PLAYWRIGHT_BASE_URL` の host の不一致（これらは未確認） | 更新手順をやり直し、DevTools で、app の host の cookie 一覧と domain を確かめる |
 | 最初の step は「期限は有効」で、画面が login ではない | Worker 側の失敗（`503` 等） | Worker の log を見る（`npx wrangler tail`） |
 
 「期限は有効」は、期限だけの確認である。Access が受理するかは E2E が確かめる。
@@ -171,8 +171,10 @@ e2e が「一覧が出ない」で落ちた時は、最初の step「Access sess
 | 項目 | 入れる値 |
 |---|---|
 | `value` | 手順 2 でコピーした `CF_Authorization` の値 |
-| `domain` | 本番 host のみ（scheme と path を除く。例 `playback.example.workers.dev`） |
+| `domain` | 本番 host のみ。DevTools の Domain 列の値をそのまま入れる（例 `playback.example.workers.dev`）。**`https://` や path を付けない** |
 | `expires` | DevTools の Expires 列の日時を、**変換せずそのまま文字列で**貼る（例 `"2026-10-30T16:44:30.650Z"`）。E2E を実行する step が Unix 秒へ直して Playwright へ渡す。Unix 秒の数値も受け付ける（`0` と `-1` は失効として扱われる） |
+
+`domain` に `https://` を付けると、Playwright が cookie の host と照合できず、cookie を送らない。期限確認は通っても、E2E は Access の login 画面で落ちる（実 run で確認した。期限確認は `domain` を見ない）。browser の URL 欄に入れる形とは違うので、注意する。
 
 4. Secret `PLAYWRIGHT_STORAGE_STATE_JSON` へ、JSON 本文を登録する。shell の履歴と process 一覧に値を残さないよう、file から渡す
 
