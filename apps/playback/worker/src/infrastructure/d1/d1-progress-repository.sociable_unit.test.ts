@@ -102,6 +102,41 @@ describe("D1ProgressRepository", () => {
       expect([...got.keys()]).toEqual(["ep-0", `ep-${D1_MAX_BOUND_PARAMETERS_PER_QUERY}`]);
     });
 
+    it("sends_single_query_when_ids_equal_bind_limit", async () => {
+      // Given: ちょうど上限個数の episodeId と、呼び出しを記録する D1
+      const episodeIds = Array.from(
+        { length: D1_MAX_BOUND_PARAMETERS_PER_QUERY },
+        (_, index) => `ep-${index}`,
+      );
+      const { database, calls } = await createFakeLocalD1Binding();
+      const repository = new D1ProgressRepository({ database });
+
+      // When: 取得する
+      await repository.getByEpisodeIds(episodeIds);
+
+      // Then: 上限ちょうどは分割せず 1 query に収まる（末尾に空の chunk を作らない）
+      expect(calls.map((call) => call.values.length)).toEqual([D1_MAX_BOUND_PARAMETERS_PER_QUERY]);
+    });
+
+    it("splits_into_full_queries_without_empty_chunk_when_ids_are_twice_bind_limit", async () => {
+      // Given: 上限のちょうど 2 倍の episodeId と、呼び出しを記録する D1
+      const episodeIds = Array.from(
+        { length: D1_MAX_BOUND_PARAMETERS_PER_QUERY * 2 },
+        (_, index) => `ep-${index}`,
+      );
+      const { database, calls } = await createFakeLocalD1Binding();
+      const repository = new D1ProgressRepository({ database });
+
+      // When: 取得する
+      await repository.getByEpisodeIds(episodeIds);
+
+      // Then: 上限いっぱいの 2 query だけに分かれ、bind 0 個の query（IN ()）を送らない
+      expect(calls.map((call) => call.values.length)).toEqual([
+        D1_MAX_BOUND_PARAMETERS_PER_QUERY,
+        D1_MAX_BOUND_PARAMETERS_PER_QUERY,
+      ]);
+    });
+
     it("throws_d1_error_with_cause_without_retry_when_d1_fails", async () => {
       // Given: 読取が失敗する D1
       const cause = new Error("D1_ERROR: network");
