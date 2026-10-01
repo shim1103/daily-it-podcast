@@ -79,8 +79,6 @@ func TestSynthesizeAll_succeedsForAllTexts_whenEveryCallReturnsAudio(t *testing.
 	}
 }
 
-// TestSynthesizeAll_fillsDurationSecOfEachContent_whenEveryCallReturnsAudio は
-// 各要素の DurationSec が、その要素の PCM 長（byte）÷ 1 秒あたりの byte 数で埋まることを検証する。
 func TestSynthesizeAll_fillsDurationSecOfEachContent_whenEveryCallReturnsAudio(t *testing.T) {
 	// Given: 尺の異なる既知長 PCM を返す 2 回の呼び出し（24 kHz / 16-bit / mono = 48000 byte/秒）
 	const bytesPerSecond = 48000

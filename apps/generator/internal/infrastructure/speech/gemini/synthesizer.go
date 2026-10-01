@@ -41,7 +41,6 @@ type SpeechSynthesizer struct {
 // 「1 episode 分の TTS 呼び出し群」を束ねて管理するのは Adapter の責務。
 // @require texts の各要素は trim 後に非空。朗読本文のみ。
 // @ensure 成功時は len(texts) と同数の非空・最小尺 WAV を返す（結合しない）。
-// @ensure 各要素の DurationSec は同要素の Content（WAV）の再生尺（秒）で埋まる。
 // @ensure 失敗時もそれまでに合成できた分の audios（部分成功）を err と併せて返す。呼び出し側の
 //
 //	fallback 合成 layer（application/speech）が、この部分成功分を保持しつつ残りを次 source へ渡す。

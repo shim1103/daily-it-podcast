@@ -41,7 +41,7 @@ func pcmToWAV(pcm []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// why: WAV header を再 parse せず、application/build を import しない（Decision 2026-10-01T11-50-38）。
+// why: 尺は WAV header を再 parse せず、header と同じ定数 pcmByteRate から求める（Decision 2026-09-23T17-21-30）。
 func pcmDurationSec(pcm []byte) float64 {
 	return float64(len(pcm)) / pcmByteRate
 }
