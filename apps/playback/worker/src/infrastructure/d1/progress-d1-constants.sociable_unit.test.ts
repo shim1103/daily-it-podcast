@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  D1_MAX_BOUND_PARAMETERS_PER_QUERY,
   EPISODE_PROGRESS_D1_BINDING,
   EPISODE_PROGRESS_TABLE,
   PROGRESS_D1_ADAPTER_MAX_ATTEMPTS,
@@ -9,6 +10,10 @@ import {
 describe("progress D1 constants", () => {
   it("D1 adapter は再試行せず 1 試行だけである", () => {
     expect(PROGRESS_D1_ADAPTER_MAX_ATTEMPTS).toBe(1);
+  });
+
+  it("D1 の 1 query あたり bind 数上限は 100 である", () => {
+    expect(D1_MAX_BOUND_PARAMETERS_PER_QUERY).toBe(100);
   });
 
   it("D1 binding 名は EPISODE_PROGRESS である", () => {
