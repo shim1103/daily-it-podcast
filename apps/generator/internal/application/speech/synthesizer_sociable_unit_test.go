@@ -20,7 +20,7 @@ import (
 // 振る舞い: 先頭 source が全 texts 分成功したら以降を呼ばない / port.ErrSourceExhausted は
 // 部分成功（got）を蓄積し fallback.Fallback を経て残り texts だけ次 source へ渡す /
 // 非枯渇 error は蓄積を破棄しそのまま返す / 全 source 使い切りは最後の error を返す /
-// source 3 つ以上でも順に切り替わる / source が返した DurationSec を欠落させず順序も保って透過する。
+// source 3 つ以上でも順に切り替わる。
 
 // fakeSpeechSynthesizer は port.SpeechSynthesizer の Spy。呼び出し回数・最後に受け取った texts を記録し、
 // 返す audios と error を設定できる。
@@ -35,7 +35,8 @@ type fakeSpeechSynthesizer struct {
 func (f *fakeSpeechSynthesizer) SynthesizeAll(_ context.Context, texts []string) ([]models.SpeechAudio, error) {
 	f.calls++
 	f.lastTexts = texts
-	return f.got, f.err
+	// why: 期待値と戻りが同じ配列だと、実装が in-place に値を壊しても期待値まで壊れて通る。
+	return slices.Clone(f.got), f.err
 }
 
 var _ port.SpeechSynthesizer = (*fakeSpeechSynthesizer)(nil)
@@ -64,13 +65,9 @@ func newUCWithSpies(sources ...*fakeSpeechSynthesizer) (*SpeechSynthesizer, *fak
 	return uc, fallback
 }
 
+// audio は label ごとに異なる DurationSec を持つ audio を返す（欠落・入れ替わりを assertAudiosEqual が検出できる）。
 func audio(label string) models.SpeechAudio {
-	return models.SpeechAudio{Content: []byte(label)}
-}
-
-// audioWithDuration は DurationSec を持つ audio を返す。DurationSec の透過を観測するための fixture。
-func audioWithDuration(label string, durationSec float64) models.SpeechAudio {
-	return models.SpeechAudio{Content: []byte(label), DurationSec: durationSec}
+	return models.SpeechAudio{Content: []byte(label), DurationSec: float64(len(label))}
 }
 
 func exhaustedErr(inner string) error {
@@ -147,46 +144,6 @@ func TestSynthesizeAll_switchesToSecondSourceWithRemainingTexts_whenFirstSourceE
 	if !reflect.DeepEqual(second.lastTexts, wantRemaining) {
 		t.Fatalf("second が受け取った texts = %v, want %v", second.lastTexts, wantRemaining)
 	}
-}
-
-func TestSynthesizeAll_preservesDurationSec_whenFirstSourceSucceeds(t *testing.T) {
-	t.Parallel()
-
-	// Given: 先頭 source が DurationSec 付きの audios を返す
-	//        （期待値と fake の戻りは別 backing array にし、in-place 改変で期待値まで巻き込まれないようにする）
-	wantAudios := []models.SpeechAudio{audioWithDuration("一本目", 1.5), audioWithDuration("二本目", 2.25)}
-	first := &fakeSpeechSynthesizer{got: slices.Clone(wantAudios)}
-	uc, _ := newUCWithSpies(first)
-
-	// When: SynthesizeAll する
-	got, err := uc.SynthesizeAll(context.Background(), []string{"一本目", "二本目"})
-
-	// Then: 各 audio の DurationSec が欠落せず、順序も保たれる
-	if err != nil {
-		t.Fatalf("SynthesizeAll() error = %v, want nil", err)
-	}
-	assertAudiosEqual(t, got, wantAudios)
-}
-
-func TestSynthesizeAll_preservesDurationSecInOrder_whenSwitchedAfterPartialSuccess(t *testing.T) {
-	t.Parallel()
-
-	// Given: 先頭 source が DurationSec 付きの 1 本を合成してから port.ErrSourceExhausted を返し、
-	//        2 番目が DurationSec 付きの残り 2 本を返す
-	firstPartial := []models.SpeechAudio{audioWithDuration("一本目", 1.5)}
-	first := &fakeSpeechSynthesizer{got: slices.Clone(firstPartial), err: exhaustedErr("quota gone")}
-	secondAudios := []models.SpeechAudio{audioWithDuration("二本目", 2.25), audioWithDuration("三本目", 3.75)}
-	second := &fakeSpeechSynthesizer{got: slices.Clone(secondAudios)}
-	uc, _ := newUCWithSpies(first, second)
-
-	// When: SynthesizeAll する
-	got, err := uc.SynthesizeAll(context.Background(), []string{"一本目", "二本目", "三本目"})
-
-	// Then: 蓄積分（先頭 source）と後続分（2 番目）の両方で DurationSec が保たれ、先頭→2 番目の順に並ぶ
-	if err != nil {
-		t.Fatalf("SynthesizeAll() error = %v, want nil", err)
-	}
-	assertAudiosEqual(t, got, slices.Concat(firstPartial, secondAudios))
 }
 
 func TestSynthesizeAll_propagatesFirstSourceError_whenErrorIsNotSourceExhausted(t *testing.T) {

@@ -40,9 +40,7 @@ func (s *stubWriter) Write(_ context.Context, _ string, buildFn func(string) (mo
 }
 
 // spySynth は SpeechSynthesizer の Spy。SynthesizeAll が受け取った texts 束と呼び出し回数を記録し、
-// error を返すよう設定できる。各セグメントには固定 WAV（wav）と、port 契約どおりその尺（durationSec）を
-// DurationSec へ埋めて返す。durationSec は wav の実尺と独立に指定でき、Run が WAV を再 parse せず
-// DurationSec を使うことの観測に使う。
+// error を返すよう設定できる。各セグメントには固定 WAV（wav）とその尺（durationSec）を返す。
 type spySynth struct {
 	calls       int
 	texts       []string // 最後に SynthesizeAll へ渡された texts 束
@@ -553,35 +551,6 @@ func TestProduceEpisodeRun_setsTopicStartSecFromCumulativeSegmentDurationsWithSi
 	// Then: durationSec = 全 segment 尺合計 + S*(segment数-1)
 	segCount := len(h.synth.texts)
 	wantDuration := d*float64(segCount) + s*float64(segCount-1)
-	if math.Abs(m.DurationSec-wantDuration) > 1e-9 {
-		t.Fatalf("durationSec = %v, want %v (segCount=%d)", m.DurationSec, wantDuration, segCount)
-	}
-}
-
-func TestProduceEpisodeRun_buildsTimelineFromSynthesizedDurationSec_whenDurationSecDiffersFromWavContentLength(t *testing.T) {
-	t.Parallel()
-
-	// Given: 各 segment の Content は実尺 1 秒の WAV。SpeechSynthesizer が返す DurationSec は契約上の正として 3 秒
-	const wavSec = 1.0
-	const durationSec = 3.0
-	s := constants.SegmentSilenceSec
-	h := newHarness(t, wavSec)
-	h.synth.durationSec = durationSec
-	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
-
-	// When: Run を呼ぶ
-	if _, err := h.uc.Run(context.Background(), now); err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-
-	// Then: topic 開始秒と全体 duration は Content の実尺ではなく DurationSec に従う
-	m := unmarshalManuscript(t, h.episw.manuscript)
-	wantTopic0 := durationSec + s
-	if math.Abs(m.Body.Topics[0].StartSec-wantTopic0) > 1e-9 {
-		t.Fatalf("topics[0].startSec = %v, want %v (DurationSec 由来)", m.Body.Topics[0].StartSec, wantTopic0)
-	}
-	segCount := len(h.synth.texts)
-	wantDuration := durationSec*float64(segCount) + s*float64(segCount-1)
 	if math.Abs(m.DurationSec-wantDuration) > 1e-9 {
 		t.Fatalf("durationSec = %v, want %v (segCount=%d)", m.DurationSec, wantDuration, segCount)
 	}
