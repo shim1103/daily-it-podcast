@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createFakeLocalD1Binding } from "../../../../test/support/create-fake-local-d1-binding.ts";
-import type {
-  D1DatabaseBinding,
-  D1PreparedStatementBinding,
-  D1Row,
-} from "./d1-database-binding.ts";
+import type { D1Row } from "./d1-database-binding.ts";
 import { D1Error } from "./d1-error.ts";
 import { D1ProgressRepository } from "./d1-progress-repository.ts";
 import {
@@ -16,50 +12,13 @@ import {
 /**
  * scope: Sociable Unit
  * real: D1ProgressRepository
- * double: D1DatabaseBinding（呼び出しを記録し応答を差し込める手書き double。空応答だけ Fake local binding）
+ * double: D1DatabaseBinding（共有 Fake local binding。応答を差し込み、呼び出しを記録する）
  *
  * merge の SQL 意味（先勝ち / 後勝ち / 冪等 / 境界）は実 SQLite でしか観測できないため、
  * `test/integration/d1_progress_repository.narrow_integration.test.ts` が所有する。
  */
 
 const columns = episodeProgressColumns;
-
-type Call = { sql: string; values: unknown[] };
-
-type Behavior = {
-  first?: (call: Call) => Promise<D1Row | null>;
-  all?: (call: Call) => Promise<D1Row[]>;
-};
-
-function createRecordingBinding(behavior: Behavior = {}): {
-  database: D1DatabaseBinding;
-  calls: Call[];
-} {
-  const calls: Call[] = [];
-  const database: D1DatabaseBinding = {
-    prepare(sql) {
-      const call: Call = { sql, values: [] };
-      calls.push(call);
-      const statement: D1PreparedStatementBinding = {
-        bind(...values) {
-          call.values = values;
-          return statement;
-        },
-        async first<T extends D1Row = D1Row>() {
-          return ((await behavior.first?.(call)) ?? null) as T | null;
-        },
-        async all<T extends D1Row = D1Row>() {
-          return { results: ((await behavior.all?.(call)) ?? []) as T[] };
-        },
-        async run() {
-          throw new Error("adapter は run を使わない");
-        },
-      };
-      return statement;
-    },
-  };
-  return { database, calls };
-}
 
 function progressRow(overrides: D1Row = {}): D1Row {
   return {
@@ -76,7 +35,7 @@ describe("D1ProgressRepository", () => {
   describe("getByEpisodeIds", () => {
     it("returns_progress_keyed_by_episode_id_when_rows_exist", async () => {
       // Given: ep-1 だけ行がある D1
-      const { database, calls } = createRecordingBinding({
+      const { database, calls } = await createFakeLocalD1Binding({
         all: async () => [progressRow({ [columns.firstCompletedAt]: "2026-10-01T00:04:00.000Z" })],
       });
       const repository = new D1ProgressRepository({ database });
@@ -97,9 +56,9 @@ describe("D1ProgressRepository", () => {
     });
 
     it("returns_empty_map_when_no_row_exists", async () => {
-      // Given: 行が 1 つも無い local binding（Fake）
-      const handle = await createFakeLocalD1Binding();
-      const repository = new D1ProgressRepository({ database: handle.database });
+      // Given: 行が 1 つも無い D1（Fake の既定応答）
+      const { database } = await createFakeLocalD1Binding();
+      const repository = new D1ProgressRepository({ database });
 
       // When: 取得する
       const got = await repository.getByEpisodeIds(["ep-1"]);
@@ -110,7 +69,7 @@ describe("D1ProgressRepository", () => {
 
     it("returns_empty_map_without_calling_d1_when_episode_ids_is_empty", async () => {
       // Given: 呼び出しを記録する D1
-      const { database, calls } = createRecordingBinding();
+      const { database, calls } = await createFakeLocalD1Binding();
       const repository = new D1ProgressRepository({ database });
 
       // When: 空配列で取得する
@@ -127,7 +86,7 @@ describe("D1ProgressRepository", () => {
         { length: D1_MAX_BOUND_PARAMETERS_PER_QUERY + 1 },
         (_, index) => `ep-${index}`,
       );
-      const { database, calls } = createRecordingBinding({
+      const { database, calls } = await createFakeLocalD1Binding({
         all: async (call) => [progressRow({ [columns.episodeId]: call.values[0] })],
       });
       const repository = new D1ProgressRepository({ database });
@@ -146,7 +105,7 @@ describe("D1ProgressRepository", () => {
     it("throws_d1_error_with_cause_without_retry_when_d1_fails", async () => {
       // Given: 読取が失敗する D1
       const cause = new Error("D1_ERROR: network");
-      const { database, calls } = createRecordingBinding({
+      const { database, calls } = await createFakeLocalD1Binding({
         all: async () => {
           throw cause;
         },
@@ -164,7 +123,7 @@ describe("D1ProgressRepository", () => {
 
     it("throws_d1_error_without_leaking_values_when_d1_fails", async () => {
       // Given: bind 値を含む message で失敗する D1
-      const { database } = createRecordingBinding({
+      const { database } = await createFakeLocalD1Binding({
         all: async () => {
           throw new Error("failed for ep-secret");
         },
@@ -190,7 +149,7 @@ describe("D1ProgressRepository", () => {
 
     it("returns_winning_first_timestamps_from_returning_row_with_one_statement", async () => {
       // Given: 勝ち側の first* を RETURNING で返す D1
-      const { database, calls } = createRecordingBinding({
+      const { database, calls } = await createFakeLocalD1Binding({
         first: async () => ({
           [columns.firstPlayedAt]: "2026-09-30T23:00:00.000Z",
           [columns.firstCompletedAt]: "2026-09-30T23:30:00.000Z",
@@ -211,7 +170,7 @@ describe("D1ProgressRepository", () => {
 
     it("returns_null_first_completed_at_when_returning_row_has_null", async () => {
       // Given: 未完走の行を返す D1
-      const { database } = createRecordingBinding({
+      const { database } = await createFakeLocalD1Binding({
         first: async () => ({
           [columns.firstPlayedAt]: "2026-09-30T23:00:00.000Z",
           [columns.firstCompletedAt]: null,
@@ -228,7 +187,7 @@ describe("D1ProgressRepository", () => {
 
     it("binds_episode_id_position_and_utc_normalized_client_at_when_client_at_has_offset", async () => {
       // Given: 呼び出しを記録する D1
-      const { database, calls } = createRecordingBinding({
+      const { database, calls } = await createFakeLocalD1Binding({
         first: async () => ({
           [columns.firstPlayedAt]: "2026-10-01T00:00:00.000Z",
           [columns.firstCompletedAt]: null,
@@ -246,7 +205,7 @@ describe("D1ProgressRepository", () => {
     it("throws_d1_error_with_cause_without_retry_when_d1_fails", async () => {
       // Given: 書込が失敗する D1
       const cause = new Error("D1_ERROR: unavailable");
-      const { database, calls } = createRecordingBinding({
+      const { database, calls } = await createFakeLocalD1Binding({
         first: async () => {
           throw cause;
         },
@@ -264,7 +223,7 @@ describe("D1ProgressRepository", () => {
 
     it("throws_d1_error_without_leaking_values_when_d1_fails", async () => {
       // Given: bind 値を含む message で失敗する D1
-      const { database } = createRecordingBinding({
+      const { database } = await createFakeLocalD1Binding({
         first: async () => {
           throw new Error("failed for ep-secret");
         },
@@ -284,7 +243,7 @@ describe("D1ProgressRepository", () => {
 
     it("throws_d1_error_when_returning_yields_no_row", async () => {
       // Given: RETURNING が行を返さない D1（upsert の契約違反）
-      const { database } = createRecordingBinding({ first: async () => null });
+      const { database } = await createFakeLocalD1Binding({ first: async () => null });
       const repository = new D1ProgressRepository({ database });
 
       // When / Then: 勝ち側が分からないので D1Error
@@ -302,7 +261,7 @@ describe("D1ProgressRepository", () => {
       ],
     ])("throws_d1_error_when_returning_row_is_malformed_because_%s", async (_name, row) => {
       // Given: 列型が期待と違う RETURNING 行を返す D1
-      const { database } = createRecordingBinding({ first: async () => row });
+      const { database } = await createFakeLocalD1Binding({ first: async () => row });
       const repository = new D1ProgressRepository({ database });
 
       // When / Then: 契約型として返さず D1Error
@@ -311,7 +270,7 @@ describe("D1ProgressRepository", () => {
 
     it("throws_without_calling_d1_when_client_at_is_not_a_valid_timestamp", async () => {
       // Given: 呼び出しを記録する D1
-      const { database, calls } = createRecordingBinding();
+      const { database, calls } = await createFakeLocalD1Binding();
       const repository = new D1ProgressRepository({ database });
 
       // When: Route 側 schema の前提を破る clientAt で書込する
@@ -326,7 +285,7 @@ describe("D1ProgressRepository", () => {
   describe("listUpdatedSince", () => {
     it("returns_entries_in_row_order_when_rows_exist", async () => {
       // Given: 2 行を返す D1
-      const { database } = createRecordingBinding({
+      const { database } = await createFakeLocalD1Binding({
         all: async () => [
           progressRow({ [columns.episodeId]: "ep-1" }),
           progressRow({
@@ -365,9 +324,9 @@ describe("D1ProgressRepository", () => {
     });
 
     it("returns_empty_array_when_no_row_is_updated", async () => {
-      // Given: 行が 1 つも無い local binding（Fake）
-      const handle = await createFakeLocalD1Binding();
-      const repository = new D1ProgressRepository({ database: handle.database });
+      // Given: 行が 1 つも無い D1（Fake の既定応答）
+      const { database } = await createFakeLocalD1Binding();
+      const repository = new D1ProgressRepository({ database });
 
       // When: pull する
       const got = await repository.listUpdatedSince("2026-09-30T00:00:00.000Z");
@@ -378,7 +337,7 @@ describe("D1ProgressRepository", () => {
 
     it("binds_utc_normalized_since_when_since_has_offset", async () => {
       // Given: 呼び出しを記録する D1
-      const { database, calls } = createRecordingBinding();
+      const { database, calls } = await createFakeLocalD1Binding();
       const repository = new D1ProgressRepository({ database });
 
       // When: +09:00 の since で pull する
@@ -392,7 +351,7 @@ describe("D1ProgressRepository", () => {
     it("throws_d1_error_with_cause_without_retry_when_d1_fails", async () => {
       // Given: 読取が失敗する D1
       const cause = new Error("D1_ERROR: unavailable");
-      const { database, calls } = createRecordingBinding({
+      const { database, calls } = await createFakeLocalD1Binding({
         all: async () => {
           throw cause;
         },
@@ -415,7 +374,9 @@ describe("D1ProgressRepository", () => {
       ["episode_id is not a string", { [columns.episodeId]: 1 }],
     ])("throws_d1_error_when_row_is_malformed_because_%s", async (_name, overrides) => {
       // Given: 列型が期待と違う行を返す D1
-      const { database } = createRecordingBinding({ all: async () => [progressRow(overrides)] });
+      const { database } = await createFakeLocalD1Binding({
+        all: async () => [progressRow(overrides)],
+      });
       const repository = new D1ProgressRepository({ database });
 
       // When / Then: 契約型として返さず D1Error
@@ -426,7 +387,7 @@ describe("D1ProgressRepository", () => {
 
     it("throws_without_calling_d1_when_since_is_not_a_valid_timestamp", async () => {
       // Given: 呼び出しを記録する D1
-      const { database, calls } = createRecordingBinding();
+      const { database, calls } = await createFakeLocalD1Binding();
       const repository = new D1ProgressRepository({ database });
 
       // When: Route 側 schema の前提を破る since で pull する

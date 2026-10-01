@@ -47,6 +47,40 @@ describe("createFakeLocalD1Binding", () => {
     expect(await bound.first()).toBeNull();
   });
 
+  it("returns_injected_responses_when_responses_are_given", async () => {
+    // Given: first / all / run の応答を差し込んだ Fake の database
+    const { database } = await createFakeLocalD1Binding({
+      first: async () => ({ n: 1 }),
+      all: async () => [{ n: 2 }],
+      run: async () => ({ success: true, meta: { changes: 3 } }),
+    });
+
+    // When: それぞれの操作を実行する
+    const first = await database.prepare("SELECT 1 AS n").first();
+    const all = await database.prepare("SELECT 2 AS n").all();
+    const written = await database.prepare("INSERT INTO t VALUES (1)").run();
+
+    // Then: 差し込んだ応答がそのまま返る
+    expect(first).toEqual({ n: 1 });
+    expect(all.results).toEqual([{ n: 2 }]);
+    expect(written).toEqual({ success: true, meta: { changes: 3 } });
+  });
+
+  it("records_sql_and_bound_values_in_call_order_when_preparing_statements", async () => {
+    // Given: 応答を差し込まない Fake
+    const { database, calls } = await createFakeLocalD1Binding();
+
+    // When: bind ありと bind なしの statement を順に prepare する
+    await database.prepare("SELECT ?").bind("a", 1).first();
+    await database.prepare("SELECT 1").first();
+
+    // Then: SQL と bind 値が呼び出し順に記録される（bind しない呼び出しは値が空）
+    expect(calls).toEqual([
+      { sql: "SELECT ?", values: ["a", 1] },
+      { sql: "SELECT 1", values: [] },
+    ]);
+  });
+
   it("resolves_dispose_without_error_when_disposing", async () => {
     // Given: SU 用 Fake の handle
     const handle = await createFakeLocalD1Binding();

@@ -9,11 +9,6 @@ import {
   validProgressPullResponse,
   validProgressWriteResponse,
 } from "../controllers/fake-use-cases.ts";
-import type {
-  D1DatabaseBinding,
-  D1PreparedStatementBinding,
-  D1Row,
-} from "../infrastructure/d1/d1-database-binding.ts";
 import { episodeProgressColumns } from "../infrastructure/d1/progress-d1-constants.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/in-memory/in-memory-episode-repository.ts";
 import { R2EpisodeRepository } from "../infrastructure/r2/r2-episode-repository.ts";
@@ -36,32 +31,6 @@ function fakeProgressUseCases() {
     completeProgress: createFakeProgressWriteUseCase(),
     pullProgress: createFakePullProgressUseCase(),
   };
-}
-
-/** `first` の応答を差し込める D1 binding の手書き double。prepare に渡った SQL を記録する。 */
-function createFirstRowD1Binding(firstRow: D1Row): { database: D1DatabaseBinding; sqls: string[] } {
-  const sqls: string[] = [];
-  const database: D1DatabaseBinding = {
-    prepare(sql) {
-      sqls.push(sql);
-      const statement: D1PreparedStatementBinding = {
-        bind() {
-          return statement;
-        },
-        async first<T extends D1Row = D1Row>() {
-          return firstRow as T | null;
-        },
-        async all() {
-          return { results: [] };
-        },
-        async run() {
-          throw new Error("adapter は run を使わない");
-        },
-      };
-      return statement;
-    },
-  };
-  return { database, sqls };
 }
 
 describe("createEpisodeRepository", () => {
@@ -174,9 +143,11 @@ describe("createPlaybackControllers", () => {
 
   it("明示的な in-memory mode の時、env に D1 binding があっても progress は Stub を通る", async () => {
     // Given: D1 binding を持つ env と in-memory mode（in-memory は env の中身を見ない）
-    const { database, sqls } = createFirstRowD1Binding({
-      [episodeProgressColumns.firstPlayedAt]: "2026-10-01T00:00:00.000Z",
-      [episodeProgressColumns.firstCompletedAt]: null,
+    const { database, calls } = await createFakeLocalD1Binding({
+      first: async () => ({
+        [episodeProgressColumns.firstPlayedAt]: "2026-10-01T00:00:00.000Z",
+        [episodeProgressColumns.firstCompletedAt]: null,
+      }),
     });
     const got = createPlaybackControllers({ EPISODE_PROGRESS: database }, { mode: localMode });
 
@@ -188,14 +159,16 @@ describe("createPlaybackControllers", () => {
 
     // Then: D1 へは SQL を渡さず、Stub の zero 値が返る
     expect(write).toEqual({ firstPlayedAt: "1970-01-01T00:00:00.000Z", firstCompletedAt: null });
-    expect(sqls).toHaveLength(0);
+    expect(calls).toHaveLength(0);
   });
 
   it("明示的 r2 mode で D1 binding がある時、progress Controller は D1 binding を介して応答を返す", async () => {
     // Given: 書込の勝ち側として first* 行を返す D1 binding と、R2 binding を持つ env
-    const { database, sqls } = createFirstRowD1Binding({
-      [episodeProgressColumns.firstPlayedAt]: "2026-10-01T00:00:00.000Z",
-      [episodeProgressColumns.firstCompletedAt]: null,
+    const { database, calls } = await createFakeLocalD1Binding({
+      first: async () => ({
+        [episodeProgressColumns.firstPlayedAt]: "2026-10-01T00:00:00.000Z",
+        [episodeProgressColumns.firstCompletedAt]: null,
+      }),
     });
     const got = createPlaybackControllers(
       { EPISODES: emptyBucket, EPISODE_PROGRESS: database },
@@ -210,7 +183,7 @@ describe("createPlaybackControllers", () => {
 
     // Then: Stub の zero 値ではなく D1 binding の応答が返り、D1 へ SQL が渡る
     expect(write).toEqual({ firstPlayedAt: "2026-10-01T00:00:00.000Z", firstCompletedAt: null });
-    expect(sqls).toHaveLength(1);
+    expect(calls).toHaveLength(1);
   });
 
   it("明示的 r2 mode で D1 binding が無い時、Stub へ落とさず throw して Controller を組み立てない", () => {
