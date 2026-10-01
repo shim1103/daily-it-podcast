@@ -1,6 +1,7 @@
 // Scope: Narrow Integration
 // 実物境界: gemini.SpeechSynthesizer が標準 *http.Client で送信する外向き HTTP request（test upstream server）
 // Double: 本番 credential / Gemini 実 API は使わない。DialTLSContext で本番 host 宛先だけを test server へ redirect する。
+// Oracle: 同一 process の build.WavDurationSec（実物）を、DurationSec の等価性を判定する oracle として使う。
 // @require dummy API key を Adapter へ直接渡す。upstream は controllable な test server。
 // @ensure upstream は POST を受け取り、x-goog-api-key header に実値が届く。
 // @ensure 成功時 Synthesize は非空 WAV を返す。
@@ -18,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/build"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
 )
 
@@ -59,6 +61,25 @@ func isWAVFixture(data []byte) bool {
 		data[8] == 'W' && data[9] == 'A' && data[10] == 'V' && data[11] == 'E'
 }
 
+// wavDurationSecOracleOfFirst は先頭要素の Content（WAV）を build.WavDurationSec で読んだ再生尺を返す。DurationSec の等価性判定の oracle。
+//
+// @require err は SynthesizeAll が返した error。audios はその戻り値で、成功時は 1 要素以上かつ先頭の Content が WAV である。
+// @ensure err が非 nil の時、または oracle を算出できない時は t を Fatal で止める。
+func wavDurationSecOracleOfFirst(t *testing.T, audios []models.SpeechAudio, err error) float64 {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("SynthesizeAll() error = %v, want nil", err)
+	}
+	if len(audios) == 0 {
+		t.Fatal("audios is empty, oracle の入力となる Content がない")
+	}
+	sec, werr := build.WavDurationSec(audios[0].Content)
+	if werr != nil {
+		t.Fatalf("build.WavDurationSec() error = %v, want nil", werr)
+	}
+	return sec
+}
+
 func TestGeminiSpeechSynthesizer_deliversPostWithAPIKeyHeader_whenUpstreamSucceeds(t *testing.T) {
 	// Given: dummy API key と、成功応答を返す upstream double
 	const apiKey = "narrow-gemini-real-value"
@@ -97,22 +118,13 @@ func TestGeminiSpeechSynthesizer_returnsDurationSecEqualToWavDurationSec_whenUps
 		writeIntegrationGeminiAudioResponse(t, w, make([]byte, pcmBytes))
 	})
 
-	// When: SynthesizeAll する（1 本）
+	// When: SynthesizeAll し、返った Content（WAV）の尺を oracle（build.WavDurationSec）で求める
 	got, err := synth.SynthesizeAll(context.Background(), []string{"本日の IT ニュースです。"})
+	want := wavDurationSecOracleOfFirst(t, got, err)
 
-	// Then: DurationSec は 0 でなく、返った Content（WAV）を build.WavDurationSec で読んだ尺と一致する
-	if err != nil {
-		t.Fatalf("SynthesizeAll() error = %v, want nil", err)
-	}
+	// Then: DurationSec は oracle の尺と一致する
 	if len(got) != 1 {
 		t.Fatalf("audios = %d, want 1", len(got))
-	}
-	want, err := build.WavDurationSec(got[0].Content)
-	if err != nil {
-		t.Fatalf("build.WavDurationSec() error = %v, want nil", err)
-	}
-	if got[0].DurationSec == 0 {
-		t.Fatal("DurationSec = 0, want non-zero")
 	}
 	if got[0].DurationSec != want {
 		t.Fatalf("DurationSec = %v, want %v（build.WavDurationSec(Content)）", got[0].DurationSec, want)

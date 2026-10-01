@@ -136,7 +136,7 @@ func TestSynthesizeAll_switchesToSecondSourceWithRemainingTexts_whenFirstSourceE
 	if err != nil {
 		t.Fatalf("SynthesizeAll() error = %v, want nil", err)
 	}
-	assertAudiosEqual(t, got, append(append([]models.SpeechAudio{}, firstPartial...), secondAudios...))
+	assertAudiosEqual(t, got, slices.Concat(firstPartial, secondAudios))
 	if fallback.calls != 1 {
 		t.Fatalf("Fallback calls = %d, want 1", fallback.calls)
 	}
@@ -186,7 +186,7 @@ func TestSynthesizeAll_preservesDurationSecInOrder_whenSwitchedAfterPartialSucce
 	if err != nil {
 		t.Fatalf("SynthesizeAll() error = %v, want nil", err)
 	}
-	assertAudiosEqual(t, got, append(append([]models.SpeechAudio{}, firstPartial...), secondAudios...))
+	assertAudiosEqual(t, got, slices.Concat(firstPartial, secondAudios))
 }
 
 func TestSynthesizeAll_propagatesFirstSourceError_whenErrorIsNotSourceExhausted(t *testing.T) {

@@ -41,7 +41,6 @@ func pcmToWAV(pcm []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// pcmDurationSec は raw PCM の byte 長から再生尺（秒）を返す。pcmToWAV が wrap する PCM と同じ形式を前提とする。
 // why: WAV header を再 parse せず、application/build を import しない（Decision 2026-10-01T11-50-38）。
 func pcmDurationSec(pcm []byte) float64 {
 	return float64(len(pcm)) / pcmByteRate
