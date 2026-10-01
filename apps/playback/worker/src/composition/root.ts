@@ -24,7 +24,6 @@ import { createProgressWriteController } from "../controllers/progress-write-con
 import type { PullProgressController } from "../controllers/pull-progress-controller.ts";
 import { createPullProgressController } from "../controllers/pull-progress-controller.ts";
 import { D1ProgressRepository } from "../infrastructure/d1/d1-progress-repository.ts";
-import { EPISODE_PROGRESS_D1_BINDING } from "../infrastructure/d1/progress-d1-constants.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/in-memory/in-memory-episode-repository.ts";
 import { R2EpisodeRepository } from "../infrastructure/r2/r2-episode-repository.ts";
 import { validatePlaybackEnv, type PlaybackRepositoryOptions } from "./runtime-config.ts";
@@ -103,16 +102,23 @@ export function createEpisodeRepository(
 /**
  * env から `ProgressRepository` を選ぶ。
  *
- * @require env は Cloudflare Workers native secrets/vars。`EPISODE_PROGRESS` は D1 binding
- * @ensure `env.EPISODE_PROGRESS` がある時は `D1ProgressRepository`、無い時は `StubProgressRepository`
- *   を返す。binding の欠落は throw しない（in-memory / unit の経路で progress を永続しない）
+ * @require env は Cloudflare Workers native secrets/vars。mode は呼び出し側が常に明示する
+ * @ensure 明示的 `options.mode === "r2"` の時は `EPISODE_PROGRESS`（D1 binding）の `D1ProgressRepository`、
+ *   明示的 `options.mode === "in-memory"` の時は env の中身を見ず、永続しない `StubProgressRepository`
+ *   を返す。mode 未指定、および r2 での D1 binding 欠落は runtime config module が throw する
+ * @invariant r2 mode の D1 欠落を `StubProgressRepository` へ無言で逃がさない
  */
-export function createProgressRepository(env: PlaybackEnv): ProgressRepository {
-  const database = env[EPISODE_PROGRESS_D1_BINDING];
-  if (database === undefined) {
-    return new StubProgressRepository();
+export function createProgressRepository(
+  env: PlaybackEnv,
+  options: PlaybackRepositoryOptions = {},
+): ProgressRepository {
+  const validated = validatePlaybackEnv(env, options);
+
+  if (validated.mode === "r2") {
+    return new D1ProgressRepository({ database: validated.progressDatabase });
   }
-  return new D1ProgressRepository({ database });
+
+  return new StubProgressRepository();
 }
 
 /**
@@ -120,7 +126,8 @@ export function createProgressRepository(env: PlaybackEnv): ProgressRepository {
  *
  * @require env は Cloudflare Workers native secrets/vars
  * @ensure useCaseOverrides がある時は repository 解決を経由せず、渡された use case を Controller
- *   へ直結する。無い時は従来通り repository を選べれば Controller 一式を返し、設定不足は throw する
+ *   へ直結する。無い時は episode と progress の repository を選べれば Controller 一式を返し、
+ *   設定不足（r2 mode の R2・D1 binding 欠落を含む）は throw する
  * @invariant useCaseOverrides は既存の in-memory / r2 分岐（`createEpisodeRepository`）を変更しない
  */
 export function createPlaybackControllers(
@@ -141,7 +148,7 @@ export function createPlaybackControllers(
   }
 
   const selection = createEpisodeRepository(env, options);
-  const progressRepository = createProgressRepository(env);
+  const progressRepository = createProgressRepository(env, options);
 
   const { repository } = selection;
   return {

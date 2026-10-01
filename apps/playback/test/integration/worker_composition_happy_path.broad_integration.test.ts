@@ -10,12 +10,13 @@ import {
 import type { R2BucketBinding } from "../../worker/src/infrastructure/r2/r2-episode-repository.ts";
 import { validAudioBytes } from "../../worker/src/test/fixtures/audio-bytes.ts";
 import workerEntry from "../../worker/src/worker-entry.ts";
+import { createFakeLocalD1Binding } from "../support/create-fake-local-d1-binding.ts";
 
 /**
  * scope: Broad Integration
  * real: Worker entry・route・Composition Root・Controller・UseCase・R2EpisodeRepository
- * double: R2 binding（`R2BucketBinding` の in-memory 実装）。真の Cloudflare R2 へは行かない
- * precondition: 本番route（options.mode: "r2" 固定）が R2 repository を選ぶ
+ * double: R2 binding（`R2BucketBinding` の in-memory 実装）・D1 binding（読取は空の Fake）。真の Cloudflare R2 / D1 へは行かない
+ * precondition: 本番route（options.mode: "r2" 固定）が R2 repository を選び、D1 binding の結線が必須
  * postcondition: list / get audio の成功応答が入口から見える。代表の R2 失敗は 503 unavailable
  * invariant: PlaybackUseCaseOverrides で use case 直差ししない
  */
@@ -67,6 +68,11 @@ function createHappyBucket(): R2BucketBinding {
   });
 }
 
+async function createD1Database() {
+  const { database } = await createFakeLocalD1Binding();
+  return database;
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -74,7 +80,7 @@ afterEach(() => {
 describe("Playback Worker composition happy path", () => {
   it("returns 200 list episodes through Worker entry when R2 binding has manuscripts", async () => {
     // Given: R2 binding double が対象 episode の json を持つ
-    const env = { EPISODES: createHappyBucket() };
+    const env = { EPISODES: createHappyBucket(), EPISODE_PROGRESS: await createD1Database() };
     const request = new Request(`https://worker.example${listEpisodesPath}`);
 
     // When: Worker HTTP 入口へ一覧 GET
@@ -94,7 +100,7 @@ describe("Playback Worker composition happy path", () => {
 
   it("returns 200 audio bytes through Worker entry when R2 binding has the mp3", async () => {
     // Given: R2 binding double が対象 episode の mp3 を持つ
-    const env = { EPISODES: createHappyBucket() };
+    const env = { EPISODES: createHappyBucket(), EPISODE_PROGRESS: await createD1Database() };
     const request = new Request(`https://worker.example${episodeAudioPath(episodeId)}`);
 
     // When: Worker HTTP 入口へ音声 GET
@@ -116,6 +122,7 @@ describe("Playback Worker composition happy path", () => {
           throw new Error("network");
         },
       }),
+      EPISODE_PROGRESS: await createD1Database(),
     };
     const request = new Request(`https://worker.example${listEpisodesPath}`);
 
