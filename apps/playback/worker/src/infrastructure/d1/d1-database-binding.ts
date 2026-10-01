@@ -1,7 +1,7 @@
 /**
  * Workers D1 binding の読み書き最小面。
  * 本番型は wrangler 生成の `D1Database` / `D1PreparedStatement` に合わせる。
- * Port（ProgressRepository）は本型を露出しない。Adapter（C）だけが使う。
+ * Port（ProgressRepository）は本型を露出しない。D1 adapter だけが使う。
  */
 
 /** `first` / `all` / `run` が返す行の受け皿。列名は SQL 側の alias に従う。 */
@@ -22,27 +22,3 @@ export type D1PreparedStatementBinding = {
 export type D1DatabaseBinding = {
   prepare(query: string): D1PreparedStatementBinding;
 };
-
-/**
- * A 足場用 Stub。読取は空、書込は success・changes 0。
- */
-// todo: D1 adapter（C）が入ったら本番結線へ差し替え、本 Stub の呼び出し元を adapter test の Fake に寄せる
-export class StubD1Database implements D1DatabaseBinding {
-  prepare(_query: string): D1PreparedStatementBinding {
-    const statement: D1PreparedStatementBinding = {
-      bind(..._values: unknown[]) {
-        return statement;
-      },
-      async first() {
-        return null;
-      },
-      async all() {
-        return { results: [] };
-      },
-      async run() {
-        return { success: true, meta: { changes: 0 } };
-      },
-    };
-    return statement;
-  }
-}
