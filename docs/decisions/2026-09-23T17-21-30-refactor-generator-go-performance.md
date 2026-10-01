@@ -1,35 +1,32 @@
 ---
-name: WAV segment の尺計算は port.SpeechSynthesizer の契約に含め、ConcatWAV 側の再計算を廃止する
+name: segment の尺は port.SpeechSynthesizer の契約に含め、adapter が自分の PCM 長から算出する
 date: 2026-09-23T17:21:30
 branch: refactor/generator-go-performance
 ---
 
 ## 1. Decision
 
-1. WAV segment の尺（duration）計算は `port.SpeechSynthesizer.SynthesizeAll` の戻り値契約に含める（`port.SpeechSynthesizer` interface 自体を変更する）。infrastructure 側の実装（Gemini 等）が音声 byte 列と併せて尺情報を返す。
-2. `ProduceEpisode.Run` は `SynthesizeAll` から尺を直接受け取り、独自に `build.WavDurationSec` を呼ぶ処理（現行 L114-123）を廃止する。
-3. `ConcatWAV`（`build.ConcatWAV`）は「WAV 結合」のみの責務を維持する。尺計算の重複呼び出し排除を目的に `ConcatWAV` 自体の入出力契約は変更しない。
-4. `build.Timeline` の責務・存在は変更しない。segment 毎の秒数列を受け取り、topic 開始秒・ending 開始秒・全体 duration という podcast 構造上の値へ変換する役割を維持する。
+1. segment（`SpeechAudio` 1 件）の再生尺 `DurationSec` は、`port.SpeechSynthesizer.SynthesizeAll` の戻り値契約に含める。infrastructure の実装（gemini 等）が埋め、呼び出し側は再計算しない。
+2. gemini adapter は WAV を自分で組むので、尺は `len(pcm) ÷ pcmByteRate` で求める。`pcmByteRate` は WAV header の byteRate と同じ定数で、尺の式の正本はこの 1 つ。header 由来の尺と一致を保つための等価性 test は置かない。
+3. `ProduceEpisode.Run` は `DurationSec` を `build.Timeline` へ渡し、WAV から尺を再計算しない。本番の呼び出し元が無くなった `build.WavDurationSec` は削除する。WAV の解析は `ConcatWAV` が使う非公開の `parseWAV` だけが持つ。
+4. `ConcatWAV` と `build.Timeline` の責務と入出力は変えない。episode の尺方針（segment 間の無音、topic・ending の開始秒、全体 duration）は Application に残す。
 
 ## 2. Reason
 
-### 2-1. 前提事実（判断時に確認済みの現状）
-
-1. `ProduceEpisode.Run`（`internal/application/produce_episode.go` L114-123）は、`uc.speech.SynthesizeAll` が返す `audios`（`[]models.SpeechAudio`、各要素が WAV byte 列）を受け取った直後、各要素に対し独自に `build.WavDurationSec` を呼び、`segmentDurations` を算出していた。この loop は既存の `uc.progress.Start`/`Done` で囲まれておらず、`synthesize_speech` の Done と `build_timeline` の Start の間に裸で挟まっていた。
-2. `build.WavDurationSec`（`internal/application/build/wav_duration.go`）は内部で `parseWAV`（RIFF/WAVE header 解析）を呼ぶ。`build.ConcatWAV`（`internal/application/build/wav_concat.go`）も各 part に対し同じ `parseWAV` を呼んでいる。つまり `Run` が呼ぶ `WavDurationSec` と、後続の `ConcatWAV` 内部の parse は、同一 WAV byte 列に対する重複した parse だった。
-3. `port.SpeechSynthesizer.SynthesizeAll`（`internal/application/port/speech_synthesizer.go`）は既存契約として `[]models.SpeechAudio`（WAV byte 列を持つ）を返す。`models.SpeechAudio`（`internal/entities/models/speech_audio.go`）は変更前 `Content []byte` のみを持ち、尺情報は持っていなかった。
-4. `build.ConcatWAV` の既存 doc comment は「同一 PCM パラメータの WAV を 1 本に結合する」とのみ書かれており、topic・ending 等の podcast 構造を扱う責務は持っていない。
-5. `build.Timeline`（呼び出し箇所: `Run` L126）は `segmentDurations` と topic 数を受け取り、topic 開始秒・ending 開始秒・全体 duration を算出する、`WavDurationSec`/`ConcatWAV` とは別の既存関数。
-
-### 2-2. 選択の理由
-
-1. **`port.SpeechSynthesizer` 契約自体を変更する理由（4a 採用）**：2-1-3 の通り、WAV を返すことは `SpeechSynthesizer` の既存の共通契約であり、尺情報も同じ箇所（infrastructure の実装が WAV を組み立てる末端）で一緒に返す方が自然。`application/speech` 層に尺計算専用の wrapper 関数を別途新設する案（4b）は、`speech` package 内に「fallback chain 本体」と「尺計算 wrapper」という 2 つの入口を作ってしまい、責務が分散する。
-2. **`ProduceEpisode.Run` から尺計算 loop を除去する理由**：2-1-1・2-1-2 の通り、`Run`（application 層の use case）が `audios` という音声実装由来の生 byte 列を直接 parse しており、「組み立ての知識を持つ」という `Run` の責務からも外れた重複処理になっていた。`ConcatWAV` 内部でも同じ `parseWAV` 相当の処理が実行されており、二重計算になっている。
-3. **`ConcatWAV` 自体は変更しない理由**：2-1-4 の通り、`ConcatWAV` の責務は「同一 PCM パラメータの WAV を 1 本に結合する」ことのみであり、doc comment 上も topic・ending の区別を知るべきでない。尺計算は `ConcatWAV` の目的（結合）にとって本質的な処理ではなく、責務混在を避けるため `ConcatWAV` 自体は変更対象から外す。重複計算の解消は、呼び出し元（`SynthesizeAll`）が先に尺を確定させ、以降の呼び出し（`Timeline`）へ渡す形で行う。
-4. **`build.Timeline` を維持する理由**：2-1-5 の通り、`WavDurationSec`（個々の segment が何秒かを求める処理）と `Timeline`（segment 毎の秒数列を、podcast 構造上意味のある値へ変換する処理）は別の抽象度の処理であり、尺計算の呼び出し元を変えることは `Timeline` の存在理由に影響しない。
+1. 変更前は、`Run` が各 segment を `WavDurationSec` で解析し、直後に `ConcatWAV` が同じ WAV を再び解析していた。尺は WAV を組む側（adapter）が組む時点で既に知っている値で、読み戻して解析する必要がない。
+2. 尺を契約に含める理由（4a）: WAV を返すことは `SpeechSynthesizer` の既存契約で、尺も同じ末端が一緒に返すのが自然。`application/speech` に尺専用の wrapper を足すと（4b）、`speech` に入口が 2 つできて責務が分散する。
+3. adapter が `application/build` を呼ばない理由: `infrastructure.md` §6（import ルール 1）が infrastructure に許すのは Entities・Application IF（Port）・外部 SDK だけで、`build` は Application の実装 package。
+4. 尺の式を 1 つにする理由: header を読む実装と PCM 長で割る実装を併存させると、一致を保つ等価性 test が要り、test と実装が同じ式を持つ二重管理になる。PCM 長から求める 1 実装にすれば、header の byteRate と尺の分母が同じ定数なので、一致は構造で保たれる。
+5. segment 尺と episode 尺方針は別物である。segment 尺は adapter が自分の PCM 長から求まる値で、episode の構成を知らない。無音の挿入・`Timeline` の開始秒算出・結合は episode の構成（topic と ending の並び）を知る処理なので Application に残る。[[2026-08-25T22-37-31-feature-generator-cmd-usecase-boundary]] の Rejected 2 が却下したのは後者を adapter に閉じることで、本 Decision はそれと両立する。
+6. `ConcatWAV` を変えない理由: 責務は sampleRate・channels・bitsPerSample が同じ WAV の結合だけで、尺を副産物として返すと責務が混ざる。`Timeline` を変えない理由: segment の秒数列を topic・ending・全体の値へ変換する別の抽象度の処理で、尺の出所が変わっても存在理由は変わらない。
 
 ## 3. Rejected
 
-1. **`application/speech` 層に尺計算専用の wrapper 関数を新設する案（4b）** — `port.SpeechSynthesizer` の interface は変更しないため infrastructure 層（Gemini 等）への変更波及は避けられるが、`speech` package 内に入口が 2 つできる。WAV を返す契約と尺を返す契約を分離する理由がないため、4a（契約自体への統合）を採用した。
-2. **`ProduceEpisode.Run` 内に尺計算専用の中間 step（`ParseSegments` 等）を新設する案** — `Run` に新しい謎 step が増えるだけで、「音声 file 列 → 結合」というユーザ視点の流れを分かりにくくする。`SynthesizeAll` の戻り値に統合する方が素直なため見送った。
-3. **`ConcatWAV` が尺情報を副産物として返す案** — `ConcatWAV` は topic・ending の区別を知らない責務のままであるべきで、尺計算という別の関心をここに持たせると責務が混在する。
+1. `application/speech` に尺専用の wrapper を新設する案（4b） — 入口が 2 つになり、WAV を返す契約と尺を返す契約を分ける理由がない。
+2. `ProduceEpisode.Run` に尺計算専用の中間 step を新設する案 — `Run` に謎の step が増え、「音声 → 結合」の流れが分かりにくくなる。
+3. `ConcatWAV` が尺を副産物として返す案 — 結合に尺という別の関心が混ざる。
+4. adapter から `application/build`（`WavDurationSec`）を呼ぶ案 — `infrastructure.md` §6 の層境界違反。
+5. 解析関数を Entities 等の共有位置へ移して adapter が使う案 — [[2026-08-25T22-37-31-feature-generator-cmd-usecase-boundary]] が RIFF の読み書きを Entities 公開にしないと決めており、変更範囲も広がる。
+6. adapter 内で WAV header を再解析する案 — 自分が書いた値を読み戻すだけで、解析ロジックの二重管理になる。
+7. 尺の式を header 由来と PCM 長由来の 2 実装で持ち、等価性 test で結ぶ案 — 正本が 2 つになり、test が実装の式を写すだけになる。共有定数による 1 実装にする。
+8. episode の尺方針（無音・`Timeline`・結合）も adapter へ寄せる案 — adapter が episode の構成を知ることになる。

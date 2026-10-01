@@ -26,4 +26,4 @@ branch: feature/generator-system-e2e-produce-episode
 1. `Synthesize`（単数）を保ち、application が 1 セグメントずつ呼ぶ現状維持 — retry 予算をセグメント跨ぎで管理できず、RPD 焼き切りリスクが残る。callGap だけ跨げて retry 予算は跨げない非対称も解消しない。
 2. `Synthesize` の責務を拡張し、「texts を受け取り中で Synthesize と ConcatWAV をやって 1 本の WAV を返す」案 — Adapter が `Timeline` の segment 本数規約と原稿の束ね構造を知ることになり、application の知識が infra へ流出する層違反。
 3. `Timeline` + `ConcatWAV` を「texts → 1 本 WAV」の新 application UseCase へ切り出す案 — `Timeline` は topic 境界計算に WAV 列を要るので、新 UseCase が 1 本にまとめた後 `ProduceEpisode` は尺を取れず、`Timeline` も新 UseCase へ道連れになり、結局その UseCase が原稿の topic 構造を知る。再利用需要も今は無い（YAGNI）。`ProduceEpisode.Run` は既に「WAV 列を受け取り Timeline → ConcatWAV」をやっており、port を複数 text 対応にする以外の構造変更を要しない案 3 の方が最小。
-4. 極小 PCM を application 側の尺チェック（`WavDurationSec` の結果が閾値未満なら error）で弾く案 — retry できず即失敗になる。Adapter が最小尺を保証しないなら、実 Gemini を叩く計測 test も毎回「非空 WAV / 尺 > 0」を再確認する必要が残り、経路ごとに検査の有無の非対称が生まれる。
+4. 極小 PCM を application 側の尺チェック（segment の尺が閾値未満なら error）で弾く案 — retry できず即失敗になる。Adapter が最小尺を保証しないなら、実 Gemini を叩く計測 test も毎回「非空 WAV / 尺 > 0」を再確認する必要が残り、経路ごとに検査の有無の非対称が生まれる。

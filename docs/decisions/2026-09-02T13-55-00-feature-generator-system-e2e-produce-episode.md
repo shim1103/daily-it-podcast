@@ -18,7 +18,7 @@ branch: feature/generator-system-e2e-produce-episode
 
 1. System e2e の緑化 blocker は Gemini TTS の無料枠 **RPD=15**（`gemini-2.5-flash-preview-tts` の実測: 3 RPM / 10,000 TPM / 15 RPD）。1 run が発行する `Synthesize` 回数は `SpeechTexts` の本数がそのまま決める。topic 5 なら旧 14 本で、retry 前に既に RPD の大半を食う。
 2. 束ね後は topic 5 で 7 本、topic 3 で 5 本。1 run の最小 request 数を半減以上でき、有料枠移行後も無料枠 quota 内で回せるかを検証しやすくなる。
-3. 尺計算（`WavDurationSec` → `Timeline`）が要求する単位は「1 回の Synthesize が返す 1 本の WAV」である。preface と detail を 1 本へ束ねても、detail 単独の尺は元々 `startSec` に含めない仕様なので、`topicStartSecs` は束の先頭（＝従来の preface 開始秒）と一致し、timeline の外形は変わらない。greeting+intro / summary+farewell も同様に「開始秒を持たない固定 segment」なので束ねても timeline に影響しない。
+3. 尺計算（segment 尺 → `Timeline`）が要求する単位は「1 回の Synthesize が返す 1 本の WAV」である。preface と detail を 1 本へ束ねても、detail 単独の尺は元々 `startSec` に含めない仕様なので、`topicStartSecs` は束の先頭（＝従来の preface 開始秒）と一致し、timeline の外形は変わらない。greeting+intro / summary+farewell も同様に「開始秒を持たない固定 segment」なので束ねても timeline に影響しない。
 4. delimiter を改行にするのは、TTS が 2 文を続けて読む自然さを保ちつつ、束ね境界を原稿本文へ埋め込まないため。空文字連結だと文が繋がって読まれる。
 
 ## 3. Rejected
