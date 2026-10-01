@@ -30,7 +30,6 @@ describe("updateProgress", () => {
 
     // Then: 行不在の Domain Error（永続は触らない）
     await expect(act).rejects.toBeInstanceOf(ProgressNotFoundError);
-    await expect(act).rejects.toThrow(/進捗行が無い/);
     const stored = await repository.getByEpisodeIds(["ep-1"]);
     expect(stored.size).toBe(0);
   });

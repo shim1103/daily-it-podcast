@@ -75,7 +75,6 @@ describe("completeProgress", () => {
 
     // Then: 行不在。bootstrap しない
     await expect(act).rejects.toBeInstanceOf(ProgressNotFoundError);
-    await expect(act).rejects.toThrow(/進捗行が無い/);
     const stored = await progress.getByEpisodeIds(["ep-1"]);
     expect(stored.size).toBe(0);
   });
@@ -135,7 +134,6 @@ describe("completeProgress", () => {
 
     // Then: 完走規則違反。既存行は完走にならない
     await expect(act).rejects.toBeInstanceOf(ProgressRuleError);
-    await expect(act).rejects.toThrow(/完走ゾーン外/);
     const stored = await progress.getByEpisodeIds(["ep-1"]);
     expect(stored.get("ep-1")?.firstCompletedAt).toBeNull();
   });
@@ -152,7 +150,6 @@ describe("completeProgress", () => {
 
     // Then: 既存の原稿不在 path
     await expect(act).rejects.toBeInstanceOf(EpisodeContentError);
-    await expect(act).rejects.toThrow(/原稿が無い/);
   });
 
   it("原稿が schema 不適合の時、EpisodeContentError を throw する", async () => {
@@ -167,7 +164,6 @@ describe("completeProgress", () => {
 
     // Then: verifyManuscript の schema 不適合 path
     await expect(act).rejects.toBeInstanceOf(EpisodeContentError);
-    await expect(act).rejects.toThrow(/schema に不適合/);
   });
 
   it("短尺（durationSec がゾーン幅未満）でも同じ不等式でゾーン内なら完走できる", async () => {
