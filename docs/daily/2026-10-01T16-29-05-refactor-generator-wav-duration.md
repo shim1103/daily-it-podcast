@@ -21,7 +21,7 @@ prev: 2026-09-25T13-35-54-develop.md
 7. `~/settings` 配下では、agent-standards の hook（保護 path の Bash 拒否を書き込みと削除の代表に絞る、action 検出の先頭除外に貼り付け tag を追加、判定を python へ移し test 化）、agent-standards-setup（`.gitignore` の順序つき block、配布時の test 除外）、dotfiles（Brewfile に zoom）を直した。unit test は各 `rules.py` の隣へ移し、shell の test は作らない方針を両 README に書いた。
 8. `apply-standards` を `~/settings`・`~/projects/daily-it-podcast`・`~/projects/stream-memo-mobile` へ実行した。`.gitignore` は 4 行の順序つき block になった。`~/projects/daily-it-podcast`（develop の checkout）と `~/projects/stream-memo-mobile` は、`.gitignore` が未 commit の変更として残っている。
 9. dotfiles の wiki #39 へ、screenshot 整理（script か PC 設定か未決）を Backlog として足した。Zoom 本体は `sudo` が要るため未 install（shim が実行する）。
-10. この branch の PR は、shim の指示で `develop` 向けに作る。`lifecycle/release` では epic の子の PR 先は親 epic（`refactor/generator-go-performance`）が正で、`develop` との差 18 commit のうち 12 は epic 側の未 merge の先行分になる。本件の 6 commit は epic との差分（`git log` で確認）。
+10. PR は #213。shim の指示は `develop` 向けだったが、`develop` とは 64 commit 離れていて `item_source`・`DESIGN.md`・`docs/lessons/index.md` で conflict する（epic 側の先行分が原因）。`lifecycle/release` では epic の子の PR 先は親 epic なので、`refactor/generator-go-performance` 向けにした。diff は本件の 7 commit・12 file で conflict なし。PR check（`integration`・`static-and-unit`）は全て pass、AgentReview は無い。`develop` へ変える場合は `gh pr edit 213 --base develop`。
 
 ### Commits
 
