@@ -40,12 +40,15 @@ func (s *stubWriter) Write(_ context.Context, _ string, buildFn func(string) (mo
 }
 
 // spySynth は SpeechSynthesizer の Spy。SynthesizeAll が受け取った texts 束と呼び出し回数を記録し、
-// error を返すよう設定できる。各セグメントには既知尺の固定 WAV（wav）を返す。
+// error を返すよう設定できる。各セグメントには固定 WAV（wav）と、port 契約どおりその尺（durationSec）を
+// DurationSec へ埋めて返す。durationSec は wav の実尺と独立に指定でき、Run が WAV を再 parse せず
+// DurationSec を使うことの観測に使う。
 type spySynth struct {
-	calls      int
-	texts      []string // 最後に SynthesizeAll へ渡された texts 束
-	failAtCall int      // 0 なら成功。>0 なら SynthesizeAll が error を返す（WAV 列は返さない）
-	wav        []byte
+	calls       int
+	texts       []string // 最後に SynthesizeAll へ渡された texts 束
+	failAtCall  int      // 0 なら成功。>0 なら SynthesizeAll が error を返す（WAV 列は返さない）
+	wav         []byte
+	durationSec float64 // 各セグメントの DurationSec として返す既知秒数
 }
 
 func (s *spySynth) SynthesizeAll(_ context.Context, texts []string) ([]models.SpeechAudio, error) {
@@ -56,7 +59,7 @@ func (s *spySynth) SynthesizeAll(_ context.Context, texts []string) ([]models.Sp
 	}
 	audios := make([]models.SpeechAudio, len(texts))
 	for i := range texts {
-		audios[i] = models.SpeechAudio{Content: s.wav}
+		audios[i] = models.SpeechAudio{Content: s.wav, DurationSec: s.durationSec}
 	}
 	return audios, nil
 }
@@ -150,7 +153,7 @@ func newHarness(t *testing.T, segDurationSec float64) *harness {
 	}}
 	lookup := &fakeCompletedEpisodeLookup{}
 	writer := &stubWriter{out: buildValidWireJSON()}
-	synth := &spySynth{wav: fixedWavOfDuration(t, segDurationSec)}
+	synth := &spySynth{wav: fixedWavOfDuration(t, segDurationSec), durationSec: segDurationSec}
 	encode := &stubEncoder{}
 	episw := &fakeEpisodeWriter{}
 	progress := &spyProgress{}
@@ -179,7 +182,7 @@ func newHarnessWithTopicCount(t *testing.T, topicCount int) *harness {
 	}}
 	lookup := &fakeCompletedEpisodeLookup{}
 	writer := &stubWriter{out: buildValidWireJSONWithTopicCount(topicCount)}
-	synth := &spySynth{wav: fixedWavOfDuration(t, 1.0)}
+	synth := &spySynth{wav: fixedWavOfDuration(t, 1.0), durationSec: 1.0}
 	encode := &stubEncoder{}
 	episw := &fakeEpisodeWriter{}
 	progress := &spyProgress{}
@@ -550,6 +553,35 @@ func TestProduceEpisodeRun_setsTopicStartSecFromCumulativeSegmentDurationsWithSi
 	// Then: durationSec = 全 segment 尺合計 + S*(segment数-1)
 	segCount := len(h.synth.texts)
 	wantDuration := d*float64(segCount) + s*float64(segCount-1)
+	if math.Abs(m.DurationSec-wantDuration) > 1e-9 {
+		t.Fatalf("durationSec = %v, want %v (segCount=%d)", m.DurationSec, wantDuration, segCount)
+	}
+}
+
+func TestProduceEpisodeRun_buildsTimelineFromSynthesizedDurationSec_whenDurationSecDiffersFromWavContentLength(t *testing.T) {
+	t.Parallel()
+
+	// Given: 各 segment の Content は実尺 1 秒の WAV。SpeechSynthesizer が返す DurationSec は契約上の正として 3 秒
+	const wavSec = 1.0
+	const durationSec = 3.0
+	s := constants.SegmentSilenceSec
+	h := newHarness(t, wavSec)
+	h.synth.durationSec = durationSec
+	now := time.Date(2026, 8, 30, 16, 0, 0, 0, time.UTC)
+
+	// When: Run を呼ぶ
+	if _, err := h.uc.Run(context.Background(), now); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// Then: topic 開始秒と全体 duration は Content の実尺ではなく DurationSec に従う
+	m := unmarshalManuscript(t, h.episw.manuscript)
+	wantTopic0 := durationSec + s
+	if math.Abs(m.Body.Topics[0].StartSec-wantTopic0) > 1e-9 {
+		t.Fatalf("topics[0].startSec = %v, want %v (DurationSec 由来)", m.Body.Topics[0].StartSec, wantTopic0)
+	}
+	segCount := len(h.synth.texts)
+	wantDuration := durationSec*float64(segCount) + s*float64(segCount-1)
 	if math.Abs(m.DurationSec-wantDuration) > 1e-9 {
 		t.Fatalf("durationSec = %v, want %v (segCount=%d)", m.DurationSec, wantDuration, segCount)
 	}
