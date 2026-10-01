@@ -46,6 +46,8 @@ export default defineConfig({
           exclude: [
             // why: getPlatformProxy 実起動は SU/unit に載せない（Decision 2026-09-16T00-20-08）
             "test/integration/local_r2_binding.narrow_integration.test.ts",
+            // why: D1 も同じく getPlatformProxy 実起動のため SU/unit に載せない（同 Decision）
+            "test/integration/local_d1_binding.narrow_integration.test.ts",
           ],
           passWithNoTests: true,
         },
