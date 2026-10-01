@@ -59,6 +59,8 @@ const (
 	pcmSampleRate = 24000
 	pcmChannels   = 1
 	pcmBitDepth   = 16
+	// pcmByteRate は raw PCM 1 秒あたりの byte 数。WAV header の byteRate と再生尺の算出が共有する。
+	pcmByteRate = pcmSampleRate * pcmChannels * pcmBitDepth / 8
 )
 
 // minSpeechDurationSec は「実質無音でない」とみなす raw PCM の最小尺（秒）。

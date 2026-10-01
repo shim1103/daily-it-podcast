@@ -28,8 +28,7 @@ func pcmToWAV(pcm []byte) ([]byte, error) {
 	_ = binary.Write(&buf, binary.LittleEndian, uint16(1)) // PCM
 	_ = binary.Write(&buf, binary.LittleEndian, uint16(pcmChannels))
 	_ = binary.Write(&buf, binary.LittleEndian, uint32(pcmSampleRate))
-	byteRate := uint32(pcmSampleRate * pcmChannels * pcmBitDepth / 8)
-	_ = binary.Write(&buf, binary.LittleEndian, byteRate)
+	_ = binary.Write(&buf, binary.LittleEndian, uint32(pcmByteRate))
 	blockAlign := uint16(pcmChannels * pcmBitDepth / 8)
 	_ = binary.Write(&buf, binary.LittleEndian, blockAlign)
 	_ = binary.Write(&buf, binary.LittleEndian, uint16(pcmBitDepth))
@@ -40,4 +39,10 @@ func pcmToWAV(pcm []byte) ([]byte, error) {
 	buf.Write(pcm)
 
 	return buf.Bytes(), nil
+}
+
+// pcmDurationSec は raw PCM の byte 長から再生尺（秒）を返す。pcmToWAV が wrap する PCM と同じ形式を前提とする。
+// why: WAV header を再 parse せず、application/build を import しない（Decision 2026-10-01T11-50-38）。
+func pcmDurationSec(pcm []byte) float64 {
+	return float64(len(pcm)) / pcmByteRate
 }

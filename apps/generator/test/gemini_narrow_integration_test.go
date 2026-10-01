@@ -4,6 +4,7 @@
 // @require dummy API key を Adapter へ直接渡す。upstream は controllable な test server。
 // @ensure upstream は POST を受け取り、x-goog-api-key header に実値が届く。
 // @ensure 成功時 Synthesize は非空 WAV を返す。
+// @ensure 成功時の各 DurationSec は、同要素の Content（WAV）を build.WavDurationSec で読んだ再生尺と一致する。
 // @invariant dummy secret 実値は error message へ出ない。
 package test
 
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/build"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/speech/gemini"
 )
 
@@ -85,6 +87,35 @@ func TestGeminiSpeechSynthesizer_deliversPostWithAPIKeyHeader_whenUpstreamSuccee
 	}
 	if !isWAVFixture(got[0].Content) {
 		t.Fatalf("Content is not wav, head = % x", got[0].Content[:min(12, len(got[0].Content))])
+	}
+}
+
+func TestGeminiSpeechSynthesizer_returnsDurationSecEqualToWavDurationSec_whenUpstreamSucceeds(t *testing.T) {
+	// Given: 1.25 秒相当（24 kHz / 16-bit / mono = 48000 byte/秒）の PCM を返す upstream double
+	const pcmBytes = 60000
+	synth, _ := newGeminiSynthesizerWithProxy(t, "narrow-gemini-duration-value", func(w http.ResponseWriter, r *http.Request) {
+		writeIntegrationGeminiAudioResponse(t, w, make([]byte, pcmBytes))
+	})
+
+	// When: SynthesizeAll する（1 本）
+	got, err := synth.SynthesizeAll(context.Background(), []string{"本日の IT ニュースです。"})
+
+	// Then: DurationSec は 0 でなく、返った Content（WAV）を build.WavDurationSec で読んだ尺と一致する
+	if err != nil {
+		t.Fatalf("SynthesizeAll() error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("audios = %d, want 1", len(got))
+	}
+	want, err := build.WavDurationSec(got[0].Content)
+	if err != nil {
+		t.Fatalf("build.WavDurationSec() error = %v, want nil", err)
+	}
+	if got[0].DurationSec == 0 {
+		t.Fatal("DurationSec = 0, want non-zero")
+	}
+	if got[0].DurationSec != want {
+		t.Fatalf("DurationSec = %v, want %v（build.WavDurationSec(Content)）", got[0].DurationSec, want)
 	}
 }
 
