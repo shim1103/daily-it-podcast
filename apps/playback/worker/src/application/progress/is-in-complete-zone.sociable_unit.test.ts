@@ -35,4 +35,14 @@ describe("isInCompleteZone", () => {
     // Then: 末尾も完走ゾーン内
     expect(got).toBe(true);
   });
+
+  it("durationSec がゾーン幅未満でも同じ不等式で判定する", () => {
+    // Given: 短尺 durationSec=2（幅 3 未満）・positionSec=0
+    // When: ゾーン判定する
+    const got = isInCompleteZone(0, 2);
+
+    // Then: 0 >= 2-3 なのでゾーン内（別ルールなし）
+    expect(got).toBe(true);
+    expect(PROGRESS_COMPLETE_ZONE_SEC).toBe(3);
+  });
 });

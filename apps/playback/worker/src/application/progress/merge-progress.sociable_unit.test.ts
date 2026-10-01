@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EpisodeProgress } from "../../../../contracts/index.ts";
-import { mergeProgress } from "./merge-progress.ts";
+import { mergeProgress, mergeProgressAsCompleted } from "./merge-progress.ts";
 
 const EARLIER = "2026-09-22T10:00:00.000Z";
 const LATER = "2026-09-22T11:00:00.000Z";
@@ -18,7 +18,7 @@ function progress(overrides: Partial<EpisodeProgress> = {}): EpisodeProgress {
 
 describe("mergeProgress", () => {
   it("existing が null の時、初回行を clientAt と positionSec で作る", () => {
-    // Given: 行なし・complete ではない
+    // Given: 行なし
     // When: merge する
     const got = mergeProgress(null, { positionSec: 12, clientAt: EARLIER });
 
@@ -29,22 +29,6 @@ describe("mergeProgress", () => {
       firstCompletedAt: null,
       lastPlayedAt: EARLIER,
     });
-  });
-
-  it("existing が null かつ markCompleted の時、firstCompletedAt を clientAt にする", () => {
-    // Given: 行なし・完走 path
-    // When: merge する
-    const got = mergeProgress(
-      null,
-      { positionSec: 57, clientAt: EARLIER },
-      { markCompleted: true },
-    );
-
-    // Then: 初回完走時刻は clientAt
-    expect(got.firstCompletedAt).toBe(EARLIER);
-    expect(got.firstPlayedAt).toBe(EARLIER);
-    expect(got.lastPlayedAt).toBe(EARLIER);
-    expect(got.positionSec).toBe(57);
   });
 
   it("incoming clientAt が既存 lastPlayedAt より遅い時、positionSec と lastPlayedAt を後勝ちする", () => {
@@ -90,46 +74,7 @@ describe("mergeProgress", () => {
     expect(got.lastPlayedAt).toBe(LATER);
   });
 
-  it("markCompleted かつ既存 firstCompletedAt が null の時、clientAt を入れる", () => {
-    // Given: 未完走行への完走 write
-    const existing = progress({ firstCompletedAt: null, lastPlayedAt: EARLIER });
-
-    // When: merge する
-    const got = mergeProgress(
-      existing,
-      { positionSec: 57, clientAt: LATER },
-      { markCompleted: true },
-    );
-
-    // Then: 初回完走を記録し、後勝ち字段も更新
-    expect(got.firstCompletedAt).toBe(LATER);
-    expect(got.positionSec).toBe(57);
-    expect(got.lastPlayedAt).toBe(LATER);
-  });
-
-  it("markCompleted かつ既存 firstCompletedAt より早い clientAt の時、firstCompletedAt を先勝ちで置き換える", () => {
-    // Given: 既完走だがより早い完走時刻が遅延到着
-    const existing = progress({
-      firstCompletedAt: LATER,
-      firstPlayedAt: EARLIER,
-      lastPlayedAt: LATER,
-      positionSec: 58,
-    });
-
-    // When: merge する
-    const got = mergeProgress(
-      existing,
-      { positionSec: 57, clientAt: EARLIER },
-      { markCompleted: true },
-    );
-
-    // Then: firstCompletedAt は早い側。後勝ち字段は既存のまま
-    expect(got.firstCompletedAt).toBe(EARLIER);
-    expect(got.positionSec).toBe(58);
-    expect(got.lastPlayedAt).toBe(LATER);
-  });
-
-  it("markCompleted でない時、既存 firstCompletedAt を変えない", () => {
+  it("既存 firstCompletedAt がある時、完走時刻を変えない", () => {
     // Given: 既完走行への通常 update
     const existing = progress({ firstCompletedAt: EARLIER, lastPlayedAt: EARLIER });
 
@@ -172,8 +117,41 @@ describe("mergeProgress", () => {
     expect(got.positionSec).toBe(99);
     expect(got.lastPlayedAt).toBe(SAME);
   });
+});
 
-  it("clientAt が既存 firstCompletedAt と同じかつ markCompleted の時、firstCompletedAt は既存を残す", () => {
+describe("mergeProgressAsCompleted", () => {
+  it("既存 firstCompletedAt が null の時、clientAt を入れる", () => {
+    // Given: 未完走行への完走 write
+    const existing = progress({ firstCompletedAt: null, lastPlayedAt: EARLIER });
+
+    // When: 完走 merge する
+    const got = mergeProgressAsCompleted(existing, { positionSec: 57, clientAt: LATER });
+
+    // Then: 初回完走を記録し、後勝ち字段も更新
+    expect(got.firstCompletedAt).toBe(LATER);
+    expect(got.positionSec).toBe(57);
+    expect(got.lastPlayedAt).toBe(LATER);
+  });
+
+  it("既存 firstCompletedAt より早い clientAt の時、firstCompletedAt を先勝ちで置き換える", () => {
+    // Given: 既完走だがより早い完走時刻が遅延到着
+    const existing = progress({
+      firstCompletedAt: LATER,
+      firstPlayedAt: EARLIER,
+      lastPlayedAt: LATER,
+      positionSec: 58,
+    });
+
+    // When: 完走 merge する
+    const got = mergeProgressAsCompleted(existing, { positionSec: 57, clientAt: EARLIER });
+
+    // Then: firstCompletedAt は早い側。後勝ち字段は既存のまま
+    expect(got.firstCompletedAt).toBe(EARLIER);
+    expect(got.positionSec).toBe(58);
+    expect(got.lastPlayedAt).toBe(LATER);
+  });
+
+  it("clientAt が既存 firstCompletedAt と同じ時、firstCompletedAt は既存を残す", () => {
     // why: 同時刻の first* は既存据え置き（firstPlayedAt と同規則）
     // Given: 完走同時刻
     const existing = progress({
@@ -183,12 +161,8 @@ describe("mergeProgress", () => {
       positionSec: 50,
     });
 
-    // When: merge する
-    const got = mergeProgress(
-      existing,
-      { positionSec: 57, clientAt: SAME },
-      { markCompleted: true },
-    );
+    // When: 完走 merge する
+    const got = mergeProgressAsCompleted(existing, { positionSec: 57, clientAt: SAME });
 
     // Then: firstCompletedAt は既存据え置き
     expect(got.firstCompletedAt).toBe(SAME);

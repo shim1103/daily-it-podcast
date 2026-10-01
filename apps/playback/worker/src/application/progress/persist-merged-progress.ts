@@ -2,8 +2,8 @@ import type { EpisodeProgress, ProgressWriteResponse } from "../../../../contrac
 import type { ProgressRepository } from "../ports/progress-repository.ts";
 import {
   mergeProgress,
+  mergeProgressAsCompleted,
   type ProgressMergeIncoming,
-  type ProgressMergeOptions,
 } from "./merge-progress.ts";
 
 /**
@@ -18,16 +18,31 @@ export async function loadExistingProgress(
 }
 
 /**
- * merge 結果を upsert し、永続後の進捗本体を返す。
+ * create／update 用。merge 結果を upsert し、永続後の進捗本体を返す。
  */
 export async function persistMergedProgress(
   repository: ProgressRepository,
   episodeId: string,
   existing: EpisodeProgress | null,
   incoming: ProgressMergeIncoming,
-  options: ProgressMergeOptions = {},
 ): Promise<EpisodeProgress> {
-  const merged = mergeProgress(existing, incoming, options);
+  const merged = mergeProgress(existing, incoming);
+  await repository.upsertProgress({ episodeId, ...merged });
+  return merged;
+}
+
+/**
+ * complete 用。既存行必須の完走 merge を upsert する。
+ *
+ * @require existing は呼び出し側が行ありを確認済み
+ */
+export async function persistCompletedProgress(
+  repository: ProgressRepository,
+  episodeId: string,
+  existing: EpisodeProgress,
+  incoming: ProgressMergeIncoming,
+): Promise<EpisodeProgress> {
+  const merged = mergeProgressAsCompleted(existing, incoming);
   await repository.upsertProgress({ episodeId, ...merged });
   return merged;
 }
