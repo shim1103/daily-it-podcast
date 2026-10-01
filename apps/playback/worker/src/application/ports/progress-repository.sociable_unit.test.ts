@@ -2,46 +2,47 @@ import { describe, expect, it } from "vitest";
 import { StubProgressRepository } from "./progress-repository.ts";
 
 /**
- * real: StubProgressRepository（A 足場。zero value のみ）
+ * scope: Sociable Unit
+ * real: StubProgressRepository（Composition 用 zero）
+ * double: なし
  */
 describe("StubProgressRepository", () => {
   it("getByEpisodeIds は常に空 Map を返す", async () => {
+    // Given: zero Stub
     const stub = new StubProgressRepository();
 
+    // When: 任意の id で取得する
     const got = await stub.getByEpisodeIds(["ep-1", "ep-2"]);
 
+    // Then: 常に空
     expect(got.size).toBe(0);
   });
 
-  it("writeProgress は first* の zero value を返す", async () => {
+  it("upsertProgress は no-op で完了する", async () => {
+    // Given: zero Stub
     const stub = new StubProgressRepository();
 
-    const got = await stub.writeProgress({
+    // When: upsert する
+    const result = stub.upsertProgress({
       episodeId: "ep-1",
       positionSec: 12,
-      clientAt: "2026-09-19T10:00:00.000Z",
+      firstPlayedAt: "2026-09-19T10:00:00.000Z",
+      firstCompletedAt: null,
+      lastPlayedAt: "2026-09-19T10:00:00.000Z",
     });
 
-    expect(got).toEqual({ firstPlayedAt: "1970-01-01T00:00:00.000Z", firstCompletedAt: null });
-  });
-
-  it("completeProgress は first* の zero value を返す", async () => {
-    const stub = new StubProgressRepository();
-
-    const got = await stub.completeProgress({
-      episodeId: "ep-1",
-      positionSec: 60,
-      clientAt: "2026-09-19T10:00:00.000Z",
-    });
-
-    expect(got).toEqual({ firstPlayedAt: "1970-01-01T00:00:00.000Z", firstCompletedAt: null });
+    // Then: reject しない（副作用なし）
+    await expect(result).resolves.toBeUndefined();
   });
 
   it("listUpdatedSince は常に空配列を返す", async () => {
+    // Given: zero Stub
     const stub = new StubProgressRepository();
 
+    // When: 差分取得する
     const got = await stub.listUpdatedSince("2026-09-19T10:00:00.000Z");
 
+    // Then: 常に空
     expect(got).toEqual([]);
   });
 });
