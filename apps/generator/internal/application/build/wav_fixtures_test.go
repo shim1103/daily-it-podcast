@@ -1,6 +1,6 @@
 package build_test
 
-// このファイルは wav_duration / wav_concat の両 sociable unit test が共有する
+// このファイルは wav_concat / wav_concat_input の両 sociable unit test が共有する
 // fixture 合成 helper 群を集約する中立な置き場（case は持たない）。
 // testdata/ を使わず test 内で PCM WAV bytes を合成する方針に沿い、
 // helper はすべて RIFF 仕様の bytes を直接組み、production の buildWAV には依存させない。
@@ -23,14 +23,16 @@ const (
 	testBitsPerSample = 16
 )
 
+// pcmDataBytes は指定秒数ぶんの data のバイト数を返す（sample 境界へ丸める）。
+func pcmDataBytes(durationSec float64) int {
+	blockAlign := testChannels * testBitsPerSample / 8
+	return int(math.Round(durationSec*float64(testSampleRate))) * blockAlign
+}
+
 // synthPCMWav は指定秒数のゼロ埋め data を持つ 44 byte 標準 header の RIFF/WAVE を返す。
 func synthPCMWav(t *testing.T, durationSec float64) []byte {
 	t.Helper()
-
-	blockAlign := testChannels * testBitsPerSample / 8
-	dataLen := int(math.Round(durationSec*float64(testSampleRate))) * blockAlign
-	// data 本体はゼロ埋めのまま（無音）。
-	return synthPCMWavWithData(t, make([]byte, dataLen))
+	return synthPCMWavWithData(t, make([]byte, pcmDataBytes(durationSec)))
 }
 
 // fmtChunkBytes は 16 byte 標準 fmt chunk（"fmt " id + size + body）を返す。

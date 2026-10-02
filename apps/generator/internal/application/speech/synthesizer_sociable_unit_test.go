@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
@@ -34,7 +35,8 @@ type fakeSpeechSynthesizer struct {
 func (f *fakeSpeechSynthesizer) SynthesizeAll(_ context.Context, texts []string) ([]models.SpeechAudio, error) {
 	f.calls++
 	f.lastTexts = texts
-	return f.got, f.err
+	// why: 期待値と戻りが同じ配列だと、実装が in-place に値を壊しても期待値まで壊れて通る。
+	return slices.Clone(f.got), f.err
 }
 
 var _ port.SpeechSynthesizer = (*fakeSpeechSynthesizer)(nil)
@@ -63,8 +65,9 @@ func newUCWithSpies(sources ...*fakeSpeechSynthesizer) (*SpeechSynthesizer, *fak
 	return uc, fallback
 }
 
+// audio は label ごとに異なる DurationSec を持つ audio を返す（欠落・入れ替わりを assertAudiosEqual が検出できる）。
 func audio(label string) models.SpeechAudio {
-	return models.SpeechAudio{Content: []byte(label)}
+	return models.SpeechAudio{Content: []byte(label), DurationSec: float64(len(label))}
 }
 
 func exhaustedErr(inner string) error {
@@ -130,7 +133,7 @@ func TestSynthesizeAll_switchesToSecondSourceWithRemainingTexts_whenFirstSourceE
 	if err != nil {
 		t.Fatalf("SynthesizeAll() error = %v, want nil", err)
 	}
-	assertAudiosEqual(t, got, append(append([]models.SpeechAudio{}, firstPartial...), secondAudios...))
+	assertAudiosEqual(t, got, slices.Concat(firstPartial, secondAudios))
 	if fallback.calls != 1 {
 		t.Fatalf("Fallback calls = %d, want 1", fallback.calls)
 	}

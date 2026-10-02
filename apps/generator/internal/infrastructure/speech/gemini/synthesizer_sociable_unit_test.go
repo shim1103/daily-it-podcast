@@ -79,6 +79,37 @@ func TestSynthesizeAll_succeedsForAllTexts_whenEveryCallReturnsAudio(t *testing.
 	}
 }
 
+func TestSynthesizeAll_fillsDurationSecOfEachContent_whenEveryCallReturnsAudio(t *testing.T) {
+	// Given: 尺の異なる既知長 PCM を返す 2 回の呼び出し（24 kHz / 16-bit / mono = 48000 byte/秒）
+	const bytesPerSecond = 48000
+	pcmLengths := []int{bytesPerSecond * 3 / 2, bytesPerSecond * 5 / 2} // 1.5 秒, 2.5 秒
+	wantDurations := []float64{1.5, 2.5}
+	responses := make([]fakeClientResponse, len(pcmLengths))
+	for i, n := range pcmLengths {
+		responses[i] = fakeClientResponse{
+			status: http.StatusOK,
+			body:   jsonBody(t, audioInteractionResponse(make([]byte, n))),
+		}
+	}
+	synth, _ := newFakeSynthesizer(responses...)
+
+	// When: SynthesizeAll する
+	got, err := synth.SynthesizeAll(context.Background(), []string{"一本目", "二本目"})
+
+	// Then: 各要素の DurationSec が PCM 長から求めた秒数と一致する（0 のまま残らない）
+	if err != nil {
+		t.Fatalf("SynthesizeAll: %v", err)
+	}
+	if len(got) != len(wantDurations) {
+		t.Fatalf("audios = %d, want %d", len(got), len(wantDurations))
+	}
+	for i, a := range got {
+		if a.DurationSec != wantDurations[i] {
+			t.Fatalf("audios[%d].DurationSec = %v, want %v", i, a.DurationSec, wantDurations[i])
+		}
+	}
+}
+
 // TestSynthesizeAll_returnsError_whenTextEmpty は空要素で Client を呼ばず error を返すことを検証する。
 func TestSynthesizeAll_returnsError_whenTextEmpty(t *testing.T) {
 	synth, rt := newFakeSynthesizer()

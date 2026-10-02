@@ -73,6 +73,70 @@ func TestHasPair_returnsTrue_whenSameStemJsonAndMp3MatchDate(t *testing.T) {
 	}
 }
 
+func TestHasPair_fetchesAllCandidateStems_whenEarlierStemAlreadyMatches(t *testing.T) {
+	t.Parallel()
+
+	// Given: 完成ペアが 2 つ。先頭 stem の date は一致、後続も mp3 付き
+	const stemMatch = "ep-match-first"
+	const stemLater = "ep-later-pair"
+	rt := &seqRoundTripper{resps: []stubResp{
+		{Status: http.StatusOK, Body: listObjectsV2XML(
+			stemMatch+".json", stemMatch+".mp3",
+			stemLater+".json", stemLater+".mp3",
+		)},
+		{Status: http.StatusOK, Body: `{"date":"2026-08-31","episodeId":"` + stemMatch + `"}`},
+		{Status: http.StatusOK, Body: `{"date":"2026-08-30","episodeId":"` + stemLater + `"}`},
+	}}
+	lookup := newStubLookup(rt)
+
+	// When: 同日で照会する
+	got, err := lookup.HasPair(context.Background(), "2026-08-31")
+
+	// Then: true。早期終了せず候補 stem 全件を Get する（List 1 + Get 2）
+	if err != nil {
+		t.Fatalf("HasPair: %v", err)
+	}
+	if !got {
+		t.Fatal("HasPair = false, want true")
+	}
+	if len(rt.calls) != 3 {
+		t.Fatalf("calls = %d, want 3 (list + get×2, no early exit)", len(rt.calls))
+	}
+}
+
+func TestHasPair_returnsError_whenAnyConcurrentGetFails(t *testing.T) {
+	t.Parallel()
+
+	// Given: 完成ペアが 2 つ。一方の Get は date 一致、他方の Get は 403（fail-fast）
+	const stemOK = "ep-ok-date"
+	const stemFail = "ep-get-fail"
+	rt := &seqRoundTripper{resps: []stubResp{
+		{Status: http.StatusOK, Body: listObjectsV2XML(
+			stemOK+".json", stemOK+".mp3",
+			stemFail+".json", stemFail+".mp3",
+		)},
+		{Status: http.StatusOK, Body: `{"date":"2026-08-31","episodeId":"` + stemOK + `"}`},
+		{Status: http.StatusForbidden, Body: "denied"},
+	}}
+	lookup := newStubLookup(rt)
+
+	// When: 照会する
+	got, err := lookup.HasPair(context.Background(), "2026-08-31")
+
+	// Then: いずれかの Get が error なら全体も error。部分成功（true）にしない
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if got {
+		t.Fatal("HasPair = true on error, want false")
+	}
+	var infra *adaptererror.Error
+	if !errors.As(err, &infra) {
+		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
+	}
+	assertNoSecretLeak(t, err.Error())
+}
+
 func TestHasPair_returnsFalse_whenJsonOnly(t *testing.T) {
 	t.Parallel()
 

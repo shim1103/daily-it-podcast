@@ -12,6 +12,7 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpget"
+	"golang.org/x/sync/errgroup"
 )
 
 var _ port.ItemSource = (*ListItemSource)(nil)
@@ -38,6 +39,9 @@ const (
 	MaxCommentsPerStory = 8
 	// CommentDepth は取得する comment 階層の深さ（top-level のみ）。
 	CommentDepth = 1
+	// MaxConcurrentFetches は item/<id>.json への同時 fetch 数の上限。
+	// why: Hacker News API 側の rate limit は非公開のため、安全側に抑えた値とする。
+	MaxConcurrentFetches = 5
 )
 
 // permalinkBaseURL は Hacker News item ページ（C の raw→field 写像で使う契約定数）。
@@ -89,6 +93,8 @@ type hnItem struct {
 // @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ [since, until)。
 // @ensure 結果は time ∈ [since, until) を満たす story のみ。最大 min(maxItems, MaxStoriesScanned) 件（maxItems <= 0 は MaxStoriesScanned）。
 // @ensure 該当なしは空 slice（nil ではない）。
+// @ensure id 列の個別 fetch は最大 MaxConcurrentFetches 件まで同時実行してよい。
+// @ensure 結果の連結順序は topstories id 列順のうち window 内の先頭 limit 件。
 // @invariant vendor 固有型・監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
 func (s *ListItemSource) List(ctx context.Context, since, until time.Time) ([]models.SourceItem, error) {
 	if s == nil || s.client == nil {
@@ -100,23 +106,48 @@ func (s *ListItemSource) List(ctx context.Context, since, until time.Time) ([]mo
 		return nil, err
 	}
 
-	// why: topstories.json は time 順でなくランキング順。window 内 story を探して
-	// id 列を先頭から走査し、結果が実効上限件数に達したら打ち切る。
-	// 最悪ケース（window 内が上限未満）でも id 列は最大 500 件で有界。
+	// why: docs/decisions/2026-09-23T17-21-29 — id 列の個別 fetch を fan-out する。
+	// topstories はランキング順のため、window 内のうち id 列先頭側から limit 件を採る。
 	limit := s.effectiveMaxStories()
+	slots, filled, err := s.fetchStoriesInWindow(ctx, ids, since, until)
+	if err != nil {
+		return nil, err
+	}
+
 	out := make([]models.SourceItem, 0, limit)
-	for _, id := range ids {
-		story, ok := s.fetchStoryInWindow(ctx, id, since, until)
-		if !ok {
+	for i := range slots {
+		if !filled[i] {
 			continue
 		}
-		comments := s.fetchTopLevelComments(ctx, story.Kids)
-		out = append(out, toSourceItem(story, comments))
+		out = append(out, slots[i])
 		if len(out) >= limit {
 			break
 		}
 	}
 	return out, nil
+}
+
+func (s *ListItemSource) fetchStoriesInWindow(ctx context.Context, ids []int64, since, until time.Time) ([]models.SourceItem, []bool, error) {
+	slots := make([]models.SourceItem, len(ids))
+	filled := make([]bool, len(ids))
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(MaxConcurrentFetches)
+	for i, id := range ids {
+		g.Go(func() error {
+			story, ok := s.fetchStoryInWindow(gctx, id, since, until)
+			if !ok {
+				return nil
+			}
+			comments := s.fetchTopLevelComments(gctx, story.Kids)
+			slots[i] = toSourceItem(story, comments)
+			filled[i] = true
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, nil, err
+	}
+	return slots, filled, nil
 }
 
 // fetchTopStoryIDs は topstories.json を取得して id 列を返す。失敗は List ごと失敗させる。
@@ -156,19 +187,38 @@ func (s *ListItemSource) fetchTopLevelComments(ctx context.Context, kids []int64
 	if len(kids) < limit {
 		limit = len(kids)
 	}
+	slots := s.fetchCommentBodies(ctx, kids[:limit])
+
 	bodies := make([]string, 0, limit)
-	for _, kid := range kids[:limit] {
-		item, err := s.fetchItem(ctx, kid)
-		if err != nil {
+	for _, body := range slots {
+		if body == "" {
 			continue
 		}
-		normalized := httpget.NormalizeHTML(item.Text)
-		if normalized == "" {
-			continue
-		}
-		bodies = append(bodies, normalized)
+		bodies = append(bodies, body)
 	}
 	return bodies
+}
+
+func (s *ListItemSource) fetchCommentBodies(ctx context.Context, kids []int64) []string {
+	slots := make([]string, len(kids))
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(MaxConcurrentFetches)
+	for i, kid := range kids {
+		g.Go(func() error {
+			item, err := s.fetchItem(gctx, kid)
+			if err != nil {
+				return nil
+			}
+			normalized := httpget.NormalizeHTML(item.Text)
+			if normalized == "" {
+				return nil
+			}
+			slots[i] = normalized
+			return nil
+		})
+	}
+	_ = g.Wait()
+	return slots
 }
 
 // fetchItem は item/<id>.json を 1 件取得して decode する。

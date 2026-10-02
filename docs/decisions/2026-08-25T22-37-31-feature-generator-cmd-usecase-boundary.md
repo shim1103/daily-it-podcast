@@ -1,12 +1,12 @@
 ---
-name: WAV の尺算出と結合は Application 非公開 helper に置き Entities 公開にしない
+name: WAV の RIFF 解析と結合は Application 非公開 helper に置き Entities 公開にしない
 date: 2026-08-25T22:37:31
 branch: feature/generator-cmd-usecase-boundary
 ---
 
 ## 1. Decision
 
-1. RIFF/WAV からの尺算出と複数 WAV の結合は、`ProduceEpisode`（Builder）が使う **Application 非公開 helper** に置く。
+1. RIFF/WAV の解析と複数 WAV の結合は、`ProduceEpisode`（Builder）が使う **Application 非公開 helper** に置く。segment 単位の尺は `SpeechSynthesizer` の戻り値が持つ（[[2026-09-23T17-21-30-refactor-generator-go-performance]]）。
 2. これらを Entities の公開 Domain 操作として扱わない。`durationSec` という値の意味は Domain、RIFF の読み書きは mechanism とする。
 3. Drive 配置契約（`contracts/drive-layout.md`）は拡張子とペアリングの正であり、RIFF 解析手続きの所有者ではない。
 4. 原則の正は architecture `backend/application.md` §4（フォーマットの機械的分解・結合は Builder の非公開 helper でよい）。
@@ -19,6 +19,7 @@ branch: feature/generator-cmd-usecase-boundary
 
 ## 3. Rejected
 
-1. `WAVDurationSec` / `ConcatWAV` を Entities 公開の Domain concept とする案 — mechanism を Domain に昇格させすぎる。
-2. 尺・結合を `SpeechSynthesizer` Adapter に閉じる案 — Port/Adapter が episode の尺方針と結合を知る。
+1. RIFF の解析・`ConcatWAV` を Entities 公開の Domain concept とする案 — mechanism を Domain に昇格させすぎる。
+2. episode の尺方針と結合を `SpeechSynthesizer` Adapter に閉じる案 — Port/Adapter が episode の構成を知る。segment 単位の尺だけを返すのは別（[[2026-09-23T17-21-30-refactor-generator-go-performance]]）。
 3. Drive 配置契約を RIFF 手続きの SSOT とみなす案 — 配置契約は名前とペアであり、byte 解析の所有者ではない。
+4. RIFF/WAV からの尺算出も Application 非公開 helper に置く案（旧答え） — Application が adapter の組んだ WAV を読み戻して解析し、結合の解析と二重になる。segment 尺は adapter が返す。

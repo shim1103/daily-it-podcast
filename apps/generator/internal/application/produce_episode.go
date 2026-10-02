@@ -114,12 +114,8 @@ func (uc *ProduceEpisode) Run(ctx context.Context, now time.Time) (episodeID str
 	segmentWAVs := make([][]byte, len(audios))
 	segmentDurations := make([]float64, len(audios))
 	for i, audio := range audios {
-		dur, err := build.WavDurationSec(audio.Content)
-		if err != nil {
-			return "", err
-		}
 		segmentWAVs[i] = audio.Content
-		segmentDurations[i] = dur
+		segmentDurations[i] = audio.DurationSec
 	}
 
 	uc.progress.Start("build_timeline")
