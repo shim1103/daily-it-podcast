@@ -27,7 +27,7 @@ func newProduceEpisode(cfg config.Config, logw *delivery.LogWriter) *application
 // @require cfg は Generator の configuration boundary で検証済みである。logw != nil。topicCount > 0。
 // @ensure 戻りは非 nil の *application.ProduceEpisode。
 // @ensure Fetch は composite ItemSource 経由で行い、Application へ情報源個数を渡さない。
-// @invariant config.Load 呼び出しをここで行わない。Composition Root の結線責務だけを持つ。
+// @invariant config.Load 呼び出しをここで行わない。Composition Root は結線と ItemSource の Port 束ねだけを持つ（fallback 方針は Application）。
 func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter, topicCount int) *application.ProduceEpisode {
 	httpClient := appruntime.HTTPClient()
 	// why: maxItems <= 0 は各 Adapter が既存の MaxStoriesScanned へフォールバックする契約
