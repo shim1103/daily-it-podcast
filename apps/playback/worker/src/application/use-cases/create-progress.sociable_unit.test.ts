@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ProgressWriteResponseSchema } from "../../../../contracts/index.ts";
-import { createFakeProgressRepository } from "../ports/progress-repository.fake.ts";
+import { InMemoryProgressRepository } from "../../infrastructure/in-memory/in-memory-progress-repository.ts";
 import type { ProgressUpsertRow } from "../ports/progress-repository.ts";
 import type { ProgressWriteCommand } from "../progress/progress-write-command.ts";
 import { createProgress } from "./create-progress.ts";
@@ -8,7 +8,7 @@ import { createProgress } from "./create-progress.ts";
 /**
  * scope: Sociable Unit
  * real: createProgress use-case（merge・冪等）
- * double: createFakeProgressRepository
+ * double: InMemoryProgressRepository (Fake)
  */
 const EARLIER = "2026-09-22T10:00:00.000Z";
 const LATER = "2026-09-22T11:00:00.000Z";
@@ -22,7 +22,7 @@ const command: ProgressWriteCommand = {
 describe("createProgress", () => {
   it("行なしの時、merge で初回行を作り first* を返す", async () => {
     // Given: 空 Fake
-    const repository = createFakeProgressRepository();
+    const repository = new InMemoryProgressRepository();
 
     // When: create を実行する
     const got = await createProgress(repository, command);
@@ -48,7 +48,7 @@ describe("createProgress", () => {
       firstCompletedAt: null,
       lastPlayedAt: LATER,
     };
-    const repository = createFakeProgressRepository([seed]);
+    const repository = new InMemoryProgressRepository([seed]);
     const lateCreate: ProgressWriteCommand = {
       episodeId: "ep-1",
       positionSec: 5,

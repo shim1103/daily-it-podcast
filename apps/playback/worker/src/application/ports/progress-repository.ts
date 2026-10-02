@@ -41,7 +41,7 @@ export interface ProgressRepository {
 
 /**
  * in-memory／unit 用の、何も永続しない代替 `ProgressRepository`。
- * 保存内容を保つ代替は `progress-repository.fake.ts` の `createFakeProgressRepository` が持つ。
+ * 保存内容を保つ代替は `infrastructure/in-memory/in-memory-progress-repository.ts` の `InMemoryProgressRepository` が持つ。
  *
  * @ensure 読取は空 Map、`upsertProgress` は no-op、pull は空配列を返す
  * @invariant 本番経路（r2 mode）の Composition Root は選ばない（永続されない応答を HTTP 成功で返さない）

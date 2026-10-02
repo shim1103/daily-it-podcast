@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createFakeProgressRepository } from "./progress-repository.fake.ts";
-import type { ProgressUpsertRow } from "./progress-repository.ts";
+import type { ProgressUpsertRow } from "../../application/ports/progress-repository.ts";
+import { InMemoryProgressRepository } from "./in-memory-progress-repository.ts";
 
 /**
  * scope: Sociable Unit
- * real: createFakeProgressRepository（C の test support。in-memory Port）
+ * real: InMemoryProgressRepository
  * double: なし
  */
 const rowA: ProgressUpsertRow = {
@@ -23,13 +23,13 @@ const rowB: ProgressUpsertRow = {
   lastPlayedAt: "2026-09-20T12:00:00.000Z",
 };
 
-describe("createFakeProgressRepository", () => {
-  it("seed した行を getByEpisodeIds で返す。無い id は Map に載せない", async () => {
-    // Given: seed 済み Fake
-    const fake = createFakeProgressRepository([rowA, rowB]);
+describe("InMemoryProgressRepository", () => {
+  it("getByEpisodeIds_returns_seeded_rows_and_omits_missing_ids", async () => {
+    // Given: seed 済みの repository
+    const repository = new InMemoryProgressRepository([rowA, rowB]);
 
     // When: 存在する id と存在しない id を混ぜて取得する
-    const got = await fake.getByEpisodeIds(["ep-a", "ep-missing", "ep-b"]);
+    const got = await repository.getByEpisodeIds(["ep-a", "ep-missing", "ep-b"]);
 
     // Then: seed 行だけが入り、欠けた id は載らない
     expect(got.size).toBe(2);
@@ -48,12 +48,12 @@ describe("createFakeProgressRepository", () => {
     expect(got.has("ep-missing")).toBe(false);
   });
 
-  it("upsertProgress は行をそのまま永続し、再 upsert は merge せず置き換える", async () => {
-    // Given: 空 Fake
-    const fake = createFakeProgressRepository();
+  it("upsertProgress_replaces_existing_row_without_merging", async () => {
+    // Given: 空の repository
+    const repository = new InMemoryProgressRepository();
 
     // When: 同じ episodeId を 2 回 upsert する（2 回目は全 field 差し替え）
-    await fake.upsertProgress(rowA);
+    await repository.upsertProgress(rowA);
     const replaced: ProgressUpsertRow = {
       episodeId: "ep-a",
       positionSec: 99,
@@ -61,8 +61,8 @@ describe("createFakeProgressRepository", () => {
       firstCompletedAt: "2026-09-16T00:00:00.000Z",
       lastPlayedAt: "2026-09-17T00:00:00.000Z",
     };
-    await fake.upsertProgress(replaced);
-    const got = await fake.getByEpisodeIds(["ep-a"]);
+    await repository.upsertProgress(replaced);
+    const got = await repository.getByEpisodeIds(["ep-a"]);
 
     // Then: 2 回目の行がそのまま残り、1 回目の値は混ざらない
     expect(got.get("ep-a")).toEqual({
@@ -73,12 +73,12 @@ describe("createFakeProgressRepository", () => {
     });
   });
 
-  it("listUpdatedSince は lastPlayedAt が since より後の行だけを {episodeId, progress} で返す", async () => {
+  it("listUpdatedSince_returns_only_rows_with_last_played_at_after_since", async () => {
     // Given: lastPlayedAt が前後で分かれる 2 行
-    const fake = createFakeProgressRepository([rowA, rowB]);
+    const repository = new InMemoryProgressRepository([rowA, rowB]);
 
     // When: rowA と rowB の間の since で差分取得する
-    const got = await fake.listUpdatedSince("2026-09-15T00:00:00.000Z");
+    const got = await repository.listUpdatedSince("2026-09-15T00:00:00.000Z");
 
     // Then: rowB のみ。形は pull 契約の episodes 要素と同形
     expect(got).toEqual([
@@ -94,12 +94,12 @@ describe("createFakeProgressRepository", () => {
     ]);
   });
 
-  it("listUpdatedSince は lastPlayedAt が since と等しい行を含めない", async () => {
+  it("listUpdatedSince_excludes_row_with_last_played_at_equal_to_since", async () => {
     // Given: lastPlayedAt が since と同一の行
-    const fake = createFakeProgressRepository([rowA]);
+    const repository = new InMemoryProgressRepository([rowA]);
 
     // When: rowA.lastPlayedAt と同じ since で差分取得する
-    const got = await fake.listUpdatedSince(rowA.lastPlayedAt);
+    const got = await repository.listUpdatedSince(rowA.lastPlayedAt);
 
     // Then: 空（境界は厳密な >）
     expect(got).toEqual([]);

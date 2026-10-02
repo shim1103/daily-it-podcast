@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { episodeAudioPath, ListEpisodesResponseSchema } from "../../../../contracts/index.ts";
+import { InMemoryProgressRepository } from "../../infrastructure/in-memory/in-memory-progress-repository.ts";
 import type { EpisodeRepository, RawManuscriptEntry } from "../ports/episode-repository.ts";
-import { createFakeProgressRepository } from "../ports/progress-repository.fake.ts";
 import type { ProgressUpsertRow } from "../ports/progress-repository.ts";
 import { listEpisodes } from "./list-episodes.ts";
 
 /**
  * scope: Sociable Unit
  * real: listEpisodes use-case, verify-manuscript の純関数
- * double: EpisodeRepository Fake / createFakeProgressRepository
+ * double: EpisodeRepository Fake / InMemoryProgressRepository (Fake)
  */
 const validManuscriptJson = {
   episodeId: "ep-1",
@@ -49,7 +49,7 @@ describe("listEpisodes", () => {
   it("進捗行がある episode は progress を embed する", async () => {
     // Given: 適合原稿 1 件と、同じ episodeId の進捗行
     const repository = createFakeRepository([{ stem: "ep-1", json: validManuscriptJson }]);
-    const progress = createFakeProgressRepository([seededProgress]);
+    const progress = new InMemoryProgressRepository([seededProgress]);
 
     // When: 一覧 UseCase を実行する
     const got = await listEpisodes(repository, progress);
@@ -77,7 +77,7 @@ describe("listEpisodes", () => {
   it("進捗行が無い episode は progress: null のまま返す", async () => {
     // Given: 適合原稿だけ（進捗 store は空）
     const repository = createFakeRepository([{ stem: "ep-1", json: validManuscriptJson }]);
-    const progress = createFakeProgressRepository();
+    const progress = new InMemoryProgressRepository();
 
     // When: 一覧 UseCase を実行する
     const got = await listEpisodes(repository, progress);
@@ -108,7 +108,7 @@ describe("listEpisodes", () => {
       { stem: "ep-1", json: withProgress },
       { stem: "ep-2", json: withoutProgress },
     ]);
-    const progress = createFakeProgressRepository([seededProgress]);
+    const progress = new InMemoryProgressRepository([seededProgress]);
 
     // When: 一覧を取得する
     const got = await listEpisodes(repository, progress);
@@ -133,7 +133,7 @@ describe("listEpisodes", () => {
     const repository = createFakeRepository([{ stem: "bad", json: { episodeId: "bad" } }]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository, createFakeProgressRepository());
+    const got = await listEpisodes(repository, new InMemoryProgressRepository());
 
     // Then: 除外され空一覧
     expect(got.episodes).toEqual([]);
@@ -146,7 +146,7 @@ describe("listEpisodes", () => {
     ]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository, createFakeProgressRepository());
+    const got = await listEpisodes(repository, new InMemoryProgressRepository());
 
     // Then: 行に出ない
     expect(got.episodes).toEqual([]);
@@ -157,7 +157,7 @@ describe("listEpisodes", () => {
     const repository = createFakeRepository([{ stem: "ep-1", json: "not json" }]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository, createFakeProgressRepository());
+    const got = await listEpisodes(repository, new InMemoryProgressRepository());
 
     // Then: 除外される
     expect(got.episodes).toEqual([]);
@@ -171,7 +171,7 @@ describe("listEpisodes", () => {
     ]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository, createFakeProgressRepository());
+    const got = await listEpisodes(repository, new InMemoryProgressRepository());
 
     // Then: 適合分だけ
     expect(got.episodes.map((item) => item.episodeId)).toEqual(["ep-1"]);
@@ -182,7 +182,7 @@ describe("listEpisodes", () => {
     const repository = createFakeRepository([]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository, createFakeProgressRepository());
+    const got = await listEpisodes(repository, new InMemoryProgressRepository());
 
     // Then: 空
     expect(got.episodes).toEqual([]);
@@ -200,7 +200,7 @@ describe("listEpisodes", () => {
     ]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository, createFakeProgressRepository());
+    const got = await listEpisodes(repository, new InMemoryProgressRepository());
 
     // Then: date降順に並び替わる
     expect(got.episodes.map((item) => item.episodeId)).toEqual(["ep-new", "ep-mid", "ep-old"]);
@@ -216,7 +216,7 @@ describe("listEpisodes", () => {
     ]);
 
     // When: 一覧を取得する
-    const got = await listEpisodes(repository, createFakeProgressRepository());
+    const got = await listEpisodes(repository, new InMemoryProgressRepository());
 
     // Then: 両方とも残る（順序は未規定）
     expect(got.episodes.map((item) => item.episodeId).sort()).toEqual(["ep-a", "ep-b"]);
