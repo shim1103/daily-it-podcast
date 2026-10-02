@@ -17,6 +17,7 @@ prev: 2026-10-01T16-29-05-refactor-generator-wav-duration.md
 3. `pairStemCandidates` は GET でないため逐次のまま（Decision `07-47-56`）。
 4. architecture skill（composition-root / application / infrastructure）は `~/settings/agent-standards` と worktree `.cursor` へ反映済み。settings 側は commit しない。
 5. PR は #216。base は親 epic `refactor/generator-go-performance`（`lifecycle/release` の sub-feature→epic）。
+6. Composition 内で Port 束ね（`newProductionItemSource`）を `produce_episode` の UseCase 結線から分けた（`3b2c4b9`）。Application へ移設はしていない。
 
 ### Commits
 
@@ -35,3 +36,5 @@ prev: 2026-10-01T16-29-05-refactor-generator-wav-duration.md
 13. `0d1adb6`
 14. `1245642`
 15. `f4d042e`
+16. `5f18f4b`
+17. `3b2c4b9`
