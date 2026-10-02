@@ -74,6 +74,7 @@ func (l *CompletedEpisodeLookup) HasPair(ctx context.Context, date string) (bool
 	return false, nil
 }
 
+// why: docs/decisions/2026-10-02T07-47-56 — List 済み key のメモリ分類。GET だけが fan-out 対象。
 func pairStemCandidates(keys []string) []string {
 	mp3Stems := make(map[string]struct{})
 	var jsonStems []string
