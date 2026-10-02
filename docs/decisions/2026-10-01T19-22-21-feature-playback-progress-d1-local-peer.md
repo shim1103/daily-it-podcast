@@ -12,7 +12,7 @@ branch: feature/playback-progress-d1-local-peer
 
 ## 2. Reason
 
-1. 進捗の Stub は何も永続しない。書込は 1970 の zero value を HTTP 200 で返し、pull は空を返す。呼び出し側からは正常応答に見え、保存できたように見えて消える。設定の欠落が観測できず、利用者のデータだけが静かに失われる。判定結果を無言で代替実装へ逃がすと設定漏れが観測不能になる、という防御設計の原則（`.claude/skills/1:terms/error-handling/defensive-design.md` §2.4）と、未指定を安全側の既定値へ黙って読み替えない原則（同 §7.3）に当たる。
+1. 進捗の Stub は何も永続しない。書込は何も保存せず、送られた `clientAt` をそのまま勝ち側の `first*` として HTTP 200 で返し、pull は空を返す。呼び出し側からは正常応答に見え、保存できたように見えて消える。設定の欠落が観測できず、利用者のデータだけが静かに失われる。判定結果を無言で代替実装へ逃がすと設定漏れが観測不能になる、という防御設計の原則（`.claude/skills/1:terms/error-handling/defensive-design.md` §2.4）と、未指定を安全側の既定値へ黙って読み替えない原則（同 §7.3）に当たる。
 2. 同じ composition の `EPISODES` 欠落は既に throw している。進捗だけ落とすと、同じ「本番に必要な binding の欠落」への扱いが非対称になり、設定退行や誤 deploy で R2 は止まるのに進捗だけ 200 のまま消える。
 3. Controller 一式は request ごとに組み立てるため、設定不足は最初の request から 500 として現れる。設定の欠落を、永続しない 200 の長い継続ではなく、直後に見える失敗へ変える。
 4. in-memory を env 非依存にするのは、local と unit が D1 を持たずに動く前提を保つため。in-memory は専用の明示 option がある時だけ許す既存の方針（`2026-08-20T12-57-00-playback-runtime-config-validation.md`）と、本番設定を暗黙に Fake へ落とさない方針（`2026-08-19T17-38-00-playback-repository-selection.md`）に揃い、binding の有無という暗黙の条件で選択を変えない。
