@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ProgressWriteResponseSchema } from "../../../../contracts/index.ts";
 import { ProgressNotFoundError } from "../../entities/errors/progress-not-found-error.ts";
-import { createFakeProgressRepository } from "../ports/progress-repository.fake.ts";
+import { InMemoryProgressRepository } from "../../infrastructure/in-memory/in-memory-progress-repository.ts";
 import type { ProgressUpsertRow } from "../ports/progress-repository.ts";
 import type { ProgressWriteCommand } from "../progress/progress-write-command.ts";
 import { updateProgress } from "./update-progress.ts";
@@ -9,7 +9,7 @@ import { updateProgress } from "./update-progress.ts";
 /**
  * scope: Sociable Unit
  * real: updateProgress use-case（行なし 404・merge）
- * double: createFakeProgressRepository
+ * double: InMemoryProgressRepository (Fake)
  */
 const EARLIER = "2026-09-22T10:00:00.000Z";
 const LATER = "2026-09-22T11:00:00.000Z";
@@ -23,7 +23,7 @@ const command: ProgressWriteCommand = {
 describe("updateProgress", () => {
   it("行なしの時、ProgressNotFoundError を throw する", async () => {
     // Given: 空 Fake
-    const repository = createFakeProgressRepository();
+    const repository = new InMemoryProgressRepository();
 
     // When: update を実行する
     const act = updateProgress(repository, command);
@@ -43,7 +43,7 @@ describe("updateProgress", () => {
       firstCompletedAt: null,
       lastPlayedAt: EARLIER,
     };
-    const repository = createFakeProgressRepository([seed]);
+    const repository = new InMemoryProgressRepository([seed]);
 
     // When: より遅い clientAt で update する
     const got = await updateProgress(repository, command);

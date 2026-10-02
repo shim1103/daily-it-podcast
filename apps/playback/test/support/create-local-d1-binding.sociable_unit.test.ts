@@ -1,20 +1,34 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { EPISODE_PROGRESS_D1_BINDING } from "../../worker/src/infrastructure/d1/progress-d1-constants.ts";
 import { createLocalD1Binding } from "./create-local-d1-binding.ts";
 
 /**
- * A 足場: signature→zero のみ。getPlatformProxy 本実装の到達 NI は C。
+ * scope: Sociable Unit
+ * real: createLocalD1Binding の binding 欠落分岐
+ * double: wrangler の getPlatformProxy（実 proxy を起動しない）
+ *
+ * 実 proxy の起動と実 binding の読み書きは `test/integration/local_d1_binding.narrow_integration.test.ts` が所有する。
  */
-describe("createLocalD1Binding", () => {
-  it("A stub は proxy なしで読取空・書込 success・changes 0 を返す", async () => {
-    // Given / When: A stub 入口
-    const handle = await createLocalD1Binding();
 
-    // Then: zero value（本実装の prepare→実SQL は C）
-    expect(await handle.database.prepare("SELECT 1 AS n").first()).toBeNull();
-    expect((await handle.database.prepare("SELECT 1 AS n").all()).results).toEqual([]);
-    const written = await handle.database.prepare("INSERT INTO t VALUES (1)").run();
-    expect(written.success).toBe(true);
-    expect(written.meta.changes).toBe(0);
-    await handle.dispose();
+const { getPlatformProxy } = vi.hoisted(() => ({ getPlatformProxy: vi.fn() }));
+
+vi.mock("wrangler", () => ({ getPlatformProxy }));
+
+describe("createLocalD1Binding", () => {
+  beforeEach(() => {
+    getPlatformProxy.mockReset();
+  });
+
+  it("disposes_proxy_and_rejects_when_binding_is_missing_in_env", async () => {
+    // Given: EPISODE_PROGRESS binding を持たない env を返す proxy
+    const dispose = vi.fn(async () => {});
+    getPlatformProxy.mockResolvedValue({ env: {}, dispose });
+
+    // When: local D1 binding を用意する
+    const got = createLocalD1Binding();
+
+    // Then: 黙って Fake に落とさず binding 名つきで reject し、起動済みの proxy を解放する
+    await expect(got).rejects.toThrow(EPISODE_PROGRESS_D1_BINDING);
+    expect(dispose).toHaveBeenCalledTimes(1);
   });
 });

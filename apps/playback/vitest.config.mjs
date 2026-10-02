@@ -11,9 +11,10 @@ export default defineConfig({
         "web/main.ts",
         "web/src/api/api-result.ts",
         "worker/src/application/ports/**",
-        // why: 実行文を持たない型宣言のみ file は v8 が分母 0 の 0% 行として表示し、
+        // why: 実行文を持たない型宣言のみ file（以下 2 file）は v8 が分母 0 の 0% 行として表示し、
         //   coverage 表の見た目を崩す。型の回帰は typecheck が担う（Decision 2026-09-04T18-30-01）
         "worker/src/composition/runtime-config-bindings.ts",
+        "worker/src/infrastructure/d1/d1-database-binding.ts",
       ],
       thresholds: {
         branches: 100,
@@ -34,7 +35,7 @@ export default defineConfig({
             "web/vite-config.sociable_unit.test.ts",
             "web/src/**/*sociable_unit*.test.ts",
             "worker/src/**/*sociable_unit*.test.ts",
-            // why: C1 Fake（getPlatformProxy を起動しない）。support は製品 coverage 分母外
+            // why: Fake local binding の SU（getPlatformProxy を起動しない）。support は製品 coverage 分母外
             "test/support/**/*sociable_unit*.test.ts",
             // why: secret なし NI を Unit coverage 分母へ算入する（Decision 2026-08-30T16-20-01）
             "test/integration/**/*narrow_integration*.test.ts",
@@ -46,6 +47,12 @@ export default defineConfig({
           exclude: [
             // why: getPlatformProxy 実起動は SU/unit に載せない（Decision 2026-09-16T00-20-08）
             "test/integration/local_r2_binding.narrow_integration.test.ts",
+            // why: D1 も同じく getPlatformProxy 実起動のため SU/unit に載せない（同 Decision）
+            "test/integration/local_d1_binding.narrow_integration.test.ts",
+            // why: D1 adapter の実 SQLite merge 検証も getPlatformProxy 実起動のため同様に載せない
+            "test/integration/d1_progress_repository.narrow_integration.test.ts",
+            // why: R2 adapter も手書き binding 型と実 binding の一致を守るため getPlatformProxy 実起動であり、同様に載せない
+            "test/integration/r2_episode_repository.narrow_integration.test.ts",
           ],
           passWithNoTests: true,
         },

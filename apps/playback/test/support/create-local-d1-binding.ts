@@ -1,7 +1,5 @@
-import type {
-  D1DatabaseBinding,
-  D1PreparedStatementBinding,
-} from "../../worker/src/infrastructure/d1/d1-database-binding.ts";
+import type { D1DatabaseBinding } from "../../worker/src/infrastructure/d1/d1-database-binding.ts";
+import { EPISODE_PROGRESS_D1_BINDING } from "../../worker/src/infrastructure/d1/progress-d1-constants.ts";
 
 /**
  * local D1 binding（getPlatformProxy）の注入ハンドル。
@@ -14,39 +12,40 @@ export type LocalD1BindingHandle = {
   dispose: () => Promise<void>;
 };
 
-function createZeroDatabase(): D1DatabaseBinding {
-  const statement: D1PreparedStatementBinding = {
-    bind(..._values: unknown[]) {
-      return statement;
-    },
-    async first() {
-      return null;
-    },
-    async all() {
-      return { results: [] };
-    },
-    async run() {
-      return { success: true, meta: { changes: 0 } };
-    },
-  };
-  return {
-    prepare(_query: string) {
-      return statement;
-    },
-  };
-}
-
 /**
- * local D1 binding 入口（A: signature＋stub）。
+ * getPlatformProxy 経由で local D1 binding を用意する。
  *
- * @require apps/playback の wrangler 依存と wrangler.jsonc の EPISODE_PROGRESS binding がある（C 本実装時）。
- * @ensure A stub は getPlatformProxy を起動せず、読取空・書込 success・changes 0 を返す。
- * @ensure 起動失敗を Fake に黙って落とさないこと（本実装の義務）は C。
+ * @require apps/playback の wrangler 依存と wrangler.jsonc の EPISODE_PROGRESS binding がある。
+ * @ensure env.EPISODE_PROGRESS を database として返し、dispose で proxy を解放する。表は未作成の空 D1 である。
+ * @ensure 起動失敗は throw する（黙って Fake に落とさない）。binding が無い時は proxy を解放してから throw する。
  */
-// todo: C で getPlatformProxy（remoteBindings: false）本実装へ差し替え。本 stub の zero 戻りをやめる
 export async function createLocalD1Binding(): Promise<LocalD1BindingHandle> {
+  const { getPlatformProxy } = await import("wrangler");
+  const { fileURLToPath } = await import("node:url");
+  const path = await import("node:path");
+
+  const configPath = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../wrangler.jsonc",
+  );
+
+  const proxy = await getPlatformProxy({
+    configPath,
+    persist: false,
+    remoteBindings: false,
+  });
+
+  const env = proxy.env as { [EPISODE_PROGRESS_D1_BINDING]?: D1DatabaseBinding };
+  const database = env[EPISODE_PROGRESS_D1_BINDING];
+  if (database === undefined) {
+    await proxy.dispose();
+    throw new Error(`${EPISODE_PROGRESS_D1_BINDING} binding が無い`);
+  }
+
   return {
-    database: createZeroDatabase(),
-    async dispose() {},
+    database,
+    dispose: async () => {
+      await proxy.dispose();
+    },
   };
 }

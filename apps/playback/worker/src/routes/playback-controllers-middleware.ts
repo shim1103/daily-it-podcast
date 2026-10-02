@@ -21,7 +21,7 @@ export type PlaybackControllersVariables = RequestContextVariables & {
  * cross-cutting（requestId / log / secureHeaders）とは別段: こちらは **request-scoped wiring**。
  *
  * @require 後段 route は `c.get("controllers")` だけを使い、個別に CR を呼ばない
- * @ensure `controllers` が Variables に載る。mode は production と同じ `"r2"` 固定
+ * @ensure `controllers` が Variables に載る。永続先は production と同じ episode `"r2"` ＋ 進捗 `"d1"` 固定
  * @invariant ビジネス判断・Port 直接呼び出しはしない（結線だけ）
  */
 export function createPlaybackControllersMiddleware(
@@ -31,7 +31,10 @@ export function createPlaybackControllersMiddleware(
   Variables: PlaybackControllersVariables;
 }> {
   return async (c, next) => {
-    c.set("controllers", createPlaybackControllers(c.env, { mode: "r2" }, useCaseOverrides));
+    c.set(
+      "controllers",
+      createPlaybackControllers(c.env, { mode: "r2", progressMode: "d1" }, useCaseOverrides),
+    );
     await next();
   };
 }

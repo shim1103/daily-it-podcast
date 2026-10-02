@@ -26,4 +26,11 @@ export const episodeProgressColumns = {
   firstPlayedAt: "first_played_at",
   firstCompletedAt: "first_completed_at",
   lastPlayedAt: "last_played_at",
+  seq: "seq",
 } as const;
+
+/**
+ * D1 の 1 query あたりの bind 値の上限個数。
+ * what: IN 句の一括取得はこの個数で分割する。local D1 は 101 個目の bind で `too many SQL variables` を返す。
+ */
+export const D1_MAX_BOUND_PARAMETERS_PER_QUERY = 100 as const;

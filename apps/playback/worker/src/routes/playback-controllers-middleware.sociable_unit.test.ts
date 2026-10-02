@@ -38,10 +38,14 @@ describe("createPlaybackControllersMiddleware", () => {
     // When: 同じ app へ 1 回 request する
     const got = await app.request("http://example.test/probe", {}, {});
 
-    // Then: CR は 1 回・応答は controller 経由
+    // Then: CR は 1 回・応答は controller 経由。永続先は episode r2 ＋ 進捗 d1 を明示して渡す
     expect(got.status).toBe(200);
     expect(createPlaybackControllers).toHaveBeenCalledTimes(1);
-    expect(createPlaybackControllers).toHaveBeenCalledWith({}, { mode: "r2" }, undefined);
+    expect(createPlaybackControllers).toHaveBeenCalledWith(
+      {},
+      { mode: "r2", progressMode: "d1" },
+      undefined,
+    );
     expect(listEpisodesController).toHaveBeenCalledTimes(1);
   });
 
@@ -71,7 +75,7 @@ describe("createPlaybackControllersMiddleware", () => {
     // Then
     expect(createPlaybackControllers).toHaveBeenCalledWith(
       { EPISODES: {} },
-      { mode: "r2" },
+      { mode: "r2", progressMode: "d1" },
       overrides,
     );
   });

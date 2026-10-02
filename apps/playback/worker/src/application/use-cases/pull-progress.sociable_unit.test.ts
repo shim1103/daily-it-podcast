@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { ProgressPullResponseSchema } from "../../../../contracts/index.ts";
-import { createFakeProgressRepository } from "../ports/progress-repository.fake.ts";
+import { InMemoryProgressRepository } from "../../infrastructure/in-memory/in-memory-progress-repository.ts";
 import type { ProgressUpsertRow } from "../ports/progress-repository.ts";
 import { pullProgress } from "./pull-progress.ts";
 
 /**
  * scope: Sociable Unit
  * real: pullProgress use-case（lastPlayedAt > since 境界）
- * double: createFakeProgressRepository
+ * double: InMemoryProgressRepository (Fake)
  */
 const SINCE = "2026-09-15T00:00:00.000Z";
 
@@ -38,7 +38,7 @@ const equalSince: ProgressUpsertRow = {
 describe("pullProgress", () => {
   it("該当なしの時、空の ProgressPullResponse を返す", async () => {
     // Given: 空 Fake
-    const repository = createFakeProgressRepository();
+    const repository = new InMemoryProgressRepository();
 
     // When: pull を実行する
     const got = await pullProgress(repository, SINCE);
@@ -50,7 +50,7 @@ describe("pullProgress", () => {
 
   it("lastPlayedAt が since より後の行だけを返す", async () => {
     // Given: since 前後に分かれる 2 行
-    const repository = createFakeProgressRepository([beforeSince, afterSince]);
+    const repository = new InMemoryProgressRepository([beforeSince, afterSince]);
 
     // When: 間の since で pull する
     const got = await pullProgress(repository, SINCE);
@@ -73,7 +73,7 @@ describe("pullProgress", () => {
 
   it("lastPlayedAt が since と等しい行を含めない", async () => {
     // Given: lastPlayedAt === since の行
-    const repository = createFakeProgressRepository([equalSince]);
+    const repository = new InMemoryProgressRepository([equalSince]);
 
     // When: 同一時刻の since で pull する
     const got = await pullProgress(repository, SINCE);

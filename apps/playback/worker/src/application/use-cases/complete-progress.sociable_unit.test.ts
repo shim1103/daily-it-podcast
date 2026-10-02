@@ -4,8 +4,8 @@ import { EpisodeContentError } from "../../entities/errors/episode-content-error
 import { ProgressNotFoundError } from "../../entities/errors/progress-not-found-error.ts";
 import { ProgressRuleError } from "../../entities/errors/progress-rule-error.ts";
 import { PROGRESS_COMPLETE_ZONE_SEC } from "../../entities/constants/progress.ts";
+import { InMemoryProgressRepository } from "../../infrastructure/in-memory/in-memory-progress-repository.ts";
 import type { EpisodeRepository } from "../ports/episode-repository.ts";
-import { createFakeProgressRepository } from "../ports/progress-repository.fake.ts";
 import type { ProgressUpsertRow } from "../ports/progress-repository.ts";
 import type { ProgressWriteCommand } from "../progress/progress-write-command.ts";
 import { completeProgress } from "./complete-progress.ts";
@@ -13,7 +13,7 @@ import { completeProgress } from "./complete-progress.ts";
 /**
  * scope: Sociable Unit
  * real: completeProgress use-case（原稿 duration・完走ゾーン・行必須・merge）
- * double: EpisodeRepository Fake / createFakeProgressRepository
+ * double: EpisodeRepository Fake / InMemoryProgressRepository (Fake)
  */
 const EARLIER = "2026-09-22T10:00:00.000Z";
 const DURATION_SEC = 60;
@@ -68,7 +68,7 @@ describe("completeProgress", () => {
   it("行なしの時、ProgressNotFoundError を throw し永続しない", async () => {
     // Given: 原稿あり・進捗行なし・ゾーン内
     const episodes = createFakeEpisodeRepository();
-    const progress = createFakeProgressRepository();
+    const progress = new InMemoryProgressRepository();
 
     // When: complete を実行する
     const act = completeProgress(episodes, progress, inZoneCommand);
@@ -82,7 +82,7 @@ describe("completeProgress", () => {
   it("既存行がありゾーン内の時、markCompleted merge して firstCompletedAt を返す", async () => {
     // Given: 未完走行あり・ゾーン内
     const episodes = createFakeEpisodeRepository();
-    const progress = createFakeProgressRepository([existingRow]);
+    const progress = new InMemoryProgressRepository([existingRow]);
 
     // When: complete を実行する
     const got = await completeProgress(episodes, progress, inZoneCommand);
@@ -102,7 +102,7 @@ describe("completeProgress", () => {
   it("既存行がありゾーン内の後続 complete の時、先勝ち firstCompletedAt を保ち merge する", async () => {
     // Given: 未完走行あり・ゾーン内の後続 complete
     const episodes = createFakeEpisodeRepository();
-    const progress = createFakeProgressRepository([existingRow]);
+    const progress = new InMemoryProgressRepository([existingRow]);
     const later: ProgressWriteCommand = {
       episodeId: "ep-1",
       positionSec: IN_ZONE_POSITION,
@@ -122,7 +122,7 @@ describe("completeProgress", () => {
   it("ゾーン外の時、ProgressRuleError を throw し永続しない", async () => {
     // Given: 行あり・ゾーン外 position
     const episodes = createFakeEpisodeRepository();
-    const progress = createFakeProgressRepository([existingRow]);
+    const progress = new InMemoryProgressRepository([existingRow]);
     const outOfZone: ProgressWriteCommand = {
       episodeId: "ep-1",
       positionSec: OUT_ZONE_POSITION,
@@ -143,7 +143,7 @@ describe("completeProgress", () => {
     const episodes = createFakeEpisodeRepository({
       getManuscript: async () => undefined,
     });
-    const progress = createFakeProgressRepository([existingRow]);
+    const progress = new InMemoryProgressRepository([existingRow]);
 
     // When: complete を実行する
     const act = completeProgress(episodes, progress, inZoneCommand);
@@ -157,7 +157,7 @@ describe("completeProgress", () => {
     const episodes = createFakeEpisodeRepository({
       getManuscript: async () => ({ stem: "ep-1", json: { episodeId: "ep-1" } }),
     });
-    const progress = createFakeProgressRepository([existingRow]);
+    const progress = new InMemoryProgressRepository([existingRow]);
 
     // When: complete を実行する
     const act = completeProgress(episodes, progress, inZoneCommand);
@@ -172,7 +172,7 @@ describe("completeProgress", () => {
     const episodes = createFakeEpisodeRepository({
       getManuscript: async () => ({ stem: "ep-1", json: shortManuscript }),
     });
-    const progress = createFakeProgressRepository([existingRow]);
+    const progress = new InMemoryProgressRepository([existingRow]);
     const shortCommand: ProgressWriteCommand = {
       episodeId: "ep-1",
       positionSec: 0,

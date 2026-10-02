@@ -136,8 +136,12 @@ describe("app", () => {
     // When: 一覧 path へ GET する
     await devApp.request(`${origin}${listEpisodesPath}`, {}, emptyEnv);
 
-    // Then: createPlaybackControllers へ override と R2 mode 固定がそのまま渡る
-    expect(createPlaybackControllers).toHaveBeenCalledWith(emptyEnv, { mode: "r2" }, overrides);
+    // Then: createPlaybackControllers へ override と episode r2 ＋ 進捗 d1 の固定がそのまま渡る
+    expect(createPlaybackControllers).toHaveBeenCalledWith(
+      emptyEnv,
+      { mode: "r2", progressMode: "d1" },
+      overrides,
+    );
   });
 
   it("受け取った env をそのまま Composition Root へ渡して Controller を組み立てる", async () => {
@@ -148,8 +152,12 @@ describe("app", () => {
     // When: 一覧 path へ GET する
     await app.request(`${origin}${listEpisodesPath}`, {}, boundEnv);
 
-    // Then: 渡された env と R2 mode 固定で Composition Root に渡る
-    expect(createPlaybackControllers).toHaveBeenCalledWith(boundEnv, { mode: "r2" }, undefined);
+    // Then: 渡された env と episode r2 ＋ 進捗 d1 の固定で Composition Root に渡る
+    expect(createPlaybackControllers).toHaveBeenCalledWith(
+      boundEnv,
+      { mode: "r2", progressMode: "d1" },
+      undefined,
+    );
   });
 
   it("一覧 GET が成功する時、ListEpisodesResponse schema を満たす JSON を 200 で返す", async () => {
@@ -282,6 +290,38 @@ describe("app", () => {
     expect(createProgressController).toHaveBeenCalledWith("ep-1", {
       positionSec: 12,
       clientAt: "2026-09-22T10:00:00.000Z",
+    });
+  });
+
+  it("passes_utc_fixed_width_clientAt_to_controller_and_returns_it_when_request_clientAt_has_offset", async () => {
+    // Given: 初回 create と同じく clientAt をそのまま first* に返す Controller
+    vi.mocked(createProgressController).mockImplementation(async (_episodeId, body) => ({
+      firstPlayedAt: body.clientAt,
+      firstCompletedAt: null,
+    }));
+
+    // When: +09:00 の offset 付き clientAt で progress path へ POST する
+    const got = await app.request(
+      `${origin}${episodeProgressPath("ep-1")}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          positionSec: 12,
+          clientAt: "2026-09-22T19:00:00+09:00",
+        }),
+      },
+      emptyEnv,
+    );
+
+    // Then: Controller へは UTC 固定幅へ正規化された clientAt が渡り、応答も Z 表記になる
+    expect(createProgressController).toHaveBeenCalledWith("ep-1", {
+      positionSec: 12,
+      clientAt: "2026-09-22T10:00:00.000Z",
+    });
+    expect(await got.json()).toEqual({
+      firstPlayedAt: "2026-09-22T10:00:00.000Z",
+      firstCompletedAt: null,
     });
   });
 

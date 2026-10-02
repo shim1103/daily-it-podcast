@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { createFakeLocalD1Binding } from "../../../test/support/create-fake-local-d1-binding.ts";
 import {
   createFakeGetAudioUseCase,
   createFakeListEpisodesUseCase,
@@ -8,19 +9,29 @@ import {
   validProgressPullResponse,
   validProgressWriteResponse,
 } from "../controllers/fake-use-cases.ts";
-import { StubProgressRepository } from "../application/ports/progress-repository.ts";
+import { D1ProgressRepository } from "../infrastructure/d1/d1-progress-repository.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/in-memory/in-memory-episode-repository.ts";
+import { InMemoryProgressRepository } from "../infrastructure/in-memory/in-memory-progress-repository.ts";
 import { R2EpisodeRepository } from "../infrastructure/r2/r2-episode-repository.ts";
+import { SystemClock } from "../infrastructure/system/system-clock.ts";
 import { PlaybackRuntimeConfigError } from "./runtime-config-error.ts";
 import {
+  createClock,
   createEpisodeRepository,
   createPlaybackControllers,
   createProgressRepository,
+  type PlaybackProgressRepositoryMode,
   type PlaybackRepositoryMode,
 } from "./root.ts";
 
 const localMode: PlaybackRepositoryMode = "in-memory";
 const r2Mode: PlaybackRepositoryMode = "r2";
+const localProgressMode: PlaybackProgressRepositoryMode = "in-memory";
+const d1ProgressMode: PlaybackProgressRepositoryMode = "d1";
+
+const inMemoryOptions = { mode: localMode, progressMode: localProgressMode };
+
+const emptyBucket = { get: async () => null, list: async () => ({ objects: [] }) };
 
 function fakeProgressUseCases() {
   return {
@@ -32,41 +43,38 @@ function fakeProgressUseCases() {
 }
 
 describe("createEpisodeRepository", () => {
-  it("明示的な in-memory mode の時、InMemoryEpisodeRepository を選ぶ", () => {
+  it("selects_in_memory_episode_repository_when_mode_is_explicit_in_memory", () => {
     // Given: 空 env と明示的な local / unit test mode
 
     // When: repository を組み立てる
     const got = createEpisodeRepository({}, { mode: localMode });
 
-    // Then: Fake が選ばれる
+    // Then: mode の分岐が in-memory 側を選び、Fake の実体が返る
     expect(got.kind).toBe("in-memory");
-    if (got.kind === "in-memory") {
-      expect(got.repository).toBeInstanceOf(InMemoryEpisodeRepository);
-    }
+    expect(got.repository).toBeInstanceOf(InMemoryEpisodeRepository);
   });
 
-  it("mode が無い時、runtime config error を throw する", () => {
-    // Given: mode 未指定
-    // When / Then: Composition Root は設定不足を返さず throw する
-    expect(() => createEpisodeRepository({})).toThrow(PlaybackRuntimeConfigError);
-  });
-
-  it("明示的 r2 mode で EPISODES binding がある時、R2EpisodeRepository を選ぶ", () => {
-    // Given: R2 binding を持つ env と明示的な r2 mode
-    const bucket = { get: async () => null, list: async () => ({ objects: [] }) };
-    const env = { EPISODES: bucket };
+  it("selects_r2_episode_repository_when_mode_is_r2_and_episodes_binding_exists", () => {
+    // Given: R2 binding だけを持つ env と明示的な r2 mode（進捗の設定は渡さない）
+    const env = { EPISODES: emptyBucket };
 
     // When: repository を組み立てる
     const got = createEpisodeRepository(env, { mode: r2Mode });
 
-    // Then: R2 Adapter が選ばれる
+    // Then: mode の分岐が r2 側を選び、R2 Adapter の実体が返る
     expect(got.kind).toBe("r2");
-    if (got.kind === "r2") {
-      expect(got.repository).toBeInstanceOf(R2EpisodeRepository);
-    }
+    expect(got.repository).toBeInstanceOf(R2EpisodeRepository);
   });
 
-  it("明示的 r2 mode で EPISODES binding が無い時、throw する", () => {
+  it("throws_runtime_config_error_when_mode_is_missing", () => {
+    // Given: episode の mode 未指定（進捗 mode だけ明示した option）
+    // When / Then: Composition Root は設定不足を返さず throw する
+    expect(() => createEpisodeRepository({}, { progressMode: localProgressMode })).toThrow(
+      PlaybackRuntimeConfigError,
+    );
+  });
+
+  it("throws_when_mode_is_r2_and_episodes_binding_is_missing", () => {
     // Given: R2 binding が無い env と明示的な r2 mode
     const env = {};
 
@@ -78,74 +86,279 @@ describe("createEpisodeRepository", () => {
 });
 
 describe("createProgressRepository", () => {
-  it("A では常に StubProgressRepository を返す", () => {
-    // Given: D1 binding の有無に依らない
-    // When: ProgressRepository を選ぶ
-    const got = createProgressRepository({});
+  it("selects_in_memory_progress_repository_when_progress_mode_is_explicit_in_memory", () => {
+    // Given: 空 env と明示的な進捗 in-memory mode
 
-    // Then: Stub（D1 adapter 差し替えは C）
-    expect(got).toBeInstanceOf(StubProgressRepository);
+    // When: repository を組み立てる
+    const got = createProgressRepository({}, { progressMode: localProgressMode });
+
+    // Then: 進捗 mode の分岐が in-memory 側を選び、状態を持つ Fake の実体が返る
+    //（具象型は構造の確認ではなく、分岐の選択結果を見る）
+    expect(got).toBeInstanceOf(InMemoryProgressRepository);
+  });
+
+  it("selects_d1_progress_repository_when_progress_mode_is_d1_and_d1_binding_exists", async () => {
+    // Given: D1 binding だけを持つ env と明示的な進捗 d1 mode（episode の設定は渡さない）
+    const { database } = await createFakeLocalD1Binding();
+    const env = { EPISODE_PROGRESS: database };
+
+    // When: repository を組み立てる
+    const got = createProgressRepository(env, { progressMode: d1ProgressMode });
+
+    // Then: 進捗 mode の分岐が d1 側を選び、D1 Adapter の実体が返る
+    //（具象型は構造の確認ではなく、分岐の選択結果を見る）
+    expect(got).toBeInstanceOf(D1ProgressRepository);
+  });
+
+  it("selects_in_memory_progress_repository_when_episode_mode_is_r2_and_progress_mode_is_in_memory", () => {
+    // Given: R2 binding だけを持つ env と、episode r2 ＋ 進捗 in-memory の明示 option
+    const env = { EPISODES: emptyBucket };
+
+    // When: repository を組み立てる
+    const got = createProgressRepository(env, { mode: r2Mode, progressMode: localProgressMode });
+
+    // Then: episode の mode に従属せず、進捗 mode に従って in-memory 側を選ぶ
+    expect(got).toBeInstanceOf(InMemoryProgressRepository);
+  });
+
+  it("selects_d1_progress_repository_when_episode_mode_is_in_memory_and_progress_mode_is_d1", async () => {
+    // Given: D1 binding を持つ env と、episode in-memory ＋ 進捗 d1 の明示 option
+    const { database } = await createFakeLocalD1Binding();
+    const env = { EPISODE_PROGRESS: database };
+
+    // When: repository を組み立てる
+    const got = createProgressRepository(env, { mode: localMode, progressMode: d1ProgressMode });
+
+    // Then: episode の mode に従属せず、進捗 mode に従って d1 側を選ぶ
+    expect(got).toBeInstanceOf(D1ProgressRepository);
+  });
+
+  it("throws_runtime_config_error_when_progress_mode_is_missing", async () => {
+    // Given: D1 binding があり、episode の mode だけ明示した option（binding の有無から選ばない）
+    const { database } = await createFakeLocalD1Binding();
+    const env = { EPISODE_PROGRESS: database };
+
+    // When / Then: Composition Root は設定不足を返さず throw する
+    expect(() => createProgressRepository(env, { mode: r2Mode })).toThrow(
+      PlaybackRuntimeConfigError,
+    );
+  });
+
+  it("throws_without_falling_back_to_in_memory_when_progress_mode_is_d1_and_d1_binding_is_missing", () => {
+    // Given: R2 binding だけを持つ env（進捗が保存できたように見えて消える構成）
+    const env = { EPISODES: emptyBucket };
+
+    // When / Then: 無言 fallback せず、D1 の未結線を runtime config error にする
+    expect(() => createProgressRepository(env, { progressMode: d1ProgressMode })).toThrow(
+      PlaybackRuntimeConfigError,
+    );
+    expect(() => createProgressRepository(env, { progressMode: d1ProgressMode })).toThrow(
+      "EPISODE_PROGRESS",
+    );
   });
 });
 
 describe("createPlaybackControllers", () => {
-  it("明示的な in-memory mode の時、その env に基づく Controller 一式を組み立てる", () => {
-    // Given: 空 env（意図的な Fake 利用）
-    const env = {};
+  describe("episode 系 Controller は選ばれた EpisodeRepository を通る", () => {
+    it("lists_no_episodes_when_mode_is_in_memory_and_episode_repository_is_empty", async () => {
+      // Given: override 無し・in-memory mode の空 env（原稿が 1 件も無い EpisodeRepository）
+      const got = createPlaybackControllers({}, inMemoryOptions);
 
-    // When: Controller 一式を組み立てる
-    const got = createPlaybackControllers(env, { mode: localMode });
+      // When: 一覧 Controller を叩く
+      const list = await got.listEpisodesController();
 
-    // Then: ready として Controller 一式が返る
-    expect(got.listEpisodesController).toBeDefined();
-    expect(got.createProgressController).toBeDefined();
-    expect(got.pullProgressController).toBeDefined();
+      // Then: 空の in-memory EpisodeRepository を通り、一覧は空になる
+      expect(list.episodes).toEqual([]);
+    });
+
+    it("rejects_audio_as_not_found_when_mode_is_in_memory_and_episode_repository_is_empty", async () => {
+      // Given: override 無し・in-memory mode の空 env（音声も原稿も無い EpisodeRepository）
+      const got = createPlaybackControllers({}, inMemoryOptions);
+
+      // When: 存在しない episode の音声 Controller を叩く
+      const audio = got.getAudioController("missing");
+
+      // Then: 空の in-memory EpisodeRepository を通り、Domain 経由の External NotFound になる
+      await expect(audio).rejects.toMatchObject({ name: "NotFoundError" });
+    });
+
+    it("rejects_complete_as_not_found_when_mode_is_in_memory_and_episode_repository_has_no_manuscript", async () => {
+      // Given: override 無し・in-memory mode の空 env（原稿が無い EpisodeRepository）
+      const got = createPlaybackControllers({}, inMemoryOptions);
+
+      // When: complete Controller を叩く
+      const complete = got.completeProgressController("ep-1", {
+        positionSec: 57,
+        clientAt: "2026-09-22T10:05:00.000Z",
+      });
+
+      // Then: 原稿を選ばれた EpisodeRepository から引けず、EpisodeContentError → External NotFound になる
+      await expect(complete).rejects.toMatchObject({ name: "NotFoundError" });
+    });
   });
 
-  it("mode が無い時、throw して Controller を組み立てない", () => {
-    // Given: mode 未指定の env
-    const env = {};
+  describe("progress 系 Controller は選ばれた ProgressRepository を通る", () => {
+    it("persists_created_progress_for_pull_when_mode_is_in_memory", async () => {
+      // Given: override 無し・in-memory mode の空 env で組み立てた Controller 一式
+      const got = createPlaybackControllers({}, inMemoryOptions);
 
-    // When / Then: 設定不足を返さず、Controller も組み立てない
-    expect(() => createPlaybackControllers(env)).toThrow(PlaybackRuntimeConfigError);
+      // When: 同じ組み立ての中で progress を作成し、作成より前の since で pull する
+      await got.createProgressController("ep-1", {
+        positionSec: 12,
+        clientAt: "2026-09-22T10:00:00.000Z",
+      });
+      const pull = await got.pullProgressController("2026-09-22T09:00:00.000Z");
+
+      // Then: create と pull が同じ ProgressRepository を共有し、作成した進捗が読める
+      expect(pull).toEqual({
+        episodes: [
+          {
+            episodeId: "ep-1",
+            progress: {
+              positionSec: 12,
+              firstPlayedAt: "2026-09-22T10:00:00.000Z",
+              firstCompletedAt: null,
+              lastPlayedAt: "2026-09-22T10:00:00.000Z",
+            },
+          },
+        ],
+      });
+    });
+
+    it("updates_created_progress_when_mode_is_in_memory", async () => {
+      // Given: in-memory mode の Controller 一式と、同じ組み立ての中で作成済みの progress
+      const got = createPlaybackControllers({}, inMemoryOptions);
+      await got.createProgressController("ep-1", {
+        positionSec: 12,
+        clientAt: "2026-09-22T10:00:00.000Z",
+      });
+
+      // When: 同じ episode を後の clientAt で更新し、pull する
+      const update = await got.updateProgressController("ep-1", {
+        positionSec: 30,
+        clientAt: "2026-09-22T10:01:00.000Z",
+      });
+      const pull = await got.pullProgressController("2026-09-22T09:00:00.000Z");
+
+      // Then: update が create と同じ ProgressRepository の行を見つけて通り（行なし 404 にならない）、
+      // pull は後勝ちの位置を返す
+      expect(update).toEqual({
+        firstPlayedAt: "2026-09-22T10:00:00.000Z",
+        firstCompletedAt: null,
+      });
+      expect(pull.episodes).toHaveLength(1);
+      expect(pull.episodes[0]?.progress).toMatchObject({
+        positionSec: 30,
+        lastPlayedAt: "2026-09-22T10:01:00.000Z",
+      });
+    });
+
+    it("sends_no_sql_to_d1_when_progress_mode_is_in_memory_even_if_env_has_d1_binding", async () => {
+      // Given: D1 binding を持つ env と進捗 in-memory mode（in-memory は env の中身を見ない）
+      const { database, calls } = await createFakeLocalD1Binding();
+      const got = createPlaybackControllers({ EPISODE_PROGRESS: database }, inMemoryOptions);
+
+      // When: progress を作成する
+      const write = await got.createProgressController("ep-1", {
+        positionSec: 1,
+        clientAt: "2026-10-01T00:00:00.000Z",
+      });
+
+      // Then: D1 へは SQL を渡さず、merge 結果の応答だけを返す
+      expect(write).toEqual({ firstPlayedAt: "2026-10-01T00:00:00.000Z", firstCompletedAt: null });
+      expect(calls).toHaveLength(0);
+    });
+
+    it("persists_progress_via_d1_binding_when_progress_mode_is_d1_and_d1_binding_exists", async () => {
+      // Given: 行の無い D1 binding と、episode r2 ＋ 進捗 d1 の明示 option
+      const { database, calls } = await createFakeLocalD1Binding();
+      const got = createPlaybackControllers(
+        { EPISODES: emptyBucket, EPISODE_PROGRESS: database },
+        { mode: r2Mode, progressMode: d1ProgressMode },
+      );
+
+      // When: progress を作成する
+      const write = await got.createProgressController("ep-1", {
+        positionSec: 1,
+        clientAt: "2026-10-01T00:00:00.000Z",
+      });
+
+      // Then: merge 結果の応答が返り、D1 へは読取と upsert の 2 文が渡る
+      expect(write).toEqual({ firstPlayedAt: "2026-10-01T00:00:00.000Z", firstCompletedAt: null });
+      expect(calls).toHaveLength(2);
+    });
+
+    it("persists_progress_via_d1_binding_when_episode_mode_is_in_memory_and_progress_mode_is_d1", async () => {
+      // Given: D1 binding だけを持つ env（EPISODES 無し）と、episode in-memory ＋ 進捗 d1 の明示 option
+      const { database, calls } = await createFakeLocalD1Binding();
+      const got = createPlaybackControllers(
+        { EPISODE_PROGRESS: database },
+        { mode: localMode, progressMode: d1ProgressMode },
+      );
+
+      // When: progress を作成する
+      await got.createProgressController("ep-1", {
+        positionSec: 1,
+        clientAt: "2026-10-01T00:00:00.000Z",
+      });
+
+      // Then: episode が in-memory でも、進捗は D1 へ読取と upsert の 2 文が渡る
+      expect(calls).toHaveLength(2);
+    });
+
+    it("keeps_progress_in_memory_when_episode_mode_is_r2_and_progress_mode_is_in_memory", async () => {
+      // Given: R2 binding だけを持つ env（D1 binding 無し）と、episode r2 ＋ 進捗 in-memory の明示 option
+      const got = createPlaybackControllers(
+        { EPISODES: emptyBucket },
+        { mode: r2Mode, progressMode: localProgressMode },
+      );
+      await got.createProgressController("ep-1", {
+        positionSec: 12,
+        clientAt: "2026-09-22T10:00:00.000Z",
+      });
+
+      // When: 作成より前の since で pull する
+      const pull = await got.pullProgressController("2026-09-22T09:00:00.000Z");
+
+      // Then: episode が r2 でも、進捗は同じ組み立ての in-memory ProgressRepository が保持している
+      expect(pull.episodes).toHaveLength(1);
+      expect(pull.episodes[0]?.episodeId).toBe("ep-1");
+    });
   });
 
-  it("override 無し in-memory mode の Controller は repository → use-case → 検証純関数を通る", async () => {
-    // Given: override 無し・in-memory mode（repository は空で組み立てられる）
-    const got = createPlaybackControllers({}, { mode: localMode });
+  describe("episode 系 Controller は進捗 mode に依らず episode mode の EpisodeRepository を通る", () => {
+    it("lists_episodes_from_r2_bucket_when_episode_mode_is_r2_and_progress_mode_is_in_memory", async () => {
+      // Given: list を観測できる R2 binding と、episode r2 ＋ 進捗 in-memory の明示 option
+      const list = vi.fn(async () => ({ objects: [] }));
+      const got = createPlaybackControllers(
+        { EPISODES: { get: async () => null, list } },
+        { mode: r2Mode, progressMode: localProgressMode },
+      );
 
-    // When: 一覧・音声・progress 経路を叩く
-    const list = await got.listEpisodesController();
-    const audio = got.getAudioController("missing");
-    const write = await got.createProgressController("ep-1", {
-      positionSec: 1,
-      clientAt: "2026-09-22T10:00:00.000Z",
-    });
-    const update = got.updateProgressController("ep-1", {
-      positionSec: 2,
-      clientAt: "2026-09-22T10:01:00.000Z",
-    });
-    const complete = got.completeProgressController("ep-1", {
-      positionSec: 57,
-      clientAt: "2026-09-22T10:05:00.000Z",
-    });
-    const pull = await got.pullProgressController("2026-09-22T10:00:00.000Z");
+      // When: 一覧 Controller を叩く
+      await got.listEpisodesController();
 
-    // Then: 空 repository を検証純関数が通し、一覧は空・音声は Domain 経由の External NotFound
-    // Stub Progress は永続しないため create は merge 応答・update は行なし 404
-    // complete は原稿無しで EpisodeContentError → External NotFound
-    expect(list.episodes).toEqual([]);
-    await expect(audio).rejects.toMatchObject({ name: "NotFoundError" });
-    expect(write).toEqual({
-      firstPlayedAt: "2026-09-22T10:00:00.000Z",
-      firstCompletedAt: null,
+      // Then: 進捗が in-memory でも、episode は R2 binding の list を通る
+      expect(list).toHaveBeenCalledTimes(1);
     });
-    await expect(update).rejects.toMatchObject({ name: "NotFoundError" });
-    await expect(complete).rejects.toMatchObject({ name: "NotFoundError" });
-    expect(pull).toEqual({ episodes: [] });
+
+    it("lists_no_episodes_when_episode_mode_is_in_memory_and_progress_mode_is_d1", async () => {
+      // Given: D1 binding だけを持つ env（EPISODES 無し）と、episode in-memory ＋ 進捗 d1 の明示 option
+      const { database } = await createFakeLocalD1Binding();
+      const got = createPlaybackControllers(
+        { EPISODE_PROGRESS: database },
+        { mode: localMode, progressMode: d1ProgressMode },
+      );
+
+      // When: 一覧 Controller を叩く
+      const list = await got.listEpisodesController();
+
+      // Then: 進捗が d1 でも、episode は空の in-memory EpisodeRepository を通る
+      expect(list.episodes).toEqual([]);
+    });
   });
 
-  it("useCases override がある時、mode 未指定を無視して stub use case を使う", async () => {
+  it("uses_stub_use_cases_ignoring_missing_mode_when_use_cases_override_exists", async () => {
     // Given: mode 未指定の env と、stub use case 一式の override
     const env = {};
     const useCases = {
@@ -168,5 +381,45 @@ describe("createPlaybackControllers", () => {
     await expect(got.pullProgressController("2026-09-22T10:00:00.000Z")).resolves.toEqual(
       validProgressPullResponse,
     );
+  });
+
+  it("throws_without_building_controllers_when_mode_is_missing", () => {
+    // Given: episode の mode も進捗 mode も未指定の env
+    const env = {};
+
+    // When / Then: 設定不足を返さず、Controller も組み立てない
+    expect(() => createPlaybackControllers(env)).toThrow(PlaybackRuntimeConfigError);
+  });
+
+  it("throws_without_building_controllers_when_only_progress_mode_is_missing", () => {
+    // Given: episode の mode だけ明示し、進捗 mode を指定しない option
+    const env = {};
+
+    // When / Then: 進捗 mode を episode の mode から補わず、Controller も組み立てない
+    expect(() => createPlaybackControllers(env, { mode: localMode })).toThrow(
+      PlaybackRuntimeConfigError,
+    );
+  });
+
+  it("throws_without_building_controllers_when_only_episode_mode_is_missing", () => {
+    // Given: 進捗 mode だけ明示し、episode の mode を指定しない option
+    const env = {};
+
+    // When / Then: episode の mode を進捗 mode から補わず、Controller も組み立てない
+    expect(() => createPlaybackControllers(env, { progressMode: localProgressMode })).toThrow(
+      PlaybackRuntimeConfigError,
+    );
+  });
+});
+
+describe("createClock", () => {
+  it("returns_system_clock_regardless_of_env", () => {
+    // Given: env も mode も渡さない
+
+    // When: Clock を組み立てる
+    const got = createClock();
+
+    // Then: システム時計の実装が返る
+    expect(got).toBeInstanceOf(SystemClock);
   });
 });
