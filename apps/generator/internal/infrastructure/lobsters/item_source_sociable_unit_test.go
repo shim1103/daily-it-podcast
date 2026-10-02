@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,7 +26,9 @@ type stubClientResponse struct {
 // stubRoundTripper は http.RoundTripper を境界 I/O なしで満たす直接 Stub。
 // hottest.json と /s/<short_id>.json を URL path suffix で出し分け、
 // 各 path の呼び出し回数を calls へ記録する。
+// List の story detail fan-out で並行 RoundTrip が起きるため、観測用 map/slice は mu で守る。
 type stubRoundTripper struct {
+	mu      sync.Mutex
 	byPath  map[string]stubClientResponse
 	fixed   *stubClientResponse
 	calls   map[string]int
@@ -40,6 +43,9 @@ func newStubRoundTripper() *stubRoundTripper {
 }
 
 func (rt *stubRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+
 	path := req.URL.Path
 	rt.calls[path]++
 	rt.callLog = append(rt.callLog, path)
@@ -87,6 +93,8 @@ func (rt *stubRoundTripper) setStoryResponse(shortID string, res stubClientRespo
 }
 
 func (rt *stubRoundTripper) storyCalls(shortID string) int {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
 	return rt.calls[fmt.Sprintf("/s/%s.json", shortID)]
 }
 

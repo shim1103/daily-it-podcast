@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,9 +27,11 @@ type stubClientResponse struct {
 // stubRoundTripper は http.RoundTripper を境界 I/O なしで満たす直接 Stub。
 // topstories.json と item/<id>.json を URL path suffix で出し分け、
 // 各 path の呼び出し回数を calls へ記録する。
+// fan-out 下の並行 RoundTrip に耐えるため、calls / callLog だけを mu で守る。
 type stubRoundTripper struct {
 	byPath  map[string]stubClientResponse
 	fixed   *stubClientResponse
+	mu      sync.Mutex
 	calls   map[string]int
 	callLog []string
 }
@@ -42,8 +45,10 @@ func newStubRoundTripper() *stubRoundTripper {
 
 func (rt *stubRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	path := req.URL.Path
+	rt.mu.Lock()
 	rt.calls[path]++
 	rt.callLog = append(rt.callLog, path)
+	rt.mu.Unlock()
 
 	res, ok := rt.byPath[path]
 	if !ok {
@@ -88,6 +93,8 @@ func (rt *stubRoundTripper) setItemResponse(id int, res stubClientResponse) {
 }
 
 func (rt *stubRoundTripper) itemCalls(id int) int {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
 	return rt.calls[fmt.Sprintf("/v0/item/%d.json", id)]
 }
 
@@ -641,7 +648,7 @@ func TestList_skipsCommentWithEmptyBody_whenCommentTextBlank(t *testing.T) {
 	}
 }
 
-func TestList_stopsScanningAfterCollectingMaxStoriesScanned_whenEnoughStoriesInWindow(t *testing.T) {
+func TestList_limitsResultsToMaxStoriesScanned_butFetchesEntireIDList(t *testing.T) {
 	// @given topstories が MaxStoriesScanned+3 件。全 id を window 内 story として仕込む
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	unix := since.Add(time.Hour).Unix()
@@ -660,20 +667,21 @@ func TestList_stopsScanningAfterCollectingMaxStoriesScanned_whenEnoughStoriesInW
 	// @when
 	got, err := source.List(context.Background(), since)
 
-	// @then 戻り値と fetch 回数
+	// @then 結果は MaxStoriesScanned 件、id 列は全件 fetch
 	if err != nil {
 		t.Fatalf("List() error = %v, want nil", err)
 	}
 	if len(got) != hackernews.MaxStoriesScanned {
 		t.Fatalf("len(got) = %d, want %d", len(got), hackernews.MaxStoriesScanned)
 	}
-	// 上限件数に達した後、次の id は fetch しない。
-	if rt.itemCalls(ids[hackernews.MaxStoriesScanned]) != 0 {
-		t.Fatalf("story fetched after limit reached (calls=%d)", rt.itemCalls(ids[hackernews.MaxStoriesScanned]))
+	for _, id := range ids {
+		if rt.itemCalls(id) == 0 {
+			t.Fatalf("id %d was not fetched (want entire id list)", id)
+		}
 	}
 }
 
-func TestList_stopsScanningAtMaxItems_whenMaxItemsBelowMaxStoriesScanned(t *testing.T) {
+func TestList_limitsResultsToMaxItems_butFetchesEntireIDList(t *testing.T) {
 	// @given topstories が MaxStoriesScanned 件。全 id を window 内 story として仕込む。
 	// maxItems は MaxStoriesScanned より小さい値を渡す
 	since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
@@ -694,15 +702,17 @@ func TestList_stopsScanningAtMaxItems_whenMaxItemsBelowMaxStoriesScanned(t *test
 	// @when
 	got, err := source.List(context.Background(), since)
 
-	// @then 結果は maxItems 件で打ち切る
+	// @then 結果は maxItems 件、id 列は全件 fetch
 	if err != nil {
 		t.Fatalf("List() error = %v, want nil", err)
 	}
 	if len(got) != maxItems {
 		t.Fatalf("len(got) = %d, want %d", len(got), maxItems)
 	}
-	if rt.itemCalls(ids[maxItems]) != 0 {
-		t.Fatalf("story fetched after maxItems reached (calls=%d)", rt.itemCalls(ids[maxItems]))
+	for _, id := range ids {
+		if rt.itemCalls(id) == 0 {
+			t.Fatalf("id %d was not fetched (want entire id list)", id)
+		}
 	}
 }
 
