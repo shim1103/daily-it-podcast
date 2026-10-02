@@ -11,6 +11,7 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpget"
+	"golang.org/x/sync/errgroup"
 )
 
 var _ port.ItemSource = (*ListItemSource)(nil)
@@ -20,16 +21,16 @@ const apiBaseURL = "https://hacker-news.firebaseio.com/v0"
 
 // 取得上限（この file が契約として値を固定する）。
 //
-// why: podcast は 1 日 1 回だけ生成する。上限件数に達したら走査を打ち切るので、
-// 1 run あたりの fetch 回数も有界に収まる。
+// why: podcast は 1 日 1 回だけ生成する。結果件数と同時 fetch 数を上限で抑え、
+// id 列は最大 500 件なので 1 run あたりの fetch 回数も有界に収まる。
 const (
 	// MaxStoriesScanned は結果 SourceItem に含める story 数の上限。
-	// time >= since を満たした story を、topstories.json の id 列の先頭からこの件数まで集める。
+	// time >= since を満たした story を、topstories.json の id 列から集めてこの件数まで返す。
 	//
 	// topstories.json の id をこの件数まで見る、という意味ではない。topstories.json は
-	// time 順でなくランキング順に並ぶため、window 内 story を探して id 列を走査する。
-	// window 内 story が上限未満の日は id 列を最後まで走査するが、id 列は最大 500 件なので
-	// fetch 回数は min(len(ids), 探索必要数) で有界。
+	// time 順でなくランキング順に並ぶため、window 内 story を探して id 列を全件 fetch する。
+	// window 内 story が上限を超える日は結果だけ切り詰め、id 列の fetch は打ち切らない。
+	// id 列は最大 500 件なので fetch 回数は有界。
 	//
 	// 名前が「Scanned」だと誤解を生むが、契約値の識別子変更は scope 外なので名前は変えない。
 	MaxStoriesScanned = 20
@@ -102,18 +103,36 @@ func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.So
 		return nil, err
 	}
 
-	// why: topstories.json は time 順でなくランキング順。window 内 story を探して
-	// id 列を先頭から走査し、結果が実効上限件数に達したら打ち切る。
-	// 最悪ケース（window 内が上限未満）でも id 列は最大 500 件で有界。
+	// why: topstories.json は time 順でなくランキング順。早期終了と fan-out は相性が悪いため
+	// id 列全件を fetch し、window 内だけを結果上限まで集める（docs/decisions/2026-09-23T17-21-29）。
 	limit := s.effectiveMaxStories()
+	slots := make([]models.SourceItem, len(ids))
+	filled := make([]bool, len(ids))
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(MaxConcurrentFetches)
+	for i, id := range ids {
+		i, id := i, id
+		g.Go(func() error {
+			story, ok := s.fetchStoryInWindow(gctx, id, since)
+			if !ok {
+				return nil
+			}
+			comments := s.fetchTopLevelComments(gctx, story.Kids)
+			slots[i] = toSourceItem(story, comments)
+			filled[i] = true
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
 	out := make([]models.SourceItem, 0, limit)
-	for _, id := range ids {
-		story, ok := s.fetchStoryInWindow(ctx, id, since)
-		if !ok {
+	for i := range slots {
+		if !filled[i] {
 			continue
 		}
-		comments := s.fetchTopLevelComments(ctx, story.Kids)
-		out = append(out, toSourceItem(story, comments))
+		out = append(out, slots[i])
 		if len(out) >= limit {
 			break
 		}
@@ -158,17 +177,32 @@ func (s *ListItemSource) fetchTopLevelComments(ctx context.Context, kids []int64
 	if len(kids) < limit {
 		limit = len(kids)
 	}
+	slots := make([]string, limit)
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(MaxConcurrentFetches)
+	for i, kid := range kids[:limit] {
+		i, kid := i, kid
+		g.Go(func() error {
+			item, err := s.fetchItem(gctx, kid)
+			if err != nil {
+				return nil
+			}
+			normalized := httpget.NormalizeHTML(item.Text)
+			if normalized == "" {
+				return nil
+			}
+			slots[i] = normalized
+			return nil
+		})
+	}
+	_ = g.Wait()
+
 	bodies := make([]string, 0, limit)
-	for _, kid := range kids[:limit] {
-		item, err := s.fetchItem(ctx, kid)
-		if err != nil {
+	for _, body := range slots {
+		if body == "" {
 			continue
 		}
-		normalized := httpget.NormalizeHTML(item.Text)
-		if normalized == "" {
-			continue
-		}
-		bodies = append(bodies, normalized)
+		bodies = append(bodies, body)
 	}
 	return bodies
 }
