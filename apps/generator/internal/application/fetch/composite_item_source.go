@@ -31,26 +31,27 @@ func NewCompositeItemSource(sources []port.ItemSource) *CompositeItemSource {
 
 // List は各 source の List を並行に呼び、成功結果を連結して返す。
 //
+// @require since / until は各 source の List 契約に委ねる（[since, until)）。
 // @ensure 各 source を 1 回ずつ並行に呼ぶ。結果の連結順序は保証しない。
 // @ensure いずれかの source.List が error を返したらその error を返し、成功分は返さない（他 source の実行は中断してよい）。
 // @ensure 全 source が空、または source が 0 本のときも非 nil の空 slice を返す。
 // @ensure 同時実行数は最大 MaxConcurrentSourceLists 件まで。
-func (c *CompositeItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
-	slots, err := c.listSources(ctx, since)
+func (c *CompositeItemSource) List(ctx context.Context, since, until time.Time) ([]models.SourceItem, error) {
+	slots, err := c.listSources(ctx, since, until)
 	if err != nil {
 		return nil, err
 	}
 	return concatSourceItemSlots(slots), nil
 }
 
-func (c *CompositeItemSource) listSources(ctx context.Context, since time.Time) ([][]models.SourceItem, error) {
+func (c *CompositeItemSource) listSources(ctx context.Context, since, until time.Time) ([][]models.SourceItem, error) {
 	slots := make([][]models.SourceItem, len(c.sources))
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(MaxConcurrentSourceLists)
 
 	for i, source := range c.sources {
 		g.Go(func() error {
-			items, err := source.List(gctx, since)
+			items, err := source.List(gctx, since, until)
 			if err != nil {
 				return err
 			}

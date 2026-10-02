@@ -8,6 +8,7 @@ linters:
     - depguard
     - errcheck
     - govet
+    - staticcheck
   settings:
     depguard:
       rules:

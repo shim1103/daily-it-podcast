@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpget"
 	"golang.org/x/sync/errgroup"
@@ -16,10 +17,23 @@ import (
 
 var _ port.ItemSource = (*ListItemSource)(nil)
 
-// why: podcast は 1 日 1 回だけ生成する。結果件数と同時 fetch 数を上限で抑え、
-// id 列は最大 500 件なので 1 run あたりの fetch 回数も有界に収まる。
+// apiBaseURL は Hacker News Firebase API v0 の base。
+const apiBaseURL = "https://hacker-news.firebaseio.com/v0"
+
+// 取得上限（この file が契約として値を固定する）。
+//
+// why: podcast は 1 日 1 回だけ生成する。上限件数に達したら走査を打ち切るので、
+// 1 run あたりの fetch 回数も有界に収まる。
 const (
 	// MaxStoriesScanned は結果 SourceItem に含める story 数の上限。
+	// time >= since を満たした story を、topstories.json の id 列の先頭からこの件数まで集める。
+	//
+	// topstories.json の id をこの件数まで見る、という意味ではない。topstories.json は
+	// time 順でなくランキング順に並ぶため、window 内 story を探して id 列を走査する。
+	// window 内 story が上限未満の日は id 列を最後まで走査するが、id 列は最大 500 件なので
+	// fetch 回数は min(len(ids), 探索必要数) で有界。
+	//
+	// 名前が「Scanned」だと誤解を生むが、契約値の識別子変更は scope 外なので名前は変えない。
 	MaxStoriesScanned = 20
 	// MaxCommentsPerStory は 1 story あたり取得する top-level comment 数の上限。
 	MaxCommentsPerStory = 8
@@ -30,27 +44,59 @@ const (
 	MaxConcurrentFetches = 5
 )
 
+// permalinkBaseURL は Hacker News item ページ（C の raw→field 写像で使う契約定数）。
+const permalinkBaseURL = "https://news.ycombinator.com/item?id="
+
 // ListItemSource は Hacker News の topstories を ItemSource として返す Adapter。
 type ListItemSource struct {
 	client   *http.Client
 	maxItems int
+	retry    port.RetryReporter
 }
 
 // NewListItemSource は Hacker News 向け ItemSource を返す。
 //
-// @require httpClient != nil
+// @require httpClient != nil。retry != nil（Composition Root の結線責務）。
 // @ensure 戻りは非 nil の *ListItemSource。vendor 固有型を露出しない。
 // @ensure maxItems <= 0 の場合、実効上限は MaxStoriesScanned にフォールバックする。
-func NewListItemSource(httpClient *http.Client, maxItems int) *ListItemSource {
-	return &ListItemSource{client: httpClient, maxItems: maxItems}
+func NewListItemSource(httpClient *http.Client, maxItems int, retry port.RetryReporter) *ListItemSource {
+	return &ListItemSource{client: httpClient, maxItems: maxItems, retry: retry}
 }
 
-// List は since 以降に発生した Hacker News story を SourceItem slice で返す。
+// effectiveMaxStories は min(maxItems, MaxStoriesScanned) を実効上限として返す。
+// maxItems <= 0 は呼び出し側の指定漏れとみなし、MaxStoriesScanned を安全側の値として使う。
+func (s *ListItemSource) effectiveMaxStories() int {
+	if s.maxItems <= 0 || s.maxItems > MaxStoriesScanned {
+		return MaxStoriesScanned
+	}
+	return s.maxItems
+}
+
+// hnItem は Hacker News item/<id>.json のうち Adapter が使う field だけを表す。
+// package 外へ露出しない unexported 型。
+type hnItem struct {
+	ID      int64   `json:"id"`
+	Type    string  `json:"type"`
+	By      string  `json:"by"`
+	Time    int64   `json:"time"`
+	Title   string  `json:"title"`
+	Text    string  `json:"text"`
+	URL     string  `json:"url"`
+	Kids    []int64 `json:"kids"`
+	Deleted bool    `json:"deleted"`
+	Dead    bool    `json:"dead"`
+}
+
+// List は [since, until) に発生した Hacker News story を SourceItem slice で返す。
 //
-// @ensure 各要素の SourceID は SourceID。最大 min(maxItems, MaxStoriesScanned) 件（maxItems <= 0 は MaxStoriesScanned）。
-// @ensure 結果の順序は保証しない。
+// @require since は OccurredAt の inclusive 下限。until は exclusive 上限。
+// @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ [since, until)。
+// @ensure 結果は time ∈ [since, until) を満たす story のみ。最大 min(maxItems, MaxStoriesScanned) 件（maxItems <= 0 は MaxStoriesScanned）。
+// @ensure 該当なしは空 slice（nil ではない）。
 // @ensure id 列の個別 fetch は最大 MaxConcurrentFetches 件まで同時実行してよい。
-func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
+// @ensure 結果の連結順序は topstories id 列順のうち window 内の先頭 limit 件。
+// @invariant vendor 固有型・監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
+func (s *ListItemSource) List(ctx context.Context, since, until time.Time) ([]models.SourceItem, error) {
 	if s == nil || s.client == nil {
 		return nil, infraErr("list", fmt.Errorf("client is nil"))
 	}
@@ -60,9 +106,10 @@ func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.So
 		return nil, err
 	}
 
-	// why: docs/decisions/2026-09-23T17-21-29
+	// why: docs/decisions/2026-09-23T17-21-29 — id 列の個別 fetch を fan-out する。
+	// topstories はランキング順のため、window 内のうち id 列先頭側から limit 件を採る。
 	limit := s.effectiveMaxStories()
-	slots, filled, err := s.fetchStoriesInWindow(ctx, ids, since)
+	slots, filled, err := s.fetchStoriesInWindow(ctx, ids, since, until)
 	if err != nil {
 		return nil, err
 	}
@@ -80,39 +127,14 @@ func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.So
 	return out, nil
 }
 
-const apiBaseURL = "https://hacker-news.firebaseio.com/v0"
-
-const permalinkBaseURL = "https://news.ycombinator.com/item?id="
-
-type hnItem struct {
-	ID      int64   `json:"id"`
-	Type    string  `json:"type"`
-	By      string  `json:"by"`
-	Time    int64   `json:"time"`
-	Title   string  `json:"title"`
-	Text    string  `json:"text"`
-	URL     string  `json:"url"`
-	Kids    []int64 `json:"kids"`
-	Deleted bool    `json:"deleted"`
-	Dead    bool    `json:"dead"`
-}
-
-// why: maxItems <= 0 は呼び出し側の指定漏れとみなし、MaxStoriesScanned を安全側の値として使う。
-func (s *ListItemSource) effectiveMaxStories() int {
-	if s.maxItems <= 0 || s.maxItems > MaxStoriesScanned {
-		return MaxStoriesScanned
-	}
-	return s.maxItems
-}
-
-func (s *ListItemSource) fetchStoriesInWindow(ctx context.Context, ids []int64, since time.Time) ([]models.SourceItem, []bool, error) {
+func (s *ListItemSource) fetchStoriesInWindow(ctx context.Context, ids []int64, since, until time.Time) ([]models.SourceItem, []bool, error) {
 	slots := make([]models.SourceItem, len(ids))
 	filled := make([]bool, len(ids))
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(MaxConcurrentFetches)
 	for i, id := range ids {
 		g.Go(func() error {
-			story, ok := s.fetchStoryInWindow(gctx, id, since)
+			story, ok := s.fetchStoryInWindow(gctx, id, since, until)
 			if !ok {
 				return nil
 			}
@@ -128,6 +150,7 @@ func (s *ListItemSource) fetchStoriesInWindow(ctx context.Context, ids []int64, 
 	return slots, filled, nil
 }
 
+// fetchTopStoryIDs は topstories.json を取得して id 列を返す。失敗は List ごと失敗させる。
 func (s *ListItemSource) fetchTopStoryIDs(ctx context.Context) ([]int64, error) {
 	body, err := s.getWithRetry(ctx, apiBaseURL+"/topstories.json", "fetch_top_stories")
 	if err != nil {
@@ -140,7 +163,9 @@ func (s *ListItemSource) fetchTopStoryIDs(ctx context.Context) ([]int64, error) 
 	return ids, nil
 }
 
-func (s *ListItemSource) fetchStoryInWindow(ctx context.Context, id int64, since time.Time) (hnItem, bool) {
+// fetchStoryInWindow は item/<id>.json を取得し、story かつ [since, until) 内なら (item, true) を返す。
+// 個別 item の取得・decode 失敗はその要素を落として (zero, false) を返す（List は続行）。
+func (s *ListItemSource) fetchStoryInWindow(ctx context.Context, id int64, since, until time.Time) (hnItem, bool) {
 	item, err := s.fetchItem(ctx, id)
 	if err != nil {
 		return hnItem{}, false
@@ -148,12 +173,15 @@ func (s *ListItemSource) fetchStoryInWindow(ctx context.Context, id int64, since
 	if item.Type != "story" || item.Deleted || item.Dead {
 		return hnItem{}, false
 	}
-	if item.Time < since.Unix() {
+	occurredAt := time.Unix(item.Time, 0).UTC()
+	if !constants.OccurredInHalfOpen(occurredAt, since, until) {
 		return hnItem{}, false
 	}
 	return item, true
 }
 
+// fetchTopLevelComments は kids 先頭 MaxCommentsPerStory 件の comment 本文を取得順に返す。
+// CommentDepth=1: comment の kids は辿らない。個別 comment の取得失敗はその要素を落とす。
 func (s *ListItemSource) fetchTopLevelComments(ctx context.Context, kids []int64) []string {
 	limit := MaxCommentsPerStory
 	if len(kids) < limit {
@@ -193,6 +221,7 @@ func (s *ListItemSource) fetchCommentBodies(ctx context.Context, kids []int64) [
 	return slots
 }
 
+// fetchItem は item/<id>.json を 1 件取得して decode する。
 func (s *ListItemSource) fetchItem(ctx context.Context, id int64) (hnItem, error) {
 	url := fmt.Sprintf("%s/item/%d.json", apiBaseURL, id)
 	body, err := s.getWithRetry(ctx, url, "fetch_item")
@@ -206,15 +235,17 @@ func (s *ListItemSource) fetchItem(ctx context.Context, id int64) (hnItem, error
 	return item, nil
 }
 
+// getWithRetry は httpget へ委譲し、失敗を Adapter の infraErr で包む。
 func (s *ListItemSource) getWithRetry(ctx context.Context, url, op string) ([]byte, error) {
-	body, err := httpget.GetWithRetry(ctx, s.client, url)
+	body, err := httpget.GetWithRetry(ctx, s.client, url, s.retry, op)
 	if err != nil {
 		return nil, infraErr(op, err)
 	}
 	return body, nil
 }
 
-// why: docs/decisions/2026-09-13T17-14-10
+// toSourceItem は story と取得済み comment 本文から SourceItem を組む。
+// 写像の方針は Decision 2026-09-13T17-14-10。本 func が hackernews 写像の正本。
 func toSourceItem(story hnItem, commentBodies []string) models.SourceItem {
 	detail := models.SourceBody{Text: httpget.NormalizeHTML(story.Text)}
 	if story.URL != "" {

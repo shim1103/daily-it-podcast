@@ -30,10 +30,10 @@ import (
 func TestConnectionCache_hackernewsListSucceedsAndSaves(t *testing.T) {
 	// Given: HackerNews 本番向け client と広い since 窓
 	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
-	source := hackernews.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), hackernews.MaxStoriesScanned)
+	source := hackernews.NewListItemSource(newConnectionCacheHTTPClient(120*time.Second), hackernews.MaxStoriesScanned, &retryReporterSpy{})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
 	assertConnectionCacheItemSourceList(t, got, err, hackernews.SourceID, since)
@@ -43,10 +43,10 @@ func TestConnectionCache_hackernewsListSucceedsAndSaves(t *testing.T) {
 func TestConnectionCache_lobstersListSucceedsAndSaves(t *testing.T) {
 	// Given: Lobsters 本番向け client と広い since 窓
 	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
-	source := lobsters.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), lobsters.MaxStoriesScanned)
+	source := lobsters.NewListItemSource(newConnectionCacheHTTPClient(120*time.Second), lobsters.MaxStoriesScanned, &retryReporterSpy{})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
 	assertConnectionCacheItemSourceList(t, got, err, lobsters.SourceID, since)
@@ -56,10 +56,10 @@ func TestConnectionCache_lobstersListSucceedsAndSaves(t *testing.T) {
 func TestConnectionCache_publickeyListSucceedsAndSaves(t *testing.T) {
 	// Given: Publickey 本番向け client と広い since 窓
 	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
-	source := publickey.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), publickey.MaxStoriesScanned)
+	source := publickey.NewListItemSource(newConnectionCacheHTTPClient(120*time.Second), publickey.MaxStoriesScanned, &retryReporterSpy{})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
 	assertConnectionCacheItemSourceList(t, got, err, publickey.SourceID, since)
@@ -69,10 +69,10 @@ func TestConnectionCache_publickeyListSucceedsAndSaves(t *testing.T) {
 func TestConnectionCache_techcrunchListSucceedsAndSaves(t *testing.T) {
 	// Given: TechCrunch 本番向け client と広い since 窓
 	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
-	source := techcrunch.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), techcrunch.MaxStoriesScanned)
+	source := techcrunch.NewListItemSource(newConnectionCacheHTTPClient(120*time.Second), techcrunch.MaxStoriesScanned, &retryReporterSpy{})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
 	assertConnectionCacheItemSourceList(t, got, err, techcrunch.SourceID, since)
@@ -82,10 +82,10 @@ func TestConnectionCache_techcrunchListSucceedsAndSaves(t *testing.T) {
 func TestConnectionCache_cloudwatchListSucceedsAndSaves(t *testing.T) {
 	// Given: クラウド Watch 本番向け client と広い since 窓
 	since := time.Now().UTC().Add(-30 * 24 * time.Hour)
-	source := cloudwatch.NewListItemSource(newConnectionCacheHTTPClient(120 * time.Second), cloudwatch.MaxStoriesScanned)
+	source := cloudwatch.NewListItemSource(newConnectionCacheHTTPClient(120*time.Second), cloudwatch.MaxStoriesScanned, &retryReporterSpy{})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: 本番 I/O 契約を満たし、結果を .cache/ へ保存する
 	assertConnectionCacheItemSourceList(t, got, err, cloudwatch.SourceID, since)

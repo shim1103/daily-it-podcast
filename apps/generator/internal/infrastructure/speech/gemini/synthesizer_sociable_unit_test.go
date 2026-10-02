@@ -15,7 +15,7 @@ func TestSynthesizeAll_returnsInfrastructureError_whenClientNil(t *testing.T) {
 	t.Parallel()
 
 	// Given: nil client
-	synth := NewSpeechSynthesizer(nil, "gemini-edge-key", TierFree)
+	synth := NewSpeechSynthesizer(nil, "gemini-edge-key", TierFree, nil)
 
 	// When: SynthesizeAll する
 	_, err := synth.SynthesizeAll(context.Background(), []string{"本文"})

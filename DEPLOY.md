@@ -154,11 +154,41 @@ local 実行時の path env 名は `PLAYWRIGHT_STORAGE_STATE`（GHA には登録
 
 **`storageState` 更新（初回・session 失効時）**
 
-1. 許可 email で本番 URL に OTP 入場する
-2. Playwright で `storageState` を書き出す（例: headed browser で `CF_Authorization` 付与後に保存）
-3. JSON 本文を Secret `PLAYWRIGHT_STORAGE_STATE_JSON` に登録する
+e2e が「一覧が出ない」で落ちた時は、最初の step「Access session の期限を確認」の結果と、失敗時に残る画面（artifact `playback-e2e-failure`）で切り分ける。
 
-手動確認: `gh workflow run playback-e2e.yml --ref <branch>`（Secret 付き）。
+| 観測 | 意味 | 次にやること |
+|---|---|---|
+| 最初の step が「Access session が失効している」で失敗 | cookie の期限切れ | 下の更新手順 |
+| 最初の step は「期限は有効」で、画面が Cloudflare Access の login | Access が cookie を受理していない（または cookie が送られていない）。期限切れではない。実際にあった原因は、JSON の `domain` に `https://` を付けたこと。他の候補は、コピーした cookie が app の host のものと別物、必要な別の cookie を欠く、`domain` と `PLAYWRIGHT_BASE_URL` の host の不一致（これらは未確認） | 更新手順をやり直し、DevTools で、app の host の cookie 一覧と domain を確かめる |
+| 最初の step は「期限は有効」で、画面が login ではない | Worker 側の失敗（`503` 等） | Worker の log を見る（`npx wrangler tail`） |
+
+「期限は有効」は、期限だけの確認である。Access が受理するかは E2E が確かめる。
+
+1. 普段の browser で本番 URL を開き、許可 email の OTP で入場する（Playwright の browser は使わない）
+2. DevTools の Application（Storage）の Cookies から、本番 origin の `CF_Authorization` の値をコピーする
+3. 雛形 `apps/playback/cli/access-session/storage-state.example.json` を手元へコピーし、`<...>` で書かれた 3 箇所を実値へ置き換える（repo へ戻さない）。置き換え忘れは、最初の step が期限を読めず失敗する
+
+| 項目 | 入れる値 |
+|---|---|
+| `value` | 手順 2 でコピーした `CF_Authorization` の値 |
+| `domain` | 本番 host のみ。DevTools の Domain 列の値をそのまま入れる（例 `playback.example.workers.dev`）。**`https://` や path を付けない** |
+| `expires` | DevTools の Expires 列の日時を、**変換せずそのまま文字列で**貼る（例 `"2026-10-30T16:44:30.650Z"`）。E2E を実行する step が Unix 秒へ直して Playwright へ渡す。Unix 秒の数値も受け付ける（`0` と `-1` は失効として扱われる） |
+
+`domain` に `https://` を付けると、Playwright が cookie の host と照合できず、cookie を送らない。期限確認は通っても、E2E は Access の login 画面で落ちる（実 run で確認した。期限確認は `domain` を見ない）。browser の URL 欄に入れる形とは違うので、注意する。
+
+4. Secret `PLAYWRIGHT_STORAGE_STATE_JSON` へ、JSON 本文を登録する。shell の履歴と process 一覧に値を残さないよう、file から渡す
+
+```bash
+gh secret set PLAYWRIGHT_STORAGE_STATE_JSON < ./storage-state.json
+```
+
+GitHub の Settings → Secrets and variables → Actions → 同名の Secret を更新してもよい。登録後、手元の file は消す（`rm ./storage-state.json`）
+
+5. 動作確認をする（下記）
+
+期限と残り日数は、e2e の最初の step が log に出す（残り 7 日未満は「失効間近」と表示する）。
+
+手動確認: `gh workflow run playback-e2e.yml --ref <branch>`（Secret 付き）。失敗時は、画面と error context が artifact `playback-e2e-failure` に 7 日残る。trace は request の cookie を含みうるため、upload しない。
 
 安定 fixture（`apps/playback/test/e2e/fixtures/stable-episode/`）は本番 R2 bucket **直下**に置く。配置契約は mp3（`contracts/episode-layout.md`）。日次 produce が増えても fixture pair は残す。
 

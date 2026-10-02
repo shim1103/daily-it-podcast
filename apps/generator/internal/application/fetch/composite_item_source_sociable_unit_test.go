@@ -26,7 +26,7 @@ func TestCompositeItemSource_concatsListResultsFromAllSources(t *testing.T) {
 	}}
 
 	// When: composite の List を呼ぶ
-	got, err := fetch.NewCompositeItemSource([]port.ItemSource{first, second}).List(context.Background(), compositeFixedNow)
+	got, err := fetch.NewCompositeItemSource([]port.ItemSource{first, second}).List(context.Background(), compositeFixedNow, compositeFixedNow.Add(24*time.Hour))
 
 	// Then: 全 source の結果が含まれる（連結順序は保証しない）
 	if err != nil {
@@ -61,7 +61,7 @@ func TestCompositeItemSource_returnsNonNilEmptySlice_whenAllSourcesEmpty(t *test
 	})
 
 	// When
-	got, err := empties.List(context.Background(), compositeFixedNow)
+	got, err := empties.List(context.Background(), compositeFixedNow, compositeFixedNow.Add(24*time.Hour))
 
 	// Then: 非 nil の空 slice が返る
 	if err != nil {
@@ -82,7 +82,7 @@ func TestCompositeItemSource_returnsNonNilEmptySlice_whenNoSources(t *testing.T)
 	empty := fetch.NewCompositeItemSource(nil)
 
 	// When
-	got, err := empty.List(context.Background(), compositeFixedNow)
+	got, err := empty.List(context.Background(), compositeFixedNow, compositeFixedNow.Add(24*time.Hour))
 
 	// Then: 非 nil の空 slice が返る
 	if err != nil {
@@ -108,7 +108,7 @@ func TestCompositeItemSource_propagatesError_whenAnySourceFails(t *testing.T) {
 	})
 
 	// When
-	got, err := failing.List(context.Background(), compositeFixedNow)
+	got, err := failing.List(context.Background(), compositeFixedNow, compositeFixedNow.Add(24*time.Hour))
 
 	// Then: その error が返り、成功分は返さない
 	if !errors.Is(err, sentinel) {

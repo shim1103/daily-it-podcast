@@ -11,7 +11,7 @@ import "testing"
 // 自己参照 assert で検出力を持たないため書かない。
 
 // narrationFieldSumChars は挨拶を除いた朗読 field の合計文字数を返す。
-// 合計対象は intro + closingSummary + topicCount 個の (preface + detail)。
+// 合計対象は openingIntro + endingSummary + topicCount 個の (preface + detail)。
 // title・topic.title は「朗読されない見出し」なので合計に入れない。
 func narrationFieldSumChars(introChars, closingChars, prefaceChars, detailChars, topicCount int) int {
 	return introChars + closingChars + topicCount*(prefaceChars+detailChars)
@@ -73,7 +73,7 @@ func TestManuscriptDraftLimits_totalCharsBoundsAscend(t *testing.T) {
 	t.Parallel()
 
 	// Then: Min < Target < Max（typo や逆転の検出）
-	if !(DraftTotalCharsMin < DraftTotalCharsTarget && DraftTotalCharsTarget < DraftTotalCharsMax) {
+	if DraftTotalCharsMin >= DraftTotalCharsTarget || DraftTotalCharsTarget >= DraftTotalCharsMax {
 		t.Fatalf("全体文字数の順序が壊れている: Min=%d Target=%d Max=%d", DraftTotalCharsMin, DraftTotalCharsTarget, DraftTotalCharsMax)
 	}
 }
@@ -86,15 +86,15 @@ func TestManuscriptDraftLimits_narrationFieldBoundsAscend(t *testing.T) {
 		name             string
 		min, target, max int
 	}{
-		{"intro", DraftIntroMinLen, DraftIntroTarget, DraftIntroMaxLen},
-		{"closingSummary", DraftClosingMinLen, DraftClosingTarget, DraftClosingMaxLen},
+		{"openingIntro", DraftIntroMinLen, DraftIntroTarget, DraftIntroMaxLen},
+		{"endingSummary", DraftClosingMinLen, DraftClosingTarget, DraftClosingMaxLen},
 		{"topic.preface", DraftTopicPrefaceMinLen, DraftTopicPrefaceTarget, DraftTopicPrefaceMaxLen},
 		{"topic.detail", DraftTopicDetailMinLen, DraftTopicDetailTarget, DraftTopicDetailMaxLen},
 	}
 
 	// Then: 各 field で Min <= Target <= Max
 	for _, f := range fields {
-		if !(f.min <= f.target && f.target <= f.max) {
+		if f.min > f.target || f.target > f.max {
 			t.Fatalf("%s の順序が壊れている: Min=%d Target=%d Max=%d", f.name, f.min, f.target, f.max)
 		}
 	}
@@ -114,7 +114,7 @@ func TestManuscriptDraftLimits_headingFieldBoundsAscend(t *testing.T) {
 
 	// Then: 各 field で Min <= Target <= Max
 	for _, f := range fields {
-		if !(f.min <= f.target && f.target <= f.max) {
+		if f.min > f.target || f.target > f.max {
 			t.Fatalf("%s の順序が壊れている: Min=%d Target=%d Max=%d", f.name, f.min, f.target, f.max)
 		}
 	}

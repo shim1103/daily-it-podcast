@@ -5,21 +5,22 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/fetch"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/delivery"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 )
 
 // newProductionItemSource は本番の情報源 Adapter を選び、Application の合成型へ渡す。
 // 並行 List・fail-all・連結の振る舞いは fetch.CompositeItemSource が持つ。
 //
-// @require httpClient != nil。
+// @require httpClient != nil。logw != nil。
 // @ensure 戻りは非 nil の port.ItemSource。
-func newProductionItemSource(httpClient *http.Client, maxItems int) port.ItemSource {
+func newProductionItemSource(httpClient *http.Client, maxItems int, logw *delivery.LogWriter) port.ItemSource {
 	return fetch.NewCompositeItemSource([]port.ItemSource{
-		newHackerNewsItemSource(httpClient, maxItems),
-		newLobstersItemSource(httpClient, maxItems),
-		newPublickeyItemSource(httpClient, maxItems),
-		newTechCrunchItemSource(httpClient, maxItems),
-		newCloudWatchItemSource(httpClient, maxItems),
+		newHackerNewsItemSource(httpClient, maxItems, logw),
+		newLobstersItemSource(httpClient, maxItems, logw),
+		newPublickeyItemSource(httpClient, maxItems, logw),
+		newTechCrunchItemSource(httpClient, maxItems, logw),
+		newCloudWatchItemSource(httpClient, maxItems, logw),
 	})
 }
 

@@ -62,7 +62,7 @@ func newCloudWatchListItemSourceWithProxy(t *testing.T, handler http.HandlerFunc
 			},
 		},
 	}
-	return cloudwatch.NewListItemSource(httpClient, cloudwatch.MaxStoriesScanned), probe
+	return cloudwatch.NewListItemSource(httpClient, cloudwatch.MaxStoriesScanned, &retryReporterSpy{}), probe
 }
 
 func TestCloudWatchListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucceeds(t *testing.T) {
@@ -91,7 +91,7 @@ func TestCloudWatchListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucce
 	})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: upstream は GET・Authorization 空、戻りは SourceID=cloudwatch の 1 件以上
 	if err != nil {
@@ -126,7 +126,7 @@ func TestCloudWatchListItemSource_returnsInfrastructureError_whenUpstreamFails(t
 	})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: *adaptererror.Error（cloudwatch: prefix）かつ feed 5xx で 2 回 request（retry once）
 	if got != nil {

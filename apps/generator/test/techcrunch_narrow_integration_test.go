@@ -62,7 +62,7 @@ func newTechCrunchListItemSourceWithProxy(t *testing.T, handler http.HandlerFunc
 			},
 		},
 	}
-	return techcrunch.NewListItemSource(httpClient, techcrunch.MaxStoriesScanned), probe
+	return techcrunch.NewListItemSource(httpClient, techcrunch.MaxStoriesScanned, &retryReporterSpy{}), probe
 }
 
 func TestTechCrunchListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucceeds(t *testing.T) {
@@ -92,7 +92,7 @@ func TestTechCrunchListItemSource_deliversGetWithoutAuthHeader_whenUpstreamSucce
 	})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: upstream は GET・Authorization 空、戻りは SourceID=techcrunch の 1 件以上
 	if err != nil {
@@ -127,7 +127,7 @@ func TestTechCrunchListItemSource_returnsInfrastructureError_whenUpstreamFails(t
 	})
 
 	// When: List(ctx, since) を呼ぶ
-	got, err := source.List(context.Background(), since)
+	got, err := source.List(context.Background(), since, since.Add(24*time.Hour))
 
 	// Then: *adaptererror.Error（techcrunch: prefix）かつ feed 5xx で 2 回 request（retry once）
 	if got != nil {

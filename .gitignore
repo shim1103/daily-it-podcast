@@ -26,9 +26,8 @@ apps/playback/playwright-report/
 __pycache__/
 *.pyc
 
-CLAUDE.md
-
-.claude
-.codex
-.cursor
+.cursor/
+.codex/
+.claude/
 AGENTS.md
+CLAUDE.md
