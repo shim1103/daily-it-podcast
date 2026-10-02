@@ -213,15 +213,20 @@ describe("R2EpisodeRepository", () => {
 
     it("get が例外を throw する時、R2Error を throw する", async () => {
       // Given: 原稿取得が失敗する bucket
+      const cause = new Error("network");
       const bucket = createBucket({
         get: async () => {
-          throw new Error("network");
+          throw cause;
         },
       });
       const repository = new R2EpisodeRepository({ bucket });
 
-      // When / Then: storage I/O 失敗は R2Error
-      await expect(repository.getManuscript("ep-1")).rejects.toBeInstanceOf(R2Error);
+      // When: 原稿を取得する
+      const got = repository.getManuscript("ep-1");
+
+      // Then: storage I/O 失敗は元の例外を cause に持つ R2Error
+      await expect(got).rejects.toBeInstanceOf(R2Error);
+      await expect(got).rejects.toHaveProperty("cause", cause);
     });
 
     it("get が非 null だが不正形状の時、R2Error を throw する", async () => {
@@ -238,17 +243,22 @@ describe("R2EpisodeRepository", () => {
 
     it("json 本文の arrayBuffer 読み出しが失敗する時、R2Error を throw する", async () => {
       // Given: object body の bytes 読み出し自体が失敗する bucket
+      const cause = new Error("stream error");
       const bucket = createBucket({
         get: async () => ({
           async arrayBuffer() {
-            throw new Error("stream error");
+            throw cause;
           },
         }),
       });
       const repository = new R2EpisodeRepository({ bucket });
 
-      // When / Then
-      await expect(repository.getManuscript("ep-1")).rejects.toBeInstanceOf(R2Error);
+      // When: 原稿を取得する
+      const got = repository.getManuscript("ep-1");
+
+      // Then: bytes 読み出し失敗は元の例外を cause に持つ R2Error
+      await expect(got).rejects.toBeInstanceOf(R2Error);
+      await expect(got).rejects.toHaveProperty("cause", cause);
     });
   });
 
