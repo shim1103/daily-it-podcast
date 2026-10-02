@@ -29,10 +29,10 @@ func (f fakeItemSource) List(_ context.Context, _ time.Time) ([]models.SourceIte
 	return f.items, nil
 }
 
-func TestCompositeItemSource_concatsListResultsInRegistrationOrder(t *testing.T) {
+func TestCompositeItemSource_concatsListResultsFromAllSources(t *testing.T) {
 	t.Parallel()
 
-	// Given: 登録順で判別できる SourceItem を返す fake を 2 本
+	// Given: 判別できる SourceItem を返す fake を 2 本
 	first := fakeItemSource{items: []models.SourceItem{
 		{SourceID: "first-1"},
 		{SourceID: "first-2"},
@@ -44,17 +44,25 @@ func TestCompositeItemSource_concatsListResultsInRegistrationOrder(t *testing.T)
 	// When: composite の List を呼ぶ
 	got, err := newCompositeItemSource(first, second).List(context.Background(), fixedNow)
 
-	// Then: 戻り slice が登録順に並ぶ
+	// Then: 全 source の結果が含まれる（連結順序は保証しない）
 	if err != nil {
 		t.Fatalf("List() が error を返した: %v", err)
 	}
-	wantIDs := []string{"first-1", "first-2", "second-1"}
+	wantIDs := map[string]int{
+		"first-1":  1,
+		"first-2":  1,
+		"second-1": 1,
+	}
 	if len(got) != len(wantIDs) {
 		t.Fatalf("件数 = %d, want %d", len(got), len(wantIDs))
 	}
-	for i, want := range wantIDs {
-		if got[i].SourceID != want {
-			t.Fatalf("got[%d].SourceID = %q, want %q", i, got[i].SourceID, want)
+	gotCounts := make(map[string]int, len(got))
+	for _, item := range got {
+		gotCounts[item.SourceID]++
+	}
+	for id, wantCount := range wantIDs {
+		if gotCounts[id] != wantCount {
+			t.Fatalf("SourceID %q の出現回数 = %d, want %d（got=%v）", id, gotCounts[id], wantCount, got)
 		}
 	}
 }
@@ -107,17 +115,18 @@ func TestCompositeItemSource_returnsNonNilEmptySlice_whenNoSources(t *testing.T)
 func TestCompositeItemSource_propagatesError_whenAnySourceFails(t *testing.T) {
 	t.Parallel()
 
-	// Given: 2 本目が error を返す fake
+	// Given: 成功する source と失敗する source が混在する（並行呼び出しでも部分成功を返さないこと）
 	sentinel := errors.New("second source failed")
 	failing := newCompositeItemSource(
 		fakeItemSource{items: []models.SourceItem{{SourceID: "first-1"}}},
 		fakeItemSource{err: sentinel},
+		fakeItemSource{items: []models.SourceItem{{SourceID: "third-1"}}},
 	)
 
 	// When: composite の List を呼ぶ
 	got, err := failing.List(context.Background(), fixedNow)
 
-	// Then: その error がそのまま返り、成功分は返さない
+	// Then: その error が返り、成功分は返さない
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("err = %v, want %v", err, sentinel)
 	}

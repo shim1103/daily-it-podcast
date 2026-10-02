@@ -6,6 +6,7 @@ import (
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
+	"golang.org/x/sync/errgroup"
 )
 
 // compositeItemSource は各 port.ItemSource.List を並行に呼び、結果を concat する。
@@ -30,12 +31,27 @@ func newCompositeItemSource(sources ...port.ItemSource) port.ItemSource {
 // @ensure 全 source が空、または source が 0 本のときも非 nil の空 slice を返す。
 // @invariant vendor 固有型・情報源内部の監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
 func (c compositeItemSource) List(ctx context.Context, since time.Time) ([]models.SourceItem, error) {
+	slots := make([][]models.SourceItem, len(c))
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(5)
+
+	for i, source := range c {
+		g.Go(func() error {
+			items, err := source.List(gctx, since)
+			if err != nil {
+				return err
+			}
+			slots[i] = items
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
 	merged := make([]models.SourceItem, 0)
-	for _, source := range c {
-		items, err := source.List(ctx, since)
-		if err != nil {
-			return nil, err
-		}
+	for _, items := range slots {
 		merged = append(merged, items...)
 	}
 	return merged, nil

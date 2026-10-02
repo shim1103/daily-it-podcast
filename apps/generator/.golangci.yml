@@ -41,6 +41,7 @@ linters:
             - "!**/drive/gdrive/**"
           allow:
             - $gostd
+            - golang.org/x/sync
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/entities
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure
