@@ -41,6 +41,13 @@ const progressInstantSchema = z.iso
   })
   .transform((value) => new Date(value).toISOString());
 
+/**
+ * 進捗 pull の cursor。10 進の非負整数の文字列（15 桁以下、先頭 0 は `"0"` のみ）。
+ * wire 上の形式だけを契約が知る。形式外は Route の検証が 400 にする。
+ * client は中身を解釈せず、応答で受け取った値をそのまま次回の要求へ渡す不透明値として扱う。
+ */
+const progressCursorSchema = z.string().regex(/^(0|[1-9][0-9]{0,14})$/);
+
 const episodeIdSchema = z.string().min(1);
 const dateSchema = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/);
 const titleSchema = z.string().min(1);
@@ -189,6 +196,19 @@ export const ProgressWriteResponseSchema = z.strictObject({
 });
 
 /**
+ * DB が空の初回 pull が返す cursor。「どの行より前」を指す起点で、
+ * cursor を省略した要求は Application がこの値として扱う。
+ */
+export const PROGRESS_PULL_ORIGIN_CURSOR = "0" as const;
+
+/** 進捗 pull 応答の 1 件。更新があった episode の進捗（`progress` は常に object）。 */
+const progressPullEntrySchema = z.strictObject({
+  episodeId: episodeIdSchema,
+  progress: episodeProgressSchema,
+});
+
+// todo: C が route と UseCase を ProgressCursorPull* へ切り替えたら、この schema と型を削除する
+/**
  * 進捗 pull の query。`since` より後に更新された行だけを返す。
  * `since` は {@link progressInstantSchema} に従い、parse 後は UTC 固定幅になる。
  */
@@ -196,14 +216,32 @@ export const ProgressPullQuerySchema = z.strictObject({
   since: progressInstantSchema,
 });
 
+// todo: C が route と UseCase を ProgressCursorPull* へ切り替えたら、この schema と型を削除する
 /** 進捗 pull 応答。更新があった episode だけ（`progress` は常に object）。 */
 export const ProgressPullResponseSchema = z.strictObject({
-  episodes: z.array(
-    z.strictObject({
-      episodeId: episodeIdSchema,
-      progress: episodeProgressSchema,
-    }),
-  ),
+  episodes: z.array(progressPullEntrySchema),
+});
+
+/**
+ * 進捗 pull（cursor 版）の query。`cursor` を省略すると全件を返す。
+ * 以後は応答の `cursor` をそのまま渡す。形式は {@link progressCursorSchema} に従う。
+ *
+ * @require cursor は省略するか、応答で受け取った値をそのまま渡す
+ * @ensure cursor の形式が不正なら 400（`validation_error`）
+ */
+export const ProgressCursorPullQuerySchema = z.strictObject({
+  cursor: progressCursorSchema.optional(),
+});
+
+/**
+ * 進捗 pull（cursor 版）の応答。`cursor` は最上位にだけ出し、行には載せない。
+ *
+ * @ensure 変更が無いときは空の `episodes` と、要求と同じ cursor を返す
+ * @ensure DB が空の初回は {@link PROGRESS_PULL_ORIGIN_CURSOR} を返す
+ */
+export const ProgressCursorPullResponseSchema = z.strictObject({
+  cursor: progressCursorSchema,
+  episodes: z.array(progressPullEntrySchema),
 });
 
 export const ErrorResponseSchema = z.strictObject({
@@ -216,6 +254,10 @@ export type ListEpisodesResponse = z.infer<typeof ListEpisodesResponseSchema>;
 export type EpisodeIdRequest = z.infer<typeof EpisodeIdRequestSchema>;
 export type ProgressWriteRequest = z.infer<typeof ProgressWriteRequestSchema>;
 export type ProgressWriteResponse = z.infer<typeof ProgressWriteResponseSchema>;
+// todo: C が route と UseCase を ProgressCursorPull* へ切り替えたら、この型を削除する
 export type ProgressPullQuery = z.infer<typeof ProgressPullQuerySchema>;
+// todo: C が route と UseCase を ProgressCursorPull* へ切り替えたら、この型を削除する
 export type ProgressPullResponse = z.infer<typeof ProgressPullResponseSchema>;
+export type ProgressCursorPullQuery = z.infer<typeof ProgressCursorPullQuerySchema>;
+export type ProgressCursorPullResponse = z.infer<typeof ProgressCursorPullResponseSchema>;
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;

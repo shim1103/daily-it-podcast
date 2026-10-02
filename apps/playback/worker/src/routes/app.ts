@@ -114,6 +114,7 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
       },
     )
     .get(
+      // todo: C が cursor 版（`ProgressCursorPull*`・`listChangedAfter`）へ置換したら、この since 版 route を差し替える
       progressPullPath,
       zValidator("query", ProgressPullQuerySchema, throwOnContractValidationFailure),
       async (c) => {

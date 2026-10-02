@@ -1,6 +1,7 @@
 import type { ProgressPullResponse } from "../../../../contracts/index.ts";
 import type { ProgressRepository } from "../ports/progress-repository.ts";
 
+// todo: C が cursor 版（`ProgressCursorPull*`・`listChangedAfter`）へ置換したら、この UseCase の since 版を削除する
 /**
  * 進捗 pull（HTTP GET /progress）。`since` 以降に更新された行だけを返す。
  *
