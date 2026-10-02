@@ -26,6 +26,7 @@ export const episodeProgressColumns = {
   firstPlayedAt: "first_played_at",
   firstCompletedAt: "first_completed_at",
   lastPlayedAt: "last_played_at",
+  seq: "seq",
 } as const;
 
 /**
