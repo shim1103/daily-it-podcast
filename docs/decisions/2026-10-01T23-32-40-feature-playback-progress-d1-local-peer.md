@@ -9,6 +9,7 @@ branch: feature/playback-progress-d1-local-peer
 1. pull の差分印は、client 時刻（`clientAt` 由来の `last_played_at`）ではなく、server が書込の到着時に付ける `updated_at` とする。cursor は server 発行の印を使う。
 2. 契約の形（cursor を返すか、`updatedAt` を返すか）は未決で、この Decision では決めない。
 3. `clientAt` を使う判断（`2026-09-22T19-13-35-feature-playback-progress.md`）は merge の鍵であり、pull の更新印とは別の問いとして扱う。
+4. 現行の実装と、epic の `2026-10-01T18-54-14-feature-playback-progress-application.md` の差分鍵（`lastPlayedAt > since`）は、Rejected 2 の案のままである。本 Decision がそれを置き換える方針で、移行の実施は `/shape` で別途行う（未実施）。
 
 ## 2. Reason
 
