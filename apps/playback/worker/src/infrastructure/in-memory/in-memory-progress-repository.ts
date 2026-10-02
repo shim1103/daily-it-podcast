@@ -1,7 +1,12 @@
 import type {
+  ProgressChangeSet,
+  ProgressConditionalWriteResult,
+  ProgressCursor,
   ProgressRepository,
   ProgressUpdatedEntry,
   ProgressUpsertRow,
+  ProgressVersion,
+  VersionedProgress,
 } from "../../application/ports/progress-repository.ts";
 
 type EpisodeProgress = ProgressUpdatedEntry["progress"];
@@ -49,6 +54,24 @@ export class InMemoryProgressRepository implements ProgressRepository {
       }
     }
     return entries;
+  }
+
+  // todo: C が実装（in-memory は単調増加する版の採番）へ置換したら、この zero return と todo を消す
+  async getProgressWithVersion(_episodeId: string): Promise<VersionedProgress | null> {
+    return null;
+  }
+
+  // todo: C が実装（in-memory は単調増加する版の採番）へ置換したら、この zero return と todo を消す
+  async upsertProgressIfVersion(
+    _row: ProgressUpsertRow,
+    _expectedVersion: ProgressVersion | null,
+  ): Promise<ProgressConditionalWriteResult> {
+    return "conflict";
+  }
+
+  // todo: C が実装（in-memory は単調増加する版の採番）へ置換したら、この zero return と todo を消す
+  async listChangedAfter(cursor: ProgressCursor): Promise<ProgressChangeSet> {
+    return { cursor, entries: [] };
   }
 }
 

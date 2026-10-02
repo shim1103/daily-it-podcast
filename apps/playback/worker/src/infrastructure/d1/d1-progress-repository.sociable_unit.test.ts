@@ -417,4 +417,55 @@ describe("D1ProgressRepository", () => {
       );
     });
   });
+
+  // todo: C が実装（D1 は seq 採番つきの 1 文 SQL）へ置換したら、この足場 describe を behavior test へ置き換える
+  describe("scaffold: versioned surface", () => {
+    it("get_progress_with_version_returns_null_without_calling_d1", async () => {
+      // Given: 呼び出しを記録する D1
+      const { database, calls } = await createFakeLocalD1Binding();
+      const repository = new D1ProgressRepository({ database });
+
+      // When: 版つきで取得する
+      const got = await repository.getProgressWithVersion("ep-1");
+
+      // Then: null を返し、D1 を呼ばない
+      expect(got).toBeNull();
+      expect(calls).toHaveLength(0);
+    });
+
+    it("upsert_progress_if_version_returns_conflict_without_calling_d1", async () => {
+      // Given: 呼び出しを記録する D1
+      const { database, calls } = await createFakeLocalD1Binding();
+      const repository = new D1ProgressRepository({ database });
+
+      // When: 行なしと見て期待値 null で条件付き書込する
+      const got = await repository.upsertProgressIfVersion(
+        {
+          episodeId: "ep-1",
+          positionSec: 42.5,
+          firstPlayedAt: "2026-10-01T00:00:00.000Z",
+          firstCompletedAt: null,
+          lastPlayedAt: "2026-10-01T00:05:00.000Z",
+        },
+        null,
+      );
+
+      // Then: 永続していないので "conflict" を返し、D1 を呼ばない
+      expect(got).toBe("conflict");
+      expect(calls).toHaveLength(0);
+    });
+
+    it("list_changed_after_returns_same_cursor_and_empty_entries_without_calling_d1", async () => {
+      // Given: 呼び出しを記録する D1
+      const { database, calls } = await createFakeLocalD1Binding();
+      const repository = new D1ProgressRepository({ database });
+
+      // When: cursor を渡して差分取得する
+      const got = await repository.listChangedAfter("7");
+
+      // Then: 引数の cursor と空 entries を返し、D1 を呼ばない
+      expect(got).toEqual({ cursor: "7", entries: [] });
+      expect(calls).toHaveLength(0);
+    });
+  });
 });

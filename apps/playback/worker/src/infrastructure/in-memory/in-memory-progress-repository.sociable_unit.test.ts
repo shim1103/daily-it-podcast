@@ -104,4 +104,42 @@ describe("InMemoryProgressRepository", () => {
     // Then: 空（境界は厳密な >）
     expect(got).toEqual([]);
   });
+
+  // todo: C が実装（in-memory は単調増加する版の採番）へ置換したら、この足場 describe を behavior test へ置き換える
+  describe("scaffold: versioned surface", () => {
+    it("get_progress_with_version_returns_null_even_when_row_is_seeded", async () => {
+      // Given: ep-a を seed した repository
+      const repository = new InMemoryProgressRepository([rowA]);
+
+      // When: 版つきで取得する
+      const got = await repository.getProgressWithVersion("ep-a");
+
+      // Then: null を返す
+      expect(got).toBeNull();
+    });
+
+    it("upsert_progress_if_version_returns_conflict_and_keeps_store_unchanged", async () => {
+      // Given: 空の repository
+      const repository = new InMemoryProgressRepository();
+
+      // When: 行なしと見て期待値 null で条件付き書込する
+      const got = await repository.upsertProgressIfVersion(rowA, null);
+      const stored = await repository.getByEpisodeIds(["ep-a"]);
+
+      // Then: "conflict" を返し、行は書かれない
+      expect(got).toBe("conflict");
+      expect(stored.size).toBe(0);
+    });
+
+    it("list_changed_after_returns_same_cursor_and_empty_entries_even_when_rows_are_seeded", async () => {
+      // Given: 2 行を seed した repository
+      const repository = new InMemoryProgressRepository([rowA, rowB]);
+
+      // When: cursor を渡して差分取得する
+      const got = await repository.listChangedAfter("0");
+
+      // Then: 引数の cursor と空 entries を返す
+      expect(got).toEqual({ cursor: "0", entries: [] });
+    });
+  });
 });

@@ -1,7 +1,12 @@
 import type {
+  ProgressChangeSet,
+  ProgressConditionalWriteResult,
+  ProgressCursor,
   ProgressRepository,
   ProgressUpdatedEntry,
   ProgressUpsertRow,
+  ProgressVersion,
+  VersionedProgress,
 } from "../../application/ports/progress-repository.ts";
 import type {
   D1DatabaseBinding,
@@ -146,6 +151,24 @@ export class D1ProgressRepository implements ProgressRepository {
       episodeId: stringColumn(row, columns.episodeId),
       progress: toEpisodeProgress(row),
     }));
+  }
+
+  // todo: C が実装（D1 は seq 採番つきの 1 文 SQL）へ置換したら、この zero return と todo を消す
+  async getProgressWithVersion(_episodeId: string): Promise<VersionedProgress | null> {
+    return null;
+  }
+
+  // todo: C が実装（D1 は seq 採番つきの 1 文 SQL）へ置換したら、この zero return と todo を消す
+  async upsertProgressIfVersion(
+    _row: ProgressUpsertRow,
+    _expectedVersion: ProgressVersion | null,
+  ): Promise<ProgressConditionalWriteResult> {
+    return "conflict";
+  }
+
+  // todo: C が実装（D1 は seq 採番つきの 1 文 SQL）へ置換したら、この zero return と todo を消す
+  async listChangedAfter(cursor: ProgressCursor): Promise<ProgressChangeSet> {
+    return { cursor, entries: [] };
   }
 
   private async queryAll(sql: string, values: readonly unknown[]): Promise<D1Row[]> {

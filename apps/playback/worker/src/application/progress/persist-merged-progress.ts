@@ -27,6 +27,7 @@ export async function persistMergedProgress(
   incoming: ProgressMergeIncoming,
 ): Promise<EpisodeProgress> {
   const merged = mergeProgress(existing, incoming);
+  // todo: C が getProgressWithVersion と upsertProgressIfVersion の CAS 再試行と skew 判定へ置換したら、upsertProgress の呼び出しを消す
   await repository.upsertProgress({ episodeId, ...merged });
   return merged;
 }
@@ -43,6 +44,7 @@ export async function persistCompletedProgress(
   incoming: ProgressMergeIncoming,
 ): Promise<EpisodeProgress> {
   const merged = mergeProgressAsCompleted(existing, incoming);
+  // todo: C が getProgressWithVersion と upsertProgressIfVersion の CAS 再試行と skew 判定へ置換したら、upsertProgress の呼び出しを消す
   await repository.upsertProgress({ episodeId, ...merged });
   return merged;
 }
