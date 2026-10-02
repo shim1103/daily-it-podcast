@@ -30,21 +30,8 @@ func newProduceEpisode(cfg config.Config, logw *delivery.LogWriter) *application
 // @invariant config.Load 呼び出しをここで行わない。Composition Root は結線と ItemSource の Port 束ねだけを持つ（fallback 方針は Application）。
 func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter, topicCount int) *application.ProduceEpisode {
 	httpClient := appruntime.HTTPClient()
-	// why: maxItems <= 0 は各 Adapter が既存の MaxStoriesScanned へフォールバックする契約
-	//      （infrastructure/*/item_source.go の effectiveMaxStories）。本番の topicCount は
-	//      常に DraftTopicCountTarget なのでフォールバックへ委ね、既定値を変えない。
-	//      system-test が topicCount を絞った時だけ、source 取得件数も追従して絞る。
-	sourceMaxItems := 0
-	if topicCount != constants.DraftTopicCountTarget {
-		sourceMaxItems = topicCount * constants.SourceItemsPerTopic
-	}
-	fetchUC := fetch.NewFetchSourceItems(newCompositeItemSource(
-		newHackerNewsItemSource(httpClient, sourceMaxItems),
-		newLobstersItemSource(httpClient, sourceMaxItems),
-		newPublickeyItemSource(httpClient, sourceMaxItems),
-		newTechCrunchItemSource(httpClient, sourceMaxItems),
-		newCloudWatchItemSource(httpClient, sourceMaxItems),
-	))
+	// Composition: 情報源は Port 束ね。Application fallback 方針（TextWriter / Speech）は下で結線するだけ。
+	fetchUC := fetch.NewFetchSourceItems(newProductionItemSource(httpClient, sourceMaxItemsForTopicCount(topicCount)))
 	lookup := newR2CompletedEpisodeLookup(httpClient, cfg.R2)
 	// logw は port.FallbackReporter / port.ProgressReporter を満たす。application 用 callback の
 	// 組み立ては delivery.LogWriter が持ち、Composition は結線だけ行う。
