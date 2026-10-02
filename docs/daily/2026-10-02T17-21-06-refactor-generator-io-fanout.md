@@ -16,6 +16,7 @@ prev: 2026-10-01T16-29-05-refactor-generator-wav-duration.md
 2. composite を Application へ移す誤読をやめ、Composition / Application fallback / Adapter 内部の 3 軸で分ける形へ Decision `07-17-48`・`item_source`・`produce_episode` invariant を直した。
 3. `pairStemCandidates` は GET でないため逐次のまま（Decision `07-47-56`）。
 4. architecture skill（composition-root / application / infrastructure）は `~/settings/agent-standards` と worktree `.cursor` へ反映済み。settings 側は commit しない。
+5. PR は #216。base は親 epic `refactor/generator-go-performance`（`lifecycle/release` の sub-feature→epic）。
 
 ### Commits
 
@@ -33,3 +34,4 @@ prev: 2026-10-01T16-29-05-refactor-generator-wav-duration.md
 12. `cc2d256`
 13. `0d1adb6`
 14. `1245642`
+15. `f4d042e`
