@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 )
 
@@ -70,19 +72,37 @@ func (l *CompletedEpisodeLookup) HasPair(ctx context.Context, date string) (bool
 		}
 	}
 
+	var candidates []string
 	for _, stem := range jsonStems {
-		if _, ok := mp3Stems[stem]; !ok {
-			continue
+		if _, ok := mp3Stems[stem]; ok {
+			candidates = append(candidates, stem)
 		}
-		raw, err := l.getObject(ctx, stem+jsonExt)
-		if err != nil {
-			return false, err
-		}
-		episodeDate, ok := manuscriptDate(raw)
-		if !ok {
-			continue
-		}
-		if episodeDate == date {
+	}
+
+	matches := make([]bool, len(candidates))
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(maxConcurrentGets)
+	for i, stem := range candidates {
+		g.Go(func() error {
+			raw, err := l.getObject(gctx, stem+jsonExt)
+			if err != nil {
+				return err
+			}
+			episodeDate, ok := manuscriptDate(raw)
+			if !ok {
+				return nil
+			}
+			if episodeDate == date {
+				matches[i] = true
+			}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return false, err
+	}
+	for _, matched := range matches {
+		if matched {
 			return true, nil
 		}
 	}
