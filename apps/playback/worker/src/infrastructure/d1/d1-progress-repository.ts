@@ -45,7 +45,6 @@ const UPSERT_SQL = [
     .join(", "),
 ].join(" ");
 
-// todo: 契約境界で時刻を UTC 固定幅へ正規化するまで、offset 混在の入力では `>` 境界と並びが時系列と一致しない。正規化を入れたらこの comment を消す
 /** since より後（厳密に大きい）の行を、更新の古い順・同時刻は episodeId 順で返す。 */
 const LIST_UPDATED_SINCE_SQL = `SELECT ${ALL_COLUMNS} FROM ${TABLE} WHERE ${columns.lastPlayedAt} > ?1 ORDER BY ${columns.lastPlayedAt} ASC, ${columns.episodeId} ASC`;
 
@@ -96,7 +95,7 @@ function toEpisodeProgress(row: D1Row): EpisodeProgress {
  * 渡された行を保存し、読み返すだけで merge しない。
  *
  * @require deps.database は migration 適用済みの進捗表を持つ D1 binding
- * @require 時刻は辞書順が時系列と一致する表記（UTC 固定幅の ISO-8601）で渡される。adapter は変換しない（`>` 比較と並びを文字列で行うため）
+ * @require 時刻は辞書順が時系列と一致する表記（UTC 固定幅の ISO-8601）で渡される。契約 schema が入口で保証し、adapter は変換しない（`>` 比較と並びを文字列で行うため）
  * @ensure D1 の例外・`run()` の `success === false`・列型の不一致は D1Error を throw する。adapter 内で再試行しない
  * @invariant SQL 全文と bind 値を Error message に含めない
  */

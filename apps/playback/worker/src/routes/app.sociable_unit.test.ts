@@ -285,6 +285,38 @@ describe("app", () => {
     });
   });
 
+  it("passes_utc_fixed_width_clientAt_to_controller_and_returns_it_when_request_clientAt_has_offset", async () => {
+    // Given: 初回 create と同じく clientAt をそのまま first* に返す Controller
+    vi.mocked(createProgressController).mockImplementation(async (_episodeId, body) => ({
+      firstPlayedAt: body.clientAt,
+      firstCompletedAt: null,
+    }));
+
+    // When: +09:00 の offset 付き clientAt で progress path へ POST する
+    const got = await app.request(
+      `${origin}${episodeProgressPath("ep-1")}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          positionSec: 12,
+          clientAt: "2026-09-22T19:00:00+09:00",
+        }),
+      },
+      emptyEnv,
+    );
+
+    // Then: Controller へは UTC 固定幅へ正規化された clientAt が渡り、応答も Z 表記になる
+    expect(createProgressController).toHaveBeenCalledWith("ep-1", {
+      positionSec: 12,
+      clientAt: "2026-09-22T10:00:00.000Z",
+    });
+    expect(await got.json()).toEqual({
+      firstPlayedAt: "2026-09-22T10:00:00.000Z",
+      firstCompletedAt: null,
+    });
+  });
+
   it("進捗 update PATCH が成功する時、updateProgressController を呼ぶ", async () => {
     // Given: Composition が契約どおりの Write 応答を返す
     vi.mocked(updateProgressController).mockResolvedValue({

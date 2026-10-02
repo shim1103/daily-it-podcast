@@ -23,6 +23,24 @@ export const progressWriteRetryableHttpErrorCodes = [
   "unavailable",
 ] as const satisfies readonly PlaybackHttpErrorCode[];
 
+const progressInstantLowerExclusiveMs = Date.UTC(1970, 0, 1);
+const progressInstantUpperExclusiveMs = Date.UTC(2100, 0, 1);
+
+/**
+ * 進捗の時刻（`clientAt`・`since`・`first*`・`lastPlayedAt`）が共有する schema。
+ * 入力は offset 付き（`Z` または `±hh:mm`）の ISO-8601 を受け、instant が範囲外なら拒否する。
+ * 出力は同じ instant の UTC 固定幅（`YYYY-MM-DDTHH:mm:ss.sssZ`）で、文字列順が時系列順と一致する。
+ */
+const progressInstantSchema = z.iso
+  .datetime({ offset: true })
+  .refine((value) => {
+    const instantMs = Date.parse(value);
+    return (
+      instantMs > progressInstantLowerExclusiveMs && instantMs < progressInstantUpperExclusiveMs
+    );
+  })
+  .transform((value) => new Date(value).toISOString());
+
 const episodeIdSchema = z.string().min(1);
 const dateSchema = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/);
 const titleSchema = z.string().min(1);
@@ -54,13 +72,13 @@ const bodySchema = z.strictObject({
 /**
  * list embed / 永続行が共有する再生進捗。未playは episode 側で `progress: null`（行なし）。
  * 行があるとき `firstPlayedAt` / `lastPlayedAt` は必須。`firstCompletedAt` のみ未完走で null。
- * 時刻はタイムゾーン付き ISO-8601（`Z` または `±hh:mm`。契約値の正本は本 schema）。
+ * 時刻の形式・範囲・正規化は {@link progressInstantSchema} に従う（parse 後は UTC 固定幅）。
  */
 export const episodeProgressSchema = z.strictObject({
   positionSec: z.number().min(0),
-  firstPlayedAt: z.iso.datetime({ offset: true }),
-  firstCompletedAt: z.iso.datetime({ offset: true }).nullable(),
-  lastPlayedAt: z.iso.datetime({ offset: true }),
+  firstPlayedAt: progressInstantSchema,
+  firstCompletedAt: progressInstantSchema.nullable(),
+  lastPlayedAt: progressInstantSchema,
 });
 
 export const episodeItemSchema = z.strictObject({
@@ -152,25 +170,30 @@ export const EpisodeIdRequestSchema = z.strictObject({
 /**
  * 進捗 create（POST）/ update（PATCH）/ complete（POST .../complete）共通の JSON body。
  * 操作の違いは HTTP method と path で表す。字段が同じため schema は共有する。
- * `clientAt` は merge 判定用の client 時刻（`Z` または `±hh:mm` の ISO-8601）。
+ * `clientAt` は merge 判定用の client 時刻。形式・範囲・正規化は {@link progressInstantSchema} に従い、
+ * 入力は offset 付きでも受け、parse 後は UTC 固定幅になる。
  * 行なし update → 404、重複 create → 冪等 200 の意味は Decision を正とし、ここへ写さない。
  */
 export const ProgressWriteRequestSchema = z.strictObject({
   positionSec: z.number().min(0),
-  clientAt: z.iso.datetime({ offset: true }),
+  clientAt: progressInstantSchema,
 });
 
 /**
  * 進捗 Write 成功応答。勝ち側の first* だけを返す（`positionSec` は載せない）。
+ * 時刻は {@link progressInstantSchema} に従う。
  */
 export const ProgressWriteResponseSchema = z.strictObject({
-  firstPlayedAt: z.iso.datetime({ offset: true }),
-  firstCompletedAt: z.iso.datetime({ offset: true }).nullable(),
+  firstPlayedAt: progressInstantSchema,
+  firstCompletedAt: progressInstantSchema.nullable(),
 });
 
-/** 進捗 pull の query。`since` より後に更新された行だけを返す。 */
+/**
+ * 進捗 pull の query。`since` より後に更新された行だけを返す。
+ * `since` は {@link progressInstantSchema} に従い、parse 後は UTC 固定幅になる。
+ */
 export const ProgressPullQuerySchema = z.strictObject({
-  since: z.iso.datetime({ offset: true }),
+  since: progressInstantSchema,
 });
 
 /** 進捗 pull 応答。更新があった episode だけ（`progress` は常に object）。 */
