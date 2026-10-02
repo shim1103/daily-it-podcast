@@ -9,6 +9,9 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// compositeItemSource は複数の port.ItemSource を 1 Port に束ねる。
+// 源個数を Application から隠す graph 組み立てであり、TextWriter / Speech の fallback 方針とは別責務。
+// why: docs/decisions/2026-10-02T07-17-48
 type compositeItemSource []port.ItemSource
 
 // newCompositeItemSource は sources を束ねた合成 port.ItemSource を返す。
