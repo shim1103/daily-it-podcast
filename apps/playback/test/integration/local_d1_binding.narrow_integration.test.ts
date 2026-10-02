@@ -22,8 +22,10 @@ import {
 const columns = episodeProgressColumns;
 
 const INSERT_PROGRESS = `INSERT INTO ${EPISODE_PROGRESS_TABLE} (${columns.episodeId}, ${columns.positionSec}, ${columns.firstPlayedAt}, ${columns.firstCompletedAt}, ${columns.lastPlayedAt}) VALUES (?, ?, ?, ?, ?)`;
-const SELECT_PROGRESS = `SELECT * FROM ${EPISODE_PROGRESS_TABLE} WHERE ${columns.episodeId} = ?`;
-const SELECT_ALL_PROGRESS = `SELECT * FROM ${EPISODE_PROGRESS_TABLE} ORDER BY ${columns.episodeId}`;
+// why: この test は binding の読取形を見る。seq 列（migration 0002）を期待値へ混ぜないため、読む列を明示する
+const SELECT_COLUMNS = `${columns.episodeId}, ${columns.positionSec}, ${columns.firstPlayedAt}, ${columns.firstCompletedAt}, ${columns.lastPlayedAt}`;
+const SELECT_PROGRESS = `SELECT ${SELECT_COLUMNS} FROM ${EPISODE_PROGRESS_TABLE} WHERE ${columns.episodeId} = ?`;
+const SELECT_ALL_PROGRESS = `SELECT ${SELECT_COLUMNS} FROM ${EPISODE_PROGRESS_TABLE} ORDER BY ${columns.episodeId}`;
 
 // why: proxy の起動は重く、test ごとに起動すると既定 timeout に余裕が薄い。1 回だけ起動し、分離は beforeEach の DELETE で担保する。
 //   起動に失敗すると handle は未代入のまま afterAll に来る。dispose の TypeError で元の失敗原因を隠さない
