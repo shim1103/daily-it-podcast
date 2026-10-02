@@ -8,10 +8,10 @@ branch: feature/playback-progress-d1-local-peer
 
 1. D1 の schema の正本を TS（Drizzle の schema）にする。ORM は Drizzle とする。
 2. migration SQL は `drizzle-kit generate` が生成する履歴として commit する。適用は `wrangler d1 migrations apply` で行う。D1 は適用済みの SQL を台帳 `d1_migrations` に file 名で記録する（`2026-09-30T13-30-00-feature-playback-progress-d1-smoke.md`）。
-3. 未確認（実施 Issue で確かめる）:
+3. 既存の `0001_episode_progress.sql` を baseline として引き継ぐ扱いは不要とする。`drizzle-kit generate` が出す初期 migration を正本にして作り直す。実 instance へ未適用の間の migration の扱いは `2026-10-02T15-44-40-feature-playback-progress-d1-local-peer.md` が持つ。
+4. 未確認（実施 Issue で確かめる）:
    1. Drizzle の版は 0.x または 1.0 rc の可能性があり、版の固定が要る（二次情報）。
    2. SQLite / D1 で `onConflictDoUpdate` と `.returning()` を併用できるか。
-   3. 既存の `0001_episode_progress.sql` を baseline としてどう扱うか。
 
 ## 2. Reason
 
