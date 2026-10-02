@@ -11,8 +11,10 @@ import {
 } from "../controllers/fake-use-cases.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/in-memory/in-memory-episode-repository.ts";
 import { R2EpisodeRepository } from "../infrastructure/r2/r2-episode-repository.ts";
+import { SystemClock } from "../infrastructure/system/system-clock.ts";
 import { PlaybackRuntimeConfigError } from "./runtime-config-error.ts";
 import {
+  createClock,
   createEpisodeRepository,
   createPlaybackControllers,
   type PlaybackRepositoryMode,
@@ -239,5 +241,17 @@ describe("createPlaybackControllers", () => {
     await expect(got.pullProgressController("2026-09-22T10:00:00.000Z")).resolves.toEqual(
       validProgressPullResponse,
     );
+  });
+});
+
+describe("createClock", () => {
+  it("returns_system_clock_regardless_of_env", () => {
+    // Given: env も mode も渡さない
+
+    // When: Clock を組み立てる
+    const got = createClock();
+
+    // Then: システム時計の実装が返る
+    expect(got).toBeInstanceOf(SystemClock);
   });
 });

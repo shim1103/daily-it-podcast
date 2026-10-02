@@ -4,6 +4,7 @@ import type {
   ProgressWriteRequest,
   ProgressWriteResponse,
 } from "../../../contracts/index.ts";
+import type { Clock } from "../application/ports/clock.ts";
 import type { EpisodeRepository } from "../application/ports/episode-repository.ts";
 import type { ProgressRepository } from "../application/ports/progress-repository.ts";
 import { completeProgress } from "../application/use-cases/complete-progress.ts";
@@ -24,6 +25,7 @@ import { D1ProgressRepository } from "../infrastructure/d1/d1-progress-repositor
 import { InMemoryEpisodeRepository } from "../infrastructure/in-memory/in-memory-episode-repository.ts";
 import { InMemoryProgressRepository } from "../infrastructure/in-memory/in-memory-progress-repository.ts";
 import { R2EpisodeRepository } from "../infrastructure/r2/r2-episode-repository.ts";
+import { SystemClock } from "../infrastructure/system/system-clock.ts";
 import { validatePlaybackEnv, type PlaybackRepositoryOptions } from "./runtime-config.ts";
 import type { PlaybackEnv } from "./runtime-config-bindings.ts";
 
@@ -118,6 +120,16 @@ export function createProgressRepository(
   }
 
   return new InMemoryProgressRepository();
+}
+
+/**
+ * 現在時刻の `Clock` を返す。
+ *
+ * @ensure env・mode に依らず、システム時計を返す `SystemClock` を返す（in-memory mode と r2 mode で同じ）
+ */
+export function createClock(): Clock {
+  // todo: C が Write UseCase へ clock を注入したら、この todo を消す（`createPlaybackControllers` はまだ呼ばない）
+  return new SystemClock();
 }
 
 /**
