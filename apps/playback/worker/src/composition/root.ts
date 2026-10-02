@@ -26,10 +26,15 @@ import { InMemoryEpisodeRepository } from "../infrastructure/in-memory/in-memory
 import { InMemoryProgressRepository } from "../infrastructure/in-memory/in-memory-progress-repository.ts";
 import { R2EpisodeRepository } from "../infrastructure/r2/r2-episode-repository.ts";
 import { SystemClock } from "../infrastructure/system/system-clock.ts";
-import { validatePlaybackEnv, type PlaybackRepositoryOptions } from "./runtime-config.ts";
+import {
+  validateEpisodeEnv,
+  validateProgressEnv,
+  type PlaybackRepositoryOptions,
+} from "./runtime-config.ts";
 import type { PlaybackEnv } from "./runtime-config-bindings.ts";
 
 export type {
+  PlaybackProgressRepositoryMode,
   PlaybackRepositoryMode,
   PlaybackRepositoryOptions,
 } from "./runtime-config.ts";
@@ -48,7 +53,8 @@ export type PlaybackControllers = {
 /**
  * local development / unit test 用に use case 一式を丸ごと差し替える override。
  *
- * @invariant repository 解決（`createEpisodeRepository`）を経由しない。mode 未指定を無視する
+ * @invariant repository 解決（`createEpisodeRepository`・`createProgressRepository`）を経由しない。
+ *   episode の mode・進捗 mode が未指定でも throw しない
  */
 export type PlaybackUseCaseOverrides = {
   useCases: {
@@ -80,17 +86,19 @@ export type EpisodeRepositorySelection =
 /**
  * env から `EpisodeRepository` を選ぶ。
  *
- * @require env は Cloudflare Workers native secrets/vars（`.env` は読まない）。mode は呼び出し側が
- *   常に明示する
+ * @require env は Cloudflare Workers native secrets/vars（`.env` は読まない）。`options.mode` は
+ *   呼び出し側が常に明示する
  * @ensure 明示的 `options.mode === "in-memory"` の時は "in-memory"、明示的
- *   `options.mode === "r2"` の時は "r2"。mode 未指定・設定不足は runtime config module が throw する
- * @invariant mode の明示指定が必須で、env の中身から暗黙に解決しない
+ *   `options.mode === "r2"` の時は "r2"。`options.mode` 未指定、および r2 での `EPISODES` 欠落は
+ *   runtime config module が throw する
+ * @invariant 進捗の設定（`options.progressMode`・`EPISODE_PROGRESS`）に依存しない。mode の明示指定が
+ *   必須で、env の中身から暗黙に解決しない
  */
 export function createEpisodeRepository(
   env: PlaybackEnv,
   options: PlaybackRepositoryOptions = {},
 ): EpisodeRepositorySelection {
-  const validated = validatePlaybackEnv(env, options);
+  const validated = validateEpisodeEnv(env, options);
 
   if (validated.mode === "r2") {
     return { kind: "r2", repository: new R2EpisodeRepository({ bucket: validated.bucket }) };
@@ -102,20 +110,22 @@ export function createEpisodeRepository(
 /**
  * env から `ProgressRepository` を選ぶ。
  *
- * @require env は Cloudflare Workers native secrets/vars。mode は呼び出し側が常に明示する
- * @ensure 明示的 `options.mode === "r2"` の時は `EPISODE_PROGRESS`（D1 binding）の `D1ProgressRepository`、
- *   明示的 `options.mode === "in-memory"` の時は env の中身を見ず、行を保持する新しい
- *   `InMemoryProgressRepository` を返す。mode 未指定、および r2 での D1 binding 欠落は
- *   runtime config module が throw する
- * @invariant r2 mode の D1 欠落を `InMemoryProgressRepository` へ無言で逃がさない
+ * @require env は Cloudflare Workers native secrets/vars。`options.progressMode` は呼び出し側が
+ *   常に明示する
+ * @ensure 明示的 `options.progressMode === "d1"` の時は `EPISODE_PROGRESS`（D1 binding）の
+ *   `D1ProgressRepository`、明示的 `options.progressMode === "in-memory"` の時は env の中身を見ず、
+ *   行を保持する新しい `InMemoryProgressRepository` を返す。`options.progressMode` 未指定、および d1 での
+ *   D1 binding 欠落は runtime config module が throw する
+ * @invariant episode の設定（`options.mode`・`EPISODES`）に依存しない。d1 mode の D1 欠落を
+ *   `InMemoryProgressRepository` へ無言で逃がさない
  */
 export function createProgressRepository(
   env: PlaybackEnv,
   options: PlaybackRepositoryOptions = {},
 ): ProgressRepository {
-  const validated = validatePlaybackEnv(env, options);
+  const validated = validateProgressEnv(env, options);
 
-  if (validated.mode === "r2") {
+  if (validated.mode === "d1") {
     return new D1ProgressRepository({ database: validated.progressDatabase });
   }
 
@@ -125,7 +135,7 @@ export function createProgressRepository(
 /**
  * 現在時刻の `Clock` を返す。
  *
- * @ensure env・mode に依らず、システム時計を返す `SystemClock` を返す（in-memory mode と r2 mode で同じ）
+ * @ensure env・mode に依らず、システム時計を返す `SystemClock` を返す
  */
 export function createClock(): Clock {
   // todo: C が Write UseCase へ clock を注入したら、この todo を消す（`createPlaybackControllers` はまだ呼ばない）
@@ -135,11 +145,14 @@ export function createClock(): Clock {
 /**
  * env から Playback worker の Controller 一式を組み立てる。
  *
- * @require env は Cloudflare Workers native secrets/vars
+ * @require env は Cloudflare Workers native secrets/vars。useCaseOverrides が無い時、
+ *   `options.mode`（episode）と `options.progressMode`（進捗）は呼び出し側がどちらも明示する
  * @ensure useCaseOverrides がある時は repository 解決を経由せず、渡された use case を Controller
- *   へ直結する。無い時は episode と progress の repository を選べれば Controller 一式を返し、
- *   設定不足（r2 mode の R2・D1 binding 欠落を含む）は throw する
- * @invariant useCaseOverrides は既存の in-memory / r2 分岐（`createEpisodeRepository`）を変更しない
+ *   へ直結する。無い時は episode と進捗の repository をそれぞれの mode で選べれば Controller 一式を返し、
+ *   設定不足（どちらかの mode の未指定、r2 mode の `EPISODES` 欠落、d1 mode の D1 binding 欠落）は
+ *   throw する
+ * @invariant episode の永続先と進捗の永続先は独立に選ぶ（組合せは自由）。useCaseOverrides は
+ *   `createEpisodeRepository`・`createProgressRepository` の分岐を変更しない
  */
 export function createPlaybackControllers(
   env: PlaybackEnv,

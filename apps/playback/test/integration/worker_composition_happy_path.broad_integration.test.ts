@@ -16,7 +16,7 @@ import { createFakeLocalD1Binding } from "../support/create-fake-local-d1-bindin
  * scope: Broad Integration
  * real: Worker entry・route・Composition Root・Controller・UseCase・R2EpisodeRepository
  * double: R2 binding（`R2BucketBinding` の in-memory 実装）・D1 binding（読取は空の Fake）。真の Cloudflare R2 / D1 へは行かない
- * precondition: 本番route（options.mode: "r2" 固定）が R2 repository を選び、D1 binding の結線が必須
+ * precondition: 本番route（episode は mode: "r2"、進捗は progressMode: "d1" の固定）が R2 repository と D1 repository を選び、R2・D1 の両 binding の結線が必須
  * postcondition: list / get audio の成功応答が入口から見える。代表の R2 失敗は 503 unavailable
  * invariant: PlaybackUseCaseOverrides で use case 直差ししない
  */

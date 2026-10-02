@@ -8,10 +8,11 @@ import { createRemoteTestR2Binding } from "../test/support/create-remote-test-r2
 /**
  * Playback smoke 専用 dev server。origin は localhost:3000（web/vite.config.ts の dummy backend と同じ形）。
  *
- * `createApp()` を `{ mode: "r2" }` 明示で呼び、`env.EPISODES` に実 TEST R2 binding
+ * `createApp()` を呼び、`env.EPISODES` に実 TEST R2 binding
  * （`test/support/create-remote-test-r2-binding.ts`、bucket は `daily-it-podcast-dev`）と、
- * `env.EPISODE_PROGRESS` に読取が空の Fake D1 binding を注入する（r2 mode は D1 binding が必須）。
- * 本番 route（`routes/app.ts`）が R2 mode 固定になったため、smoke も同じ経路（R2 正本）を確認する。
+ * `env.EPISODE_PROGRESS` に読取が空の Fake D1 binding を注入する。
+ * 本番 route（`routes/app.ts`）が episode `r2` ＋ 進捗 `d1` 固定のため、smoke も同じ経路（R2・D1 正本）を通り、
+ * 両 binding が必須になる。
  *
  * @require 実 Cloudflare 認証（`CLOUDFLARE_API_TOKEN` 等）が process env にある（無ければ
  *   getPlatformProxy の remoteBindings 起動が失敗する）
@@ -31,8 +32,8 @@ export default defineConfig({
       name: "smoke-backend-api",
       async configureServer(server) {
         const { bucket, dispose } = await createRemoteTestR2Binding();
-        // why: smoke の確認対象は R2 正本の一覧・音声。進捗は r2 mode の必須 binding を満たすだけに
-        //   留め、実 TEST D1 へは書かない
+        // why: smoke の確認対象は R2 正本の一覧・音声。本番 route が進捗 d1 固定で D1 binding を要求するため、
+        //   進捗は必須 binding を満たすだけに留め、実 TEST D1 へは書かない
         const { database } = await createFakeLocalD1Binding();
         const smokeApp = createApp();
 
