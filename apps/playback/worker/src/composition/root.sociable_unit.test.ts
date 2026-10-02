@@ -100,42 +100,77 @@ describe("createPlaybackControllers", () => {
     expect(() => createPlaybackControllers(env)).toThrow(PlaybackRuntimeConfigError);
   });
 
-  it("routes_progress_through_stub_when_in_memory_mode_has_no_override_and_no_d1_binding", async () => {
-    // Given: override 無し・in-memory mode・D1 binding 無しの空 env（in-memory は progress を永続しない Stub）
+  it("returns_empty_list_and_not_found_for_audio_and_complete_when_in_memory_mode_has_no_manuscripts", async () => {
+    // Given: override 無し・in-memory mode・D1 binding 無しの空 env（原稿も進捗も無い）
     const got = createPlaybackControllers({}, { mode: localMode });
 
-    // When: 一覧・音声・progress 経路を叩く
+    // When: 一覧・音声・完走経路を叩く
     const list = await got.listEpisodesController();
     const audio = got.getAudioController("missing");
-    const write = await got.createProgressController("ep-1", {
-      positionSec: 1,
-      clientAt: "2026-09-22T10:00:00.000Z",
-    });
-    const update = got.updateProgressController("ep-1", {
-      positionSec: 2,
-      clientAt: "2026-09-22T10:01:00.000Z",
-    });
     const complete = got.completeProgressController("ep-1", {
       positionSec: 57,
       clientAt: "2026-09-22T10:05:00.000Z",
     });
-    const pull = await got.pullProgressController("2026-09-22T10:00:00.000Z");
 
-    // Then: 空 repository を検証純関数が通し、一覧は空・音声は Domain 経由の External NotFound
-    // Stub Progress は永続しないため create は merge 応答・update は行なし 404
+    // Then: 一覧は空・音声は Domain 経由の External NotFound・
     // complete は原稿無しで EpisodeContentError → External NotFound
     expect(list.episodes).toEqual([]);
     await expect(audio).rejects.toMatchObject({ name: "NotFoundError" });
-    expect(write).toEqual({
-      firstPlayedAt: "2026-09-22T10:00:00.000Z",
-      firstCompletedAt: null,
-    });
-    await expect(update).rejects.toMatchObject({ name: "NotFoundError" });
     await expect(complete).rejects.toMatchObject({ name: "NotFoundError" });
-    expect(pull).toEqual({ episodes: [] });
   });
 
-  it("routes_progress_through_stub_when_in_memory_mode_even_if_env_has_d1_binding", async () => {
+  it("persists_created_progress_for_pull_when_mode_is_in_memory", async () => {
+    // Given: override 無し・in-memory mode の空 env で組み立てた Controller 一式
+    const got = createPlaybackControllers({}, { mode: localMode });
+
+    // When: 同じ組み立ての中で progress を作成し、作成より前の since で pull する
+    await got.createProgressController("ep-1", {
+      positionSec: 12,
+      clientAt: "2026-09-22T10:00:00.000Z",
+    });
+    const pull = await got.pullProgressController("2026-09-22T09:00:00.000Z");
+
+    // Then: 作成した進捗が永続され、pull で読める
+    expect(pull).toEqual({
+      episodes: [
+        {
+          episodeId: "ep-1",
+          progress: {
+            positionSec: 12,
+            firstPlayedAt: "2026-09-22T10:00:00.000Z",
+            firstCompletedAt: null,
+            lastPlayedAt: "2026-09-22T10:00:00.000Z",
+          },
+        },
+      ],
+    });
+  });
+
+  it("updates_created_progress_when_mode_is_in_memory", async () => {
+    // Given: in-memory mode の Controller 一式と、同じ組み立ての中で作成済みの progress
+    const got = createPlaybackControllers({}, { mode: localMode });
+    await got.createProgressController("ep-1", {
+      positionSec: 12,
+      clientAt: "2026-09-22T10:00:00.000Z",
+    });
+
+    // When: 同じ episode を後の clientAt で更新し、pull する
+    const update = await got.updateProgressController("ep-1", {
+      positionSec: 30,
+      clientAt: "2026-09-22T10:01:00.000Z",
+    });
+    const pull = await got.pullProgressController("2026-09-22T09:00:00.000Z");
+
+    // Then: 更新は行なし 404 にならず、pull は後勝ちの位置を返す
+    expect(update).toEqual({ firstPlayedAt: "2026-09-22T10:00:00.000Z", firstCompletedAt: null });
+    expect(pull.episodes).toHaveLength(1);
+    expect(pull.episodes[0]?.progress).toMatchObject({
+      positionSec: 30,
+      lastPlayedAt: "2026-09-22T10:01:00.000Z",
+    });
+  });
+
+  it("sends_no_sql_to_d1_when_mode_is_in_memory_even_if_env_has_d1_binding", async () => {
     // Given: D1 binding を持つ env と in-memory mode（in-memory は env の中身を見ない）
     const { database, calls } = await createFakeLocalD1Binding();
     const got = createPlaybackControllers({ EPISODE_PROGRESS: database }, { mode: localMode });
@@ -146,7 +181,7 @@ describe("createPlaybackControllers", () => {
       clientAt: "2026-10-01T00:00:00.000Z",
     });
 
-    // Then: D1 へは SQL を渡さず、Stub は merge 結果の応答だけを返す
+    // Then: D1 へは SQL を渡さず、merge 結果の応答だけを返す
     expect(write).toEqual({ firstPlayedAt: "2026-10-01T00:00:00.000Z", firstCompletedAt: null });
     expect(calls).toHaveLength(0);
   });
@@ -170,7 +205,7 @@ describe("createPlaybackControllers", () => {
     expect(calls).toHaveLength(2);
   });
 
-  it("throws_without_falling_back_to_stub_when_mode_is_r2_and_d1_binding_is_missing", () => {
+  it("throws_without_falling_back_to_in_memory_when_mode_is_r2_and_d1_binding_is_missing", () => {
     // Given: R2 binding だけを持つ env（進捗が保存できたように見えて消える構成）
     const env = { EPISODES: emptyBucket };
 

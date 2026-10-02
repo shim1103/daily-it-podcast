@@ -5,10 +5,7 @@ import type {
   ProgressWriteResponse,
 } from "../../../contracts/index.ts";
 import type { EpisodeRepository } from "../application/ports/episode-repository.ts";
-import {
-  StubProgressRepository,
-  type ProgressRepository,
-} from "../application/ports/progress-repository.ts";
+import type { ProgressRepository } from "../application/ports/progress-repository.ts";
 import { completeProgress } from "../application/use-cases/complete-progress.ts";
 import { createProgress } from "../application/use-cases/create-progress.ts";
 import { getAudio } from "../application/use-cases/get-audio.ts";
@@ -25,6 +22,7 @@ import type { PullProgressController } from "../controllers/pull-progress-contro
 import { createPullProgressController } from "../controllers/pull-progress-controller.ts";
 import { D1ProgressRepository } from "../infrastructure/d1/d1-progress-repository.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/in-memory/in-memory-episode-repository.ts";
+import { InMemoryProgressRepository } from "../infrastructure/in-memory/in-memory-progress-repository.ts";
 import { R2EpisodeRepository } from "../infrastructure/r2/r2-episode-repository.ts";
 import { validatePlaybackEnv, type PlaybackRepositoryOptions } from "./runtime-config.ts";
 import type { PlaybackEnv } from "./runtime-config-bindings.ts";
@@ -104,9 +102,10 @@ export function createEpisodeRepository(
  *
  * @require env は Cloudflare Workers native secrets/vars。mode は呼び出し側が常に明示する
  * @ensure 明示的 `options.mode === "r2"` の時は `EPISODE_PROGRESS`（D1 binding）の `D1ProgressRepository`、
- *   明示的 `options.mode === "in-memory"` の時は env の中身を見ず、永続しない `StubProgressRepository`
- *   を返す。mode 未指定、および r2 での D1 binding 欠落は runtime config module が throw する
- * @invariant r2 mode の D1 欠落を `StubProgressRepository` へ無言で逃がさない
+ *   明示的 `options.mode === "in-memory"` の時は env の中身を見ず、行を保持する新しい
+ *   `InMemoryProgressRepository` を返す。mode 未指定、および r2 での D1 binding 欠落は
+ *   runtime config module が throw する
+ * @invariant r2 mode の D1 欠落を `InMemoryProgressRepository` へ無言で逃がさない
  */
 export function createProgressRepository(
   env: PlaybackEnv,
@@ -118,7 +117,7 @@ export function createProgressRepository(
     return new D1ProgressRepository({ database: validated.progressDatabase });
   }
 
-  return new StubProgressRepository();
+  return new InMemoryProgressRepository();
 }
 
 /**
