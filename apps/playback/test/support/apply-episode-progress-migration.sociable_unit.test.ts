@@ -3,23 +3,16 @@ import { applyEpisodeProgressMigration } from "./apply-episode-progress-migratio
 import { createFakeLocalD1Binding } from "./create-fake-local-d1-binding.ts";
 
 describe("applyEpisodeProgressMigration", () => {
-  it("runs_statements_of_0001_then_0002_in_file_name_order_when_applying", async () => {
+  it("runs_create_table_then_create_index_in_file_order_when_applying", async () => {
     // Given: 呼び出しを記録する Fake の database
     const { database, calls } = await createFakeLocalD1Binding();
 
     // When: migration を適用する
     await applyEpisodeProgressMigration(database);
 
-    // Then: 適用済みで変わらない 0001（1 文）と 0002（3 文）の開始句が、この順で先頭 4 件に並ぶ
-    const startingClauses = calls
-      .slice(0, 4)
-      .map((call) => call.sql.split(/\s+/).slice(0, 2).join(" "));
-    expect(startingClauses).toEqual([
-      "CREATE TABLE",
-      "ALTER TABLE",
-      "UPDATE episode_progress",
-      "CREATE INDEX",
-    ]);
+    // Then: 0001 の 2 文の開始句が、この順で並ぶ
+    const startingClauses = calls.map((call) => call.sql.split(/\s+/).slice(0, 2).join(" "));
+    expect(startingClauses).toEqual(["CREATE TABLE", "CREATE INDEX"]);
   });
 
   it("excludes_comment_lines_from_executed_statements_when_a_file_has_a_header_comment", async () => {

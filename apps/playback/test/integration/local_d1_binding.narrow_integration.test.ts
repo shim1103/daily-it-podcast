@@ -22,7 +22,7 @@ import {
 const columns = episodeProgressColumns;
 
 const INSERT_PROGRESS = `INSERT INTO ${EPISODE_PROGRESS_TABLE} (${columns.episodeId}, ${columns.positionSec}, ${columns.firstPlayedAt}, ${columns.firstCompletedAt}, ${columns.lastPlayedAt}) VALUES (?, ?, ?, ?, ?)`;
-// why: この test は binding の読取形を見る。seq 列（migration 0002）を期待値へ混ぜないため、読む列を明示する
+// why: この test は binding の読取形を見る。seq 列を期待値へ混ぜないため、読む列を明示する
 const SELECT_COLUMNS = `${columns.episodeId}, ${columns.positionSec}, ${columns.firstPlayedAt}, ${columns.firstCompletedAt}, ${columns.lastPlayedAt}`;
 const SELECT_PROGRESS = `SELECT ${SELECT_COLUMNS} FROM ${EPISODE_PROGRESS_TABLE} WHERE ${columns.episodeId} = ?`;
 const SELECT_ALL_PROGRESS = `SELECT ${SELECT_COLUMNS} FROM ${EPISODE_PROGRESS_TABLE} ORDER BY ${columns.episodeId}`;
