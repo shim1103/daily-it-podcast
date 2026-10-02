@@ -1,0 +1,98 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "1da2b874-a15d-4016-917b-2467d35f8ff2",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "ddl": [
+    {
+      "name": "episode_progress",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "episode_id",
+      "entityType": "columns",
+      "table": "episode_progress"
+    },
+    {
+      "type": "real",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "position_sec",
+      "entityType": "columns",
+      "table": "episode_progress"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "first_played_at",
+      "entityType": "columns",
+      "table": "episode_progress"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "first_completed_at",
+      "entityType": "columns",
+      "table": "episode_progress"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "last_played_at",
+      "entityType": "columns",
+      "table": "episode_progress"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "seq",
+      "entityType": "columns",
+      "table": "episode_progress"
+    },
+    {
+      "columns": [
+        "episode_id"
+      ],
+      "nameExplicit": false,
+      "name": "episode_progress_pk",
+      "entityType": "pks",
+      "table": "episode_progress"
+    },
+    {
+      "columns": [
+        {
+          "value": "seq",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "episode_progress_seq_idx",
+      "entityType": "indexes",
+      "table": "episode_progress"
+    }
+  ],
+  "renames": []
+}

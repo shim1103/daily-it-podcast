@@ -3,6 +3,9 @@
  * Domain の完走ゾーンは `entities/constants/progress.ts` を正とする。
  */
 
+import { getTableName } from "drizzle-orm";
+import { episodeProgressTable } from "./schema.ts";
+
 /**
  * Workers D1 binding 名。`wrangler.jsonc` の `d1_databases[].binding` と
  * PlaybackEnv の key と一致させる（database 実体の作成・credential 登録は A）。
@@ -16,17 +19,17 @@ export const EPISODE_PROGRESS_D1_BINDING = "EPISODE_PROGRESS" as const;
  */
 export const PROGRESS_D1_ADAPTER_MAX_ATTEMPTS = 1 as const;
 
-/** D1 進捗表名。migration と adapter が共有する。 */
-export const EPISODE_PROGRESS_TABLE = "episode_progress" as const;
+/** D1 進捗表名。`schema.ts` の表定義から導く（literal を複製しない）。 */
+export const EPISODE_PROGRESS_TABLE = getTableName(episodeProgressTable);
 
-/** D1 進捗表の列名。migration と adapter が共有する。 */
+/** D1 進捗表の列名。`schema.ts` の列定義から導く（literal を複製しない）。 */
 export const episodeProgressColumns = {
-  episodeId: "episode_id",
-  positionSec: "position_sec",
-  firstPlayedAt: "first_played_at",
-  firstCompletedAt: "first_completed_at",
-  lastPlayedAt: "last_played_at",
-  seq: "seq",
+  episodeId: episodeProgressTable.episodeId.name,
+  positionSec: episodeProgressTable.positionSec.name,
+  firstPlayedAt: episodeProgressTable.firstPlayedAt.name,
+  firstCompletedAt: episodeProgressTable.firstCompletedAt.name,
+  lastPlayedAt: episodeProgressTable.lastPlayedAt.name,
+  seq: episodeProgressTable.seq.name,
 } as const;
 
 /**

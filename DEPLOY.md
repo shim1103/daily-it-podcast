@@ -52,7 +52,7 @@ binding 契約の正本は、本番が `apps/playback/wrangler.jsonc`、TEST が
 
 1. 本番と TEST は別 instance（`daily-it-podcast-progress-prod` / `daily-it-podcast-progress-dev`）。
 2. TEST D1 へ触れる GHA は、`CLOUDFLARE_API_TOKEN`（account の D1 編集権限が要る）と Variable `R2_ACCOUNT_ID`（本番・test 共通の account。TEST D1 も同じ account。§4）を使う。D1 専用の Secret / Variable は登録しない。
-3. 表 `episode_progress` の DDL 正本は `apps/playback/worker/migrations/`（`migrations_dir` は `wrangler.smoke.jsonc` に宣言）。migration の適用と置き場は Decision `2026-09-30T13-30-00`、dispatch 疎通の形は Decision `2026-09-30T12-32-02`。
+3. 表 `episode_progress` の schema 正本は `apps/playback/worker/src/infrastructure/d1/schema.ts`。migration は `drizzle-kit generate`（`npm run db:generate`）の生成物で `apps/playback/worker/migrations/<時刻>_<名前>/` に置く（`migrations_dir`・`migrations_pattern` は `wrangler.jsonc` と `wrangler.smoke.jsonc` に宣言）。migration の適用と置き場は Decision `2026-09-30T13-30-00`、dispatch 疎通の形は Decision `2026-09-30T12-32-02`。
 
 ### Workers Logs
 

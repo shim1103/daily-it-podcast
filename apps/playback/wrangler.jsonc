@@ -27,7 +27,9 @@
     {
       "binding": "EPISODE_PROGRESS",
       "database_name": "daily-it-podcast-progress-prod",
-      "database_id": "c0257cd5-2945-480a-bb6f-6feb02e5d057"
+      "database_id": "c0257cd5-2945-480a-bb6f-6feb02e5d057",
+      "migrations_dir": "worker/migrations",
+      "migrations_pattern": "worker/migrations/*/migration.sql"
     }
   ]
 }
