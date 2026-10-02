@@ -4,13 +4,15 @@
  * 実物境界: getPlatformProxy が返す Workers D1 binding（実 SQLite）
  * Double: 本番 remote D1 は使わない（remoteBindings: false）
  *
- * 実 SQL の merge 意味（先勝ち / 後勝ち / 冪等 / pull 境界 / offset 混在）と、実 D1 の bind 数上限・
- * 表なし失敗を所有する。binding 呼び出しの形・Error 写像・再試行なしは sociable unit が所有する。
+ * 実 SQL の全列置換（新規 INSERT と既存行の置換）・pull の境界と並び・実 D1 の bind 数上限・
+ * 表なし失敗を所有する。勝敗の merge 規則は Application（merge-progress の sociable unit）が所有する。
+ * binding 呼び出しの形・Error 写像・再試行なしは sociable unit が所有する。
  *
  * @require createLocalD1Binding が実 proxy を起動し、applyEpisodeProgressMigration で表を作れる
- * @ensure D1ProgressRepository が実 SQLite に対して Port の merge 契約を満たす
+ * @ensure D1ProgressRepository が実 SQLite に対して Port の永続契約（渡された行をそのまま保存し、読み返せる）を満たす
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { ProgressUpsertRow } from "../../worker/src/application/ports/progress-repository.ts";
 import type { D1DatabaseBinding } from "../../worker/src/infrastructure/d1/d1-database-binding.ts";
 import { D1Error } from "../../worker/src/infrastructure/d1/d1-error.ts";
 import { D1ProgressRepository } from "../../worker/src/infrastructure/d1/d1-progress-repository.ts";
@@ -44,269 +46,94 @@ beforeEach(async () => {
   await database.prepare(`DELETE FROM ${EPISODE_PROGRESS_TABLE}`).run();
 });
 
+function progressRow(
+  episodeId: string,
+  overrides: Partial<ProgressUpsertRow> = {},
+): ProgressUpsertRow {
+  return {
+    episodeId,
+    positionSec: 10,
+    firstPlayedAt: "2026-10-01T00:00:10.000Z",
+    firstCompletedAt: null,
+    lastPlayedAt: "2026-10-01T00:00:10.000Z",
+    ...overrides,
+  };
+}
+
 async function progressOf(episodeId: string) {
   return (await repository.getByEpisodeIds([episodeId])).get(episodeId);
 }
 
 describe("D1ProgressRepository on local D1", () => {
-  describe("writeProgress", () => {
-    it("creates_row_with_first_and_last_played_at_equal_to_client_at_when_no_row_exists", async () => {
-      // Given: 行の無い episode
-
-      // When: 初回 write する
-      const got = await repository.writeProgress({
-        episodeId: "ep-1",
-        positionSec: 10,
-        clientAt: "2026-10-01T00:00:10.000Z",
+  describe("upsertProgress", () => {
+    it("inserts_row_with_all_columns_as_given_when_no_row_exists", async () => {
+      // Given: 行の無い episode と、完走済みの row
+      const row = progressRow("ep-1", {
+        positionSec: 60.5,
+        firstCompletedAt: "2026-10-01T00:01:00.000Z",
+        lastPlayedAt: "2026-10-01T00:02:00.000Z",
       });
 
-      // Then: first_played_at は clientAt、未完走で、行は clientAt を last_played_at に持つ
-      expect(got).toEqual({ firstPlayedAt: "2026-10-01T00:00:10.000Z", firstCompletedAt: null });
+      // When: upsert する
+      await repository.upsertProgress(row);
+
+      // Then: 全列が渡した値のまま読み返せる
       expect(await progressOf("ep-1")).toEqual({
-        positionSec: 10,
+        positionSec: 60.5,
         firstPlayedAt: "2026-10-01T00:00:10.000Z",
-        firstCompletedAt: null,
-        lastPlayedAt: "2026-10-01T00:00:10.000Z",
+        firstCompletedAt: "2026-10-01T00:01:00.000Z",
+        lastPlayedAt: "2026-10-01T00:02:00.000Z",
       });
     });
 
-    it("advances_position_and_last_played_at_and_keeps_first_played_at_when_later_client_at_arrives", async () => {
-      // Given: 00:00:10 で作成済みの行
-      await repository.writeProgress({
-        episodeId: "ep-1",
-        positionSec: 10,
-        clientAt: "2026-10-01T00:00:10.000Z",
-      });
+    it("replaces_every_column_as_given_without_merging_when_row_exists", async () => {
+      // Given: 完走済みで最終再生が新しい行
+      await repository.upsertProgress(
+        progressRow("ep-1", {
+          positionSec: 60,
+          firstPlayedAt: "2026-10-01T00:00:10.000Z",
+          firstCompletedAt: "2026-10-01T00:01:00.000Z",
+          lastPlayedAt: "2026-10-01T00:02:00.000Z",
+        }),
+      );
 
-      // When: より遅い clientAt で update する
-      const got = await repository.writeProgress({
-        episodeId: "ep-1",
-        positionSec: 30,
-        clientAt: "2026-10-01T00:00:30.000Z",
-      });
+      // When: 全列で既存より古い・未完走の row を upsert する
+      await repository.upsertProgress(
+        progressRow("ep-1", {
+          positionSec: 5,
+          firstPlayedAt: "2026-10-01T00:00:20.000Z",
+          firstCompletedAt: null,
+          lastPlayedAt: "2026-10-01T00:00:30.000Z",
+        }),
+      );
 
-      // Then: first_played_at は先勝ちで残り、position / last_played_at は遅い側へ進む
-      expect(got.firstPlayedAt).toBe("2026-10-01T00:00:10.000Z");
+      // Then: 勝敗を決めず、渡した値で全列が置き換わる（firstCompletedAt も null に戻る）
       expect(await progressOf("ep-1")).toEqual({
-        positionSec: 30,
-        firstPlayedAt: "2026-10-01T00:00:10.000Z",
-        firstCompletedAt: null,
-        lastPlayedAt: "2026-10-01T00:00:30.000Z",
-      });
-    });
-
-    it("moves_first_played_at_earlier_and_keeps_later_position_pair_when_earlier_client_at_arrives_late", async () => {
-      // Given: 00:00:30 の位置で作成済みの行
-      await repository.writeProgress({
-        episodeId: "ep-1",
-        positionSec: 30,
-        clientAt: "2026-10-01T00:00:30.000Z",
-      });
-
-      // When: 遅れて届いた、より早い clientAt の write
-      const got = await repository.writeProgress({
-        episodeId: "ep-1",
         positionSec: 5,
-        clientAt: "2026-10-01T00:00:05.000Z",
-      });
-
-      // Then: first_played_at は早い側へ移り、position / last_played_at は遅い側のペアのまま
-      expect(got.firstPlayedAt).toBe("2026-10-01T00:00:05.000Z");
-      expect(await progressOf("ep-1")).toEqual({
-        positionSec: 30,
-        firstPlayedAt: "2026-10-01T00:00:05.000Z",
+        firstPlayedAt: "2026-10-01T00:00:20.000Z",
         firstCompletedAt: null,
         lastPlayedAt: "2026-10-01T00:00:30.000Z",
       });
     });
 
-    it("takes_incoming_position_when_client_at_ties", async () => {
-      // Given: 同じ clientAt で作成済みの行
-      await repository.writeProgress({
-        episodeId: "ep-1",
-        positionSec: 10,
-        clientAt: "2026-10-01T00:00:10.000Z",
-      });
+    it("leaves_other_episode_rows_untouched_when_one_row_is_replaced", async () => {
+      // Given: 2 episode の行
+      await repository.upsertProgress(progressRow("ep-1", { positionSec: 1 }));
+      await repository.upsertProgress(progressRow("ep-2", { positionSec: 2 }));
 
-      // When: 同じ clientAt で別の位置を write する
-      await repository.writeProgress({
-        episodeId: "ep-1",
-        positionSec: 20,
-        clientAt: "2026-10-01T00:00:10.000Z",
-      });
+      // When: ep-1 だけ置き換える
+      await repository.upsertProgress(progressRow("ep-1", { positionSec: 99 }));
 
-      // Then: 後着が採用される
-      expect((await progressOf("ep-1"))?.positionSec).toBe(20);
-    });
-
-    it("returns_same_winner_and_keeps_row_when_same_request_is_replayed", async () => {
-      // Given: 同一内容の write を 1 度済ませた行
-      const command = {
-        episodeId: "ep-1",
-        positionSec: 10,
-        clientAt: "2026-10-01T00:00:10.000Z",
-      };
-      const first = await repository.writeProgress(command);
-      const rowAfterFirst = await progressOf("ep-1");
-
-      // When: 同一内容を再送する（重複 create / retry）
-      const second = await repository.writeProgress(command);
-
-      // Then: 冪等に成功し、勝ち側も行も変わらない
-      expect(second).toEqual(first);
-      expect(await progressOf("ep-1")).toEqual(rowAfterFirst);
-    });
-
-    it("compares_by_instant_not_by_string_when_client_at_offsets_are_mixed", async () => {
-      // Given: Z 表記 00:30Z の行。文字列比較だと "…T09:00:00+09:00" の方が大きく見える
-      await repository.writeProgress({
-        episodeId: "ep-1",
-        positionSec: 30,
-        clientAt: "2026-10-01T00:30:00Z",
-      });
-
-      // When: 時刻としては 00:00Z（より早い）の +09:00 表記を write する
-      const got = await repository.writeProgress({
-        episodeId: "ep-1",
-        positionSec: 1,
-        clientAt: "2026-10-01T09:00:00+09:00",
-      });
-
-      // Then: 時刻として早い側が first_played_at に勝ち、position は遅い 00:30Z のまま。応答は UTC 表記
-      expect(got.firstPlayedAt).toBe("2026-10-01T00:00:00.000Z");
-      expect(await progressOf("ep-1")).toEqual({
-        positionSec: 30,
-        firstPlayedAt: "2026-10-01T00:00:00.000Z",
-        firstCompletedAt: null,
-        lastPlayedAt: "2026-10-01T00:30:00.000Z",
-      });
-    });
-
-    it("keeps_first_completed_at_when_update_follows_complete", async () => {
-      // Given: complete 済みの行
-      await repository.completeProgress({
-        episodeId: "ep-1",
-        positionSec: 60,
-        clientAt: "2026-10-01T00:01:00.000Z",
-      });
-
-      // When: 後続の update
-      const got = await repository.writeProgress({
-        episodeId: "ep-1",
-        positionSec: 61,
-        clientAt: "2026-10-01T00:01:10.000Z",
-      });
-
-      // Then: first_completed_at には触れない
-      expect(got.firstCompletedAt).toBe("2026-10-01T00:01:00.000Z");
-    });
-  });
-
-  describe("completeProgress", () => {
-    it("creates_row_with_all_timestamps_equal_to_client_at_when_no_row_exists", async () => {
-      // Given: 行の無い episode
-
-      // When: 初回で complete する
-      const got = await repository.completeProgress({
-        episodeId: "ep-1",
-        positionSec: 60,
-        clientAt: "2026-10-01T00:01:00.000Z",
-      });
-
-      // Then: first_played_at / first_completed_at / last_played_at がすべて clientAt
-      expect(got).toEqual({
-        firstPlayedAt: "2026-10-01T00:01:00.000Z",
-        firstCompletedAt: "2026-10-01T00:01:00.000Z",
-      });
-      expect(await progressOf("ep-1")).toEqual({
-        positionSec: 60,
-        firstPlayedAt: "2026-10-01T00:01:00.000Z",
-        firstCompletedAt: "2026-10-01T00:01:00.000Z",
-        lastPlayedAt: "2026-10-01T00:01:00.000Z",
-      });
-    });
-
-    it("fills_first_completed_at_and_keeps_first_played_at_when_row_has_no_completion", async () => {
-      // Given: 未完走の行
-      await repository.writeProgress({
-        episodeId: "ep-1",
-        positionSec: 10,
-        clientAt: "2026-10-01T00:00:10.000Z",
-      });
-
-      // When: complete する
-      const got = await repository.completeProgress({
-        episodeId: "ep-1",
-        positionSec: 60,
-        clientAt: "2026-10-01T00:01:00.000Z",
-      });
-
-      // Then: first_completed_at が埋まり、first_played_at は先勝ちで残り、position は後勝ちで進む
-      expect(got).toEqual({
-        firstPlayedAt: "2026-10-01T00:00:10.000Z",
-        firstCompletedAt: "2026-10-01T00:01:00.000Z",
-      });
-      expect((await progressOf("ep-1"))?.positionSec).toBe(60);
-    });
-
-    it("keeps_earlier_first_completed_at_when_later_complete_arrives", async () => {
-      // Given: 00:01:00 に完走済みの行
-      await repository.completeProgress({
-        episodeId: "ep-1",
-        positionSec: 60,
-        clientAt: "2026-10-01T00:01:00.000Z",
-      });
-
-      // When: より遅い clientAt の complete
-      const got = await repository.completeProgress({
-        episodeId: "ep-1",
-        positionSec: 62,
-        clientAt: "2026-10-01T00:02:00.000Z",
-      });
-
-      // Then: first_completed_at は先勝ちで早い側のまま、position / last_played_at は遅い側へ
-      expect(got.firstCompletedAt).toBe("2026-10-01T00:01:00.000Z");
-      expect(await progressOf("ep-1")).toMatchObject({
-        positionSec: 62,
-        lastPlayedAt: "2026-10-01T00:02:00.000Z",
-      });
-    });
-
-    it("moves_first_completed_at_earlier_when_earlier_complete_arrives_late", async () => {
-      // Given: 00:02:00 に完走済みの行
-      await repository.completeProgress({
-        episodeId: "ep-1",
-        positionSec: 62,
-        clientAt: "2026-10-01T00:02:00.000Z",
-      });
-
-      // When: 遅れて届いた、より早い clientAt の complete
-      const got = await repository.completeProgress({
-        episodeId: "ep-1",
-        positionSec: 60,
-        clientAt: "2026-10-01T00:01:00.000Z",
-      });
-
-      // Then: first_completed_at / first_played_at は早い側へ、position は遅い側のペアのまま
-      expect(got).toEqual({
-        firstPlayedAt: "2026-10-01T00:01:00.000Z",
-        firstCompletedAt: "2026-10-01T00:01:00.000Z",
-      });
-      expect(await progressOf("ep-1")).toMatchObject({
-        positionSec: 62,
-        lastPlayedAt: "2026-10-01T00:02:00.000Z",
-      });
+      // Then: ep-2 は変わらない
+      expect((await progressOf("ep-1"))?.positionSec).toBe(99);
+      expect((await progressOf("ep-2"))?.positionSec).toBe(2);
     });
   });
 
   describe("getByEpisodeIds", () => {
     it("returns_only_existing_rows_when_some_episode_ids_have_no_row", async () => {
       // Given: ep-1 だけ行がある
-      await repository.writeProgress({
-        episodeId: "ep-1",
-        positionSec: 10,
-        clientAt: "2026-10-01T00:00:10.000Z",
-      });
+      await repository.upsertProgress(progressRow("ep-1"));
 
       // When: 行のある ID と無い ID を一緒に取得する
       const got = await repository.getByEpisodeIds(["ep-1", "ep-unknown"]);
@@ -323,11 +150,7 @@ describe("D1ProgressRepository on local D1", () => {
       );
       const seeded = ["ep-5", `ep-${D1_MAX_BOUND_PARAMETERS_PER_QUERY + 20}`, "ep-249"];
       for (const episodeId of seeded) {
-        await repository.writeProgress({
-          episodeId,
-          positionSec: 1,
-          clientAt: "2026-10-01T00:00:10.000Z",
-        });
+        await repository.upsertProgress(progressRow(episodeId));
       }
 
       // When: 全 ID で取得する
@@ -341,16 +164,12 @@ describe("D1ProgressRepository on local D1", () => {
   describe("listUpdatedSince", () => {
     it("excludes_row_whose_last_played_at_equals_since", async () => {
       // Given: last_played_at が 00:00:10 / 00:00:20 の 2 行
-      await repository.writeProgress({
-        episodeId: "ep-1",
-        positionSec: 1,
-        clientAt: "2026-10-01T00:00:10.000Z",
-      });
-      await repository.writeProgress({
-        episodeId: "ep-2",
-        positionSec: 2,
-        clientAt: "2026-10-01T00:00:20.000Z",
-      });
+      await repository.upsertProgress(
+        progressRow("ep-1", { lastPlayedAt: "2026-10-01T00:00:10.000Z" }),
+      );
+      await repository.upsertProgress(
+        progressRow("ep-2", { lastPlayedAt: "2026-10-01T00:00:20.000Z" }),
+      );
 
       // When: since = 00:00:10 で pull する
       const got = await repository.listUpdatedSince("2026-10-01T00:00:10.000Z");
@@ -361,21 +180,15 @@ describe("D1ProgressRepository on local D1", () => {
 
     it("orders_by_last_played_at_then_episode_id", async () => {
       // Given: 書込順と更新時刻順が食い違い、同時刻の行を含む 3 行
-      await repository.writeProgress({
-        episodeId: "ep-b",
-        positionSec: 1,
-        clientAt: "2026-10-01T00:00:20.000Z",
-      });
-      await repository.writeProgress({
-        episodeId: "ep-c",
-        positionSec: 1,
-        clientAt: "2026-10-01T00:00:10.000Z",
-      });
-      await repository.writeProgress({
-        episodeId: "ep-a",
-        positionSec: 1,
-        clientAt: "2026-10-01T00:00:20.000Z",
-      });
+      await repository.upsertProgress(
+        progressRow("ep-b", { lastPlayedAt: "2026-10-01T00:00:20.000Z" }),
+      );
+      await repository.upsertProgress(
+        progressRow("ep-c", { lastPlayedAt: "2026-10-01T00:00:10.000Z" }),
+      );
+      await repository.upsertProgress(
+        progressRow("ep-a", { lastPlayedAt: "2026-10-01T00:00:20.000Z" }),
+      );
 
       // When: pull する
       const got = await repository.listUpdatedSince("2026-10-01T00:00:00.000Z");
@@ -384,33 +197,9 @@ describe("D1ProgressRepository on local D1", () => {
       expect(got.map((entry) => entry.episodeId)).toEqual(["ep-c", "ep-a", "ep-b"]);
     });
 
-    it("compares_by_instant_when_since_has_offset", async () => {
-      // Given: 00:00:10Z と 00:00:30Z の 2 行
-      await repository.writeProgress({
-        episodeId: "ep-1",
-        positionSec: 1,
-        clientAt: "2026-10-01T00:00:10Z",
-      });
-      await repository.writeProgress({
-        episodeId: "ep-2",
-        positionSec: 2,
-        clientAt: "2026-10-01T00:00:30Z",
-      });
-
-      // When: 時刻としては 00:00:20Z にあたる +09:00 表記の since で pull する
-      const got = await repository.listUpdatedSince("2026-10-01T09:00:20+09:00");
-
-      // Then: 時刻として後の行だけが返る（文字列比較なら両方返ってしまう）
-      expect(got.map((entry) => entry.episodeId)).toEqual(["ep-2"]);
-    });
-
     it("returns_empty_array_when_no_row_is_newer_than_since", async () => {
       // Given: 1 行
-      await repository.writeProgress({
-        episodeId: "ep-1",
-        positionSec: 1,
-        clientAt: "2026-10-01T00:00:10.000Z",
-      });
+      await repository.upsertProgress(progressRow("ep-1"));
 
       // When: 全行より後の since で pull する
       const got = await repository.listUpdatedSince("2026-10-02T00:00:00.000Z");
@@ -429,11 +218,7 @@ describe("D1ProgressRepository on local D1", () => {
 
         // When: 書込する
         const got = await bareRepository
-          .writeProgress({
-            episodeId: "ep-1",
-            positionSec: 1,
-            clientAt: "2026-10-01T00:00:10.000Z",
-          })
+          .upsertProgress(progressRow("ep-1"))
           .catch((error: unknown) => error);
 
         // Then: D1Error に畳まれ、実 D1 の失敗が cause に残る

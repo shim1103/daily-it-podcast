@@ -163,7 +163,7 @@ export function createPlaybackControllers(
       updateProgress(progressRepository, { episodeId, ...body }),
     ),
     completeProgressController: createProgressWriteController((episodeId, body) =>
-      completeProgress(progressRepository, { episodeId, ...body }),
+      completeProgress(repository, progressRepository, { episodeId, ...body }),
     ),
     pullProgressController: createPullProgressController((since) =>
       pullProgress(progressRepository, since),

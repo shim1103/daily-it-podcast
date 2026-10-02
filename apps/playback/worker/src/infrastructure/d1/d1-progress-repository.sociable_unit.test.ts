@@ -14,7 +14,8 @@ import {
  * real: D1ProgressRepository
  * double: D1DatabaseBinding（共有 Fake local binding。応答を差し込み、呼び出しを記録する）
  *
- * merge の SQL 意味（先勝ち / 後勝ち / 冪等 / 境界）は実 SQLite でしか観測できないため、
+ * 勝敗の merge 規則は Application（`merge-progress.sociable_unit.test.ts`）が所有する。
+ * 全列置換・pull の境界と並び・bind 数上限の実 SQLite での意味は
  * `test/integration/d1_progress_repository.narrow_integration.test.ts` が所有する。
  */
 
@@ -175,80 +176,92 @@ describe("D1ProgressRepository", () => {
     });
   });
 
-  describe.each(["writeProgress", "completeProgress"] as const)("%s", (operation) => {
-    const command = {
+  describe("upsertProgress", () => {
+    const row = {
       episodeId: "ep-1",
       positionSec: 42.5,
-      clientAt: "2026-10-01T09:00:00+09:00",
+      firstPlayedAt: "2026-10-01T00:00:00.000Z",
+      firstCompletedAt: null,
+      lastPlayedAt: "2026-10-01T00:05:00.000Z",
     };
 
-    it("returns_winning_first_timestamps_from_returning_row_with_one_statement", async () => {
-      // Given: 勝ち側の first* を RETURNING で返す D1
-      const { database, calls } = await createFakeLocalD1Binding({
-        first: async () => ({
-          [columns.firstPlayedAt]: "2026-09-30T23:00:00.000Z",
-          [columns.firstCompletedAt]: "2026-09-30T23:30:00.000Z",
-        }),
-      });
-      const repository = new D1ProgressRepository({ database });
-
-      // When: 書込する
-      const got = await repository[operation](command);
-
-      // Then: RETURNING の first* をそのまま返し、D1 へは 1 文だけ送る（read-then-write にしない）
-      expect(got).toEqual({
-        firstPlayedAt: "2026-09-30T23:00:00.000Z",
-        firstCompletedAt: "2026-09-30T23:30:00.000Z",
-      });
-      expect(calls).toHaveLength(1);
-    });
-
-    it("returns_null_first_completed_at_when_returning_row_has_null", async () => {
-      // Given: 未完走の行を返す D1
-      const { database } = await createFakeLocalD1Binding({
-        first: async () => ({
-          [columns.firstPlayedAt]: "2026-09-30T23:00:00.000Z",
-          [columns.firstCompletedAt]: null,
-        }),
-      });
-      const repository = new D1ProgressRepository({ database });
-
-      // When: 書込する
-      const got = await repository[operation](command);
-
-      // Then: firstCompletedAt は null のまま返る
-      expect(got.firstCompletedAt).toBeNull();
-    });
-
-    it("binds_episode_id_position_and_utc_normalized_client_at_when_client_at_has_offset", async () => {
+    it("binds_row_columns_in_table_order_with_one_statement", async () => {
       // Given: 呼び出しを記録する D1
-      const { database, calls } = await createFakeLocalD1Binding({
-        first: async () => ({
-          [columns.firstPlayedAt]: "2026-10-01T00:00:00.000Z",
-          [columns.firstCompletedAt]: null,
-        }),
-      });
+      const { database, calls } = await createFakeLocalD1Binding();
       const repository = new D1ProgressRepository({ database });
 
-      // When: +09:00 の clientAt で書込する
-      await repository[operation](command);
+      // When: 未完走の row を upsert する
+      await repository.upsertProgress(row);
 
-      // Then: 比較可能な UTC 固定幅表現へ揃えて bind する
-      expect(calls[0]?.values).toEqual(["ep-1", 42.5, "2026-10-01T00:00:00.000Z"]);
+      // Then: D1 へは 1 文だけ送り（read-then-write にしない）、row の列を値のまま表の列順に bind する
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.values).toEqual([
+        "ep-1",
+        42.5,
+        "2026-10-01T00:00:00.000Z",
+        null,
+        "2026-10-01T00:05:00.000Z",
+      ]);
     });
 
-    it("throws_d1_error_with_cause_without_retry_when_d1_fails", async () => {
-      // Given: 書込が失敗する D1
+    it("binds_first_completed_at_as_is_when_row_is_completed", async () => {
+      // Given: 呼び出しを記録する D1
+      const { database, calls } = await createFakeLocalD1Binding();
+      const repository = new D1ProgressRepository({ database });
+
+      // When: 完走済みの row を upsert する
+      await repository.upsertProgress({ ...row, firstCompletedAt: "2026-10-01T00:04:00.000Z" });
+
+      // Then: firstCompletedAt を値のまま bind する
+      expect(calls[0]?.values[3]).toBe("2026-10-01T00:04:00.000Z");
+    });
+
+    it("replaces_every_column_without_merging_in_sql", async () => {
+      // Given: 呼び出しを記録する D1
+      const { database, calls } = await createFakeLocalD1Binding();
+      const repository = new D1ProgressRepository({ database });
+
+      // When: upsert する
+      await repository.upsertProgress(row);
+
+      // Then: 鍵以外の全列を excluded の値へ置き換え、勝敗を決める SQL 関数も返却句も持たない
+      const sql = calls[0]?.sql ?? "";
+      expect(sql).toContain(`ON CONFLICT(${columns.episodeId}) DO UPDATE SET`);
+      for (const column of [
+        columns.positionSec,
+        columns.firstPlayedAt,
+        columns.firstCompletedAt,
+        columns.lastPlayedAt,
+      ]) {
+        expect(sql).toContain(`${column} = excluded.${column}`);
+      }
+      expect(sql).not.toMatch(/\b(MIN|MAX|CASE|COALESCE|RETURNING)\b/);
+    });
+
+    it("resolves_with_no_value_when_d1_run_succeeds", async () => {
+      // Given: 書込が成功する D1（Fake の既定応答）
+      const { database } = await createFakeLocalD1Binding();
+      const repository = new D1ProgressRepository({ database });
+
+      // When: upsert する
+      const got = repository.upsertProgress(row);
+
+      // Then: 応答を返さず完了する
+      await expect(got).resolves.toBeUndefined();
+    });
+
+    it("throws_d1_error_with_cause_without_retry_when_d1_throws", async () => {
+      // Given: 書込が throw する D1
       const cause = new Error("D1_ERROR: unavailable");
       const { database, calls } = await createFakeLocalD1Binding({
-        first: async () => {
+        run: async () => {
           throw cause;
         },
       });
       const repository = new D1ProgressRepository({ database });
 
-      // When: 書込する
-      const got = repository[operation](command);
+      // When: upsert する
+      const got = repository.upsertProgress(row);
 
       // Then: D1Error を cause 付きで throw し、試行は上限（再試行なし）に収まる
       await expect(got).rejects.toBeInstanceOf(D1Error);
@@ -256,64 +269,48 @@ describe("D1ProgressRepository", () => {
       expect(calls).toHaveLength(PROGRESS_D1_ADAPTER_MAX_ATTEMPTS);
     });
 
-    it("throws_d1_error_without_leaking_values_when_d1_fails", async () => {
-      // Given: bind 値を含む message で失敗する D1
-      const { database } = await createFakeLocalD1Binding({
-        first: async () => {
-          throw new Error("failed for ep-secret");
-        },
+    it("throws_d1_error_without_retry_when_d1_reports_unsuccessful_run", async () => {
+      // Given: success が false の結果を返す D1
+      const { database, calls } = await createFakeLocalD1Binding({
+        run: async () => ({ success: false, meta: { changes: 0 } }),
       });
       const repository = new D1ProgressRepository({ database });
 
-      // When: 書込する
-      const got = await repository[operation]({ ...command, episodeId: "ep-secret" }).catch(
-        (error: unknown) => error,
-      );
+      // When: upsert する
+      const got = repository.upsertProgress(row);
+
+      // Then: 書けたように見せず D1Error を throw し、試行は上限（再試行なし）に収まる
+      await expect(got).rejects.toBeInstanceOf(D1Error);
+      expect(calls).toHaveLength(PROGRESS_D1_ADAPTER_MAX_ATTEMPTS);
+    });
+
+    it.each([
+      [
+        "d1_throws",
+        {
+          run: async () => {
+            throw new Error("failed for ep-secret");
+          },
+        },
+      ],
+      [
+        "d1_reports_unsuccessful_run",
+        { run: async () => ({ success: false, meta: { changes: 0 } }) },
+      ],
+    ])("throws_d1_error_without_leaking_values_when_%s", async (_name, responses) => {
+      // Given: 失敗する D1
+      const { database } = await createFakeLocalD1Binding(responses);
+      const repository = new D1ProgressRepository({ database });
+
+      // When: bind 値を含む row を upsert する
+      const got = await repository
+        .upsertProgress({ ...row, episodeId: "ep-secret" })
+        .catch((error: unknown) => error);
 
       // Then: D1Error の message に SQL 全文も bind 値も含まない
       expect(got).toBeInstanceOf(D1Error);
       expect((got as D1Error).message).not.toContain("ep-secret");
       expect((got as D1Error).message).not.toContain("INSERT");
-    });
-
-    it("throws_d1_error_when_returning_yields_no_row", async () => {
-      // Given: RETURNING が行を返さない D1（upsert の契約違反）
-      const { database } = await createFakeLocalD1Binding({ first: async () => null });
-      const repository = new D1ProgressRepository({ database });
-
-      // When / Then: 勝ち側が分からないので D1Error
-      await expect(repository[operation](command)).rejects.toBeInstanceOf(D1Error);
-    });
-
-    it.each([
-      [
-        "first_played_at is not a string",
-        { [columns.firstPlayedAt]: 1, [columns.firstCompletedAt]: null },
-      ],
-      [
-        "first_completed_at is neither null nor a string",
-        { [columns.firstPlayedAt]: "2026-10-01T00:00:00.000Z", [columns.firstCompletedAt]: 1 },
-      ],
-    ])("throws_d1_error_when_returning_row_is_malformed_because_%s", async (_name, row) => {
-      // Given: 列型が期待と違う RETURNING 行を返す D1
-      const { database } = await createFakeLocalD1Binding({ first: async () => row });
-      const repository = new D1ProgressRepository({ database });
-
-      // When / Then: 契約型として返さず D1Error
-      await expect(repository[operation](command)).rejects.toBeInstanceOf(D1Error);
-    });
-
-    it("throws_without_calling_d1_when_client_at_is_not_a_valid_timestamp", async () => {
-      // Given: 呼び出しを記録する D1
-      const { database, calls } = await createFakeLocalD1Binding();
-      const repository = new D1ProgressRepository({ database });
-
-      // When: Route 側 schema の前提を破る clientAt で書込する
-      const got = repository[operation]({ ...command, clientAt: "not-a-timestamp" });
-
-      // Then: 書込開始前に RangeError で止まり、D1 は呼ばれない
-      await expect(got).rejects.toBeInstanceOf(RangeError);
-      expect(calls).toHaveLength(0);
     });
   });
 
@@ -370,7 +367,7 @@ describe("D1ProgressRepository", () => {
       expect(got).toEqual([]);
     });
 
-    it("binds_utc_normalized_since_when_since_has_offset", async () => {
+    it("binds_since_as_is_without_normalizing_when_since_has_offset", async () => {
       // Given: 呼び出しを記録する D1
       const { database, calls } = await createFakeLocalD1Binding();
       const repository = new D1ProgressRepository({ database });
@@ -378,9 +375,9 @@ describe("D1ProgressRepository", () => {
       // When: +09:00 の since で pull する
       await repository.listUpdatedSince("2026-10-01T09:00:00+09:00");
 
-      // Then: 比較可能な UTC 固定幅表現へ揃えて 1 query だけ送る
+      // Then: 時刻を変換せず値のまま bind して 1 query だけ送る
       expect(calls).toHaveLength(1);
-      expect(calls[0]?.values).toEqual(["2026-10-01T00:00:00.000Z"]);
+      expect(calls[0]?.values).toEqual(["2026-10-01T09:00:00+09:00"]);
     });
 
     it("throws_d1_error_with_cause_without_retry_when_d1_fails", async () => {
@@ -418,19 +415,6 @@ describe("D1ProgressRepository", () => {
       await expect(repository.listUpdatedSince("2026-09-30T00:00:00.000Z")).rejects.toBeInstanceOf(
         D1Error,
       );
-    });
-
-    it("throws_without_calling_d1_when_since_is_not_a_valid_timestamp", async () => {
-      // Given: 呼び出しを記録する D1
-      const { database, calls } = await createFakeLocalD1Binding();
-      const repository = new D1ProgressRepository({ database });
-
-      // When: Route 側 schema の前提を破る since で pull する
-      const got = repository.listUpdatedSince("not-a-timestamp");
-
-      // Then: RangeError で止まり、D1 は呼ばれない
-      await expect(got).rejects.toBeInstanceOf(RangeError);
-      expect(calls).toHaveLength(0);
     });
   });
 });

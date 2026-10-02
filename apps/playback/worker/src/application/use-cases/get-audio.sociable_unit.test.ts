@@ -14,6 +14,9 @@ function createFakeRepository(overrides: Partial<EpisodeRepository> = {}): Episo
     listManuscripts: async () => {
       throw new Error("not used");
     },
+    getManuscript: async () => {
+      throw new Error("not used");
+    },
     getAudio: async () => validAudioBytes,
     ...overrides,
   };

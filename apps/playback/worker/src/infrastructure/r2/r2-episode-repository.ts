@@ -92,6 +92,16 @@ export class R2EpisodeRepository implements EpisodeRepository {
     return entries.filter((entry): entry is RawManuscriptEntry => entry !== undefined);
   }
 
+  async getManuscript(episodeId: string): Promise<RawManuscriptEntry | undefined> {
+    const key = `${episodeId}${jsonExtension}`;
+    const body = await this.get(key);
+    if (body === null) {
+      return undefined;
+    }
+    const json = await this.decodeJsonBody(body);
+    return { stem: episodeId, json };
+  }
+
   async getAudio(episodeId: string): Promise<Uint8Array | undefined> {
     const key = `${episodeId}${audioExtension}`;
     const body = await this.get(key);
@@ -113,6 +123,10 @@ export class R2EpisodeRepository implements EpisodeRepository {
     if (body === null) {
       throw new R2Error("R2 一覧に含まれる object が取得時に見当たらない");
     }
+    return this.decodeJsonBody(body);
+  }
+
+  private async decodeJsonBody(body: R2ObjectBodyLike): Promise<unknown> {
     const bytes = await this.readBytes(body);
     const text = new TextDecoder().decode(bytes);
     try {

@@ -169,6 +169,89 @@ describe("R2EpisodeRepository", () => {
     });
   });
 
+  describe("getManuscript", () => {
+    it("対応 json がある時、stem 付き生 payload を返す", async () => {
+      // Given: episodeId に対応する json が get できる bucket
+      const bucket = createBucket({
+        get: async (key) => {
+          if (key === "ep-1.json") {
+            return bodyOf(new TextEncoder().encode(JSON.stringify(manuscriptJson)));
+          }
+          return null;
+        },
+      });
+      const repository = new R2EpisodeRepository({ bucket });
+
+      // When: 1 件取得する
+      const got = await repository.getManuscript("ep-1");
+
+      // Then: 検証せず生のまま返す
+      expect(got).toEqual({ stem: "ep-1", json: manuscriptJson });
+    });
+
+    it("対応 json が無い時、undefined を返す（throw しない）", async () => {
+      // Given: get が null を返す bucket
+      const repository = new R2EpisodeRepository({ bucket: createBucket() });
+
+      // When / Then
+      expect(await repository.getManuscript("missing")).toBeUndefined();
+    });
+
+    it("json として parse できない本文は decode した生文字列をそのまま返す", async () => {
+      // Given: 不正 JSON の本文
+      const bucket = createBucket({
+        get: async () => bodyOf(new TextEncoder().encode("not json")),
+      });
+      const repository = new R2EpisodeRepository({ bucket });
+
+      // When: 1 件取得する
+      const got = await repository.getManuscript("ep-1");
+
+      // Then: schema 判定はせず生文字列のまま返す
+      expect(got).toEqual({ stem: "ep-1", json: "not json" });
+    });
+
+    it("get が例外を throw する時、R2Error を throw する", async () => {
+      // Given: 原稿取得が失敗する bucket
+      const bucket = createBucket({
+        get: async () => {
+          throw new Error("network");
+        },
+      });
+      const repository = new R2EpisodeRepository({ bucket });
+
+      // When / Then: storage I/O 失敗は R2Error
+      await expect(repository.getManuscript("ep-1")).rejects.toBeInstanceOf(R2Error);
+    });
+
+    it("get が非 null だが不正形状の時、R2Error を throw する", async () => {
+      // Given: arrayBuffer を持たない不正形状を返す bucket
+      const bucket = createBucket({
+        // biome-ignore lint/suspicious/noExplicitAny: 不正形状を意図的に注入する test 用 double
+        get: async () => ({}) as any,
+      });
+      const repository = new R2EpisodeRepository({ bucket });
+
+      // When / Then
+      await expect(repository.getManuscript("ep-1")).rejects.toBeInstanceOf(R2Error);
+    });
+
+    it("json 本文の arrayBuffer 読み出しが失敗する時、R2Error を throw する", async () => {
+      // Given: object body の bytes 読み出し自体が失敗する bucket
+      const bucket = createBucket({
+        get: async () => ({
+          async arrayBuffer() {
+            throw new Error("stream error");
+          },
+        }),
+      });
+      const repository = new R2EpisodeRepository({ bucket });
+
+      // When / Then
+      await expect(repository.getManuscript("ep-1")).rejects.toBeInstanceOf(R2Error);
+    });
+  });
+
   describe("getAudio", () => {
     it("対応 mp3 がある時、byte をそのまま返す", async () => {
       // Given: episodeId に対応する mp3 が get できる bucket

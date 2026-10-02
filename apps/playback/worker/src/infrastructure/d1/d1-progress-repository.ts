@@ -1,9 +1,13 @@
 import type {
   ProgressRepository,
   ProgressUpdatedEntry,
-  ProgressWriteCommand,
+  ProgressUpsertRow,
 } from "../../application/ports/progress-repository.ts";
-import type { D1DatabaseBinding, D1Row } from "./d1-database-binding.ts";
+import type {
+  D1DatabaseBinding,
+  D1PreparedStatementBinding,
+  D1Row,
+} from "./d1-database-binding.ts";
 import { D1Error } from "./d1-error.ts";
 import {
   D1_MAX_BOUND_PARAMETERS_PER_QUERY,
@@ -12,7 +16,7 @@ import {
 } from "./progress-d1-constants.ts";
 
 type EpisodeProgress = ProgressUpdatedEntry["progress"];
-type ProgressWriteResult = Awaited<ReturnType<ProgressRepository["writeProgress"]>>;
+type D1RunResult = Awaited<ReturnType<D1PreparedStatementBinding["run"]>>;
 
 const columns = episodeProgressColumns;
 const TABLE = EPISODE_PROGRESS_TABLE;
@@ -26,46 +30,23 @@ const ALL_COLUMNS = [
 ].join(", ");
 
 /**
- * 時刻 merge の共通部。first_played_at は先勝ち、position_sec と last_played_at は同じ側のペアで後勝ち。
+ * 鍵以外の全列を今回の入力（`excluded`）へ置き換える 1 文 upsert。bind は ALL_COLUMNS の列順
+ * (?1 episodeId, ?2 positionSec, ?3 firstPlayedAt, ?4 firstCompletedAt, ?5 lastPlayedAt)。
  *
- * why: `DO UPDATE SET` の右辺で修飾なしの列は更新前の行を指す（`excluded.` が今回の入力）。
- * このため position_sec と last_played_at を同じ文で更新しても比較は更新前の last_played_at で行われ、
- * ペアが割れない。同時刻（`>=`）は再送・後着を採る。
+ * why: 先勝ち・後勝ちの merge は Application が持つ（Decision 2026-10-01T18:54:14）。SQL で勝敗を
+ * 決めると規則が SQL と TS の 2 箇所に分かれるため、adapter は渡された行をそのまま保存する。
  */
-const MERGE_ASSIGNMENTS = [
-  `${columns.firstPlayedAt} = MIN(${columns.firstPlayedAt}, excluded.${columns.firstPlayedAt})`,
-  `${columns.positionSec} = CASE WHEN excluded.${columns.lastPlayedAt} >= ${columns.lastPlayedAt} THEN excluded.${columns.positionSec} ELSE ${columns.positionSec} END`,
-  `${columns.lastPlayedAt} = MAX(${columns.lastPlayedAt}, excluded.${columns.lastPlayedAt})`,
-];
+const UPSERT_SQL = [
+  `INSERT INTO ${TABLE} (${ALL_COLUMNS})`,
+  "VALUES (?1, ?2, ?3, ?4, ?5)",
+  `ON CONFLICT(${columns.episodeId}) DO UPDATE SET`,
+  [columns.positionSec, columns.firstPlayedAt, columns.firstCompletedAt, columns.lastPlayedAt]
+    .map((column) => `${column} = excluded.${column}`)
+    .join(", "),
+].join(" ");
 
-/** complete だけが first_completed_at を先勝ちで埋める。NULL（未完走）は COALESCE で今回値に譲る。 */
-const COMPLETE_ASSIGNMENT = `${columns.firstCompletedAt} = MIN(COALESCE(${columns.firstCompletedAt}, excluded.${columns.firstCompletedAt}), excluded.${columns.firstCompletedAt})`;
-
-/**
- * 勝ち側の first* を RETURNING で受ける 1 文 upsert。bind は (?1 episodeId, ?2 positionSec, ?3 clientAt)。
- * 行なしなら first_played_at = last_played_at = clientAt で作る。
- */
-function upsertReturningFirstSql(
-  firstCompletedAtOnInsert: "NULL" | "?3",
-  assignments: readonly string[],
-): string {
-  return [
-    `INSERT INTO ${TABLE} (${ALL_COLUMNS})`,
-    `VALUES (?1, ?2, ?3, ${firstCompletedAtOnInsert}, ?3)`,
-    `ON CONFLICT(${columns.episodeId}) DO UPDATE SET ${assignments.join(", ")}`,
-    `RETURNING ${columns.firstPlayedAt}, ${columns.firstCompletedAt}`,
-  ].join(" ");
-}
-
-const WRITE_SQL = upsertReturningFirstSql("NULL", MERGE_ASSIGNMENTS);
-const COMPLETE_SQL = upsertReturningFirstSql("?3", [...MERGE_ASSIGNMENTS, COMPLETE_ASSIGNMENT]);
-
-/**
- * since より後（厳密に大きい）の行を、更新の古い順・同時刻は episodeId 順で返す。
- *
- * why: 時刻列は UTC 固定幅へ正規化済みのため文字列比較が時系列と一致する。並びを決定的にし、
- * caller が末尾の lastPlayedAt を次回の since に使えるよう昇順にする。
- */
+// todo: 契約境界で時刻を UTC 固定幅へ正規化するまで、offset 混在の入力では `>` 境界と並びが時系列と一致しない。正規化を入れたらこの comment を消す
+/** since より後（厳密に大きい）の行を、更新の古い順・同時刻は episodeId 順で返す。 */
 const LIST_UPDATED_SINCE_SQL = `SELECT ${ALL_COLUMNS} FROM ${TABLE} WHERE ${columns.lastPlayedAt} > ?1 ORDER BY ${columns.lastPlayedAt} ASC, ${columns.episodeId} ASC`;
 
 function selectByEpisodeIdsSql(count: number): string {
@@ -101,10 +82,6 @@ function numberColumn(row: D1Row, column: string): number {
   return value;
 }
 
-function toUtcIsoString(timestamp: string): string {
-  return new Date(timestamp).toISOString();
-}
-
 function toEpisodeProgress(row: D1Row): EpisodeProgress {
   return {
     positionSec: numberColumn(row, columns.positionSec),
@@ -116,15 +93,11 @@ function toEpisodeProgress(row: D1Row): EpisodeProgress {
 
 /**
  * D1 binding（`D1DatabaseBinding`）で `ProgressRepository` を満たす本番 Driven Adapter。
- *
- * 書込は勝ち側を RETURNING で受ける 1 文 upsert に閉じ、read-then-write の競合も補償 rollback も作らない。
- *
- * why: D1 の TEXT 列は `MIN` も辞書順比較も offset 混在（`+09:00` と `Z`）で時系列とずれる。契約は `Z` /
- * `±hh:mm` の両方を許すため、受理時に UTC 固定幅の ISO へ正規化して保存し、応答の時刻も UTC `Z` 表記にする。
+ * 渡された行を保存し、読み返すだけで merge しない。
  *
  * @require deps.database は migration 適用済みの進捗表を持つ D1 binding
- * @require clientAt / since は契約 schema を通った ISO-8601。不正値は D1 を呼ぶ前に RangeError で止まる
- * @ensure D1 の例外・RETURNING の欠落・列型の不一致は D1Error を throw する。adapter 内で再試行しない
+ * @require 時刻は辞書順が時系列と一致する表記（UTC 固定幅の ISO-8601）で渡される。adapter は変換しない（`>` 比較と並びを文字列で行うため）
+ * @ensure D1 の例外・`run()` の `success === false`・列型の不一致は D1Error を throw する。adapter 内で再試行しない
  * @invariant SQL 全文と bind 値を Error message に含めない
  */
 export class D1ProgressRepository implements ProgressRepository {
@@ -147,40 +120,33 @@ export class D1ProgressRepository implements ProgressRepository {
     return progressByEpisodeId;
   }
 
-  async writeProgress(command: ProgressWriteCommand): Promise<ProgressWriteResult> {
-    return this.upsert(WRITE_SQL, command);
-  }
-
-  async completeProgress(command: ProgressWriteCommand): Promise<ProgressWriteResult> {
-    return this.upsert(COMPLETE_SQL, command);
+  async upsertProgress(row: ProgressUpsertRow): Promise<void> {
+    let result: D1RunResult;
+    try {
+      result = await this.database
+        .prepare(UPSERT_SQL)
+        .bind(
+          row.episodeId,
+          row.positionSec,
+          row.firstPlayedAt,
+          row.firstCompletedAt,
+          row.lastPlayedAt,
+        )
+        .run();
+    } catch (cause) {
+      throw new D1Error("D1 の進捗書込に失敗", { cause });
+    }
+    if (!result.success) {
+      throw new D1Error("D1 の進捗書込が成功を返さなかった");
+    }
   }
 
   async listUpdatedSince(since: string): Promise<readonly ProgressUpdatedEntry[]> {
-    const rows = await this.queryAll(LIST_UPDATED_SINCE_SQL, [toUtcIsoString(since)]);
+    const rows = await this.queryAll(LIST_UPDATED_SINCE_SQL, [since]);
     return rows.map((row) => ({
       episodeId: stringColumn(row, columns.episodeId),
       progress: toEpisodeProgress(row),
     }));
-  }
-
-  private async upsert(sql: string, command: ProgressWriteCommand): Promise<ProgressWriteResult> {
-    const clientAt = toUtcIsoString(command.clientAt);
-    let row: D1Row | null;
-    try {
-      row = await this.database
-        .prepare(sql)
-        .bind(command.episodeId, command.positionSec, clientAt)
-        .first();
-    } catch (cause) {
-      throw new D1Error("D1 の進捗書込に失敗", { cause });
-    }
-    if (row === null) {
-      throw new D1Error("D1 の進捗書込が勝ち側の行を返さなかった");
-    }
-    return {
-      firstPlayedAt: stringColumn(row, columns.firstPlayedAt),
-      firstCompletedAt: nullableStringColumn(row, columns.firstCompletedAt),
-    };
   }
 
   private async queryAll(sql: string, values: readonly unknown[]): Promise<D1Row[]> {
