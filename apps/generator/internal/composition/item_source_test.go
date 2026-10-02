@@ -10,11 +10,8 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
-// fixedNow は List 呼び出しへ渡す固定時刻である（application 側 test の慣習に合わせる）。
 var fixedNow = time.Date(2024, 12, 10, 15, 0, 0, 0, time.UTC)
 
-// fakeItemSource は port.ItemSource を満たす test double である。
-// items をそのまま返し、err が非 nil ならそれを優先して返す。
 type fakeItemSource struct {
 	items []models.SourceItem
 	err   error
