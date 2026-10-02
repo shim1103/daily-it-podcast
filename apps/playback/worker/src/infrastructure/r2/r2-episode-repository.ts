@@ -80,7 +80,7 @@ export class R2EpisodeRepository implements EpisodeRepository {
     const entries = await Promise.all(
       keys.map(async (key) => {
         const stem = stemOf(key, jsonExtension);
-        /* v8 ignore next 3 -- keys は直前で同じ jsonExtension の endsWith 判定を通過済みのため、この分岐は実行時に到達しない */
+        /* v8 ignore next 3 -- @preserve keys は直前で同じ jsonExtension の endsWith 判定を通過済みのため、この分岐は実行時に到達しない */
         if (stem === undefined) {
           return undefined;
         }

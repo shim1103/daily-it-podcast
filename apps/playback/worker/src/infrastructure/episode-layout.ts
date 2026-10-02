@@ -9,7 +9,7 @@ export const audioExtension = ".mp3";
  * @ensure name が extension で終わる時は拡張子を除いた stem、そうでない時は undefined を返す
  */
 export function stemOf(name: string, extension: string): string | undefined {
-  /* v8 ignore next 3 -- 呼び出し元は endsWith 判定を通過済みの name だけを渡すため、この分岐は実行時に到達しない */
+  /* v8 ignore next 3 -- @preserve 呼び出し元は endsWith 判定を通過済みの name だけを渡すため、この分岐は実行時に到達しない */
   if (!name.endsWith(extension)) {
     return undefined;
   }

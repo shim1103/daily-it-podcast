@@ -127,7 +127,7 @@ export function derivePageStatus(catalogStatus: CatalogStatus): PageStatus {
       return { kind: "loading" };
     case "success":
       return { kind: "ready" };
-    /* v8 ignore next 6 -- CatalogStatus は 3 値の union 型で、型検査上この分岐へ実行が到達しない。将来値が増えた時に tsc が検知するための exhaustiveness check（defensive-design.md §6）。網羅性ガードの never 代入と到達時 fallback は別責務のため両方置く */
+    /* v8 ignore next 6 -- @preserve CatalogStatus は 3 値の union 型で、型検査上この分岐へ実行が到達しない。将来値が増えた時に tsc が検知するための exhaustiveness check（defensive-design.md §6）。網羅性ガードの never 代入と到達時 fallback は別責務のため両方置く */
     default: {
       const exhaustive: never = status;
       void exhaustive;

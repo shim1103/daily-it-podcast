@@ -75,7 +75,7 @@ export function useEpisodePlayback(): EpisodePlaybackViewModel {
       // why: 購読は play で active になった後に張り stop で外すため、通知到達時は常に active。
       //   この guard は購読解除と listener detach の間に queue 済み event が発火する race への
       //   防御で、通常経路からは到達しない（defensive-design.md §7-1）
-      /* v8 ignore next 3 */
+      /* v8 ignore next 3 -- @preserve */
       if (current.kind !== "active") {
         return current;
       }

@@ -41,7 +41,7 @@ export function mapInternalErrorToExternal(
       return new NotFoundError("進捗が無い", { cause: error });
     case "other":
       return new UnavailableError("利用できない", { cause: error });
-    /* v8 ignore next 4 -- InternalErrorKind は閉じており、型検査上この分岐へ実行が到達しない。将来値が増えた時に tsc が検知するための exhaustiveness check */
+    /* v8 ignore next 4 -- @preserve InternalErrorKind は閉じており、型検査上この分岐へ実行が到達しない。将来値が増えた時に tsc が検知するための exhaustiveness check */
     default: {
       const exhaustive: never = kind;
       return new UnavailableError("利用できない", { cause: exhaustive });
