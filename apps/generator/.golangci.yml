@@ -32,6 +32,7 @@ linters:
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/application
             - github.com/shim1103/daily-it-podcast/contracts
             - github.com/santhosh-tekuri/jsonschema/v5
+            - golang.org/x/sync
         infrastructure:
           list-mode: strict
           files:
