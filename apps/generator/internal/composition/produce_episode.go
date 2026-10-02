@@ -22,15 +22,15 @@ func newProduceEpisode(cfg config.Config, logw *delivery.LogWriter) *application
 }
 
 // newProduceEpisodeWithTopicCount は検証済み Config の capability ごとに production Adapter を結線した日次 UseCase を返す。
-// 情報源は HackerNews / Lobsters / Publickey / TechCrunch / クラウド Watch を composite ItemSource 経由で束ね、Application へ情報源個数を渡さない。
+// 情報源は HackerNews / Lobsters / Publickey / TechCrunch / クラウド Watch を選び、Application の CompositeItemSource へ渡して単一 ItemSource として Fetch する。
 //
 // @require cfg は Generator の configuration boundary で検証済みである。logw != nil。topicCount > 0。
 // @ensure 戻りは非 nil の *application.ProduceEpisode。
-// @ensure Fetch は composite ItemSource 経由で行い、Application へ情報源個数を渡さない。
-// @invariant config.Load 呼び出しをここで行わない。Composition Root は結線と ItemSource の Port 束ねだけを持つ（fallback 方針は Application）。
+// @ensure Fetch は Composition が選んだ Adapter 列を Application 合成（CompositeItemSource）経由で行い、FetchSourceItems へ情報源個数を渡さない。
+// @invariant config.Load 呼び出しをここで行わない。Composition Root は結線と Adapter 構成だけを持つ（並行 List・fail-all・連結と fallback 方針は Application）。
 func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter, topicCount int) *application.ProduceEpisode {
 	httpClient := appruntime.HTTPClient()
-	// Composition: 情報源は Port 束ね。Application fallback 方針（TextWriter / Speech）は下で結線するだけ。
+	// Composition: どの情報源を何本選ぶか。振る舞い（並行 List）は Application CompositeItemSource。
 	fetchUC := fetch.NewFetchSourceItems(newProductionItemSource(httpClient, sourceMaxItemsForTopicCount(topicCount)))
 	lookup := newR2CompletedEpisodeLookup(httpClient, cfg.R2)
 	// logw は port.FallbackReporter / port.ProgressReporter を満たす。application 用 callback の
