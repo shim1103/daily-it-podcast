@@ -8,7 +8,7 @@ branch: feature/playback-progress-d1-local-peer
 
 1. 先勝ち・後勝ちの merge は、Application の**純関数**が持つ。置き場と、merge・冪等・行なし 404 を Application に置く理由は `2026-10-01T18-54-14-feature-playback-progress-application.md` が正で、ここへ写さない。規則の意味は `2026-09-22T19-13-35-feature-playback-progress.md` が正。D1 adapter は merge 済みの行を、条件付きの 1 文でそのまま保存する薄い永続とする。
 2. 2端末が同じ行を同時に書く**競合**は、server 側で自動解決する。
-   1. UseCase が `read → merge（純関数）→ 条件付き書込（期待値＝読んだ時の版）` を行う。競合（条件が満たされず、書込が 0 行）なら、再 read → 再 merge を最大 3 試行まで行う（回数の正本は定数）。尽きたら `UnavailableError`（503）を返し、browser の既存の retry に委ねる。
+   1. UseCase が `read → merge（純関数）→ 条件付き書込（期待値＝読んだ時の版）` を行う。競合（条件が満たされず、書込が 0 行）なら、再 read → 再 merge を最大 3 試行まで行う（回数の正本は定数）。尽きたら UseCase は Domain Error `ProgressWriteConflictError` を throw する。Controller の `mapInternalErrorToExternal` の既定経路（"other"）が `UnavailableError`（503）へ写し、browser の既存の retry に委ねる。HTTP の公開 error code は増やさない（`2026-09-22T18-58-38-feature-playback-progress.md`）。
    2. merge の結果が既存の行と同じなら、書込を省略する（`seq` を無駄に進めない）。
    3. 新規行の期待値は null とし、`INSERT … ON CONFLICT DO NOTHING` の changes=0 を競合として扱う。
 3. adapter は、条件付きの 1 文を実行して `written` か `conflict` を返すだけで、再試行しない。D1 の一時失敗も、従来どおり adapter では再試行せず、browser の retry に任せる（`2026-09-22T19-29-15-feature-playback-progress.md`）。`seq` の採番は adapter の SQL が同じ文の中で行い、UseCase は版を不透明な値として受け渡すだけとする（`seq` の意味は `2026-10-01T23-32-40-feature-playback-progress-d1-local-peer.md`）。
@@ -25,7 +25,8 @@ branch: feature/playback-progress-d1-local-peer
 7. merge の結果が既存の行と同じなら書込を省くのは、`seq` が書込のたびに進む（`2026-10-01T23-32-40-feature-playback-progress-d1-local-peer.md`）ためである。実質の変更が無い書込で `seq` を進めると、他端末の pull に変更の無い行が現れ、書込量も無駄に増える。
 8. 新規行の期待値を null にするのは、行が無い状態も「読んだ時の版」の一つとして同じ型で扱えるからである。2端末が同時に新規を作ると、片方の `ON CONFLICT DO NOTHING` が changes=0 になる。これを競合として扱えば、新規と更新で競合の扱いが分かれない。
 9. 時刻を文字列で比べる箇所は Application の merge である（pull の差分印は時刻でなく `seq`）。文字列の大小が時系列と一致する固定幅が前提になる。比較は adapter より前（Application）で走るので、正規化を adapter に置くと、merge は未正規化の値を比べることになる。契約境界で1回だけ正規化すれば、write の入力・保存・応答・比較が同じ形で揃う。列ごと・層ごとに形が異なると、形を意識する箇所が増える。応答が常に `Z` 表記である現状の挙動も、merge の置き場や正規化の置き場の変更を理由に変えない。
-10. 入口で `+09:00` 等を拒むと、契約が許す入力を狭める。offset 付きの入力を受け、同じ instant の UTC 表記へ寄せれば、契約が許す入力を変えずに形だけを一致させられる。
+10. 競合で試行が尽きた時の失敗を Domain Error にするのは、Application が throw してよいのは Domain Error のみ（`architecture/backend/application` §6）だからである。External の型（`UnavailableError`）は Controller 層の写像が持つ。尽きた時の失敗は、既存の写像の既定経路（"other"）で 503 になるので、写像に分岐を足さず、HTTP の公開 error code も増えない。
+11. 入口で `+09:00` 等を拒むと、契約が許す入力を狭める。offset 付きの入力を受け、同じ instant の UTC 表記へ寄せれば、契約が許す入力を変えずに形だけを一致させられる。
 
 ## 3. Rejected
 
@@ -39,3 +40,4 @@ branch: feature/playback-progress-d1-local-peer
 8. **D1 の `batch` で、読んで計算して書くを包む案** — `batch` は SQL の transaction（全体で commit か rollback）だが、送信前に全文が確定している必要がある。読んだ結果をアプリで計算して書く流れは包めない。interactive な transaction は、確認した範囲の docs に記載が無い。
 9. **競合を browser の retry だけに委ねる案** — server が即座に解決できる論理的な衝突を、client に見せる。往復と遅延が増える。
 10. **adapter 内で再 read → 再 merge する案** — adapter は merge を持たない。持たせると、merge の置き場が Application と永続に分かれる。
+11. **競合で試行が尽きた時に、UseCase が External の `UnavailableError`（503）を直接 throw する案**（旧答え） — Application が throw してよいのは Domain Error のみで、External の型を直接 throw すると層の境界を越える。External への写像は Controller の `mapInternalErrorToExternal` が持つ。

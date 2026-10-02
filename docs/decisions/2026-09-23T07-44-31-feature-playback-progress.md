@@ -12,7 +12,7 @@ branch: feature/playback-progress
 
 ## 2. Reason
 
-1. endpoint（list / audio / progress Write・pull）が増えると、route ごとに同じ `createPlaybackControllers(env, { mode: "r2" }, overrides)` が並び、結線の変更理由が N 箇所に散る。pipeline 先頭で 1 回載せれば、route は HTTP 入出力だけに戻る。
+1. endpoint（list / audio / progress Write・pull）が増えると、route ごとに同じ `createPlaybackControllers(env, { mode: "r2", progressMode: "d1" }, overrides)` が並び、結線の変更理由が N 箇所に散る。pipeline 先頭で 1 回載せれば、route は HTTP 入出力だけに戻る。
 2. Composition Root を消して route 内で Adapter を new する案は、層の唯一点（CR）を壊す。middleware は CR を **呼ぶ位置**を寄せるだけで、DIP / Composition Root と両立する。
 3. 学習目的としても、middleware を「Hono API」ではなく **request pipeline の段**（cross-cutting と request-scoped DI の違い）として固定できる。
 

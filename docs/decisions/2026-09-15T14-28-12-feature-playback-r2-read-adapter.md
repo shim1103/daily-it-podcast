@@ -11,6 +11,7 @@ branch: feature/playback-r2-read-adapter
 3. 実binding peer（`getPlatformProxy` の local binding。正は `2026-09-15T12-02-48-feature-generator-r2-write-adapter.md`・`2026-09-16T00-20-08-feature-generator-r2-test-peer-scope.md`）があり、Adapterの意味がその実体でしか観測できないときだけ、sociable unitに加えて実proxyを刺すNarrow Integrationを持つ。D1の `ProgressRepository` adapterがこれに当たり、binding呼び出しの形・Error写像・再試行なしはsociable unit、実SQLiteで通るSQL（保存した行の読み戻し・差分取得）・bind数上限はNarrow Integrationが所有する。勝ち側の判定（merge）と時刻の正規化はadapterが持たない（`2026-10-01T18-54-16-feature-playback-progress-d1-local-peer.md`）ので、mergeはApplicationのunit、正規化は契約のunitが所有する。手書きのbinding型（`R2BucketBinding`・`D1DatabaseBinding`）と実bindingの構造的な一致も、実peerでしか観測できない意味に当たる。よってD1 adapterに加え、R2 adapterもNarrow Integrationの対象とする。
 4. 実proxyを起動するNarrow Integrationは、unit projectから除外する。
 5. 実peerを持てないAdapterについて、なぜreal境界を持てないかは、Adapter class doc commentへwhy commentとして明示する。
+6. D1 adapterがDrizzleへ移った後は、Narrow Integration（実local D1）を主な検証とし、sociable unitはSQLの結果を要さない振る舞い（Error写像・再試行しない・modeの選択）に限る。SQLの形のassertは持たない。移行が済むまでは、上の3の二本立て（sociable unit＋Narrow Integration）が有効である。移行の決定は `2026-10-01T23-33-20-feature-playback-progress-d1-local-peer.md` が持つ。
 
 ## 2. Reason
 
@@ -20,8 +21,9 @@ branch: feature/playback-r2-read-adapter
 4. `miniflare`をproject依存へ加えると、`package.json`未記載のまま`wrangler`のhoisting構造へ暗黙依存するphantom dependencyになるか、明示devDependency化しても`wrangler`同梱版と別バージョン管理になり2つのCloudflare runtime実装がCIに乗る不安定要因が増える。実peerの手段は、この直接導入ではなく`getPlatformProxy`（上記2 Decision）で得る。
 5. 実際にR2 binding のin-memory fakeを使ったNarrow Integration testを作成し、既存のsociable unit testと比較した結果、全ケースが完全に重複していた（実物境界を持たないtestは、fakeを直接使うsociable unit testと抽象度が同一のため）。したがってfakeを刺すNarrow Integrationは持たない。
 6. 実binding peerが無かった時点では、Adapterのtestは全てfakeに寄るほかなく、Narrow Integrationを持たない答えで足りた。D1 adapterの価値は、実SQLiteで通るSQL（行の保存・差分取得・列の対応）、1 queryあたりのbind数上限にある。勝ち側の判定はApplication、時刻の正規化は契約が持つため、この価値に含まない。これらは、呼び出し形を記録する手書きdoubleや、読取は空・書込はchanges 0を返すだけのFakeでは観測できない。sociable unitが緑でも、SQLの誤りを見逃す。
-7. 手書きのbinding型と実bindingの構造的な一致は、`tsc`が検査しない。`D1Database`・`R2Bucket`が`apps/playback`の型scopeに無いためである（`tsconfig.json`の`types`が`["vite/client","node"]`で、`tsc --noEmit`で`TS2552`・`TS2304`になることを確認済み）。実bindingから手書き型への代入は、型検査のどこにも現れない。sociable unitは手書き型を満たすdoubleを刺すだけで、実物との一致は観測できない。実bindingを刺すNarrow Integrationだけが、この一致を守る。この点でR2 adapterとD1 adapterは対称であり、R2もSQLの有無に関わらずNarrow Integrationの対象になる。
+7. 手書きのbinding型と実bindingの構造的な一致は、`tsc`が検査しない。`D1Database`・`R2Bucket`が`apps/playback`の型scopeに無いためである（`tsconfig.json`の`types`が`["vite/client","node"]`で、`tsc --noEmit`で`TS2552`・`TS2304`になることを確認済み）。実bindingから手書き型への代入は、型検査のどこにも現れない。sociable unitは手書き型を満たすdoubleを刺すだけで、実物との一致は観測できない。実bindingを刺すNarrow Integrationだけが、この一致を守る。この点でR2 adapterとD1 adapterは対称であり、R2もSQLの有無に関わらずNarrow Integrationの対象になる。この前提は、D1 adapterがDrizzleへ移った後も、手書きのbinding型が残る間は変わらない。`@cloudflare/workers-types`を入れて型scopeに加える案は、webの`playback-rpc-client.ts`でtypecheckが衝突したため採っていない（`2026-10-01T23-33-20-feature-playback-progress-d1-local-peer.md`）。
 8. 実proxyの起動をunit（Fast）へ混ぜないため、実peerを使うNarrow Integrationはunit projectから除外する（`2026-09-16T00-20-08-feature-generator-r2-test-peer-scope.md` の維持条）。
+9. Drizzleのdriverがbindingへ呼ぶ面は `prepare → bind → run` と `prepare → bind → raw` である（local D1での実測。`first()`・`all()`は呼ばない）。`raw()`は列順の値の配列を返すので、手書きdoubleでSQLの結果を再現すると、Drizzleの列写像まで複製することになり脆い。結果を再現せずに済むError写像・再試行しない・modeの選択だけが、doubleで足りるsociable unitとして残る。
 
 ## 3. Rejected
 
@@ -30,3 +32,4 @@ branch: feature/playback-r2-read-adapter
 3. 実binding peerがあっても、binding契約Adapterは一律にNarrow Integrationを持たない（旧答え）— peerが無かった時の答えで、peerを得た今は、D1 adapterのSQL意味がsociable unitで観測できずSQLの誤りを見逃すため採らなくなった。さらに、手書きのbinding型と実bindingの一致は`tsc`もsociable unitも検査しないため、R2 adapterについても採らない。
 4. SQLの意味を手書きdoubleで再現し、sociable unitへ寄せる案 — 検証したい意味をtest側へ複製することになり、複製が実SQLiteと一致する保証が無い。実peerなら複製が要らない。
 5. 実proxyのNarrow Integrationをunit projectに含める案 — 実proxy起動がunitのFastを壊す（`2026-09-16T00-20-08-feature-generator-r2-test-peer-scope.md` で却下済み）。
+6. Drizzle移行後も、手書きdoubleのsociable unitでSQLの形をassertし続ける案 — 上のReason 9のとおり、doubleがDrizzleの列写像を複製することになり、複製が実物と一致する保証が無い。実local D1のNarrow Integrationが同じ意味を、複製なしで観測する。

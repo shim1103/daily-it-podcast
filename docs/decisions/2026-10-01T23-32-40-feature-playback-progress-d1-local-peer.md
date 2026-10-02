@@ -13,7 +13,7 @@ branch: feature/playback-progress-d1-local-peer
    3. cursor は応答の最上位にだけ出す。行の schema と list の embed には `seq` を出さない。
    4. 不正な cursor は 400（`validation_error`）とする。
 3. `clientAt` を使う判断（`2026-09-22T19-13-35-feature-playback-progress.md`）は merge の鍵であり、pull の更新印とは別の問いとして扱う。
-4. 現行の実装と、epic の `2026-10-01T18-54-14-feature-playback-progress-application.md` §1.5 の差分鍵（`lastPlayedAt > since`）は、Rejected 2 の案のままである。本 Decision がそれを置き換える。移行の実施は別 Issue で行う（未実施）。
+4. 現行の route・UseCase の差分鍵（`lastPlayedAt > since`）は、Rejected 2 の案のままである。本 Decision がそれを置き換える。epic の `2026-10-01T18-54-14-feature-playback-progress-application.md` §1.5 は本 Decision に合わせて直してある。移行の実施は別 Issue（#220）で行う（未実施）。
 5. 書込量の増加（索引の分だけ、書込 1 回で書く行が増える）は、未確認の push 間隔に依る。数値はここへ載せず、未確認とする。
 
 ## 2. Reason

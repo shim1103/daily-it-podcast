@@ -7,7 +7,7 @@ branch: feature/playback-progress-d1-smoke
 ## 1. Decision
 
 1. TEST D1 に進捗表が無いときは、疎通 dispatch の中で `wrangler d1 migrations apply` により、repo の migration file を適用してから疎通する。表の DDL を dispatch 側（yml・script・probe）へ複製しない。
-2. migration file は疎通の一過性 artifact に含めず、PASS 後も削除しない。置き場は `apps/playback/worker/migrations/` のままとし、`migrations_dir` を共有 config（`test/support/wrangler.smoke.jsonc`）に宣言する。
+2. migration file は疎通の一過性 artifact に含めず、PASS 後も削除しない。置き場は `apps/playback/worker/migrations/` のままとし、`migrations_dir` と `migrations_pattern` を共有 config（`test/support/wrangler.smoke.jsonc`）に宣言する。migration の layout（`drizzle-kit generate` の生成物）と `migrations_pattern` の相対 path の基準は `2026-10-01T23-33-20-feature-playback-progress-d1-local-peer.md` が持つ。
 3. 疎通の形（binding 面での往復と独立な remote 読み戻し）は、別 Decision（`2026-09-30T12-32-02-feature-playback-progress-d1-smoke`）が持つ。
 
 ## 2. Reason
@@ -16,7 +16,7 @@ branch: feature/playback-progress-d1-smoke
 2. DDL の正本は migration file 1本である。dispatch 側が DDL を持つと第二の SSOT になり、列変更時に片方だけ更新される。
 3. `migrations apply` は、適用済みの migration を D1 側の台帳（`d1_migrations`）へ file 名で記録する。`execute --file` で直接流すと台帳に載らず、後で D1 infra が同じ migration を適用したときに表が既にあって衝突する。
 4. 適用後に file を消すと、台帳と file が乖離する。本番・新規の環境・local の D1 が、同じ file を必要とする。適用が済んでも、file は schema の履歴として残る。
-5. wrangler の既定の置き場は config の隣の `./migrations` で、`worker/migrations` は既定外である。ただし `migrations_dir` の宣言で足りる。dir を移すのは、参照の書き換えだけを増やす。
+5. wrangler の既定の置き場は config の隣の `./migrations` で、`worker/migrations` は既定外である。ただし `migrations_dir` の宣言で足りる（Drizzle の生成 layout では `migrations_pattern` も要る）。dir を移すのは、参照の書き換えだけを増やす。
 
 ## 3. Rejected
 
