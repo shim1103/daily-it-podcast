@@ -11,6 +11,7 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpget"
+	"golang.org/x/sync/errgroup"
 )
 
 var _ port.ItemSource = (*ListItemSource)(nil)
@@ -104,13 +105,32 @@ func (s *ListItemSource) List(ctx context.Context, since time.Time) ([]models.So
 
 	targets := filterSummariesInWindow(summaries, since, s.effectiveMaxStories())
 
+	items := make([]models.SourceItem, len(targets))
+	ok := make([]bool, len(targets))
+
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(MaxConcurrentFetches)
+	for i := range targets {
+		i := i
+		g.Go(func() error {
+			detail, occurredAt, fetched := s.fetchStoryDetail(gctx, targets[i].ShortID, since)
+			if !fetched {
+				return nil
+			}
+			items[i] = toSourceItem(detail, occurredAt)
+			ok[i] = true
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
 	out := make([]models.SourceItem, 0, len(targets))
-	for _, summary := range targets {
-		detail, occurredAt, ok := s.fetchStoryDetail(ctx, summary.ShortID, since)
-		if !ok {
-			continue
+	for i := range ok {
+		if ok[i] {
+			out = append(out, items[i])
 		}
-		out = append(out, toSourceItem(detail, occurredAt))
 	}
 	return out, nil
 }
