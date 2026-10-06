@@ -10,10 +10,11 @@ Composition Root で `ProduceEpisode` の production graph を組み立てる単
 を受け取る**関数**（`newProduceEpisode` / `NewProduceEpisodeFromEnv`）とする。`FooFactory`
 struct + `NewFooFactory` + `Build()` の 3 要素を持つ factory 型は作らない。
 
-composite `ItemSource`（登録順 concat・error 透過・非 nil 空 slice）は残す。これは
-先行 Decision（`2026-08-19T13-25-20-refactor-generator-source-port.md`）の「複数源 merge は
-Composition が composite で行い Application は源個数を知らない」を満たすための分岐を持つ
-実体であり、factory の有無とは別問題。
+composite の**構成**（どの Adapter を何本選ぶか）は Composition が所有する。
+並行 List・fail-all・連結の**振る舞い**は Application（`fetch.CompositeItemSource`）が所有する。
+Application UseCase へは単一 `port.ItemSource` として渡し、源個数を知られないようにする
+（[[2026-10-02T07-17-48-refactor-generator-io-fanout]]・[[2026-08-19T13-25-20-refactor-generator-source-port]]）。
+factory の有無とは別問題。
 
 ## 2. Reason
 
@@ -29,9 +30,9 @@ factory パターンが正当化されるのは、組み立て途中の状態を
 現在の Composition Root にそれは無い。将来 `ProduceEpisode.Run`（D）や第 2 情報源 Adapter が
 入っても、結線先の ctor が増えるだけで結線関数の形は変わらない見込み。
 
-composite を残す理由は factory と切り離せる。`compositeItemSource.List` はループ concat と
-error 早期 return の分岐を持ち、その振る舞いは `item_source_test.go` の Sociable Unit が
-所有する。結線関数（分岐なし）は test を持たず `go build` と cmd 経路の compile で守る。
+composite の構成（Adapter 選択）は factory と切り離せる。振る舞い（`CompositeItemSource.List`）と
+Sociable Unit は Application が所有する（[[2026-10-02T07-17-48-refactor-generator-io-fanout]]）。
+結線関数（分岐なし）は test を持たず `go build` と cmd 経路の compile で守る。
 
 ## 3. Rejected
 
@@ -42,6 +43,4 @@ error 早期 return の分岐を持ち、その振る舞いは `item_source_test
 2. factory を残しつつ結線関数を消して `NewProduceEpisodeFromEnv` から直接 `Build()` を呼ぶ案 —
    中間関数は 1 個減るが、型 + ctor + method の 3 要素は残る。KISS 後退の本体は factory 型
    そのものなので解消にならない。
-3. composite も廃して GetXAPI Adapter を直接 `FetchSourceItems` へ渡す案 — 先行 Decision の
-   「複数源 merge は Composition が composite で」に反する。GetXAPI 1 本の現在でも、
-   第 2 情報源が入ったとき Application 側の変更を不要にする境界を先に置く。
+3. composite も廃して各 Adapter を `FetchSourceItems` が直接複数受け取る案 — 「UseCase が源個数を知らない」に反する。構成は Composition、振る舞いは Application（[[2026-10-02T07-17-48-refactor-generator-io-fanout]]）。

@@ -33,6 +33,7 @@ linters:
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/application
             - github.com/shim1103/daily-it-podcast/contracts
             - github.com/santhosh-tekuri/jsonschema/v5
+            - golang.org/x/sync
         infrastructure:
           list-mode: strict
           files:
@@ -42,6 +43,7 @@ linters:
             - "!**/drive/gdrive/**"
           allow:
             - $gostd
+            - golang.org/x/sync
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/entities
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port
             - github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure

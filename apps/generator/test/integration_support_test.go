@@ -93,22 +93,6 @@ func integrationTestSourceOccurredAt() time.Time {
 
 func broadFixedEpisodeIDFunc() string { return broadFixedEpisodeID }
 
-// compositeItemSource は composition.newCompositeItemSource と同型の合成 port.ItemSource。
-// why: composition は test から import できないため、同型の写しを test 内に置く。
-type compositeItemSource []port.ItemSource
-
-func (c compositeItemSource) List(ctx context.Context, since, until time.Time) ([]models.SourceItem, error) {
-	merged := make([]models.SourceItem, 0)
-	for _, source := range c {
-		items, err := source.List(ctx, since, until)
-		if err != nil {
-			return nil, err
-		}
-		merged = append(merged, items...)
-	}
-	return merged, nil
-}
-
 // integrationWireTopic は buildIntegrationWireJSON が組む topic 1 件分の素材。
 type integrationWireTopic struct {
 	Title   string `json:"title"`
@@ -553,13 +537,13 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 
 	// 5 情報源（HackerNews → Lobsters → Publickey → TechCrunch → クラウド Watch）。
 	// 登録順は composition.newProduceEpisode と同順。真外部は TLS redirect で double 済み。
-	fetchUC := fetch.NewFetchSourceItems(compositeItemSource{
+	fetchUC := fetch.NewFetchSourceItems(fetch.NewCompositeItemSource([]port.ItemSource{
 		hackernews.NewListItemSource(httpClient, hackernews.MaxStoriesScanned, nil),
 		lobsters.NewListItemSource(httpClient, lobsters.MaxStoriesScanned, nil),
 		publickey.NewListItemSource(httpClient, publickey.MaxStoriesScanned, nil),
 		techcrunch.NewListItemSource(httpClient, techcrunch.MaxStoriesScanned, nil),
 		cloudwatch.NewListItemSource(httpClient, cloudwatch.MaxStoriesScanned, nil),
-	}, integrationTestDisplayLocation)
+	}), integrationTestDisplayLocation)
 	speech := gemini.NewSpeechSynthesizer(httpClient, broadDummyGeminiKey, gemini.TierFree, nil)
 	lookup := r2.NewCompletedEpisodeLookup(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket, nil)
 	rawWriter := r2.NewEpisodeWriter(httpClient, broadDummyR2AccessKeyID, broadDummyR2SecretAccess, broadDummyR2AccountID, broadDummyR2Bucket, nil)

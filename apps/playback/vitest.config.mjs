@@ -5,7 +5,13 @@ export default defineConfig({
     passWithNoTests: true,
     coverage: {
       provider: "v8",
-      include: ["contracts/**/*.ts", "web/src/**/*.ts", "web/src/**/*.tsx", "worker/src/**/*.ts"],
+      include: [
+        "cli/**/*.ts",
+        "contracts/**/*.ts",
+        "web/src/**/*.ts",
+        "web/src/**/*.tsx",
+        "worker/src/**/*.ts",
+      ],
       exclude: [
         ...coverageConfigDefaults.exclude,
         "web/main.ts",
@@ -30,6 +36,7 @@ export default defineConfig({
           name: "unit",
           environment: "happy-dom",
           include: [
+            "cli/**/*sociable_unit*.test.ts",
             "contracts/**/*sociable_unit*.test.ts",
             "web/vite-config.sociable_unit.test.ts",
             "web/src/**/*sociable_unit*.test.ts",

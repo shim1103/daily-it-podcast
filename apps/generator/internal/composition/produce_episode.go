@@ -22,12 +22,12 @@ func newProduceEpisode(cfg config.Config, logw *delivery.LogWriter) *application
 }
 
 // newProduceEpisodeWithTopicCount は検証済み Config の capability ごとに production Adapter を結線した日次 UseCase を返す。
-// 情報源は HackerNews / Lobsters / Publickey / TechCrunch / クラウド Watch を composite ItemSource 経由で束ね、Application へ情報源個数を渡さない。
+// 情報源は HackerNews / Lobsters / Publickey / TechCrunch / クラウド Watch を選び、Application の CompositeItemSource へ渡して単一 ItemSource として Fetch する。
 //
 // @require cfg は Generator の configuration boundary で検証済みである。logw != nil。topicCount > 0。
 // @ensure 戻りは非 nil の *application.ProduceEpisode。
-// @ensure Fetch は composite ItemSource 経由で行い、Application へ情報源個数を渡さない。
-// @invariant config.Load 呼び出しをここで行わない。Composition Root の結線責務だけを持つ。
+// @ensure Fetch は Composition が選んだ Adapter 列を Application 合成（CompositeItemSource）経由で行い、FetchSourceItems へ情報源個数を渡さない。
+// @invariant config.Load 呼び出しをここで行わない。Composition Root は結線と Adapter 構成だけを持つ（並行 List・fail-all・連結と fallback 方針は Application）。
 func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter, topicCount int) *application.ProduceEpisode {
 	// why: logw は typed nil（*delivery.LogWriter の nil）になり得るが、port interface へ渡すと
 	//      == nil 比較が false になり検知が漏れる（Go の typed nil 問題）。具体型の時点で唯一
@@ -36,22 +36,12 @@ func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter
 		panic("composition: newProduceEpisodeWithTopicCount: logw is nil")
 	}
 	httpClient := appruntime.HTTPClient()
-	// why: maxItems <= 0 は各 Adapter が既存の MaxStoriesScanned へフォールバックする契約
-	//      （infrastructure/*/item_source.go の effectiveMaxStories）。本番の topicCount は
-	//      常に DraftTopicCountTarget なのでフォールバックへ委ね、既定値を変えない。
-	//      system-test が topicCount を絞った時だけ、source 取得件数も追従して絞る。
-	sourceMaxItems := 0
-	if topicCount != constants.DraftTopicCountTarget {
-		sourceMaxItems = topicCount * constants.SourceItemsPerTopic
-	}
 	displayLoc := appruntime.DisplayLocation()
-	fetchUC := fetch.NewFetchSourceItems(newCompositeItemSource(
-		newHackerNewsItemSource(httpClient, sourceMaxItems, logw),
-		newLobstersItemSource(httpClient, sourceMaxItems, logw),
-		newPublickeyItemSource(httpClient, sourceMaxItems, logw),
-		newTechCrunchItemSource(httpClient, sourceMaxItems, logw),
-		newCloudWatchItemSource(httpClient, sourceMaxItems, logw),
-	), displayLoc)
+	// Composition: どの情報源を何本選ぶか。振る舞い（並行 List）は Application CompositeItemSource。
+	fetchUC := fetch.NewFetchSourceItems(
+		newProductionItemSource(httpClient, sourceMaxItemsForTopicCount(topicCount), logw),
+		displayLoc,
+	)
 	lookup := newR2CompletedEpisodeLookup(httpClient, cfg.R2, logw)
 	// logw は port.FallbackReporter / port.ProgressReporter を満たす。application 用 callback の
 	// 組み立ては delivery.LogWriter が持ち、Composition は結線だけ行う。

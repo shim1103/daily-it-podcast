@@ -39,3 +39,19 @@ export function logInfo(payload: InfoPayload): void {
 export function logError(payload: ErrorPayload): void {
   console.error(payload);
 }
+
+/**
+ * request に紐づかない出力（CLI の標準出力など）用。structured log ではなく 1 行の文字列を出す。
+ * @ensure console.log へ 1 行をそのまま渡す
+ */
+export function writeLine(line: string): void {
+  console.log(line);
+}
+
+/**
+ * request に紐づかない出力（CLI の標準エラーなど）用。
+ * @ensure console.error へ 1 行をそのまま渡す
+ */
+export function writeErrorLine(line: string): void {
+  console.error(line);
+}

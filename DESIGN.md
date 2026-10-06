@@ -22,6 +22,7 @@ Non-scope（書かない・写さない）:
 | `apps/generator` | 取得 → 原稿 → TTS → R2 書込 | 外部 API / CLI（Infrastructure） |
 | `apps/playback/web` | 一覧・再生・原稿表示 | `worker` の HTTP のみ |
 | `apps/playback/worker` | R2 読取 BFF | R2 binding（入場境界は `DEPLOY.md`） |
+| `apps/playback/cli` | e2e の Access session の期限確認と、`expires` を Unix 秒へ直した storageState の書き出し。Node の CLI（storageState の JSON は人が組み立てて登録する。構造の例は `storage-state.example.json`） | Playwright の storageState の形（`CF_Authorization` cookie の `expires`）だけ。`web`・`worker`・`contracts` は import しない（出力の実体 `worker/src/routes/logger.ts` の 1 点だけが例外） |
 
 禁止: `playback` ↔ `generator` の直接依存。二系統の runtime は互いに import しない。つながるのは共有 storage 上の file だけ（形の正本は repo 根 `contracts/`）。**現行 runtime の storage は Cloudflare R2**（書込・読取とも）。
 
@@ -53,8 +54,13 @@ Non-scope（書かない・写さない）:
 | `playback/worker/src/entities` 等 | 上に同じ（BFF） |
 | `playback/web/src/{pages,components/feature,components/primitive,view-models,api,utils,lib}` | frontend（role と dir は 1 対 1） |
 | `playback/contracts` | web↔worker HTTP 境界共有型（Infrastructure は import 禁止） |
+| `playback/cli/access-session/storage-state.ts` | Entities（storageState の期限の読み取りと判定。IO を持たない） |
+| `playback/cli/access-session/command.ts` | Delivery Mechanism（引数と入出力を終了 status へ変換する。IO は注入される） |
+| `playback/cli/access-session/main.ts` | Composition Root（process の env・時刻・出力を結線する。分岐を持たない） |
 
 `playback/web` は Vite + TypeScript + React + Pico.css classless。`playback/worker` 入口は Hono、型同期は Hono RPC。Next.js / shadcn / TanStack は使わない。
+
+`console` を直接呼ぶ file は `worker/src/routes/logger.ts` の 1 点だけ（biome の `noConsole` の例外も、この 1 file だけ）。CLI の出力も、`main.ts` がこの file の関数を注入する。
 
 依存は内側へ。Composition Root だけが全層を結線する。未完了 index は [wiki Issue #192](https://github.com/shim1103/daily-it-podcast/issues/192)。
 
@@ -112,7 +118,7 @@ repo 根 `contracts/` は **配置表現**の SSOT（現行は R2 object 上の�
 5. root の `check-static.sh` / `test-unit.sh` / `test-integration.sh` は片系を呼ぶだけ。Unit composer 契約のあと片系 unit
 6. runner: Playback = Vitest（Unit / Integration）、Playwright（browser E2E）。Generator = `go test`
 7. generator Unit gate: statement coverage 90%（`covermode=atomic`、`-shuffle=on`、`-count=1`）。除外は Composition Root（`internal/composition/**`）・CLI Driving Adapter（`cmd/**`）・build tag 付き suite・Broad Integration 以上。`error.go` / `names.go` / `constants.go` を名前では除外しない。secret なし Narrow（`apps/generator/test/` の tag なし）は production code のカバー分母に含める。local の condition report は `scripts/generator/report-condition-coverage.sh`（`gobco v1.3.4`）。threshold なし・hard gate ではない。未使用 function / `select` は対象外で完全な branch coverage ではない
-8. playback Unit gate: branch coverage（全体 100%、外部境界層は glob で 90%）。secret なし Narrow Integration を分母に含める（SU + NI 合算）。Broad 以上・E2E は分母に入れない。設定は `apps/playback/vitest.config.mjs`
+8. playback Unit gate: branch coverage（全体 100%、外部境界層は glob で 90%）。secret なし Narrow Integration を分母に含める（SU + NI 合算）。Broad 以上・E2E は分母に入れない。`cli/` も分母に含める（除外しない）。設定は `apps/playback/vitest.config.mjs`
 9. generator static: `go build` + golangci（depguard / errcheck / govet / gofmt）。Infrastructure→Application は Port のみ。playback static: Biome / tsc / dependency-cruiser
 10. generator race: `go test -race` は Unit package のみ
 11. Go / Node version の正本は `go.mod` / `.nvmrc`。GHA は `*-version-file` で参照

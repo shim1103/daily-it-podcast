@@ -44,7 +44,7 @@ func (s *SpeechSynthesizer) synthesizeOne(ctx context.Context, text string, maxA
 			if err != nil {
 				return models.SpeechAudio{}, calls, infraErr("pcm_to_wav", err)
 			}
-			return models.SpeechAudio{Content: wav}, calls, nil
+			return models.SpeechAudio{Content: wav, DurationSec: pcmDurationSec(pcm)}, calls, nil
 		}
 		retryable := kind == pcmRetryTransient || kind == pcmRetryRateLimited
 		// why: 同種 error（同じ *adaptererror.Error.Op）が retryable のまま 2 回連続したら、

@@ -12,6 +12,7 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/constants"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpget"
+	"golang.org/x/sync/errgroup"
 )
 
 var _ port.ItemSource = (*ListItemSource)(nil)
@@ -30,6 +31,9 @@ const (
 	MaxCommentsPerStory = 8
 	// CommentDepth は取得する comment 階層の深さ（top-level のみ）。
 	CommentDepth = 1
+	// MaxConcurrentFetches は /s/<short_id>.json への同時 fetch 数の上限。
+	// why: Lobsters API 側の rate limit は非公開のため、安全側に抑えた値とする。
+	MaxConcurrentFetches = 5
 )
 
 // ListItemSource は Lobsters の hottest を ItemSource として返す Adapter。
@@ -89,6 +93,7 @@ type storyComment struct {
 // @ensure 各要素の SourceID は非空（= SourceID）。OccurredAt は UTC かつ [since, until)。
 // @ensure 結果は created_at ∈ [since, until) を満たす story のみ。最大 min(maxItems, MaxStoriesScanned) 件（maxItems <= 0 は MaxStoriesScanned）。
 // @ensure 該当なしは空 slice（nil ではない）。
+// @ensure targets の個別 fetch は最大 MaxConcurrentFetches 件まで同時実行してよい。
 // @invariant vendor 固有型・監視対象一覧を露出しない。Summary / Detail / Discourse を key として解釈しない。
 func (s *ListItemSource) List(ctx context.Context, since, until time.Time) ([]models.SourceItem, error) {
 	if s == nil || s.client == nil {
@@ -102,15 +107,42 @@ func (s *ListItemSource) List(ctx context.Context, since, until time.Time) ([]mo
 
 	targets := filterSummariesInWindow(summaries, since, until, s.effectiveMaxStories())
 
+	items, ok, err := s.fetchStoryDetails(ctx, targets, since, until)
+	if err != nil {
+		return nil, err
+	}
+
 	out := make([]models.SourceItem, 0, len(targets))
-	for _, summary := range targets {
-		detail, occurredAt, ok := s.fetchStoryDetail(ctx, summary.ShortID, since, until)
-		if !ok {
-			continue
+	for i := range ok {
+		if ok[i] {
+			out = append(out, items[i])
 		}
-		out = append(out, toSourceItem(detail, occurredAt))
 	}
 	return out, nil
+}
+
+func (s *ListItemSource) fetchStoryDetails(ctx context.Context, targets []hottestSummary, since, until time.Time) ([]models.SourceItem, []bool, error) {
+	items := make([]models.SourceItem, len(targets))
+	ok := make([]bool, len(targets))
+
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(MaxConcurrentFetches)
+	for i := range targets {
+		g.Go(func() error {
+			summary := targets[i]
+			detail, occurredAt, fetched := s.fetchStoryDetail(gctx, summary.ShortID, since, until)
+			if !fetched {
+				return nil
+			}
+			items[i] = toSourceItem(detail, occurredAt)
+			ok[i] = true
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, nil, err
+	}
+	return items, ok, nil
 }
 
 // fetchHottest は hottest.json を取得して summary 列を返す。失敗は List ごと失敗させる。

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 )
 
@@ -46,10 +48,10 @@ func NewCompletedEpisodeLookup(httpClient *http.Client, accessKeyID, secretAcces
 
 // HasPair は所定空間に date 一致の完成ペアがあるとき true を返す。
 //
-// @require date は YYYY-MM-DD（Port 契約。本 Adapter は再検証しない）。
-// @ensure 同一 stem の json+mp3 があり json の date が一致するとき true。片方・無し・不一致は false。
+// @require date は Port 契約どおり。本 Adapter は再検証しない。
 // @ensure network / 5xx / 429 は有限 retry。その他 4xx は fail-fast。
-// @invariant storage 固有 id・MIME・vendor 型を露出せず、error に bucket / key / credential 実値を載せない。
+// @ensure 対象 stem への GET は最大 maxConcurrentGets 件まで同時実行してよい。
+// @invariant error に bucket / key / credential 実値を載せない。
 func (l *CompletedEpisodeLookup) HasPair(ctx context.Context, date string) (bool, error) {
 	if l == nil || l.client == nil {
 		return false, infraErr("has_pair", fmt.Errorf("client is nil"))
@@ -60,6 +62,22 @@ func (l *CompletedEpisodeLookup) HasPair(ctx context.Context, date string) (bool
 		return false, err
 	}
 
+	candidates := pairStemCandidates(keys)
+
+	matches, err := l.matchDateOnStems(ctx, candidates, date)
+	if err != nil {
+		return false, err
+	}
+	for _, matched := range matches {
+		if matched {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// why: docs/decisions/2026-10-02T07-47-56 — List 済み key のメモリ分類。GET だけが fan-out 対象。
+func pairStemCandidates(keys []string) []string {
 	mp3Stems := make(map[string]struct{})
 	var jsonStems []string
 	for _, key := range keys {
@@ -71,23 +89,39 @@ func (l *CompletedEpisodeLookup) HasPair(ctx context.Context, date string) (bool
 		}
 	}
 
+	var candidates []string
 	for _, stem := range jsonStems {
-		if _, ok := mp3Stems[stem]; !ok {
-			continue
-		}
-		raw, err := l.getObject(ctx, stem+jsonExt)
-		if err != nil {
-			return false, err
-		}
-		episodeDate, ok := manuscriptDate(raw)
-		if !ok {
-			continue
-		}
-		if episodeDate == date {
-			return true, nil
+		if _, ok := mp3Stems[stem]; ok {
+			candidates = append(candidates, stem)
 		}
 	}
-	return false, nil
+	return candidates
+}
+
+func (l *CompletedEpisodeLookup) matchDateOnStems(ctx context.Context, candidates []string, date string) ([]bool, error) {
+	matches := make([]bool, len(candidates))
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(maxConcurrentGets)
+	for i, stem := range candidates {
+		g.Go(func() error {
+			raw, err := l.getObject(gctx, stem+jsonExt)
+			if err != nil {
+				return err
+			}
+			episodeDate, ok := manuscriptDate(raw)
+			if !ok {
+				return nil
+			}
+			if episodeDate == date {
+				matches[i] = true
+			}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	return matches, nil
 }
 
 func (l *CompletedEpisodeLookup) listObjectKeys(ctx context.Context) ([]string, error) {
@@ -243,7 +277,6 @@ func parseListBucketResult(raw []byte) (listBucketResultXML, error) {
 	return parsed, nil
 }
 
-// manuscriptDate は原稿 JSON の date field だけを読む。schema 全体は検証しない。
 func manuscriptDate(raw []byte) (string, bool) {
 	var doc struct {
 		Date string `json:"date"`
