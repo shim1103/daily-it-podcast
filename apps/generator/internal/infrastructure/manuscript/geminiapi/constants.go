@@ -16,7 +16,7 @@ const (
 	APIKeyHeader = "x-goog-api-key"
 )
 
-// MaxAttempts は 429 応答に対する最大試行数。無限 retry を防ぐ。cursorapi と同値。
+// MaxAttempts は Retry-After 付き 429 応答に対する最大試行数。無限 retry を防ぐ。cursorapi と同値。
 // why: TextWriter 用 model の AI Studio 実測 RPD=100〜500（free）は現状の 1 日 1 回 produce 運用
 //
 //	では枯渇しにくく、gemini（TTS）の RPD=10 のような「1 episode で焼き切る」動機が無い。

@@ -509,11 +509,12 @@ func TestWrite_doesNotNotifyRetryReporter_onFinalAttempt_whenBuildFnFailsAllAtte
 func TestGenerateContent_notifiesRetryReporter_on429BeforeEachBackoff(t *testing.T) {
 	t.Parallel()
 
-	// Given: 429 を MaxAttempts 回返し続ける
+	// Given: server が Retry-After で回復を明示した 429 を MaxAttempts 回返し続ける
 	responses := make([]fakeClientResponse, 0, MaxAttempts)
 	for i := 0; i < MaxAttempts; i++ {
 		responses = append(responses, fakeClientResponse{
 			status: http.StatusTooManyRequests,
+			header: http.Header{"Retry-After": {"1"}},
 			body:   `{"error":"rate limited"}`,
 		})
 	}
@@ -720,11 +721,12 @@ func TestWrite_doesNotRetryTwice_whenBodyReadInterruptionPersists(t *testing.T) 
 func TestWrite_wrapsSourceExhausted_afterTierFreeUsesAll429Attempts(t *testing.T) {
 	t.Parallel()
 
-	// Given: 429 を MaxAttempts 回返し続ける
+	// Given: server が Retry-After で回復を明示した 429 を MaxAttempts 回返し続ける
 	responses := make([]fakeClientResponse, 0, MaxAttempts)
 	for i := 0; i < MaxAttempts; i++ {
 		responses = append(responses, fakeClientResponse{
 			status: http.StatusTooManyRequests,
+			header: http.Header{"Retry-After": {"1"}},
 			body:   `{"error":"rate limited"}`,
 		})
 	}
@@ -750,11 +752,12 @@ func TestWrite_wrapsSourceExhausted_afterTierFreeUsesAll429Attempts(t *testing.T
 func TestWrite_wrapsSourceExhausted_afterTierPaidUsesAll429Attempts(t *testing.T) {
 	t.Parallel()
 
-	// Given: paid source が 429 を MaxAttempts 回返し続ける
+	// Given: paid source が Retry-After 付きの 429 を MaxAttempts 回返し続ける
 	responses := make([]fakeClientResponse, 0, MaxAttempts)
 	for i := 0; i < MaxAttempts; i++ {
 		responses = append(responses, fakeClientResponse{
 			status: http.StatusTooManyRequests,
+			header: http.Header{"Retry-After": {"1"}},
 			body:   `{"error":"rate limited"}`,
 		})
 	}
@@ -800,29 +803,41 @@ func TestWrite_clampsRetryAfter_whenHeaderValueExceedsMax(t *testing.T) {
 	}
 }
 
-func TestWrite_fallsBackToBackoff_when429RetryAfterIsUnparseable(t *testing.T) {
+func TestWrite_wrapsSourceExhaustedWithoutWaiting_when429DeclaresNoRecovery(t *testing.T) {
 	t.Parallel()
 
-	// Given: 解釈できない Retry-After 付き 429、その後成功応答
-	w, _, spy := newFakeTextWriterWithSleepSpy(
-		fakeClientResponse{
-			status: http.StatusTooManyRequests,
-			header: http.Header{"Retry-After": {"soon"}},
-			body:   `{"error":"rate limited"}`,
-		},
-		successResponse("STOP", "backoff 復帰後の原稿。"),
-	)
-
-	// When: Write する
-	got, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
-
-	// Then: 成功 draft が返り、待ちは backoffDelay(1) == 1s
-	if err != nil {
-		t.Fatalf("Write() error = %v, want nil", err)
+	// Given: 回復の明示（解釈できる Retry-After）が無い 429。body は quota 超過を示すが読まない
+	cases := map[string]http.Header{
+		"header無し":        nil,
+		"Retry-After解釈不能": {"Retry-After": {"soon"}},
 	}
-	assertDraftEqual(t, got, validDraft)
-	if len(spy.waits) != 1 || spy.waits[0] != time.Second {
-		t.Fatalf("waits = %v, want [1s]", spy.waits)
+	for name, header := range cases {
+		header := header
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			w, rt, spy := newFakeTextWriterWithSleepSpy(
+				fakeClientResponse{
+					status: http.StatusTooManyRequests,
+					header: header,
+					body:   `{"error":{"code":429,"status":"RESOURCE_EXHAUSTED"}}`,
+				},
+			)
+
+			// When: Write する
+			_, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
+
+			// Then: retry も待ちもせず 1 call で枯渇番兵を返す
+			assertGeminiInfraErrorOp(t, err, "http_status")
+			if !errors.Is(err, port.ErrSourceExhausted) {
+				t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v", err)
+			}
+			if len(rt.calls) != 1 {
+				t.Fatalf("call count = %d, want 1", len(rt.calls))
+			}
+			if len(spy.waits) != 0 {
+				t.Fatalf("waits = %v, want none", spy.waits)
+			}
+		})
 	}
 }
 

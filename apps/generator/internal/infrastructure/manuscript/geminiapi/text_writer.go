@@ -95,7 +95,7 @@ func ctxSleep(ctx context.Context, d time.Duration) {
 //
 //	w.retry へ Retry("write_manuscript_draft", attempt, TextWriterMaxAttempts, ...) を通知する。
 //
-// @invariant generateContent は idempotent（同 body は同じ生成試行・副作用なし）。client.Do error / 5xx を 1 回、429 を MaxAttempts まで backoff で再試行し、429 の使い切りは Tier に関係なく port.ErrSourceExhausted を wrap する。401 / 403 / その他 4xx、finishReason が STOP 以外、空 text、parse 失敗は再試行しない。secret 実値を error へ出さない。model は ModelID 固定。毎回 generationConfig（responseMimeType=application/json + WriterOutput responseJsonSchema）を送る。
+// @invariant generateContent は idempotent（同 body は同じ生成試行・副作用なし）。client.Do error / 5xx を 1 回再試行する。429 は response body を読まず、Retry-After が解釈できる時だけ MaxAttempts まで待って再試行し、解釈できる Retry-After が無い 429 と使い切りは Tier に関係なく待たずに port.ErrSourceExhausted を wrap する。401 / 403 / その他 4xx、finishReason が STOP 以外、空 text、parse 失敗は再試行しない。secret 実値を error へ出さない。model は ModelID 固定。毎回 generationConfig（responseMimeType=application/json + WriterOutput responseJsonSchema）を送る。
 func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(string) (models.ManuscriptDraft, error)) (models.ManuscriptDraft, error) {
 	if w == nil || w.client == nil {
 		return models.ManuscriptDraft{}, geminiErr("build_request", fmt.Errorf("client is nil"))
@@ -190,12 +190,15 @@ const (
 	retryNone fetchRetryKind = iota
 	// retryTransientOnce は Do error / idempotent POST の 5xx。+1 即再試行を 1 回だけ。
 	retryTransientOnce
-	// retryRateLimited は 429。MaxAttempts まで backoff で再試行する。
+	// retryRateLimited は 429。Retry-After で回復が明示された時だけ MaxAttempts まで待って再試行し、
+	// 明示が無ければ待たずに枯渇として扱う。
 	retryRateLimited
 )
 
 // generateContent は generateContent を retry 方針に従って叩き、連結 trim 済み text を返す。
-// why: Decision §7。Do error / 5xx は 1 回だけ（generateContent は idempotent）、429 を MaxAttempts まで backoff。
+// why: Do error / 5xx は 1 回だけ（generateContent は idempotent）。429 は Retry-After で回復が明示された時だけ
+//
+//	MaxAttempts まで待つ（Decision 2026-09-17T15-06-00）。
 func (w *TextWriter) generateContent(ctx context.Context, brief string) (string, error) {
 	body, err := json.Marshal(generateContentRequest{
 		Contents:         []requestContent{{Parts: []requestPart{{Text: brief}}}},
@@ -222,11 +225,11 @@ func (w *TextWriter) generateContent(ctx context.Context, brief string) (string,
 			transientUsed = true
 		case retryRateLimited:
 			rateLimitAttempt++
-			if rateLimitAttempt >= MaxAttempts {
+			// why: 回復の明示（解釈できる Retry-After）が無い 429 は、待っても戻る保証が無い。
+			//      body の文言・code は provider 依存で変わりうるので読まず、待たずに枯渇として
+			//      次 source へ渡す（Decision 2026-09-17T15-06-00）。
+			if wait <= 0 || rateLimitAttempt >= MaxAttempts {
 				return "", fmt.Errorf("%w: %w", port.ErrSourceExhausted, err)
-			}
-			if wait <= 0 {
-				wait = backoffDelay(rateLimitAttempt)
 			}
 			w.retry.Retry("generate_content", rateLimitAttempt, MaxAttempts, err.Error())
 			w.backoffSleepFn(ctx, wait)
@@ -234,14 +237,6 @@ func (w *TextWriter) generateContent(ctx context.Context, brief string) (string,
 			return "", err
 		}
 	}
-}
-
-// backoffDelay は 429 再試行の待ち時間（1s, 2s, 4s…）。cursorapi.backoffDelay と同型。
-func backoffDelay(attempt int) time.Duration {
-	if attempt < 1 {
-		attempt = 1
-	}
-	return time.Second << (attempt - 1)
 }
 
 // fetchOnce は 1 回の POST を実行し、(断片, 再試行方針, 追加待ち, error) を返す。
