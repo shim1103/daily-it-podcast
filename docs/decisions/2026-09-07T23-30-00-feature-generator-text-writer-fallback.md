@@ -1,13 +1,12 @@
 ---
 name: Cursor create の枯渇シグナルに HTTP 400 + usage_limit_exceeded を加える
-date: 2026-09-07T23:30:00
-branch: feature/generator-text-writer-fallback
+description: Cursor createの400 + usage_limit_exceededを、401/403と並ぶ「Cursorから原稿を取れない」合図として番兵でwrapする。
 ---
 
 ## 1. Decision
 
 1. `cursorapi.TextWriter` の create（POST /v1/agents）が **HTTP 400 かつ応答 body に `usage_limit_exceeded` を含む**とき、その infra error を vendor 非依存の番兵 `port.ErrSourceExhausted` で wrap する。先行 Decision `2026-09-07T19-06-00` §4 が定めた 401/403 の分岐に、この 1 条件を加える形。判定は `bytes.Contains(raw, []byte("usage_limit_exceeded"))` で、Cursor の error JSON の構造（`error.code`）を型で parse しない。
-2. それ以外の 400（body に `usage_limit_exceeded` を含まない）は従来どおり番兵で wrap せず、`cursorapi.Error`（op `create_status`）のまま `ProduceEpisode` へ伝播させて run を赤にする。SSE 途中断 / 到達不可（`Op=="do"`）も従来どおり。429・5xx は番兵で wrap する（`2026-09-17T15-06-00-fix-gemini-429-fallback`・`generator-failure-retry-or-fallback-by-status`）。
+2. それ以外の 400（body に `usage_limit_exceeded` を含まない）は従来どおり番兵で wrap せず、`cursorapi.Error`（op `create_status`）のまま `ProduceEpisode` へ伝播させて run を赤にする。SSE 途中断も従来どおり。429・5xx・通信断は番兵で wrap する（`generator-api-failure-retry-or-fallback`）。
 3. UseCase（`manuscript.TextWriter`）と Composition は変更しない。切り替え条件が「番兵 `port.ErrSourceExhausted`」であることは不変で、その番兵を返す条件が cursorapi 内で 1 つ増えるだけ。切り替えは高々 1 回、secondary は現行 Flash-Lite（`geminiapi.ModelID`）のまま。
 
 先行 Decision `2026-09-07T19-06-00` を supersede しない。§4 の「Cursor が確実に使えないときだけ退避する」という趣旨は維持し、その「確実に使えない」の観測点を 401/403 に加えて「400 + `usage_limit_exceeded`」へ拡張する。先行 Decision の file 本文は書き換えない。
