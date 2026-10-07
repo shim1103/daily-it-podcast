@@ -37,10 +37,10 @@ func (s *retrySpy) Retry(step string, attempt, max int, _ string) {
 	s.calls = append(s.calls, retryCall{step: step, attempt: attempt, max: max})
 }
 
-func newConfig() (Config, *sleepSpy, *retrySpy) {
+func newDelivery() (Delivery, *sleepSpy, *retrySpy) {
 	sleeps := &sleepSpy{}
 	retries := &retrySpy{}
-	return Config{Step: "fetch_step", Retry: retries, Sleep: sleeps.sleep}, sleeps, retries
+	return Delivery{Step: "fetch_step", Retry: retries, Sleep: sleeps.sleep}, sleeps, retries
 }
 
 var errFetch = errors.New("fetch failed")
@@ -116,11 +116,11 @@ func TestRun_returnsValue_whenFetchSucceedsFirst(t *testing.T) {
 	t.Parallel()
 
 	// Given: 初回で成功する fetch
-	cfg, sleeps, retries := newConfig()
+	delivery, sleeps, retries := newDelivery()
 	calls := 0
 
 	// When: Run する
-	got, err := Run(context.Background(), cfg, func(context.Context) (string, Policy, error) {
+	got, err := Run(context.Background(), delivery, func(context.Context) (string, Policy, error) {
 		calls++
 		return "ok", Policy{}, nil
 	})
@@ -135,11 +135,11 @@ func TestRun_retriesOnceThenSucceeds_whenPolicyIsOnce(t *testing.T) {
 	t.Parallel()
 
 	// Given: 1 回目だけ Once の失敗、2 回目は成功
-	cfg, sleeps, _ := newConfig()
+	delivery, sleeps, _ := newDelivery()
 	calls := 0
 
 	// When: Run する
-	got, err := Run(context.Background(), cfg, func(context.Context) (string, Policy, error) {
+	got, err := Run(context.Background(), delivery, func(context.Context) (string, Policy, error) {
 		calls++
 		if calls == 1 {
 			return "", Policy{Kind: Once}, errFetch
@@ -157,11 +157,11 @@ func TestRun_wrapsFallbackAfterOneRetry_whenOnceKeepsFailing(t *testing.T) {
 	t.Parallel()
 
 	// Given: 常に Once の失敗
-	cfg, _, _ := newConfig()
+	delivery, _, _ := newDelivery()
 	calls := 0
 
 	// When: Run する
-	_, err := Run(context.Background(), cfg, func(context.Context) (string, Policy, error) {
+	_, err := Run(context.Background(), delivery, func(context.Context) (string, Policy, error) {
 		calls++
 		return "", Policy{Kind: Once}, errFetch
 	})
@@ -176,11 +176,11 @@ func TestRun_waitsAndNotifiesRetry_whenPolicyIsRateLimited(t *testing.T) {
 	t.Parallel()
 
 	// Given: Retry-After 3s 付きの失敗が 1 回、その後成功
-	cfg, sleeps, retries := newConfig()
+	delivery, sleeps, retries := newDelivery()
 	calls := 0
 
 	// When: Run する
-	got, err := Run(context.Background(), cfg, func(context.Context) (string, Policy, error) {
+	got, err := Run(context.Background(), delivery, func(context.Context) (string, Policy, error) {
 		calls++
 		if calls == 1 {
 			return "", Policy{Kind: RateLimited, Wait: 3 * time.Second}, errFetch
@@ -202,11 +202,11 @@ func TestRun_wrapsFallbackAfterMaxAttempts_whenRateLimitedKeepsFailing(t *testin
 	t.Parallel()
 
 	// Given: 常に Retry-After 付きの失敗
-	cfg, sleeps, retries := newConfig()
+	delivery, sleeps, retries := newDelivery()
 	calls := 0
 
 	// When: Run する
-	_, err := Run(context.Background(), cfg, func(context.Context) (string, Policy, error) {
+	_, err := Run(context.Background(), delivery, func(context.Context) (string, Policy, error) {
 		calls++
 		return "", Policy{Kind: RateLimited, Wait: time.Second}, errFetch
 	})
@@ -224,11 +224,11 @@ func TestRun_wrapsFallbackWithoutRetry_whenPolicyIsFallback(t *testing.T) {
 	t.Parallel()
 
 	// Given: 即 fallback の失敗
-	cfg, sleeps, _ := newConfig()
+	delivery, sleeps, _ := newDelivery()
 	calls := 0
 
 	// When: Run する
-	_, err := Run(context.Background(), cfg, func(context.Context) (string, Policy, error) {
+	_, err := Run(context.Background(), delivery, func(context.Context) (string, Policy, error) {
 		calls++
 		return "", Policy{Kind: Fallback}, errFetch
 	})
@@ -243,11 +243,11 @@ func TestRun_returnsPlainError_whenPolicyIsNone(t *testing.T) {
 	t.Parallel()
 
 	// Given: bug を示す失敗
-	cfg, _, _ := newConfig()
+	delivery, _, _ := newDelivery()
 	calls := 0
 
 	// When: Run する
-	_, err := Run(context.Background(), cfg, func(context.Context) (string, Policy, error) {
+	_, err := Run(context.Background(), delivery, func(context.Context) (string, Policy, error) {
 		calls++
 		return "", Policy{}, errFetch
 	})

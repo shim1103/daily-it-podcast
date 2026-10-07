@@ -41,7 +41,6 @@ func NewTextWriter(client *http.Client, apiKey string, tier Tier, retry port.Ret
 
 // Write は brief から原稿断片を得て、buildFn で ManuscriptDraft へ解釈する。
 //
-// @require brief は trim 後に非空。buildFn は非 nil。
 // @ensure 成功時は buildFn が返す非 nil な models.ManuscriptDraft を返す。
 // @ensure buildFn が invalid と判定した後の取得 error には port.LastAttempt を chain に含める。
 // @ensure buildFn が writerretry.MaxDraftAttempts 回とも error を返したら、port.ErrDraftRejected・最後の error・port.LastAttempt を wrap して返す。
@@ -97,13 +96,13 @@ func (w *TextWriter) generateContent(ctx context.Context, brief string) (string,
 		return "", err
 	}
 	url := fmt.Sprintf(EndpointURLTemplate, ModelID)
-	return writerretry.Run(ctx, w.retryConfig(), func(ctx context.Context) (string, writerretry.Policy, error) {
+	return writerretry.Run(ctx, w.delivery(), func(ctx context.Context) (string, writerretry.Policy, error) {
 		return w.fetchOnce(ctx, url, body)
 	})
 }
 
-func (w *TextWriter) retryConfig() writerretry.Config {
-	return writerretry.Config{Step: "generate_content", Retry: w.retry, Sleep: w.backoffSleepFn}
+func (w *TextWriter) delivery() writerretry.Delivery {
+	return writerretry.Delivery{Step: "generate_content", Retry: w.retry, Sleep: w.backoffSleepFn}
 }
 
 type generateContentRequest struct {

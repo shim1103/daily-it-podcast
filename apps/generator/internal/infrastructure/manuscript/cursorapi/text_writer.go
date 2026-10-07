@@ -38,7 +38,6 @@ func NewTextWriter(client *http.Client, apiKey string, retry port.RetryReporter)
 
 // Write は brief から原稿断片を得て、buildFn で ManuscriptDraft へ解釈する。
 //
-// @require brief は trim 後に非空。buildFn は非 nil。
 // @ensure 成功時は buildFn が返す非 nil な models.ManuscriptDraft を返す。
 // @ensure buildFn が invalid と判定した後の取得 error には port.LastAttempt を chain に含める。
 // @ensure buildFn が writerretry.MaxDraftAttempts 回とも error を返したら、port.ErrDraftRejected・最後の error・port.LastAttempt を wrap して返す。
@@ -226,8 +225,8 @@ func shouldFallbackOnCreateStatus(status int, raw []byte) bool {
 
 func (w *TextWriter) streamResult(ctx context.Context, agentID, runID string) (string, error) {
 	url := fmt.Sprintf(StreamPathTemplate, APIBaseURL+AgentsPath, agentID, runID)
-	cfg := writerretry.Config{Step: "stream_result", Retry: w.retry, Sleep: w.backoffSleepFn}
-	return writerretry.Run(ctx, cfg, func(ctx context.Context) (string, writerretry.Policy, error) {
+	delivery := writerretry.Delivery{Step: "stream_result", Retry: w.retry, Sleep: w.backoffSleepFn}
+	return writerretry.Run(ctx, delivery, func(ctx context.Context) (string, writerretry.Policy, error) {
 		return w.fetchStream(ctx, url)
 	})
 }

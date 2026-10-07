@@ -85,7 +85,8 @@ func PassToFallback(err error) error {
 	return fmt.Errorf("%w: %w", port.ErrSourceExhausted, err)
 }
 
-type Config struct {
+// Delivery は Run が再試行を外へ出す出口（通知と待ち）を持つ。
+type Delivery struct {
 	// Step は再試行の通知（Retry）へ載せる処理名。
 	Step  string
 	Retry port.RetryReporter
@@ -93,7 +94,7 @@ type Config struct {
 }
 
 // Run は fetch を、返された Policy に従って再試行する。再試行の方針はこの関数だけが持ち、fetch は分類だけを返す。
-func Run[T any](ctx context.Context, cfg Config, fetch func(context.Context) (T, Policy, error)) (T, error) {
+func Run[T any](ctx context.Context, delivery Delivery, fetch func(context.Context) (T, Policy, error)) (T, error) {
 	var zero T
 	retriedOnce := false
 	rateLimitedAttempts := 0
@@ -113,8 +114,8 @@ func Run[T any](ctx context.Context, cfg Config, fetch func(context.Context) (T,
 			if rateLimitedAttempts >= MaxRateLimitedAttempts {
 				return zero, WrapForFallback(policy.Kind, err)
 			}
-			cfg.Retry.Retry(cfg.Step, rateLimitedAttempts, MaxRateLimitedAttempts, err.Error())
-			cfg.Sleep(ctx, policy.Wait)
+			delivery.Retry.Retry(delivery.Step, rateLimitedAttempts, MaxRateLimitedAttempts, err.Error())
+			delivery.Sleep(ctx, policy.Wait)
 		default:
 			return zero, WrapForFallback(policy.Kind, err)
 		}
