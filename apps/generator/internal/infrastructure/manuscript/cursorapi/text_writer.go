@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpdiag"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/writerretry"
 )
 
 var _ port.TextWriter = (*TextWriter)(nil)
@@ -33,7 +33,7 @@ type TextWriter struct {
 // @ensure 戻りは port.TextWriter。apiKey は Authorization: Bearer header にだけ使う。
 // @ensure client == nil のとき Write は infraErr("build_request") を返す。
 func NewTextWriter(client *http.Client, apiKey string, retry port.RetryReporter) *TextWriter {
-	return newTextWriter(client, apiKey, ctxSleep, retry)
+	return newTextWriter(client, apiKey, writerretry.SleepContext, retry)
 }
 
 // Write は brief から原稿断片を得て、buildFn で ManuscriptDraft へ解釈する。
@@ -41,7 +41,7 @@ func NewTextWriter(client *http.Client, apiKey string, retry port.RetryReporter)
 // @require brief は trim 後に非空。buildFn は非 nil。
 // @ensure 成功時は buildFn が返す非 nil な models.ManuscriptDraft を返す。
 // @ensure buildFn が invalid と判定した後の取得 error には port.LastAttempt を chain に含める。
-// @ensure buildFn が TextWriterMaxAttempts 回とも error を返したら、port.ErrDraftRejected・最後の error・port.LastAttempt を wrap して返す。
+// @ensure buildFn が writerretry.MaxDraftAttempts 回とも error を返したら、port.ErrDraftRejected・最後の error・port.LastAttempt を wrap して返す。
 // @ensure 取得元が当面使えないと分かった error は port.ErrSourceExhausted を wrap して返す（fallback へ渡す）。
 // @invariant buildFn 呼び出しは 1 attempt につき高々 1 回。secret 実値は error へ出さない。
 func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(string) (models.ManuscriptDraft, error)) (models.ManuscriptDraft, error) {
@@ -53,49 +53,29 @@ func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(strin
 		return models.ManuscriptDraft{}, infraErr("validate_brief", fmt.Errorf("brief is empty after trim"))
 	}
 
-	var agentID string
-	var last port.LastAttempt
-	for attempt := 1; attempt <= TextWriterMaxAttempts; attempt++ {
-		var raw string
-		var err error
-		agentID, raw, err = w.fetchFragment(ctx, agentID, trimmed, last)
-		if err != nil {
-			return models.ManuscriptDraft{}, withLastAttempt(err, last)
-		}
-		draft, err := buildFn(raw)
-		if err == nil {
-			return draft, nil
-		}
-		last = port.LastAttempt{Raw: raw, BuildErr: err}
-		if attempt < TextWriterMaxAttempts {
-			w.retry.Retry("write_manuscript_draft", attempt, TextWriterMaxAttempts, err.Error())
-		}
-	}
-	return models.ManuscriptDraft{}, fmt.Errorf("%w: %w: %w", port.ErrDraftRejected, last.BuildErr, last)
+	return writerretry.DraftRun{
+		Retry: w.retry,
+		Build: buildFn,
+		Fetch: w.fragmentFetcher(trimmed),
+	}.Run(ctx)
 }
 
-// why: NewTextWriter は本番の ctxSleep を固定し、test は待ちを観測する fake を渡す。
+// why: NewTextWriter は本番の writerretry.SleepContext を固定し、test は待ちを観測する fake を渡す。
 func newTextWriter(client *http.Client, apiKey string, backoffSleepFn func(context.Context, time.Duration), retry port.RetryReporter) *TextWriter {
 	if backoffSleepFn == nil {
-		backoffSleepFn = ctxSleep
+		backoffSleepFn = writerretry.SleepContext
 	}
 	return &TextWriter{client: client, apiKey: apiKey, backoffSleepFn: backoffSleepFn, retry: retry}
 }
 
-func ctxSleep(ctx context.Context, d time.Duration) {
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-	case <-timer.C:
+func (w *TextWriter) fragmentFetcher(brief string) func(context.Context, port.LastAttempt) (string, error) {
+	var agentID string
+	return func(ctx context.Context, last port.LastAttempt) (string, error) {
+		var raw string
+		var err error
+		agentID, raw, err = w.fetchFragment(ctx, agentID, brief, last)
+		return raw, err
 	}
-}
-
-func withLastAttempt(err error, last port.LastAttempt) error {
-	if last.BuildErr == nil {
-		return err
-	}
-	return fmt.Errorf("%w: %w", err, last)
 }
 
 func (w *TextWriter) fetchFragment(ctx context.Context, agentID, brief string, last port.LastAttempt) (string, string, error) {
@@ -206,13 +186,13 @@ func (w *TextWriter) postJSON(ctx context.Context, url string, body []byte, op s
 
 	res, err := w.client.Do(req)
 	if err != nil {
-		return nil, passToFallback(infraErr("do", err))
+		return nil, writerretry.PassToFallback(infraErr("do", err))
 	}
 	defer func() { _ = res.Body.Close() }()
 
 	raw, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, passToFallback(infraErr("read_body", err))
+		return nil, writerretry.PassToFallback(infraErr("read_body", err))
 	}
 	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
 		return nil, createStatusError(op, res.StatusCode, raw)
@@ -224,7 +204,7 @@ func (w *TextWriter) postJSON(ctx context.Context, url string, body []byte, op s
 func createStatusError(op string, status int, raw []byte) error {
 	err := infraErr(op, fmt.Errorf("status %d; response body: %s", status, httpdiag.BodySnippet(raw)))
 	if shouldFallbackOnCreateStatus(status, raw) {
-		return passToFallback(err)
+		return writerretry.PassToFallback(err)
 	}
 	return err
 }
@@ -244,123 +224,38 @@ func shouldFallbackOnCreateStatus(status int, raw []byte) bool {
 	}
 }
 
-func passToFallback(err error) error {
-	return fmt.Errorf("%w: %w", port.ErrSourceExhausted, err)
-}
-
-type streamRetryKind int
-
-const (
-	// what: 再試行せず、error をそのまま返す（bug）。
-	retryNone streamRetryKind = iota
-	// what: +1 即再試行を 1 回だけ行い、使い切りは fallback へ渡す。
-	retryOnce
-	// what: Retry-After で回復が明示された 429。MaxAttempts まで待って再試行し、使い切りは fallback へ渡す。
-	retryRateLimited
-	// what: 再試行せず fallback へ渡す。
-	retryFallback
-)
-
-// warn: zero value は retryNone（再試行しない）。fetchStream は再試行しない失敗を streamRetryPolicy{} で返す。
-type streamRetryPolicy struct {
-	kind streamRetryKind
-	wait time.Duration
-}
-
-// why: Cursor は 429 の機械可読 code を公式に定めていないので body を読まず、標準 header の Retry-After だけを回復の明示とする。
-func classifyStreamStatus(status int, header http.Header) streamRetryPolicy {
-	switch {
-	case status == http.StatusUnauthorized, status == http.StatusForbidden:
-		return streamRetryPolicy{kind: retryFallback}
-	case status == http.StatusTooManyRequests:
-		if wait := retryAfter(header); wait > 0 {
-			return streamRetryPolicy{kind: retryRateLimited, wait: wait}
-		}
-		return streamRetryPolicy{kind: retryFallback}
-	case status >= http.StatusInternalServerError:
-		return streamRetryPolicy{kind: retryOnce}
-	default:
-		return streamRetryPolicy{kind: retryNone}
-	}
-}
-
-func giveUpError(kind streamRetryKind, err error) error {
-	if kind == retryNone {
-		return err
-	}
-	return passToFallback(err)
-}
-
 func (w *TextWriter) streamResult(ctx context.Context, agentID, runID string) (string, error) {
 	url := fmt.Sprintf(StreamPathTemplate, APIBaseURL+AgentsPath, agentID, runID)
-
-	onceRetried := false
-	rateLimitedAttempts := 0
-	for {
-		text, policy, err := w.fetchStream(ctx, url)
-		if err == nil {
-			return text, nil
-		}
-		switch policy.kind {
-		case retryOnce:
-			if onceRetried {
-				return "", giveUpError(policy.kind, err)
-			}
-			onceRetried = true
-		case retryRateLimited:
-			rateLimitedAttempts++
-			if rateLimitedAttempts >= MaxAttempts {
-				return "", giveUpError(policy.kind, err)
-			}
-			w.retry.Retry("stream_result", rateLimitedAttempts, MaxAttempts, err.Error())
-			w.backoffSleepFn(ctx, policy.wait)
-		default:
-			return "", giveUpError(policy.kind, err)
-		}
-	}
+	cfg := writerretry.Config{Step: "stream_result", Retry: w.retry, Sleep: w.backoffSleepFn}
+	return writerretry.Run(ctx, cfg, func(ctx context.Context) (string, writerretry.Policy, error) {
+		return w.fetchStream(ctx, url)
+	})
 }
 
-func (w *TextWriter) fetchStream(ctx context.Context, url string) (string, streamRetryPolicy, error) {
+func (w *TextWriter) fetchStream(ctx context.Context, url string) (string, writerretry.Policy, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", streamRetryPolicy{}, infraErr("build_request", err)
+		return "", writerretry.Policy{}, infraErr("build_request", err)
 	}
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set(AuthorizationHeader, BearerTokenPrefix+w.apiKey)
 
 	res, err := w.client.Do(req)
 	if err != nil {
-		return "", streamRetryPolicy{kind: retryOnce}, infraErr("do", err)
+		return "", writerretry.Policy{Kind: writerretry.Once}, infraErr("do", err)
 	}
 	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode != http.StatusOK {
-		return "", classifyStreamStatus(res.StatusCode, res.Header), infraErr("stream_status", fmt.Errorf("stream status %d", res.StatusCode))
+		return "", writerretry.ClassifyStatus(res.StatusCode, res.Header), infraErr("stream_status", fmt.Errorf("stream status %d", res.StatusCode))
 	}
 
 	text, err := parseResultText(res.Body)
 	if err != nil {
-		// why: SSE 途中断・parse 失敗は再 stream しない。run は既に終端しうるし、再 create は禁止（Decision 2026-09-03T17-03-33-feature-generator-cursor-cli-to-http-api）。
-		return "", streamRetryPolicy{}, err
+		// why: SSE 途中断・parse 失敗は再 stream しない。run は既に終端しうるし、再 create は禁止（Decision generator-cursor-text-writer-transport）。
+		return "", writerretry.Policy{}, err
 	}
-	return text, streamRetryPolicy{}, nil
-}
-
-// why: delta-seconds 形式のみ尊重する。RFC 9110 の HTTP-date 形式は解釈せず backoff にフォールバックする（YAGNI）。
-func retryAfter(header http.Header) time.Duration {
-	v := strings.TrimSpace(header.Get("Retry-After"))
-	if v == "" {
-		return 0
-	}
-	secs, err := strconv.Atoi(v)
-	if err != nil || secs < 0 {
-		return 0
-	}
-	d := time.Duration(secs) * time.Second
-	if d > MaxRetryAfter {
-		return MaxRetryAfter
-	}
-	return d
+	return text, writerretry.Policy{}, nil
 }
 
 type resultEventData struct {
