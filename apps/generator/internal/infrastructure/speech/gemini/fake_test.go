@@ -76,6 +76,7 @@ type fakeRoundTripper struct {
 
 type fakeClientResponse struct {
 	status int
+	header http.Header
 	body   []byte
 	err    error
 }
@@ -100,6 +101,11 @@ func (rt *fakeRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 		return nil, resp.err
 	}
 	rec := httptest.NewRecorder()
+	for key, values := range resp.header {
+		for _, v := range values {
+			rec.Header().Add(key, v)
+		}
+	}
 	rec.WriteHeader(resp.status)
 	if resp.body != nil {
 		_, _ = rec.Write(resp.body)

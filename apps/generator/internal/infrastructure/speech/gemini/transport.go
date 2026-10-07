@@ -27,21 +27,60 @@ func infraErr(op string, err error) error {
 type pcmFetchRetryKind int
 
 const (
-	// pcmRetryNone は再試行しない（400 系、恒久的失敗を含む）。
+	// pcmRetryNone は再試行せず、そのまま error を返す（bug。400 系（429・quota 枯渇を除く）、PROHIBITED_CONTENT）。
 	pcmRetryNone pcmFetchRetryKind = iota
-	// pcmRetryTransient は Do error / 503 / 5xx / decode 失敗。synthesizeOne 側の
-	// consecutiveSameOp 判定で打ち切りを制御する（fetchPCM 自身は回数を数えない）。
+	// pcmRetryTransient は Do error / body 読み取り途中断 / decode 失敗。synthesizeOne 側の
+	// consecutiveSameOp 判定で打ち切りを制御する（fetchPCM 自身は回数を数えない）。使い切りはそのまま error。
 	pcmRetryTransient
-	// pcmRetryRateLimited は 429。retry 打ち切り時に source 枯渇へ分類する。
+	// pcmRetryServerError は 5xx（503 を含む）。pcmRetryTransient と同じ打ち切り制御。使い切りは枯渇。
+	pcmRetryServerError
+	// pcmRetryRateLimited は回復が明示された 429（Retry-After、または公式 error.code の rate_limit_exceeded）。
+	// 使い切りは枯渇。
 	pcmRetryRateLimited
+	// pcmRetryExhausted は再試行せず枯渇として扱う（401 / 403、quota_exceeded、回復の明示が無い 429）。
+	pcmRetryExhausted
 )
+
+func (k pcmFetchRetryKind) spentMeansExhausted() bool {
+	return k == pcmRetryServerError || k == pcmRetryRateLimited || k == pcmRetryExhausted
+}
+
+func terminalError(kind pcmFetchRetryKind, err error) error {
+	if kind.spentMeansExhausted() {
+		return fmt.Errorf("%w: %w", port.ErrSourceExhausted, err)
+	}
+	return err
+}
+
+// why: 429 は公式 error.code の rate_limit_exceeded（分・秒単位）と quota_exceeded（日次）に分かれる。
+//
+//	message は読まず、この code と標準 header の Retry-After だけを回復の明示とする。quota_exceeded は
+//	400 でも返りうるので status を問わず見る。4xx（429 除く）は bug なので再試行も枯渇扱いもしない。
+//	401 / 403 は API key の失効として枯渇とする（Decision 2026-09-17T15-06-00）。
+func (s *SpeechSynthesizer) classifyFailedStatus(status int, header http.Header, raw []byte) (pcmFetchRetryKind, time.Duration) {
+	wait := s.parseRetryAfter(header)
+	switch {
+	case status == http.StatusUnauthorized, status == http.StatusForbidden:
+		return pcmRetryExhausted, 0
+	case (status == http.StatusBadRequest || status == http.StatusTooManyRequests) && quotaExceeded(raw):
+		return pcmRetryExhausted, 0
+	case status == http.StatusTooManyRequests:
+		if wait > 0 || rateLimitExceeded(raw) {
+			return pcmRetryRateLimited, wait
+		}
+		return pcmRetryExhausted, 0
+	case status >= http.StatusInternalServerError:
+		return pcmRetryServerError, wait
+	default:
+		return pcmRetryNone, 0
+	}
+}
 
 // fetchPCM は 1 回の Interactions API 呼び出しを実行し、(PCM, 再試行方針, 追加待ち, error) を返す。
 //
-// @ensure 401 / 403 相当、または response body の error.code が quota_exceeded（400 / 429 とも）を示すときは
+// @ensure 200 以外の応答は classifyFailedStatus の再試行方針とともに *adaptererror.Error を返す。
 //
-//	fmt.Errorf("%w: %w", port.ErrSourceExhausted, ...) で wrap した error を pcmRetryNone とともに返す。
-//	この分類は fetch 時点で確定し、事後の文字列走査（旧 wrapIfSourceExhausted）には委ねない。
+//	番兵 port.ErrSourceExhausted で wrap するのは再試行を終える側（synthesizeOne）で、ここでは wrap しない。
 func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]byte, pcmFetchRetryKind, time.Duration, error) {
 	body, err := json.Marshal(interactionRequest{
 		Model:  ModelID,
@@ -75,34 +114,9 @@ func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]
 		return nil, pcmRetryNone, 0, infraErr("prohibited_content", fmt.Errorf("PROHIBITED_CONTENT"))
 	}
 
-	retryAfter := s.parseRetryAfter(res.Header)
-
-	// why: MaxAttempts と公式 troubleshooting（429/503/5xx retry、400/403 は retry しない）に従い retryable を分岐する。
-	switch {
-	case res.StatusCode == http.StatusUnauthorized, res.StatusCode == http.StatusForbidden:
-		return nil, pcmRetryNone, 0, fmt.Errorf("%w: %w", port.ErrSourceExhausted,
-			infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw))))
-	case res.StatusCode == http.StatusBadRequest:
-		if quotaExceeded(raw) {
-			return nil, pcmRetryNone, 0, fmt.Errorf("%w: %w", port.ErrSourceExhausted,
-				infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw))))
-		}
-		return nil, pcmRetryNone, 0, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
-	case res.StatusCode == http.StatusTooManyRequests:
-		// why: 公式 API errors は 429 を error.code で rate_limit_exceeded（分・秒単位。retry で回復）と
-		//      quota_exceeded（日次。待っても戻らない）に分ける。message ではなくこの機械可読 code だけを見て、
-		//      quota_exceeded は待たずに枯渇として扱う。それ以外の 429 は従来どおり backoff で retry する。
-		if quotaExceeded(raw) {
-			return nil, pcmRetryNone, 0, fmt.Errorf("%w: %w", port.ErrSourceExhausted,
-				infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw))))
-		}
-		return nil, pcmRetryRateLimited, retryAfter, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
-	case res.StatusCode == http.StatusServiceUnavailable:
-		return nil, pcmRetryTransient, retryAfter, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
-	case res.StatusCode >= 500:
-		return nil, pcmRetryTransient, retryAfter, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
-	case res.StatusCode != http.StatusOK:
-		return nil, pcmRetryNone, 0, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
+	if res.StatusCode != http.StatusOK {
+		kind, wait := s.classifyFailedStatus(res.StatusCode, res.Header, raw)
+		return nil, kind, wait, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
 	}
 
 	pcm, err := decodePCM(raw)
@@ -123,16 +137,23 @@ type errorResponse struct {
 	} `json:"error"`
 }
 
-// quotaExceeded は response body の error.code が quota_exceeded かを判定する。
-// why: 公式 API errors ページが定義する error response 形式（error.code は snake_case の
+// why: 公式 API errors ページが定義する error response 形式（error.code は snake_case の機械可読 code）に
 //
-//	machine-readable code）に従い JSON を parse する。
-func quotaExceeded(raw []byte) bool {
+//	従い JSON を parse する。message は読まない。読めなければ空文字を返す。
+func errorCode(raw []byte) string {
 	var parsed errorResponse
 	if err := json.Unmarshal(raw, &parsed); err != nil {
-		return false
+		return ""
 	}
-	return parsed.Error.Code == "quota_exceeded"
+	return parsed.Error.Code
+}
+
+func quotaExceeded(raw []byte) bool {
+	return errorCode(raw) == "quota_exceeded"
+}
+
+func rateLimitExceeded(raw []byte) bool {
+	return errorCode(raw) == "rate_limit_exceeded"
 }
 
 func buildInput(transcript string) string {

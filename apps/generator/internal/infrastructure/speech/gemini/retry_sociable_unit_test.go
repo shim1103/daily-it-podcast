@@ -74,13 +74,16 @@ func TestSynthesizeOne_returnsInfrastructureError_whenSameRetryableOpRepeatsTwic
 	// When: Synthesize する
 	_, err := synth.synthTestOne(context.Background(), "打ち切りテスト")
 
-	// Then: 同種 error 2 連続で打ち切り、call は 2 回で Infrastructure Error
+	// Then: 同種 error 2 連続で打ち切り、call は 2 回で、枯渇番兵と Infrastructure Error
 	if err == nil {
 		t.Fatal("expected error")
 	}
 	var infra *adaptererror.Error
 	if !errors.As(err, &infra) {
 		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
+	}
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v（5xx は fallback）", err)
 	}
 	if len(rt.calls) != 2 {
 		t.Fatalf("call count = %d, want 2（同種 2 連続打ち切り）", len(rt.calls))
@@ -133,9 +136,9 @@ func TestSynthesizeOne_retriesMissingAudio_whenStatusInternalError(t *testing.T)
 
 func TestSynthesizeOne_retriesTooManyRequests_thenSucceeds(t *testing.T) {
 
-	// Given: 1 回目 429、2 回目成功
+	// Given: 1 回目 429（公式 error.code が rate_limit_exceeded）、2 回目成功
 	synth, rt := newFakeSynthesizer(
-		fakeClientResponse{status: http.StatusTooManyRequests, body: jsonBody(t, map[string]any{"error": "RESOURCE_EXHAUSTED"})},
+		fakeClientResponse{status: http.StatusTooManyRequests, body: jsonBody(t, map[string]any{"error": map[string]any{"code": "rate_limit_exceeded"}})},
 		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
 	)
 
@@ -157,10 +160,10 @@ func TestSynthesizeOne_retriesTooManyRequests_thenSucceeds(t *testing.T) {
 func TestSynthesizeOne_wrapsSourceExhausted_when429RetriesAreExhausted(t *testing.T) {
 	for _, tier := range []Tier{TierFree, TierPaid} {
 		t.Run(fmt.Sprintf("tier_%d", tier), func(t *testing.T) {
-			// Given: 同じ429が続き、retryを使い切る
+			// Given: 回復を明示した同じ429（rate_limit_exceeded）が続き、retryを使い切る
 			synth, rt := newFakeSynthesizer(
-				fakeClientResponse{status: http.StatusTooManyRequests, body: jsonBody(t, map[string]any{"error": "RESOURCE_EXHAUSTED"})},
-				fakeClientResponse{status: http.StatusTooManyRequests, body: jsonBody(t, map[string]any{"error": "RESOURCE_EXHAUSTED"})},
+				fakeClientResponse{status: http.StatusTooManyRequests, body: jsonBody(t, map[string]any{"error": map[string]any{"code": "rate_limit_exceeded"}})},
+				fakeClientResponse{status: http.StatusTooManyRequests, body: jsonBody(t, map[string]any{"error": map[string]any{"code": "rate_limit_exceeded"}})},
 			)
 			synth.tier = tier
 
@@ -175,6 +178,49 @@ func TestSynthesizeOne_wrapsSourceExhausted_when429RetriesAreExhausted(t *testin
 				t.Fatalf("call count = %d、期待値 = 2", len(rt.calls))
 			}
 		})
+	}
+}
+
+func TestSynthesizeOne_wrapsSourceExhaustedWithoutWaiting_when429DeclaresNoRecovery(t *testing.T) {
+
+	// Given: 回復の明示（Retry-After も rate_limit_exceeded も）が無い 429
+	synth, rt := newFakeSynthesizer(
+		fakeClientResponse{status: http.StatusTooManyRequests, body: jsonBody(t, map[string]any{"error": "RESOURCE_EXHAUSTED"})},
+	)
+
+	// When: Synthesize する
+	_, err := synth.synthTestOne(context.Background(), "回復の明示なし")
+
+	// Then: retry せず 1 call で枯渇番兵を返す
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v", err)
+	}
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(rt.calls))
+	}
+}
+
+func TestSynthesizeOne_retries429_whenRetryAfterHeaderDeclaresRecovery(t *testing.T) {
+
+	// Given: error.code は未知だが Retry-After 付きの 429、その後成功
+	synth, rt := newFakeSynthesizer(
+		fakeClientResponse{
+			status: http.StatusTooManyRequests,
+			header: http.Header{"Retry-After": {"1"}},
+			body:   jsonBody(t, map[string]any{"error": "RESOURCE_EXHAUSTED"}),
+		},
+		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
+	)
+
+	// When: Synthesize する
+	got, err := synth.synthTestOne(context.Background(), "Retry-After で回復")
+
+	// Then: 2 回目で成功
+	if err != nil {
+		t.Fatalf("Synthesize: %v", err)
+	}
+	if len(got.Content) == 0 || len(rt.calls) != 2 {
+		t.Fatalf("content=%d bytes, call count = %d, want 非空 / 2", len(got.Content), len(rt.calls))
 	}
 }
 

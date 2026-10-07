@@ -219,6 +219,47 @@ func TestFetchPCM_doesNotWrapSourceExhausted_whenStatusBadRequestWithoutQuotaExc
 	}
 }
 
+func TestClassifyFailedStatus_returnsRetryKind_perStatusAndErrorCode(t *testing.T) {
+
+	// Given: 失敗 status・Retry-After・公式 error.code の組
+	body := func(code string) []byte {
+		return jsonBody(t, map[string]any{"error": map[string]any{"code": code}})
+	}
+	cases := []struct {
+		name     string
+		status   int
+		header   http.Header
+		body     []byte
+		wantKind pcmFetchRetryKind
+	}{
+		{"429 rate_limit_exceeded", http.StatusTooManyRequests, nil, body("rate_limit_exceeded"), pcmRetryRateLimited},
+		{"429 Retry-After 付き", http.StatusTooManyRequests, http.Header{"Retry-After": {"2"}}, body("unknown"), pcmRetryRateLimited},
+		{"429 回復の明示なし", http.StatusTooManyRequests, nil, body("unknown"), pcmRetryExhausted},
+		{"429 quota_exceeded は Retry-After があっても枯渇", http.StatusTooManyRequests, http.Header{"Retry-After": {"2"}}, body("quota_exceeded"), pcmRetryExhausted},
+		{"400 quota_exceeded", http.StatusBadRequest, nil, body("quota_exceeded"), pcmRetryExhausted},
+		{"401", http.StatusUnauthorized, nil, body("authentication"), pcmRetryExhausted},
+		{"403", http.StatusForbidden, nil, body("permission_denied"), pcmRetryExhausted},
+		{"400 は bug", http.StatusBadRequest, nil, body("invalid_request"), pcmRetryNone},
+		{"404 は bug", http.StatusNotFound, nil, body("not_found"), pcmRetryNone},
+		{"500", http.StatusInternalServerError, nil, body("internal"), pcmRetryServerError},
+		{"503 service_unavailable", http.StatusServiceUnavailable, nil, body("service_unavailable"), pcmRetryServerError},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			synth, _ := newFakeSynthesizer()
+
+			// When: 分類する
+			gotKind, _ := synth.classifyFailedStatus(tc.status, tc.header, tc.body)
+
+			// Then: 方針が決まる
+			if gotKind != tc.wantKind {
+				t.Fatalf("classifyFailedStatus(%d, %v, %s) = %v, want %v", tc.status, tc.header, tc.body, gotKind, tc.wantKind)
+			}
+		})
+	}
+}
+
 func TestDecodePCM_extractsAudioFromStepsContentData_whenRealResponseShape(t *testing.T) {
 
 	// Given: 実 Interactions API そっくりの応答（steps[].content[].data に audio base64）
