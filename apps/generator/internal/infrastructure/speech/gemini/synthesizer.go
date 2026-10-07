@@ -12,14 +12,7 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 )
 
-const geminiAPIKeyHeader = "x-goog-api-key"
-
 var _ port.SpeechSynthesizer = (*SpeechSynthesizer)(nil)
-
-// synthesizeBudget と maxAttempts の関係:
-//   - MaxAttempts   : 1 セグメントが連続で消費してよい上限（暴走ガード）。
-//   - SynthesizeBudget/SynthesizeBudgetPaid: 1 度の SynthesizeAll 全体で許す合計上限（RPD ガード）。
-//     tier ごとに synthesizeBudget() が値を選ぶ。各セグメントは min(MaxAttempts, 残予算) 回まで。
 
 type SpeechSynthesizer struct {
 	client         *http.Client
@@ -29,32 +22,19 @@ type SpeechSynthesizer struct {
 	backoffSleepFn func(time.Duration) // why: test の並列実行と共存するため package global に置かない
 	lastCallAt     time.Time
 	nowFn          func() time.Time
-	// why: 429 頻度と総所要のトレードオフを実測で詰めるため、待機系パラメータを field 化して
-	//      rate 計測 test から注入で差し替える（Decision 2026-09-03T14-46-00）。
-	//      既定 constructor は default* const を入れるので挙動は不変。MaxAttempts は注入対象外。
+	// why: 待機系パラメータは rate 計測 test から注入で差し替えるため field にする（Decision 2026-09-03T14-46-00）。
 	callGap          time.Duration
 	retryBackoffBase time.Duration
 	retryBackoffMax  time.Duration
 }
 
 // SynthesizeAll は texts を順に朗読音声へ変換し、セグメント単位の WAV 列（結合しない）を返す。
-// retry 予算・callGap・RPD quota は Adapter 定数 = vendor 固有制約であり、
-// 「1 episode 分の TTS 呼び出し群」を束ねて管理するのは Adapter の責務。
-// @require texts の各要素は trim 後に非空。朗読本文のみ。
-// @ensure 成功時は len(texts) と同数の非空・最小尺 WAV を返す（結合しない）。
-// @ensure 失敗時もそれまでに合成できた分の audios（部分成功）を err と併せて返す。呼び出し側の
 //
-//	fallback 合成 layer（application/speech）が、この部分成功分を保持しつつ残りを次 source へ渡す。
-//
-// @ensure 呼び出し全体で Gemini 呼び出し合計を synthesizeBudget() 回以内へ抑える
-//
-//	（TierFree なら SynthesizeBudget、TierPaid なら SynthesizeBudgetPaid）。
-//	1 セグメントは min(MaxAttempts, 残予算) 回まで。合計が上限へ達したら以降のセグメントは即 error。
-//
-// @ensure 401 / 403、error.code が quota_exceeded、回復の明示が無い 429、または 429 / 5xx の retry の使い切りを
-//
-//	検知した場合、Tier に関係なく port.ErrSourceExhausted を wrap した error を返す。
-//	それ以外の 4xx は bug として wrap せずそのまま返す。
+// @require texts の各要素は trim 後に非空。
+// @ensure 成功時は len(texts) と同数の非空・最小尺 WAV を返す。
+// @ensure 失敗時もそれまでに合成できた分の audios（部分成功）を err と併せて返す。
+// @ensure 呼び出し全体で Gemini 呼び出し合計を Tier ごとの上限（SynthesizeBudget / SynthesizeBudgetPaid）以内に抑える。1 セグメントは min(MaxAttempts, 残予算) 回まで。上限へ達した後のセグメントは即 error。
+// @ensure 取得元が当面使えない失敗（認証断・利用枠喪失・回復の明示が無い 429・再試行の使い切り）は Tier を問わず port.ErrSourceExhausted を wrap して返す。それ以外（4xx・呼び出し上限超過など）は wrap せずそのまま返す（Decision generator-api-failure-retry-or-fallback）。
 func (s *SpeechSynthesizer) SynthesizeAll(ctx context.Context, texts []string) ([]models.SpeechAudio, error) {
 	if s == nil || s.client == nil {
 		return nil, infraErr("synthesize", fmt.Errorf("client is nil"))
@@ -66,11 +46,9 @@ func (s *SpeechSynthesizer) SynthesizeAll(ctx context.Context, texts []string) (
 	for i, text := range texts {
 		remaining := budget - callsSpent
 		if remaining <= 0 {
-			return audios, infraErr("synthesize_budget", fmt.Errorf(
-				"gemini call budget exhausted at segment %d/%d: spent %d of %d", i+1, len(texts), callsSpent, budget))
+			return audios, budgetExhaustedError(i, len(texts), callsSpent, budget)
 		}
-		maxAttempts := min(MaxAttempts, remaining)
-		audio, used, err := s.synthesizeOne(ctx, text, maxAttempts)
+		audio, used, err := s.synthesizeOne(ctx, text, min(MaxAttempts, remaining))
 		callsSpent += used
 		if err != nil {
 			return audios, err
@@ -80,21 +58,19 @@ func (s *SpeechSynthesizer) SynthesizeAll(ctx context.Context, texts []string) (
 	return audios, nil
 }
 
-// synthesizeBudget は s.tier に応じた SynthesizeAll 全体の呼び出し合計上限を返す。
-//
-// @ensure TierPaid のときは SynthesizeBudgetPaid、それ以外（TierFree 含む）は SynthesizeBudget を返す。
-func (s *SpeechSynthesizer) synthesizeBudget() int {
-	switch s.tier {
-	case TierPaid:
-		return SynthesizeBudgetPaid
-	default:
-		return SynthesizeBudget
-	}
+func budgetExhaustedError(segmentIndex, segmentCount, spent, budget int) error {
+	return infraErr("synthesize_budget", fmt.Errorf(
+		"gemini call budget exhausted at segment %d/%d: spent %d of %d", segmentIndex+1, segmentCount, spent, budget))
 }
 
-// sameGeminiOp は 2 つの error がともに *adaptererror.Error で Source と Op がともに一致するかを返す。
-// 片方でも *adaptererror.Error でなければ false。
-// why: adaptererror.Error は全 infra 共通型なので、Source を見ないと別 Adapter の同名 Op（"http_status" 等の共通語彙）が偶然一致しうる。
+func (s *SpeechSynthesizer) synthesizeBudget() int {
+	if s.tier == TierPaid {
+		return SynthesizeBudgetPaid
+	}
+	return SynthesizeBudget
+}
+
+// why: adaptererror.Error は全 infra 共通型なので、Source も見ないと別 Adapter の同名 Op（"http_status" 等）が偶然一致しうる。
 func sameGeminiOp(prev, cur error) bool {
 	if prev == nil || cur == nil {
 		return false

@@ -14,22 +14,17 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 )
 
-// retryReporterSpy は port.RetryReporter を満たし、Retry 呼び出しを記録する Spy。
-// synthesizeOne の retry ループを実際に発生させる test から共有される。
 type retryReporterSpy struct {
 	calls int
 }
 
-func (s *retryReporterSpy) Retry(step string, attempt, max int, reason string) {
+func (s *retryReporterSpy) Retry(step string, attempt, maxAttempts int, reason string) {
 	s.calls++
 }
 
+// why: minPCMBytes 未満だと decodePCM が極小 PCM として一過性の失敗に落とすため、閾値を超える長さにする。
 func minimalPCM() []byte {
-	// why: 24 kHz / 16-bit / mono。最小尺閾値（minPCMBytes = 0.5s）を超える長さにする。
-	//      これ未満だと decodePCM が「極小 PCM」として retryable な失敗に落とす。
-	const sampleCount = 24000 // 1.0s 相当（24000 * 2 = 48000 bytes > minPCMBytes 24000）
-	pcm := make([]byte, sampleCount*2)
-	return pcm
+	return make([]byte, 2*minPCMBytes)
 }
 
 func audioInteractionResponse(pcm []byte) map[string]any {
@@ -43,15 +38,6 @@ func audioInteractionResponse(pcm []byte) map[string]any {
 	}
 }
 
-func writeJSON(t *testing.T, w http.ResponseWriter, status int, body any) {
-	t.Helper()
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(body); err != nil {
-		t.Fatalf("encode fixture: %v", err)
-	}
-}
-
 func isWAV(data []byte) bool {
 	if len(data) < 12 {
 		return false
@@ -60,15 +46,12 @@ func isWAV(data []byte) bool {
 		data[8] == 'W' && data[9] == 'A' && data[10] == 'V' && data[11] == 'E'
 }
 
-// fakeClientCall は fakeRoundTripper が観測した request 1 件分。
 type fakeClientCall struct {
 	Method string
 	URL    string
 	Body   []byte
 }
 
-// fakeRoundTripper は境界 I/O なしで http.RoundTripper を満たす Spy。
-// 呼び出し順に responses を返し、各 request を記録する。
 type fakeRoundTripper struct {
 	responses []fakeClientResponse
 	calls     []fakeClientCall
@@ -128,8 +111,7 @@ func newFakeSynthesizer(responses ...fakeClientResponse) (*SpeechSynthesizer, *f
 	return synth, rt
 }
 
-// synthTestOne は 1 セグメント分の retry ループ（synthesizeOne）を MaxAttempts 上限で叩く test helper。
-// 単一セグメントの loop 挙動を検証する既存 test 用。合計予算・入口ガードの検証は SynthesizeAll の test が持つ。
+// why: 合計予算・入口ガードは SynthesizeAll の test が持つので、ここは 1 セグメントの retry loop だけを MaxAttempts 上限で叩く。
 func (s *SpeechSynthesizer) synthTestOne(ctx context.Context, text string) (models.SpeechAudio, error) {
 	audio, _, err := s.synthesizeOne(ctx, text, MaxAttempts)
 	return audio, err

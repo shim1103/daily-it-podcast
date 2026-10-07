@@ -74,7 +74,7 @@ func TestSynthesizeOne_returnsInfrastructureError_whenSameRetryableOpRepeatsTwic
 	// When: Synthesize する
 	_, err := synth.synthTestOne(context.Background(), "打ち切りテスト")
 
-	// Then: 同種 error 2 連続で打ち切り、call は 2 回で、枯渇番兵と Infrastructure Error
+	// Then: 同種 error 2 連続で打ち切り、call は 2 回で、fallback へ渡す番兵と Infrastructure Error
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -191,7 +191,7 @@ func TestSynthesizeOne_wrapsSourceExhaustedWithoutWaiting_when429DeclaresNoRecov
 	// When: Synthesize する
 	_, err := synth.synthTestOne(context.Background(), "回復の明示なし")
 
-	// Then: retry せず 1 call で枯渇番兵を返す
+	// Then: retry せず 1 call で fallback へ渡す番兵を返す
 	if !errors.Is(err, port.ErrSourceExhausted) {
 		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v", err)
 	}
@@ -221,6 +221,47 @@ func TestSynthesizeOne_retries429_whenRetryAfterHeaderDeclaresRecovery(t *testin
 	}
 	if len(got.Content) == 0 || len(rt.calls) != 2 {
 		t.Fatalf("content=%d bytes, call count = %d, want 非空 / 2", len(got.Content), len(rt.calls))
+	}
+}
+
+func TestSynthesizeOne_wrapsSourceExhausted_whenTransportErrorRepeatsTwice(t *testing.T) {
+
+	// Given: client.Do error が続く（client 起因か server 起因かは区別できない）
+	synth, rt := newFakeSynthesizer(
+		fakeClientResponse{err: fmt.Errorf("connection reset")},
+		fakeClientResponse{err: fmt.Errorf("connection reset")},
+	)
+
+	// When: Synthesize する
+	_, err := synth.synthTestOne(context.Background(), "通信断")
+
+	// Then: 同種 2 連続で打ち切り、次 source へ渡せる番兵を返す
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v", err)
+	}
+	if len(rt.calls) != 2 {
+		t.Fatalf("call count = %d, want 2", len(rt.calls))
+	}
+}
+
+func TestSynthesizeOne_wrapsSourceExhausted_whenAudioIsMissingRepeatedly(t *testing.T) {
+
+	// Given: HTTP 200 だが audio が欠落した応答が続く
+	missing := jsonBody(t, map[string]any{"status": "completed", "steps": []any{}})
+	synth, rt := newFakeSynthesizer(
+		fakeClientResponse{status: http.StatusOK, body: missing},
+		fakeClientResponse{status: http.StatusOK, body: missing},
+	)
+
+	// When: Synthesize する
+	_, err := synth.synthTestOne(context.Background(), "audio 欠落")
+
+	// Then: 同種 2 連続で打ち切り、次 source へ渡せる番兵を返す
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v", err)
+	}
+	if len(rt.calls) != 2 {
+		t.Fatalf("call count = %d, want 2", len(rt.calls))
 	}
 }
 

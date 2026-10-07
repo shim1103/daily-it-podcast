@@ -84,9 +84,6 @@ func TestFetchPCM_includesResponseBodySnippet_whenClientErrorStatus(t *testing.T
 	}
 }
 
-// TestFetchPCM_wrapsSourceExhausted_whenStatusUnauthorized は
-// 401 応答を port.ErrSourceExhausted で wrap して返すことを検証する（Decision 2026-09-16T13-06-32 §1-4：
-// 枯渇分類は fetch 時点で確定する）。
 func TestFetchPCM_wrapsSourceExhausted_whenStatusUnauthorized(t *testing.T) {
 	// Given: 401 応答
 	synth, rt := newFakeSynthesizer(fakeClientResponse{
@@ -102,12 +99,10 @@ func TestFetchPCM_wrapsSourceExhausted_whenStatusUnauthorized(t *testing.T) {
 		t.Fatalf("error = %v, want errors.Is(err, port.ErrSourceExhausted) == true", err)
 	}
 	if len(rt.calls) != 1 {
-		t.Fatalf("call count = %d, want 1（枯渇は retry しない）", len(rt.calls))
+		t.Fatalf("call count = %d, want 1（fallback へ渡す失敗は retry しない）", len(rt.calls))
 	}
 }
 
-// TestFetchPCM_wrapsSourceExhausted_whenStatusForbidden は
-// 403 応答を port.ErrSourceExhausted で wrap して返すことを検証する。
 func TestFetchPCM_wrapsSourceExhausted_whenStatusForbidden(t *testing.T) {
 	// Given: 403 応答
 	synth, rt := newFakeSynthesizer(fakeClientResponse{
@@ -123,12 +118,10 @@ func TestFetchPCM_wrapsSourceExhausted_whenStatusForbidden(t *testing.T) {
 		t.Fatalf("error = %v, want errors.Is(err, port.ErrSourceExhausted) == true", err)
 	}
 	if len(rt.calls) != 1 {
-		t.Fatalf("call count = %d, want 1（枯渇は retry しない）", len(rt.calls))
+		t.Fatalf("call count = %d, want 1（fallback へ渡す失敗は retry しない）", len(rt.calls))
 	}
 }
 
-// TestFetchPCM_wrapsSourceExhausted_whenStatusBadRequestWithQuotaExceeded は
-// 400 応答の body が quota_exceeded 相当を示す場合、port.ErrSourceExhausted を wrap することを検証する。
 func TestFetchPCM_wrapsSourceExhausted_whenStatusBadRequestWithQuotaExceeded(t *testing.T) {
 	// Given: 400 応答。body の error.code が公式仕様どおり quota_exceeded
 	synth, rt := newFakeSynthesizer(fakeClientResponse{
@@ -144,13 +137,10 @@ func TestFetchPCM_wrapsSourceExhausted_whenStatusBadRequestWithQuotaExceeded(t *
 		t.Fatalf("error = %v, want errors.Is(err, port.ErrSourceExhausted) == true", err)
 	}
 	if len(rt.calls) != 1 {
-		t.Fatalf("call count = %d, want 1（枯渇は retry しない）", len(rt.calls))
+		t.Fatalf("call count = %d, want 1（fallback へ渡す失敗は retry しない）", len(rt.calls))
 	}
 }
 
-// TestFetchPCM_wrapsSourceExhausted_whenStatusTooManyRequestsWithQuotaExceeded は
-// 429 応答の body が公式の error.code quota_exceeded（日次 quota 超過）を示す場合、待たずに
-// port.ErrSourceExhausted を wrap することを検証する。判別は message ではなく error.code だけで行う。
 func TestFetchPCM_wrapsSourceExhausted_whenStatusTooManyRequestsWithQuotaExceeded(t *testing.T) {
 	// Given: 429 応答。body の error.code が公式仕様どおり quota_exceeded（message は任意文言）
 	synth, rt := newFakeSynthesizer(fakeClientResponse{
@@ -170,9 +160,6 @@ func TestFetchPCM_wrapsSourceExhausted_whenStatusTooManyRequestsWithQuotaExceede
 	}
 }
 
-// TestFetchPCM_retries_whenStatusTooManyRequestsWithRateLimitExceeded は
-// 429 応答の body が公式の error.code rate_limit_exceeded（分・秒単位の一過性）を示す場合、
-// 従来どおり retry して回復できることを検証する。
 func TestFetchPCM_retries_whenStatusTooManyRequestsWithRateLimitExceeded(t *testing.T) {
 	// Given: 1 回目が 429 + rate_limit_exceeded、2 回目が成功
 	synth, rt := newFakeSynthesizer(
@@ -195,8 +182,6 @@ func TestFetchPCM_retries_whenStatusTooManyRequestsWithRateLimitExceeded(t *test
 	}
 }
 
-// TestFetchPCM_doesNotWrapSourceExhausted_whenStatusBadRequestWithoutQuotaExceeded は
-// 400 応答の body が quota_exceeded 相当を示さない場合、port.ErrSourceExhausted を wrap しないことを検証する。
 func TestFetchPCM_doesNotWrapSourceExhausted_whenStatusBadRequestWithoutQuotaExceeded(t *testing.T) {
 	// Given: 400 応答。body の error.code は通常の invalid argument
 	synth, rt := newFakeSynthesizer(fakeClientResponse{
@@ -234,15 +219,15 @@ func TestClassifyFailedStatus_returnsRetryKind_perStatusAndErrorCode(t *testing.
 	}{
 		{"429 rate_limit_exceeded", http.StatusTooManyRequests, nil, body("rate_limit_exceeded"), pcmRetryRateLimited},
 		{"429 Retry-After 付き", http.StatusTooManyRequests, http.Header{"Retry-After": {"2"}}, body("unknown"), pcmRetryRateLimited},
-		{"429 回復の明示なし", http.StatusTooManyRequests, nil, body("unknown"), pcmRetryExhausted},
-		{"429 quota_exceeded は Retry-After があっても枯渇", http.StatusTooManyRequests, http.Header{"Retry-After": {"2"}}, body("quota_exceeded"), pcmRetryExhausted},
-		{"400 quota_exceeded", http.StatusBadRequest, nil, body("quota_exceeded"), pcmRetryExhausted},
-		{"401", http.StatusUnauthorized, nil, body("authentication"), pcmRetryExhausted},
-		{"403", http.StatusForbidden, nil, body("permission_denied"), pcmRetryExhausted},
+		{"429 回復の明示なし", http.StatusTooManyRequests, nil, body("unknown"), pcmRetryFallback},
+		{"429 quota_exceeded は Retry-After があっても fallback", http.StatusTooManyRequests, http.Header{"Retry-After": {"2"}}, body("quota_exceeded"), pcmRetryFallback},
+		{"400 quota_exceeded", http.StatusBadRequest, nil, body("quota_exceeded"), pcmRetryFallback},
+		{"401", http.StatusUnauthorized, nil, body("authentication"), pcmRetryFallback},
+		{"403", http.StatusForbidden, nil, body("permission_denied"), pcmRetryFallback},
 		{"400 は bug", http.StatusBadRequest, nil, body("invalid_request"), pcmRetryNone},
 		{"404 は bug", http.StatusNotFound, nil, body("not_found"), pcmRetryNone},
-		{"500", http.StatusInternalServerError, nil, body("internal"), pcmRetryServerError},
-		{"503 service_unavailable", http.StatusServiceUnavailable, nil, body("service_unavailable"), pcmRetryServerError},
+		{"500", http.StatusInternalServerError, nil, body("internal"), pcmRetryTransient},
+		{"503 service_unavailable", http.StatusServiceUnavailable, nil, body("service_unavailable"), pcmRetryTransient},
 	}
 	for _, tc := range cases {
 		tc := tc
