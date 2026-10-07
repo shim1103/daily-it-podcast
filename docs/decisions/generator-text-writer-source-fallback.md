@@ -15,7 +15,7 @@ description: 原稿取得の切り替えはApplicationのUseCaseが担い、prim
 8. `geminiapi.Error` は `cursorapi.Error` と同型（`Op` / `Err` / `Unwrap` / package prefix）。secret 実値を `Err` に入れない。`cursorapi.Error` の型は変えない（HTTP status を外へ出す field は足さない。切り替え可否は番兵で表現する）。
 9. 切り替えが起きたことは、当面 Composition が渡す `logManuscriptSourceSwitched` が標準 `log`（stderr）へ 1 行出すだけとする。構造化 log 基盤の導入と、能動的な通知（毎日 Gemini に落ちている状態の検知）は本 Decision の scope 外。
 
-先行 Decision `2026-09-03T17-03-33-feature-generator-cursor-cli-to-http-api.md` の §Decision 2「実装が SSE で行き詰まった時の fallback は将来の別判断とし、初回の正は SSE とする」を、本 Decision が具体化する。先行 Decision は supersede しない（transport を Cloud Agents REST + SSE に置く判断は維持し、本 Decision は「その primary が利用枠喪失で使えないときの退避先」だけを足す）。先行 Decision の file 本文は書き換えない。
+先行 Decision `generator-cursor-text-writer-transport.md` の §Decision 2「実装が SSE で行き詰まった時の fallback は将来の別判断とし、初回の正は SSE とする」を、本 Decision が具体化する。先行 Decision は supersede しない（transport を Cloud Agents REST + SSE に置く判断は維持し、本 Decision は「その primary が利用枠喪失で使えないときの退避先」だけを足す）。先行 Decision の file 本文は書き換えない。
 
 non-scope: Flash-Lite が返す原稿の品質・token 消費・尺下限割れの実測。3 実装目の追加。Gemini 応答 status の詳細な分類。切り替え発火の能動通知。構造化 log 基盤の導入。
 
@@ -54,7 +54,7 @@ Cursor Cloud Agents REST は Dashboard の `crsr_` key 1 種で、subscription /
 
 ### なぜ model 存在確認をしないか
 
-先行 Decision `2026-09-03T17-03-33` §Reason「なぜ model list 確認をしないか」と同型。日次 1 回の起動で `GET /models` を列挙しても稀な破壊的変更への過剰防衛にしかならず、失敗したら Infra Error で落ちて定数を直す方が分岐が少ない。
+先行 Decision `generator-cursor-text-writer-transport` §Reason「なぜ model list 確認をしないか」と同型。日次 1 回の起動で `GET /models` を列挙しても稀な破壊的変更への過剰防衛にしかならず、失敗したら Infra Error で落ちて定数を直す方が分岐が少ない。
 
 ### なぜ log は当面 stderr 1 行か
 
