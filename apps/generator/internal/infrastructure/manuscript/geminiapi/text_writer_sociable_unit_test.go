@@ -17,6 +17,7 @@ import (
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/writerretry"
 )
 
 // Scope: Sociable Unit
@@ -26,10 +27,10 @@ import (
 // （recordingBuildFn / rejectingBuildFn / sequenceBuildFn）。
 //
 // retry / error 方針: 成功応答 + buildFn 成功でその draft を返す / buildFn が invalid を返したら
-// port.BuildRejectionBrief で組んだ brief で TextWriterMaxAttempts 回まで再試行 / 使い切ったら
+// port.BuildRejectionBrief で組んだ brief で writerretry.MaxDraftAttempts 回まで再試行 / 使い切ったら
 // port.ErrDraftRejected を wrap し port.LastAttempt を chain へ含める / generateContent が retry
 // しない error で抜けるとき、直前 attempt の raw/buildErr があれば port.LastAttempt として chain
-// へ含め、無ければ透過する / HTTP 層の方針は fetchRetryKind が決める（Retry-After 付き 429 だけ backoff、
+// へ含め、無ければ透過する / HTTP 層の方針は writerretry.ClassifyStatus が決める（Retry-After 付き 429 だけ backoff、
 // 5xx・通信断は 1 回再試行、使い切りと Retry-After 無しの 429 は fallback へ渡し、その他は再試行しない）。
 
 const fakeAPIKey = "gemini-fake-key-must-not-leak"
@@ -484,7 +485,7 @@ func TestWrite_notifiesRetryReporter_whenBuildFnReportsInvalidOnce(t *testing.T)
 	if len(retry.calls) != 1 {
 		t.Fatalf("retry calls = %+v, want 1 call", retry.calls)
 	}
-	want := retryReporterCall{step: "write_manuscript_draft", attempt: 1, max: TextWriterMaxAttempts, reason: buildErr.Error()}
+	want := retryReporterCall{step: "write_manuscript_draft", attempt: 1, max: writerretry.MaxDraftAttempts, reason: buildErr.Error()}
 	if retry.calls[0] != want {
 		t.Fatalf("retry.calls[0] = %+v, want %+v", retry.calls[0], want)
 	}
@@ -494,8 +495,8 @@ func TestWrite_doesNotNotifyRetryReporter_onFinalAttempt_whenBuildFnFailsAllAtte
 	t.Parallel()
 
 	// Given: 全 attempt で成功応答だが buildFn は毎回 invalid を返す
-	responses := make([]fakeClientResponse, 0, TextWriterMaxAttempts)
-	for i := 0; i < TextWriterMaxAttempts; i++ {
+	responses := make([]fakeClientResponse, 0, writerretry.MaxDraftAttempts)
+	for i := 0; i < writerretry.MaxDraftAttempts; i++ {
 		responses = append(responses, successResponse("STOP", fmt.Sprintf("%d 回目の原稿。", i+1)))
 	}
 	w, _, _, retry := newFakeTextWriterWithSpies(responses...)
@@ -505,17 +506,17 @@ func TestWrite_doesNotNotifyRetryReporter_onFinalAttempt_whenBuildFnFailsAllAtte
 	// When: Write する
 	_, err := w.Write(context.Background(), "原稿を書いて", rejecting.call)
 
-	// Then: TextWriterMaxAttempts - 1 回だけ Retry が通知される（最終 attempt は次が無いので呼ばない）
+	// Then: writerretry.MaxDraftAttempts - 1 回だけ Retry が通知される（最終 attempt は次が無いので呼ばない）
 	if !errors.Is(err, port.ErrDraftRejected) {
 		t.Fatalf("errors.Is(err, port.ErrDraftRejected) = false: %v", err)
 	}
-	if len(retry.calls) != TextWriterMaxAttempts-1 {
-		t.Fatalf("retry calls = %+v, want %d calls", retry.calls, TextWriterMaxAttempts-1)
+	if len(retry.calls) != writerretry.MaxDraftAttempts-1 {
+		t.Fatalf("retry calls = %+v, want %d calls", retry.calls, writerretry.MaxDraftAttempts-1)
 	}
 	for i, call := range retry.calls {
 		wantAttempt := i + 1
-		if call.attempt != wantAttempt || call.max != TextWriterMaxAttempts || call.step != "write_manuscript_draft" {
-			t.Fatalf("retry.calls[%d] = %+v, want attempt=%d max=%d step=write_manuscript_draft", i, call, wantAttempt, TextWriterMaxAttempts)
+		if call.attempt != wantAttempt || call.max != writerretry.MaxDraftAttempts || call.step != "write_manuscript_draft" {
+			t.Fatalf("retry.calls[%d] = %+v, want attempt=%d max=%d step=write_manuscript_draft", i, call, wantAttempt, writerretry.MaxDraftAttempts)
 		}
 	}
 }
@@ -523,21 +524,21 @@ func TestWrite_doesNotNotifyRetryReporter_onFinalAttempt_whenBuildFnFailsAllAtte
 func TestGenerateContent_notifiesRetryReporter_on429BeforeEachBackoff(t *testing.T) {
 	t.Parallel()
 
-	// Given: server が Retry-After で回復を明示した 429 を MaxAttempts 回返し続ける
-	w, _, _, retry := newFakeTextWriterWithSpies(retryAfterRateLimitedResponses(MaxAttempts)...)
+	// Given: server が Retry-After で回復を明示した 429 を writerretry.MaxRateLimitedAttempts 回返し続ける
+	w, _, _, retry := newFakeTextWriterWithSpies(retryAfterRateLimitedResponses(writerretry.MaxRateLimitedAttempts)...)
 
 	// When: Write する
 	_, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
 
-	// Then: backoff 前の MaxAttempts-1 回だけ Retry が通知される（使い切りの最終 1 回は通知しない）
+	// Then: backoff 前の writerretry.MaxRateLimitedAttempts-1 回だけ Retry が通知される（使い切りの最終 1 回は通知しない）
 	assertGeminiInfraErrorOp(t, err, "http_status")
-	if len(retry.calls) != MaxAttempts-1 {
-		t.Fatalf("retry calls = %+v, want %d calls", retry.calls, MaxAttempts-1)
+	if len(retry.calls) != writerretry.MaxRateLimitedAttempts-1 {
+		t.Fatalf("retry calls = %+v, want %d calls", retry.calls, writerretry.MaxRateLimitedAttempts-1)
 	}
 	for i, call := range retry.calls {
 		wantAttempt := i + 1
-		if call.attempt != wantAttempt || call.max != MaxAttempts || call.step != "generate_content" {
-			t.Fatalf("retry.calls[%d] = %+v, want attempt=%d max=%d step=generate_content", i, call, wantAttempt, MaxAttempts)
+		if call.attempt != wantAttempt || call.max != writerretry.MaxRateLimitedAttempts || call.step != "generate_content" {
+			t.Fatalf("retry.calls[%d] = %+v, want attempt=%d max=%d step=generate_content", i, call, wantAttempt, writerretry.MaxRateLimitedAttempts)
 		}
 	}
 }
@@ -546,8 +547,8 @@ func TestWrite_returnsDraftRejectedWithLastAttempt_whenBuildFnFailsAllAttempts(t
 	t.Parallel()
 
 	// Given: 全 attempt で成功応答だが buildFn は毎回 invalid を返す
-	responses := make([]fakeClientResponse, 0, TextWriterMaxAttempts)
-	for i := 0; i < TextWriterMaxAttempts; i++ {
+	responses := make([]fakeClientResponse, 0, writerretry.MaxDraftAttempts)
+	for i := 0; i < writerretry.MaxDraftAttempts; i++ {
 		responses = append(responses, successResponse("STOP", fmt.Sprintf("%d 回目の原稿。", i+1)))
 	}
 	w, rt := newFakeTextWriter(responses...)
@@ -557,19 +558,19 @@ func TestWrite_returnsDraftRejectedWithLastAttempt_whenBuildFnFailsAllAttempts(t
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて", rejecting.call)
 
-	// Then: TextWriterMaxAttempts 回すべて呼ばれ、port.ErrDraftRejected を errors.Is で判定でき、
+	// Then: writerretry.MaxDraftAttempts 回すべて呼ばれ、port.ErrDraftRejected を errors.Is で判定でき、
 	// 最後の attempt の raw/buildErr が port.LastAttempt として chain から取り出せる
 	if !errors.Is(err, port.ErrDraftRejected) {
 		t.Fatalf("errors.Is(err, port.ErrDraftRejected) = false: %v", err)
 	}
 	assertDraftEqual(t, got, models.ManuscriptDraft{})
-	if len(rt.calls) != TextWriterMaxAttempts {
-		t.Fatalf("call count = %d, want %d", len(rt.calls), TextWriterMaxAttempts)
+	if len(rt.calls) != writerretry.MaxDraftAttempts {
+		t.Fatalf("call count = %d, want %d", len(rt.calls), writerretry.MaxDraftAttempts)
 	}
-	if len(rejecting.raws) != TextWriterMaxAttempts {
-		t.Fatalf("buildFn calls = %d, want %d", len(rejecting.raws), TextWriterMaxAttempts)
+	if len(rejecting.raws) != writerretry.MaxDraftAttempts {
+		t.Fatalf("buildFn calls = %d, want %d", len(rejecting.raws), writerretry.MaxDraftAttempts)
 	}
-	wantLastRaw := fmt.Sprintf("%d 回目の原稿。", TextWriterMaxAttempts)
+	wantLastRaw := fmt.Sprintf("%d 回目の原稿。", writerretry.MaxDraftAttempts)
 	assertLastAttempt(t, err, wantLastRaw, buildErr)
 }
 
@@ -685,45 +686,6 @@ func TestWrite_wrapsSourceExhaustedAfterOneRetry_whenStatus5xxPersists(t *testin
 	}
 }
 
-func TestClassifyFailedStatus_returnsRetryKindAndWait_perStatusAndRetryAfter(t *testing.T) {
-	t.Parallel()
-
-	// Given: 失敗 status と Retry-After の組
-	cases := []struct {
-		name     string
-		status   int
-		header   http.Header
-		wantKind fetchRetryKind
-		wantWait time.Duration
-	}{
-		{"429 Retry-After 付き", http.StatusTooManyRequests, http.Header{"Retry-After": {"3"}}, retryRateLimited, 3 * time.Second},
-		{"429 Retry-After 過大はクランプ", http.StatusTooManyRequests, http.Header{"Retry-After": {"999999"}}, retryRateLimited, MaxRetryAfter},
-		{"429 Retry-After 無し", http.StatusTooManyRequests, nil, retryFallback, 0},
-		{"429 Retry-After 解釈不能", http.StatusTooManyRequests, http.Header{"Retry-After": {"soon"}}, retryFallback, 0},
-		{"500", http.StatusInternalServerError, nil, retryOnce, 0},
-		{"503", http.StatusServiceUnavailable, nil, retryOnce, 0},
-		{"400 は bug", http.StatusBadRequest, nil, retryNone, 0},
-		{"401 は credential 失効", http.StatusUnauthorized, nil, retryFallback, 0},
-		{"403 は credential 失効", http.StatusForbidden, nil, retryFallback, 0},
-		{"404", http.StatusNotFound, nil, retryNone, 0},
-	}
-	for _, tc := range cases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			// When: 分類する
-			got := classifyFailedStatus(tc.status, tc.header)
-			gotKind, gotWait := got.kind, got.wait
-
-			// Then: 方針と待ちが決まる
-			if gotKind != tc.wantKind || gotWait != tc.wantWait {
-				t.Fatalf("classifyFailedStatus(%d, %v) = (%v, %v), want (%v, %v)", tc.status, tc.header, gotKind, gotWait, tc.wantKind, tc.wantWait)
-			}
-		})
-	}
-}
-
 func TestWrite_retriesOnceThenSucceeds_whenBodyReadIsInterrupted(t *testing.T) {
 	t.Parallel()
 
@@ -794,31 +756,31 @@ func TestWrite_wrapsSourceExhaustedAfterOneRetry_whenDoErrorPersists(t *testing.
 func TestWrite_wrapsSourceExhausted_afterTierFreeUsesAll429Attempts(t *testing.T) {
 	t.Parallel()
 
-	// Given: server が Retry-After で回復を明示した 429 を MaxAttempts 回返し続ける
-	w, rt, spy := newFakeTextWriterWithSleepSpy(retryAfterRateLimitedResponses(MaxAttempts)...)
+	// Given: server が Retry-After で回復を明示した 429 を writerretry.MaxRateLimitedAttempts 回返し続ける
+	w, rt, spy := newFakeTextWriterWithSleepSpy(retryAfterRateLimitedResponses(writerretry.MaxRateLimitedAttempts)...)
 
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
 
-	// Then: 上限到達で次 source へ切替可能な番兵と *adaptererror.Error、待ち観測は MaxAttempts-1 回、call は MaxAttempts 回
+	// Then: 上限到達で次 source へ切替可能な番兵と *adaptererror.Error、待ち観測は writerretry.MaxRateLimitedAttempts-1 回、call は writerretry.MaxRateLimitedAttempts 回
 	assertGeminiInfraErrorOp(t, err, "http_status")
 	if !errors.Is(err, port.ErrSourceExhausted) {
 		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v", err)
 	}
 	assertDraftEqual(t, got, models.ManuscriptDraft{})
-	if len(rt.calls) != MaxAttempts {
-		t.Fatalf("call count = %d, want %d", len(rt.calls), MaxAttempts)
+	if len(rt.calls) != writerretry.MaxRateLimitedAttempts {
+		t.Fatalf("call count = %d, want %d", len(rt.calls), writerretry.MaxRateLimitedAttempts)
 	}
-	if len(spy.waits) != MaxAttempts-1 {
-		t.Fatalf("sleep count = %d, want %d", len(spy.waits), MaxAttempts-1)
+	if len(spy.waits) != writerretry.MaxRateLimitedAttempts-1 {
+		t.Fatalf("sleep count = %d, want %d", len(spy.waits), writerretry.MaxRateLimitedAttempts-1)
 	}
 }
 
 func TestWrite_wrapsSourceExhausted_afterTierPaidUsesAll429Attempts(t *testing.T) {
 	t.Parallel()
 
-	// Given: paid source が Retry-After 付きの 429 を MaxAttempts 回返し続ける
-	w, _, _ := newFakeTextWriterWithSleepSpy(retryAfterRateLimitedResponses(MaxAttempts)...)
+	// Given: paid source が Retry-After 付きの 429 を writerretry.MaxRateLimitedAttempts 回返し続ける
+	w, _, _ := newFakeTextWriterWithSleepSpy(retryAfterRateLimitedResponses(writerretry.MaxRateLimitedAttempts)...)
 	w.tier = TierPaid
 
 	// When: Write する
@@ -847,7 +809,7 @@ func TestWrite_clampsRetryAfter_whenHeaderValueExceedsMax(t *testing.T) {
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
 
-	// Then: 成功 draft が返り、待ちは MaxRetryAfter でクランプされる
+	// Then: 成功 draft が返り、待ちは writerretry.MaxRetryAfter でクランプされる
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
@@ -855,8 +817,8 @@ func TestWrite_clampsRetryAfter_whenHeaderValueExceedsMax(t *testing.T) {
 	if len(spy.waits) != 1 {
 		t.Fatalf("sleep count = %d, want 1", len(spy.waits))
 	}
-	if spy.waits[0] != MaxRetryAfter {
-		t.Fatalf("wait = %v, want %v (clamped)", spy.waits[0], MaxRetryAfter)
+	if spy.waits[0] != writerretry.MaxRetryAfter {
+		t.Fatalf("wait = %v, want %v (clamped)", spy.waits[0], writerretry.MaxRetryAfter)
 	}
 }
 
@@ -1110,7 +1072,7 @@ func TestNewTextWriter_returnsNonNil(t *testing.T) {
 		t.Fatal("NewTextWriter が nil を返した")
 	}
 
-	// 内部 constructor の backoff seam 分岐（nil → ctxSleep）も 1 度通す。
+	// 内部 constructor の backoff seam 分岐（nil → writerretry.SleepContext）も 1 度通す。
 	if got := newTextWriter(&http.Client{}, "k", TierFree, nil, nil); got.backoffSleepFn == nil {
 		t.Fatal("newTextWriter(nil) が backoffSleepFn を補わなかった")
 	}
@@ -1128,14 +1090,6 @@ func TestNewTextWriter_storesGivenTier_whenConstructed(t *testing.T) {
 	if w.tier != TierPaid {
 		t.Fatalf("tier = %v, want %v", w.tier, TierPaid)
 	}
-}
-
-func TestCtxSleep_returnsWhenContextDone(t *testing.T) {
-	t.Parallel()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	ctxSleep(ctx, time.Hour) // ctx が済んでいるので即戻る
 }
 
 // requestBriefOf は fakeRoundTripper が記録した request body から contents[0].parts[0].text を取り出す。

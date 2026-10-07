@@ -9,13 +9,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/application/port"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/entities/models"
 	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/httpdiag"
+	"github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/manuscript/writerretry"
 )
 
 var _ port.TextWriter = (*TextWriter)(nil)
@@ -36,7 +36,7 @@ type TextWriter struct {
 // @ensure client が nil のとき Write は geminiErr("build_request") を返す。
 // @ensure client は textWriterHTTPTimeout を付けた shallow copy として保持する（引数の Client は変更しない）。
 func NewTextWriter(client *http.Client, apiKey string, tier Tier, retry port.RetryReporter) *TextWriter {
-	return newTextWriter(withCallTimeout(client), apiKey, tier, ctxSleep, retry)
+	return newTextWriter(withCallTimeout(client), apiKey, tier, writerretry.SleepContext, retry)
 }
 
 // Write は brief から原稿断片を得て、buildFn で ManuscriptDraft へ解釈する。
@@ -44,7 +44,7 @@ func NewTextWriter(client *http.Client, apiKey string, tier Tier, retry port.Ret
 // @require brief は trim 後に非空。buildFn は非 nil。
 // @ensure 成功時は buildFn が返す非 nil な models.ManuscriptDraft を返す。
 // @ensure buildFn が invalid と判定した後の取得 error には port.LastAttempt を chain に含める。
-// @ensure buildFn が TextWriterMaxAttempts 回とも error を返したら、port.ErrDraftRejected・最後の error・port.LastAttempt を wrap して返す。
+// @ensure buildFn が writerretry.MaxDraftAttempts 回とも error を返したら、port.ErrDraftRejected・最後の error・port.LastAttempt を wrap して返す。
 // @ensure 取得元が当面使えないと分かった error は port.ErrSourceExhausted を wrap して返す（fallback へ渡す）。
 // @invariant buildFn 呼び出しは 1 attempt につき高々 1 回。secret 実値は error へ出さない。
 func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(string) (models.ManuscriptDraft, error)) (models.ManuscriptDraft, error) {
@@ -56,28 +56,19 @@ func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(strin
 		return models.ManuscriptDraft{}, geminiErr("validate_brief", fmt.Errorf("brief is empty after trim"))
 	}
 
-	var last port.LastAttempt
-	for attempt := 1; attempt <= TextWriterMaxAttempts; attempt++ {
-		raw, err := w.generateContent(ctx, attemptBrief(trimmed, last))
-		if err != nil {
-			return models.ManuscriptDraft{}, withLastAttempt(err, last)
-		}
-		draft, err := buildFn(raw)
-		if err == nil {
-			return draft, nil
-		}
-		last = port.LastAttempt{Raw: raw, BuildErr: err}
-		if attempt < TextWriterMaxAttempts {
-			w.retry.Retry("write_manuscript_draft", attempt, TextWriterMaxAttempts, err.Error())
-		}
-	}
-	return models.ManuscriptDraft{}, fmt.Errorf("%w: %w: %w", port.ErrDraftRejected, last.BuildErr, last)
+	return writerretry.DraftRun{
+		Retry: w.retry,
+		Build: buildFn,
+		Fetch: func(ctx context.Context, last port.LastAttempt) (string, error) {
+			return w.generateContent(ctx, attemptBrief(trimmed, last))
+		},
+	}.Run(ctx)
 }
 
-// why: NewTextWriter は本番の ctxSleep を固定し、test は待ちを観測する fake を渡せるようにする。
+// why: NewTextWriter は本番の writerretry.SleepContext を固定し、test は待ちを観測する fake を渡せるようにする。
 func newTextWriter(client *http.Client, apiKey string, tier Tier, backoffSleepFn func(context.Context, time.Duration), retry port.RetryReporter) *TextWriter {
 	if backoffSleepFn == nil {
-		backoffSleepFn = ctxSleep
+		backoffSleepFn = writerretry.SleepContext
 	}
 	return &TextWriter{client: client, apiKey: apiKey, tier: tier, backoffSleepFn: backoffSleepFn, retry: retry}
 }
@@ -93,15 +84,6 @@ func withCallTimeout(httpClient *http.Client) *http.Client {
 	return &c
 }
 
-func ctxSleep(ctx context.Context, d time.Duration) {
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-	case <-timer.C:
-	}
-}
-
 func attemptBrief(brief string, last port.LastAttempt) string {
 	if last.BuildErr == nil {
 		return brief
@@ -109,11 +91,19 @@ func attemptBrief(brief string, last port.LastAttempt) string {
 	return port.BuildRejectionBrief(brief, last.Raw, last.BuildErr.Error())
 }
 
-func withLastAttempt(err error, last port.LastAttempt) error {
-	if last.BuildErr == nil {
-		return err
+func (w *TextWriter) generateContent(ctx context.Context, brief string) (string, error) {
+	body, err := encodeGenerateContentRequest(brief)
+	if err != nil {
+		return "", err
 	}
-	return fmt.Errorf("%w: %w", err, last)
+	url := fmt.Sprintf(EndpointURLTemplate, ModelID)
+	return writerretry.Run(ctx, w.retryConfig(), func(ctx context.Context) (string, writerretry.Policy, error) {
+		return w.fetchOnce(ctx, url, body)
+	})
+}
+
+func (w *TextWriter) retryConfig() writerretry.Config {
+	return writerretry.Config{Step: "generate_content", Retry: w.retry, Sleep: w.backoffSleepFn}
 }
 
 type generateContentRequest struct {
@@ -161,57 +151,6 @@ type contentPart struct {
 	Text string `json:"text"`
 }
 
-type fetchRetryKind int
-
-const (
-	// what: 再試行せず、error をそのまま返す（bug）。
-	retryNone fetchRetryKind = iota
-	// what: +1 即再試行を 1 回だけ行い、使い切りは fallback へ渡す。
-	retryOnce
-	// what: Retry-After で回復が明示された 429。MaxAttempts まで待って再試行し、使い切りは fallback へ渡す。
-	retryRateLimited
-	// what: 再試行せず fallback へ渡す。
-	retryFallback
-)
-
-type fetchRetryPolicy struct {
-	kind fetchRetryKind
-	wait time.Duration
-}
-
-func terminalError(kind fetchRetryKind, err error) error {
-	if kind == retryNone {
-		return err
-	}
-	return fmt.Errorf("%w: %w", port.ErrSourceExhausted, err)
-}
-
-// why: 429 は body の文言・code が provider 依存で変わりうるので読まず、標準 header の Retry-After だけを
-// 回復の明示とする（Decision generator-genai-api-failure-retry-or-fallback）。
-func classifyFailedStatus(status int, header http.Header) fetchRetryPolicy {
-	switch {
-	case status == http.StatusUnauthorized, status == http.StatusForbidden:
-		return fetchRetryPolicy{kind: retryFallback}
-	case status == http.StatusTooManyRequests:
-		if wait := retryAfter(header); wait > 0 {
-			return fetchRetryPolicy{kind: retryRateLimited, wait: wait}
-		}
-		return fetchRetryPolicy{kind: retryFallback}
-	case status >= http.StatusInternalServerError:
-		return fetchRetryPolicy{kind: retryOnce}
-	default:
-		return fetchRetryPolicy{kind: retryNone}
-	}
-}
-
-func (w *TextWriter) generateContent(ctx context.Context, brief string) (string, error) {
-	body, err := encodeGenerateContentRequest(brief)
-	if err != nil {
-		return "", err
-	}
-	return w.fetchWithRetry(ctx, fmt.Sprintf(EndpointURLTemplate, ModelID), body)
-}
-
 func encodeGenerateContentRequest(brief string) ([]byte, error) {
 	body, err := json.Marshal(generateContentRequest{
 		Contents:         []requestContent{{Parts: []requestPart{{Text: brief}}}},
@@ -224,58 +163,30 @@ func encodeGenerateContentRequest(brief string) ([]byte, error) {
 	return body, nil
 }
 
-// why: 再試行の方針は Decision generator-genai-api-failure-retry-or-fallback。この loop は fetchRetryKind だけを見る。
-func (w *TextWriter) fetchWithRetry(ctx context.Context, url string, body []byte) (string, error) {
-	retriedOnce := false
-	rateLimitAttempt := 0
-	for {
-		text, policy, err := w.fetchOnce(ctx, url, body)
-		if err == nil {
-			return text, nil
-		}
-		switch policy.kind {
-		case retryOnce:
-			if retriedOnce {
-				return "", terminalError(policy.kind, err)
-			}
-			retriedOnce = true
-		case retryRateLimited:
-			rateLimitAttempt++
-			if rateLimitAttempt >= MaxAttempts {
-				return "", terminalError(policy.kind, err)
-			}
-			w.retry.Retry("generate_content", rateLimitAttempt, MaxAttempts, err.Error())
-			w.backoffSleepFn(ctx, policy.wait)
-		default:
-			return "", terminalError(policy.kind, err)
-		}
-	}
-}
-
-func (w *TextWriter) fetchOnce(ctx context.Context, url string, body []byte) (string, fetchRetryPolicy, error) {
+func (w *TextWriter) fetchOnce(ctx context.Context, url string, body []byte) (string, writerretry.Policy, error) {
 	req, err := w.newRequest(ctx, url, body)
 	if err != nil {
-		return "", fetchRetryPolicy{}, err
+		return "", writerretry.Policy{}, err
 	}
 
 	res, err := w.client.Do(req)
 	if err != nil {
-		return "", fetchRetryPolicy{kind: retryOnce}, geminiErr("do", err)
+		return "", writerretry.Policy{Kind: writerretry.Once}, geminiErr("do", err)
 	}
 	defer func() { _ = res.Body.Close() }()
 
 	raw, err := io.ReadAll(io.LimitReader(res.Body, ResponseBufferBytes))
 	if err != nil {
 		// why: body 読みは status 分岐の前。read 途中断（transient network 切断など）は 5xx と同じ一過性として扱う。
-		return "", fetchRetryPolicy{kind: retryOnce}, geminiErr("read_body", err)
+		return "", writerretry.Policy{Kind: writerretry.Once}, geminiErr("read_body", err)
 	}
 
 	if res.StatusCode != http.StatusOK {
-		return "", classifyFailedStatus(res.StatusCode, res.Header), statusError(res.StatusCode, raw)
+		return "", writerretry.ClassifyStatus(res.StatusCode, res.Header), statusError(res.StatusCode, raw)
 	}
 
 	text, err := parseGeneratedText(raw)
-	return text, fetchRetryPolicy{}, err
+	return text, writerretry.Policy{}, err
 }
 
 func (w *TextWriter) newRequest(ctx context.Context, url string, body []byte) (*http.Request, error) {
@@ -291,24 +202,6 @@ func (w *TextWriter) newRequest(ctx context.Context, url string, body []byte) (*
 // why: secret は APIKeyHeader（x-goog-api-key）にしか載せないので、応答 body 全体を診断へ出しても credential は漏れない。
 func statusError(status int, raw []byte) error {
 	return geminiErr("http_status", fmt.Errorf("status %d; response body: %s", status, httpdiag.BodySnippet(raw)))
-}
-
-// why: delta-seconds 形式だけを回復の明示とする。HTTP-date 形式は解釈せず「明示なし」にする
-// （YAGNI。Gemini の 429 は delta-seconds で返る）。
-func retryAfter(header http.Header) time.Duration {
-	v := strings.TrimSpace(header.Get("Retry-After"))
-	if v == "" {
-		return 0
-	}
-	secs, err := strconv.Atoi(v)
-	if err != nil || secs < 0 {
-		return 0
-	}
-	d := time.Duration(secs) * time.Second
-	if d > MaxRetryAfter {
-		return MaxRetryAfter
-	}
-	return d
 }
 
 func parseGeneratedText(raw []byte) (string, error) {

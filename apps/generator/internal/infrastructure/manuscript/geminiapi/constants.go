@@ -14,19 +14,6 @@ const (
 	APIKeyHeader = "x-goog-api-key"
 )
 
-// MaxAttempts は Retry-After 付き 429 に対する最大試行数。無限 retry を防ぐ。cursorapi と同値。
-// why: 原稿用 model の RPD は現状の 1 日 1 回 produce 運用では使い切りにくく、
-// gemini（TTS）のように 1 episode で焼き切る動機が無い。Tier による差は付けない。
-const MaxAttempts = 4
-
-// TextWriterMaxAttempts は ManuscriptDraft 検証失敗（invalid-draft）時の Write 内部 retry 上限。
-// LLM 出力の rune 数・topic 数の揺れを吸収する。429 用の MaxAttempts とは別物。
-const TextWriterMaxAttempts = 5
-
-// MaxRetryAfter は Retry-After header 由来の待ち時間の上限。
-// why: 異常に長い Retry-After に待たされない。
-const MaxRetryAfter = 30 * time.Second
-
 // ResponseBufferBytes は generateContent 応答（原稿 JSON を含む）を読む上限。
 // why: 想定最大原稿の UTF-8 byte 数に、応答 envelope（candidates / usageMetadata 等）の余裕を足す。
 const ResponseBufferBytes = 1 << 20
