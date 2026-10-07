@@ -95,7 +95,7 @@ func ctxSleep(ctx context.Context, d time.Duration) {
 //
 //	w.retry へ Retry("write_manuscript_draft", attempt, TextWriterMaxAttempts, ...) を通知する。
 //
-// @invariant generateContent は idempotent（同 body は同じ生成試行・副作用なし）。client.Do error / 5xx を 1 回再試行する。429 は response body を読まず、Retry-After が解釈できる時だけ MaxAttempts まで待って再試行し、解釈できる Retry-After が無い 429 と使い切りは Tier に関係なく待たずに port.ErrSourceExhausted を wrap する。401 / 403 / その他 4xx、finishReason が STOP 以外、空 text、parse 失敗は再試行しない。secret 実値を error へ出さない。model は ModelID 固定。毎回 generationConfig（responseMimeType=application/json + WriterOutput responseJsonSchema）を送る。
+// @invariant generateContent は idempotent（同 body は同じ生成試行・副作用なし）。client.Do error は 1 回再試行し、使い切りはそのまま error を返す。5xx は 1 回再試行し、使い切りは port.ErrSourceExhausted を wrap する。429 は response body を読まず、Retry-After が解釈できる時だけ MaxAttempts まで待って再試行し、使い切りと、解釈できる Retry-After が無い 429 は Tier に関係なく待たずに port.ErrSourceExhausted を wrap する。401 / 403 / その他 4xx、finishReason が STOP 以外、空 text、parse 失敗は再試行せず wrap もしない。secret 実値を error へ出さない。model は ModelID 固定。毎回 generationConfig（responseMimeType=application/json + WriterOutput responseJsonSchema）を送る。
 func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(string) (models.ManuscriptDraft, error)) (models.ManuscriptDraft, error) {
 	if w == nil || w.client == nil {
 		return models.ManuscriptDraft{}, geminiErr("build_request", fmt.Errorf("client is nil"))
@@ -186,14 +186,46 @@ type contentPart struct {
 type fetchRetryKind int
 
 const (
-	// retryNone は再試行しない（4xx（429 除く）、finishReason≠STOP、空 text、parse 失敗）。
+	// retryNone は再試行せず、そのまま error を返す（bug。4xx（429 除く）、finishReason≠STOP、空 text、parse 失敗）。
 	retryNone fetchRetryKind = iota
-	// retryTransientOnce は Do error / idempotent POST の 5xx。+1 即再試行を 1 回だけ。
+	// retryTransientOnce は Do error / body 読み取り途中断。+1 即再試行を 1 回だけ。使い切りはそのまま error。
 	retryTransientOnce
-	// retryRateLimited は 429。Retry-After で回復が明示された時だけ MaxAttempts まで待って再試行し、
-	// 明示が無ければ待たずに枯渇として扱う。
+	// retryServerErrorOnce は 5xx。+1 即再試行を 1 回だけ。使い切りは枯渇。
+	retryServerErrorOnce
+	// retryRateLimited は Retry-After で回復が明示された 429。MaxAttempts まで待って再試行する。使い切りは枯渇。
 	retryRateLimited
+	// retryExhausted は再試行せず枯渇として扱う。回復の明示が無い 429。
+	retryExhausted
 )
+
+func (k fetchRetryKind) spentMeansExhausted() bool {
+	return k == retryServerErrorOnce || k == retryRateLimited || k == retryExhausted
+}
+
+func terminalError(kind fetchRetryKind, err error) error {
+	if kind.spentMeansExhausted() {
+		return fmt.Errorf("%w: %w", port.ErrSourceExhausted, err)
+	}
+	return err
+}
+
+// why: 429 は body の文言・code が provider 依存で変わりうるので読まず、標準 header の Retry-After だけを
+//
+//	回復の明示とする。4xx（429 除く）は呼び出し側の bug なので再試行も枯渇扱いもしない
+//	（Decision 2026-09-17T15-06-00）。
+func classifyFailedStatus(status int, header http.Header) (fetchRetryKind, time.Duration) {
+	switch {
+	case status == http.StatusTooManyRequests:
+		if wait := retryAfter(header); wait > 0 {
+			return retryRateLimited, wait
+		}
+		return retryExhausted, 0
+	case status >= http.StatusInternalServerError:
+		return retryServerErrorOnce, 0
+	default:
+		return retryNone, 0
+	}
+}
 
 // generateContent は generateContent を retry 方針に従って叩き、連結 trim 済み text を返す。
 // why: Do error / 5xx は 1 回だけ（generateContent は idempotent）。429 は Retry-After で回復が明示された時だけ
@@ -218,23 +250,20 @@ func (w *TextWriter) generateContent(ctx context.Context, brief string) (string,
 			return text, nil
 		}
 		switch kind {
-		case retryTransientOnce:
+		case retryTransientOnce, retryServerErrorOnce:
 			if transientUsed {
-				return "", err
+				return "", terminalError(kind, err)
 			}
 			transientUsed = true
 		case retryRateLimited:
 			rateLimitAttempt++
-			// why: 回復の明示（解釈できる Retry-After）が無い 429 は、待っても戻る保証が無い。
-			//      body の文言・code は provider 依存で変わりうるので読まず、待たずに枯渇として
-			//      次 source へ渡す（Decision 2026-09-17T15-06-00）。
-			if wait <= 0 || rateLimitAttempt >= MaxAttempts {
-				return "", fmt.Errorf("%w: %w", port.ErrSourceExhausted, err)
+			if rateLimitAttempt >= MaxAttempts {
+				return "", terminalError(kind, err)
 			}
 			w.retry.Retry("generate_content", rateLimitAttempt, MaxAttempts, err.Error())
 			w.backoffSleepFn(ctx, wait)
 		default:
-			return "", err
+			return "", terminalError(kind, err)
 		}
 	}
 }
@@ -261,13 +290,9 @@ func (w *TextWriter) fetchOnce(ctx context.Context, url string, body []byte) (st
 	}
 
 	// why: secret は APIKeyHeader（x-goog-api-key）にしか載せないので、応答 body 全体を診断へ出しても credential は漏れない。
-	switch {
-	case res.StatusCode == http.StatusTooManyRequests:
-		return "", retryRateLimited, retryAfter(res.Header), geminiErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
-	case res.StatusCode >= 500:
-		return "", retryTransientOnce, 0, geminiErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
-	case res.StatusCode != http.StatusOK:
-		return "", retryNone, 0, geminiErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
+	if res.StatusCode != http.StatusOK {
+		kind, wait := classifyFailedStatus(res.StatusCode, res.Header)
+		return "", kind, wait, geminiErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
 	}
 
 	text, err := parseGeneratedText(raw)

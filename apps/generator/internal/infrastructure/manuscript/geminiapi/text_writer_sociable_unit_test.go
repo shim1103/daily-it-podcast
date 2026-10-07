@@ -656,7 +656,7 @@ func TestWrite_retriesOnce_whenStatus5xxThenSucceeds(t *testing.T) {
 	}
 }
 
-func TestWrite_doesNotRetryTwice_whenStatus5xxPersists(t *testing.T) {
+func TestWrite_wrapsSourceExhaustedAfterOneRetry_whenStatus5xxPersists(t *testing.T) {
 	t.Parallel()
 
 	// Given: 5xx が続く
@@ -668,11 +668,52 @@ func TestWrite_doesNotRetryTwice_whenStatus5xxPersists(t *testing.T) {
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
 
-	// Then: 即再試行は 1 回だけ（calls == 2）で *adaptererror.Error
+	// Then: 即再試行は 1 回だけ（calls == 2）で、次 source へ渡せる番兵と *adaptererror.Error
 	assertGeminiInfraErrorOp(t, err, "http_status")
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v", err)
+	}
 	assertDraftEqual(t, got, models.ManuscriptDraft{})
 	if len(rt.calls) != 2 {
 		t.Fatalf("call count = %d, want 2", len(rt.calls))
+	}
+}
+
+func TestClassifyFailedStatus_returnsRetryKindAndWait_perStatusAndRetryAfter(t *testing.T) {
+	t.Parallel()
+
+	// Given: 失敗 status と Retry-After の組
+	cases := []struct {
+		name     string
+		status   int
+		header   http.Header
+		wantKind fetchRetryKind
+		wantWait time.Duration
+	}{
+		{"429 Retry-After 付き", http.StatusTooManyRequests, http.Header{"Retry-After": {"3"}}, retryRateLimited, 3 * time.Second},
+		{"429 Retry-After 過大はクランプ", http.StatusTooManyRequests, http.Header{"Retry-After": {"999999"}}, retryRateLimited, MaxRetryAfter},
+		{"429 Retry-After 無し", http.StatusTooManyRequests, nil, retryExhausted, 0},
+		{"429 Retry-After 解釈不能", http.StatusTooManyRequests, http.Header{"Retry-After": {"soon"}}, retryExhausted, 0},
+		{"500", http.StatusInternalServerError, nil, retryServerErrorOnce, 0},
+		{"503", http.StatusServiceUnavailable, nil, retryServerErrorOnce, 0},
+		{"400 は bug", http.StatusBadRequest, nil, retryNone, 0},
+		{"401", http.StatusUnauthorized, nil, retryNone, 0},
+		{"403", http.StatusForbidden, nil, retryNone, 0},
+		{"404", http.StatusNotFound, nil, retryNone, 0},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// When: 分類する
+			gotKind, gotWait := classifyFailedStatus(tc.status, tc.header)
+
+			// Then: 方針と待ちが決まる
+			if gotKind != tc.wantKind || gotWait != tc.wantWait {
+				t.Fatalf("classifyFailedStatus(%d, %v) = (%v, %v), want (%v, %v)", tc.status, tc.header, gotKind, gotWait, tc.wantKind, tc.wantWait)
+			}
+		})
 	}
 }
 
