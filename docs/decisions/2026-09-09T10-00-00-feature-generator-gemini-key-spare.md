@@ -8,7 +8,7 @@ branch: feature/generator-gemini-key-spare
 
 1. `GeminiConfig`（`internal/config/config.go`）へ `SpareAPIKey Secret` を足し、config 契約の必須 env に `SPARE_GEMINI_API_KEY` を加える。`APIKey`（`GEMINI_API_KEY`）は TTS が、`SpareAPIKey`（`SPARE_GEMINI_API_KEY`）は原稿 fallback が使う。env 名・field の正本は `internal/config/names.go` / `config.go` の source。
 2. `newGeminiTextWriter`（Composition）だけを `cfg.SpareAPIKey` へ向ける。`newGeminiSpeechSynthesizer`（TTS）は `cfg.APIKey` のまま。UseCase・Adapter の signature は変えない。
-3. Decision `2026-09-07T19-06-00` §1-3「TTS で使う `GEMINI_API_KEY` を流用し、新しい env / Secret は足さない」を本 Decision が supersede する。fallback が本番で実際に使われる secondary であり、流用のままでは TTS と枠を食い合うことが実測で判明したため。transport を独立させる判断（同 Decision §1-6）は維持する。
+3. Decision `generator-text-writer-source-fallback` §1-3「TTS で使う `GEMINI_API_KEY` を流用し、新しい env / Secret は足さない」を本 Decision が supersede する。fallback が本番で実際に使われる secondary であり、流用のままでは TTS と枠を食い合うことが実測で判明したため。transport を独立させる判断（同 Decision §1-6）は維持する。
 4. GHA 登録は本番 `SPARE_GEMINI_API_KEY`、System test `TEST_SPARE_GEMINI_API_KEY`。`generator-produce-episode.yml` / `generator-system.yml` の env 注入と、System test の credential 欠落 Skip 判定 key に加える。key 未登録なら System は Fatal ではなく Skip で止まる。
 5. 「なぜ分けるか」の理由は `GeminiConfig` の invariant コメントを正とし、`DEPLOY.md` は「どの key がどの区分か」「System test が両方要る」だけを持つ。
 
@@ -16,7 +16,7 @@ non-scope: fallback provider を Gemini 以外へ替えること。TTS 側の ke
 
 ## 2. Reason
 
-### なぜ流用（Decision 2026-09-07T19-06-00）を撤回して key を分けるか
+### なぜ流用（Decision generator-text-writer-source-fallback）を撤回して key を分けるか
 
 流用時の想定は「日次 1 回 produce なら fallback が発火しても無料枠（RPD≈1,000 / TPM 250,000）に収まる」だった。実際には本番 produce run 34209712652 が gemini fallback 経路で HTTP 429 に到達して失敗した（`generator-lane.md` D 表）。原因は、同一 `GEMINI_API_KEY` で TTS（1 エピソード分の複数 topic 束を `SynthesizeAll`）と原稿 fallback（generateContent、入力 3〜8 万 tokens）が同じ per-key free-tier 枠を消費し、TTS の消費がある日に fallback が乗ると TPM/RPD が超過するため。key を分ければ、fallback が発火する日でも TTS 側の消費が原稿枠を圧迫しない。
 

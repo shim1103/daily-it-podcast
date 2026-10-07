@@ -1,9 +1,9 @@
-package geminiapi
+package gemini
 
 import "github.com/shim1103/daily-it-podcast/apps/generator/internal/infrastructure/adaptererror"
 
-const errorSource = "geminiapi"
+const errorSource = "gemini"
 
-func geminiErr(op string, err error) error {
+func infraErr(op string, err error) error {
 	return adaptererror.New(errorSource, op, err)
 }

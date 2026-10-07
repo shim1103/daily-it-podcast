@@ -122,7 +122,7 @@ env は `TEST_GEMINI_API_KEY` 直読み（本番 `GEMINI_API_KEY` を計測へ�
 
 ### Cursor draft rate 計測（`generator-draft-rate.yml` / `TestCursorAPIDraftRate`）
 
-`system && ratemeasure` の dispatch 専用。**e2e 1 回通しで Cursor 原稿が尺下限割れ／件数外れを再発したときの事後調査**と prompt の A/B に使う。cron は持たない（Cursor draft は 1 回数分）。Cursor は Cloud Agents HTTP API 移行済みで `agent` binary install は不要（判断: `docs/decisions/2026-09-03T17-03-33`）。
+`system && ratemeasure` の dispatch 専用。**e2e 1 回通しで Cursor 原稿が尺下限割れ／件数外れを再発したときの事後調査**と prompt の A/B に使う。cron は持たない（Cursor draft は 1 回数分）。Cursor は Cloud Agents HTTP API 移行済みで `agent` binary install は不要（判断: `docs/decisions/generator-cursor-text-writer-transport`）。
 
 - 固定擬似ソース → `ComposeBriefWithTemplate(items, variant)` → `Write` → `ManuscriptDraftFromWriterOutput` を `runs` 回直列に通し、valid Draft が返る率が `pass_threshold`（既定 0.8）以上なら緑。
 - `prompt_variant` = `default`（現行 `constants.TextWriterBriefPrompt`）/ `a`（`apps/generator/test/system/testdata/brief_prompt_variant_a.txt`）。下限マージンの薄さが続くなら variant で detail 目安を上げた prompt を検証してから `const` へ反映する。

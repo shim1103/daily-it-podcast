@@ -1,7 +1,6 @@
 ---
-name: 原稿 TextWriter を Cursor CLI から Cloud Agents REST へ移し CLI / commandlaunch を廃止する
-date: 2026-09-03T17:03:33
-branch: feature/generator-cursor-cli-to-http-api
+name: "原稿 TextWriter の transport を、Cursor CLI と Cloud Agents REST のどちらにするか？"
+description: 日次原稿のTextWriterをCursor CLIからCloud Agents REST（no-repo・毎回create・SSE観測）へ移し、CLI経路を廃止する。
 ---
 
 ## 1. Decision
@@ -10,7 +9,7 @@ branch: feature/generator-cursor-cli-to-http-api
 2. 呼び出し形は **no-repo**（`repos` / `env` omit）、**毎回 create**（agent 再利用・前回 conversation は持たない）、完了観測は **SSE**（`GET .../runs/{runId}/stream`）で終端 `result.text` を text 断片とする。
 3. secret 結線は既存 HTTP Adapter（`gemini`）と同型とする。Composition が `Reveal()` 済み API key と、全体 `Timeout` を置かない `*http.Client` を Adapter へ渡す。CLI 時代の child env inject（N2）・`processenv` factory 経路は廃止する。
 4. model は Adapter 定数で `composer-2.5` に固定する。runtime の `GET /v1/models` による存在確認はしない。
-5. HTTP retry は情報源 Adapter の最小方針を基にし、Cursor の 429 だけ粘る。`client.Do` error と **idempotent な GET** の 5xx は 1 回即再試行。429 は有限回 + backoff（`Retry-After` があれば尊重）。**POST create の 5xx / 曖昧 timeout は再試行しない**（非 idempotent・二重 agent 回避）。401 / 403 / 400、run 終端 error、空 text は再試行しない。SSE 途中断からの再 create もしない。
+5. HTTP retry は情報源 Adapter の最小方針を基にし、Cursor の 429 だけ粘る。`client.Do` error と **idempotent な GET** の 5xx は 1 回即再試行。429 は `Retry-After` があれば尊重して有限回待ち、無ければ待たず fallback へ渡す（`generator-genai-api-failure-retry-or-fallback`）。**POST create の 5xx / 曖昧 timeout は再試行しない**（非 idempotent・二重 agent 回避）。401 / 403 / 400、run 終端 error、空 text は再試行しない。SSE 途中断からの再 create もしない。
 6. 長時間待ち・streaming 向け Client は全体 `Timeout` を置かず、各 request は `ctx` 伝播のみとする。短時間用の共有 30s HTTP Client には乗せない。run 全体の上限は GHA job / process cancel に委ねる。
 7. 指示対象を失った CLI 経路を残さない。`commandlaunch` / `processenv` / `cursorcli`、`probe-cursor-cli` workflow・script、System workflow の Cursor CLI install 手順を削除する。
 8. 本 Decision は次を置き換える（旧 file 本文は書き換えない。読み手は本 file を正とする）。
