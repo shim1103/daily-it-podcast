@@ -148,6 +148,53 @@ func TestFetchPCM_wrapsSourceExhausted_whenStatusBadRequestWithQuotaExceeded(t *
 	}
 }
 
+// TestFetchPCM_wrapsSourceExhausted_whenStatusTooManyRequestsWithQuotaExceeded は
+// 429 応答の body が公式の error.code quota_exceeded（日次 quota 超過）を示す場合、待たずに
+// port.ErrSourceExhausted を wrap することを検証する。判別は message ではなく error.code だけで行う。
+func TestFetchPCM_wrapsSourceExhausted_whenStatusTooManyRequestsWithQuotaExceeded(t *testing.T) {
+	// Given: 429 応答。body の error.code が公式仕様どおり quota_exceeded（message は任意文言）
+	synth, rt := newFakeSynthesizer(fakeClientResponse{
+		status: http.StatusTooManyRequests,
+		body:   jsonBody(t, map[string]any{"error": map[string]any{"code": "quota_exceeded", "message": "任意の文言"}}),
+	})
+
+	// When: Synthesize する
+	_, err := synth.synthTestOne(context.Background(), "日次 quota 切れ")
+
+	// Then: port.ErrSourceExhausted を wrap した error。retry しない
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("error = %v, want errors.Is(err, port.ErrSourceExhausted) == true", err)
+	}
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1（quota_exceeded は retry しない）", len(rt.calls))
+	}
+}
+
+// TestFetchPCM_retries_whenStatusTooManyRequestsWithRateLimitExceeded は
+// 429 応答の body が公式の error.code rate_limit_exceeded（分・秒単位の一過性）を示す場合、
+// 従来どおり retry して回復できることを検証する。
+func TestFetchPCM_retries_whenStatusTooManyRequestsWithRateLimitExceeded(t *testing.T) {
+	// Given: 1 回目が 429 + rate_limit_exceeded、2 回目が成功
+	synth, rt := newFakeSynthesizer(
+		fakeClientResponse{
+			status: http.StatusTooManyRequests,
+			body:   jsonBody(t, map[string]any{"error": map[string]any{"code": "rate_limit_exceeded"}}),
+		},
+		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
+	)
+
+	// When: Synthesize する
+	got, err := synth.synthTestOne(context.Background(), "一過性 rate limit")
+
+	// Then: 2 回目で成功する
+	if err != nil {
+		t.Fatalf("Synthesize: %v", err)
+	}
+	if len(got.Content) == 0 || len(rt.calls) != 2 {
+		t.Fatalf("content=%d bytes, call count = %d, want 非空 / 2", len(got.Content), len(rt.calls))
+	}
+}
+
 // TestFetchPCM_doesNotWrapSourceExhausted_whenStatusBadRequestWithoutQuotaExceeded は
 // 400 応答の body が quota_exceeded 相当を示さない場合、port.ErrSourceExhausted を wrap しないことを検証する。
 func TestFetchPCM_doesNotWrapSourceExhausted_whenStatusBadRequestWithoutQuotaExceeded(t *testing.T) {

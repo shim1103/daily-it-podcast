@@ -38,7 +38,7 @@ const (
 
 // fetchPCM は 1 回の Interactions API 呼び出しを実行し、(PCM, 再試行方針, 追加待ち, error) を返す。
 //
-// @ensure 401 / 403 相当、または response body が quota_exceeded 相当を示すときは
+// @ensure 401 / 403 相当、または response body の error.code が quota_exceeded（400 / 429 とも）を示すときは
 //
 //	fmt.Errorf("%w: %w", port.ErrSourceExhausted, ...) で wrap した error を pcmRetryNone とともに返す。
 //	この分類は fetch 時点で確定し、事後の文字列走査（旧 wrapIfSourceExhausted）には委ねない。
@@ -89,6 +89,13 @@ func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]
 		}
 		return nil, pcmRetryNone, 0, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
 	case res.StatusCode == http.StatusTooManyRequests:
+		// why: 公式 API errors は 429 を error.code で rate_limit_exceeded（分・秒単位。retry で回復）と
+		//      quota_exceeded（日次。待っても戻らない）に分ける。message ではなくこの機械可読 code だけを見て、
+		//      quota_exceeded は待たずに枯渇として扱う。それ以外の 429 は従来どおり backoff で retry する。
+		if quotaExceeded(raw) {
+			return nil, pcmRetryNone, 0, fmt.Errorf("%w: %w", port.ErrSourceExhausted,
+				infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw))))
+		}
 		return nil, pcmRetryRateLimited, retryAfter, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
 	case res.StatusCode == http.StatusServiceUnavailable:
 		return nil, pcmRetryTransient, retryAfter, infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
