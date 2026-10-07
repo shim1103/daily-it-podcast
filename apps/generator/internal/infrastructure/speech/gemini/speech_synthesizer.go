@@ -62,7 +62,7 @@ func NewSpeechSynthesizer(httpClient *http.Client, apiKey string, tier Tier, ret
 // @ensure tuning のゼロ値 field は既定値（defaultCallGap / defaultRetryBackoffBase / defaultRetryBackoffMax）へフォールバックする。
 // @ensure Tuning{} を渡した場合の挙動は NewSpeechSynthesizer と同一。
 func NewSpeechSynthesizerWithTuning(httpClient *http.Client, apiKey string, tier Tier, tuning Tuning, retry port.RetryReporter) *SpeechSynthesizer {
-	s := newSpeechSynthesizerForTest(httpClient, apiKey, time.Sleep, retry)
+	s := newSpeechSynthesizer(httpClient, apiKey, time.Sleep, retry)
 	s.tier = tier
 	s.callGap = firstNonZeroDuration(tuning.CallGap, defaultCallGap)
 	s.retryBackoffBase = firstNonZeroDuration(tuning.RetryBackoffBase, defaultRetryBackoffBase)
@@ -100,7 +100,7 @@ func (s *SpeechSynthesizer) SynthesizeAll(ctx context.Context, texts []string) (
 	return audios, nil
 }
 
-func newSpeechSynthesizerForTest(httpClient *http.Client, apiKey string, backoffSleepFn func(time.Duration), retry port.RetryReporter) *SpeechSynthesizer {
+func newSpeechSynthesizer(httpClient *http.Client, apiKey string, backoffSleepFn func(time.Duration), retry port.RetryReporter) *SpeechSynthesizer {
 	if backoffSleepFn == nil {
 		backoffSleepFn = time.Sleep
 	}
@@ -165,7 +165,7 @@ func (s *SpeechSynthesizer) synthesizeOne(ctx context.Context, text string, maxA
 		}
 		run.recordFailure(failure)
 		if run.shouldGiveUp(failure) {
-			return models.SpeechAudio{}, run.calls, terminalError(failure.kind, failure.err)
+			return models.SpeechAudio{}, run.calls, wrapForFallback(failure.kind, failure.err)
 		}
 		s.reportRetryAndWait(run, failure)
 	}
@@ -337,7 +337,7 @@ func failedFetch(kind pcmFetchRetryKind, err error) *fetchFailure {
 }
 
 // why: 再試行の使い切り（Transient・RateLimited）も Fallback と同じく fallback へ渡す。
-func terminalError(kind pcmFetchRetryKind, err error) error {
+func wrapForFallback(kind pcmFetchRetryKind, err error) error {
 	if kind == pcmRetryNone {
 		return err
 	}

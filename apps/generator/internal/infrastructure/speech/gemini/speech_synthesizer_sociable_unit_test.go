@@ -119,7 +119,7 @@ func jsonBody(t *testing.T, v any) []byte {
 
 func newFakeSynthesizer(responses ...fakeClientResponse) (*SpeechSynthesizer, *fakeRoundTripper) {
 	rt := &fakeRoundTripper{responses: responses}
-	synth := newSpeechSynthesizerForTest(&http.Client{Transport: rt}, "gemini-fake-key", func(time.Duration) {}, &retryReporterSpy{})
+	synth := newSpeechSynthesizer(&http.Client{Transport: rt}, "gemini-fake-key", func(time.Duration) {}, &retryReporterSpy{})
 	return synth, rt
 }
 
