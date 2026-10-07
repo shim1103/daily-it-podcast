@@ -713,7 +713,8 @@ func TestClassifyFailedStatus_returnsRetryKindAndWait_perStatusAndRetryAfter(t *
 			t.Parallel()
 
 			// When: 分類する
-			gotKind, gotWait := classifyFailedStatus(tc.status, tc.header)
+			got := classifyFailedStatus(tc.status, tc.header)
+			gotKind, gotWait := got.kind, got.wait
 
 			// Then: 方針と待ちが決まる
 			if gotKind != tc.wantKind || gotWait != tc.wantWait {
