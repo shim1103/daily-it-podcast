@@ -430,9 +430,9 @@ func TestWrite_returnsLastAttempt_whenCreateRunFailsAfterFirstRejection(t *testi
 	}
 }
 
-func TestWrite_retriesStreamOn429_untilMaxAttemptsThenInfraError(t *testing.T) {
+func TestWrite_retriesStreamOn429WithRetryAfter_untilMaxAttemptsThenSourceExhausted(t *testing.T) {
 
-	// Given: create 成功後、stream 取得が 429 を返し続ける
+	// Given: create 成功後、stream 取得が Retry-After 付きの 429 を返し続ける
 	responses := []fakeClientResponse{
 		{status: http.StatusOK, body: createAgentBody("bc-1", "run-1")},
 	}
@@ -448,8 +448,11 @@ func TestWrite_retriesStreamOn429_untilMaxAttemptsThenInfraError(t *testing.T) {
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
-	// Then: 上限到達で Infra Error、stream 取得は MaxAttempts 回
+	// Then: 上限到達で枯渇番兵と Infra Error、stream 取得は MaxAttempts 回
 	assertCursorInfraErrorOp(t, err, "stream_status")
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) が false: %v", err)
+	}
 	if !reflect.DeepEqual(got, models.ManuscriptDraft{}) {
 		t.Fatalf("draft = %+v, want zero value", got)
 	}
@@ -459,12 +462,12 @@ func TestWrite_retriesStreamOn429_untilMaxAttemptsThenInfraError(t *testing.T) {
 	}
 }
 
-func TestWrite_retriesStreamOn429_thenSucceeds(t *testing.T) {
+func TestWrite_retriesStreamOn429WithRetryAfter_thenSucceeds(t *testing.T) {
 
-	// Given: create 成功後、stream 取得が 1 回 429、2 回目で成功 SSE
+	// Given: create 成功後、stream 取得が Retry-After 付きの 429 を 1 回、2 回目で成功 SSE
 	w, rt := newFakeTextWriter(
 		fakeClientResponse{status: http.StatusOK, body: createAgentBody("bc-1", "run-1")},
-		fakeClientResponse{status: http.StatusTooManyRequests, body: `{"error":"rate limited"}`},
+		fakeClientResponse{status: http.StatusTooManyRequests, header: http.Header{"Retry-After": {"1"}}, body: `{"error":"rate limited"}`},
 		successStreamResponse("再試行後の断片"),
 	)
 
@@ -480,6 +483,47 @@ func TestWrite_retriesStreamOn429_thenSucceeds(t *testing.T) {
 	}
 	if len(rt.calls) != 3 {
 		t.Fatalf("call count = %d, want 3", len(rt.calls))
+	}
+}
+
+func TestWrite_wrapsSourceExhaustedWithoutWaiting_whenStream429DeclaresNoRecovery(t *testing.T) {
+
+	// Given: create 成功後、stream 取得が回復の明示（解釈できる Retry-After）の無い 429 を返す。body は読まない
+	w, rt, spy := newFakeTextWriterWithSleepSpy(
+		fakeClientResponse{status: http.StatusOK, body: createAgentBody("bc-1", "run-1")},
+		fakeClientResponse{status: http.StatusTooManyRequests, body: `{"error":"quota"}`},
+	)
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
+
+	// Then: retry も待ちもせず枯渇番兵を返す（stream 取得は 1 回）
+	assertCursorInfraErrorOp(t, err, "stream_status")
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) が false: %v", err)
+	}
+	if streamCalls := len(rt.calls) - 1; streamCalls != 1 {
+		t.Fatalf("stream call count = %d, want 1", streamCalls)
+	}
+	if len(spy.waits) != 0 {
+		t.Fatalf("waits = %v, want none", spy.waits)
+	}
+}
+
+func TestWrite_wrapsSourceExhausted_whenCreateStatusIs429(t *testing.T) {
+
+	// Given: create が 429 を返す（POST は非 retry。body は読まない）
+	w, rt := newFakeTextWriter(fakeClientResponse{status: http.StatusTooManyRequests, body: `{"error":"x"}`})
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
+
+	// Then: 枯渇番兵で wrap し、create は 1 回だけ
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) が false: %v", err)
+	}
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(rt.calls))
 	}
 }
 
@@ -743,12 +787,12 @@ func TestWrite_wrapsSourceExhausted_whenCreateRunStatusIs401Or403(t *testing.T) 
 	assertCursorInfraErrorOp(t, err, "create_run_status")
 }
 
-func TestWrite_doesNotWrapSourceExhausted_whenCreateStatusIsNot401Or403(t *testing.T) {
-	for _, status := range []int{http.StatusBadRequest, http.StatusInternalServerError, http.StatusTooManyRequests} {
+func TestWrite_doesNotWrapSourceExhausted_whenCreateStatusIsNot401Or403Or429(t *testing.T) {
+	for _, status := range []int{http.StatusBadRequest, http.StatusInternalServerError} {
 		status := status
 		t.Run(strconv.Itoa(status), func(t *testing.T) {
 
-			// Given: create が 400 / 5xx / 429 を返す（枯渇ではない。400 の body に usage_limit_exceeded は無い）
+			// Given: create が 400 / 5xx を返す（枯渇ではない。400 の body に usage_limit_exceeded は無い）
 			w, _ := newFakeTextWriter(fakeClientResponse{status: status, body: `{"error":"x"}`})
 
 			// When: Write する

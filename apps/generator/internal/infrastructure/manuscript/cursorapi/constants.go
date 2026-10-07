@@ -21,7 +21,7 @@ const (
 	BearerTokenPrefix = "Bearer "
 )
 
-// MaxAttempts は Cursor の 429 応答に対する最大試行数。無限 retry を防ぐ。
+// MaxAttempts は Cursor の Retry-After 付き 429 応答に対する最大試行数。無限 retry を防ぐ。
 const MaxAttempts = 4
 
 // TextWriterMaxAttempts は ManuscriptDraft 検証失敗（invalid-draft）時の Write 内部 retry 上限。

@@ -79,7 +79,8 @@ func ctxSleep(ctx context.Context, d time.Duration) {
 // @invariant createAgent（POST /v1/agents）は no-repo・非 retry。createRun（POST /v1/agents/{id}/runs）も
 //
 //	同一 agentId への追加会話なので非 idempotent・非 retry。SSE 取得は idempotent GET として
-//	Do error / 5xx を 1 回、429 を MaxAttempts まで backoff で再試行する。SSE 途中断は再 stream
+//	Do error / 5xx を 1 回再試行し、429 は Retry-After が解釈できる時だけ MaxAttempts まで待って再試行する
+//	（解釈できない 429 と使い切りは待たずに port.ErrSourceExhausted を wrap）。SSE 途中断は再 stream
 //	しない。secret 実値は error へ出さない。buildFn 呼び出しは 1 attempt につき高々 1 回。
 func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(string) (models.ManuscriptDraft, error)) (models.ManuscriptDraft, error) {
 	if w == nil || w.client == nil {
@@ -249,8 +250,11 @@ func (w *TextWriter) postJSON(ctx context.Context, url string, body []byte, op s
 		//      vendor 非依存の番兵で wrap する。呼び出し側は errors.Is(err, port.ErrSourceExhausted)
 		//      だけを見て、wrap した Infrastructure Error の中身は知らない。それ以外の 400（malformed request 等）は
 		//      wrap せず赤で止める。error JSON は struct で parse せず code 文字列の存在だけを見る。
+		//      429 は create が処理されなかった rate limit なので、非 idempotent でも再 create せず
+		//      待たずに枯渇として扱う（body は読まない）。
 		exhausted := res.StatusCode == http.StatusUnauthorized ||
 			res.StatusCode == http.StatusForbidden ||
+			res.StatusCode == http.StatusTooManyRequests ||
 			(res.StatusCode == http.StatusBadRequest && bytes.Contains(raw, []byte("usage_limit_exceeded")))
 		if exhausted {
 			return nil, fmt.Errorf("%w: %w", port.ErrSourceExhausted, createErr)
@@ -268,12 +272,13 @@ const (
 	retryNone streamRetryKind = iota
 	// retryTransientOnce は Do error / idempotent GET の 5xx。+1 即再試行を 1 回だけ。
 	retryTransientOnce
-	// retryRateLimited は 429。MaxAttempts まで backoff で再試行する。
+	// retryRateLimited は 429。Retry-After で回復が明示された時だけ MaxAttempts まで待って再試行し、
+	// 明示が無ければ待たずに枯渇として扱う。
 	retryRateLimited
 )
 
 // streamResult は run の SSE を読み、終端 result event の text を断片として返す。
-// why: Decision §5。Do error / 5xx は 1 回だけ、429 は MaxAttempts まで backoff。
+// why: Do error / 5xx は 1 回だけ。429 は Retry-After で回復が明示された時だけ MaxAttempts まで待つ（Decision 2026-09-17T15-06-00）。
 func (w *TextWriter) streamResult(ctx context.Context, agentID, runID string) (string, error) {
 	url := fmt.Sprintf(StreamPathTemplate, APIBaseURL+AgentsPath, agentID, runID)
 
@@ -292,11 +297,11 @@ func (w *TextWriter) streamResult(ctx context.Context, agentID, runID string) (s
 			transientUsed = true
 		case retryRateLimited:
 			rateLimitAttempt++
-			if rateLimitAttempt >= MaxAttempts {
-				return "", err
-			}
-			if wait <= 0 {
-				wait = backoffDelay(rateLimitAttempt)
+			// why: 回復の明示（解釈できる Retry-After）が無い 429 は、待っても戻る保証が無い。
+			//      Cursor は error body の機械可読 code を公式に定めていないため body は読まず、
+			//      待たずに枯渇として次 source へ渡す（Decision 2026-09-17T15-06-00）。
+			if wait <= 0 || rateLimitAttempt >= MaxAttempts {
+				return "", fmt.Errorf("%w: %w", port.ErrSourceExhausted, err)
 			}
 			w.retry.Retry("stream_result", rateLimitAttempt, MaxAttempts, err.Error())
 			w.backoffSleepFn(ctx, wait)
@@ -304,15 +309,6 @@ func (w *TextWriter) streamResult(ctx context.Context, agentID, runID string) (s
 			return "", err
 		}
 	}
-}
-
-// backoffDelay は 429 再試行の待ち時間（1s, 2s, 4s…）。
-// why: Cursor docs が 429 に exponential backoff を勧める。gemini の retryDelay と同型。
-func backoffDelay(attempt int) time.Duration {
-	if attempt < 1 {
-		attempt = 1
-	}
-	return time.Second << (attempt - 1)
 }
 
 // fetchStream は 1 回の GET を実行し、(断片, 再試行方針, 追加待ち, error) を返す。
