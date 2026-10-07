@@ -575,7 +575,7 @@ func TestWrite_retriesStreamOnce_whenStatus5xxThenSucceeds(t *testing.T) {
 	}
 }
 
-func TestWrite_doesNotRetryStreamTwice_whenStatus5xxPersists(t *testing.T) {
+func TestWrite_wrapsSourceExhaustedAfterOneRetry_whenStream5xxPersists(t *testing.T) {
 
 	// Given: create 成功後、stream 取得が 5xx を返し続ける
 	w, rt := newFakeTextWriter(
@@ -587,8 +587,11 @@ func TestWrite_doesNotRetryStreamTwice_whenStatus5xxPersists(t *testing.T) {
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
-	// Then: 即再試行は 1 回だけ（stream 取得は 2 回）で Infra Error
+	// Then: 即再試行は 1 回だけ（stream 取得は 2 回）で、枯渇番兵と Infra Error
 	assertCursorInfraError(t, err)
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) が false: %v", err)
+	}
 	if !reflect.DeepEqual(got, models.ManuscriptDraft{}) {
 		t.Fatalf("draft = %+v, want zero value", got)
 	}
@@ -597,7 +600,7 @@ func TestWrite_doesNotRetryStreamTwice_whenStatus5xxPersists(t *testing.T) {
 	}
 }
 
-func TestWrite_doesNotRetryCreate_whenStatus5xx(t *testing.T) {
+func TestWrite_wrapsSourceExhaustedWithoutRetry_whenCreateStatus5xx(t *testing.T) {
 
 	// Given: create（POST /v1/agents）が 5xx を返す
 	w, rt := newFakeTextWriter(fakeClientResponse{
@@ -608,13 +611,84 @@ func TestWrite_doesNotRetryCreate_whenStatus5xx(t *testing.T) {
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
-	// Then: 非 idempotent なので再試行しない（呼び出し 1 回）で Infra Error
+	// Then: 非 idempotent なので再試行せず（呼び出し 1 回）、枯渇番兵と Infra Error
 	assertCursorInfraErrorOp(t, err, "create_status")
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) が false: %v", err)
+	}
 	if !reflect.DeepEqual(got, models.ManuscriptDraft{}) {
 		t.Fatalf("draft = %+v, want zero value", got)
 	}
 	if len(rt.calls) != 1 {
 		t.Fatalf("call count = %d, want 1", len(rt.calls))
+	}
+}
+
+func TestClassifyStreamStatus_returnsRetryKindAndWait_perStatusAndRetryAfter(t *testing.T) {
+
+	// Given: stream 取得の失敗 status と Retry-After の組
+	cases := []struct {
+		name     string
+		status   int
+		header   http.Header
+		wantKind streamRetryKind
+		wantWait time.Duration
+	}{
+		{"429 Retry-After 付き", http.StatusTooManyRequests, http.Header{"Retry-After": {"3"}}, retryRateLimited, 3 * time.Second},
+		{"429 Retry-After 過大はクランプ", http.StatusTooManyRequests, http.Header{"Retry-After": {"999999"}}, retryRateLimited, MaxRetryAfter},
+		{"429 Retry-After 無し", http.StatusTooManyRequests, nil, retryExhausted, 0},
+		{"429 Retry-After 解釈不能", http.StatusTooManyRequests, http.Header{"Retry-After": {"soon"}}, retryExhausted, 0},
+		{"500", http.StatusInternalServerError, nil, retryServerErrorOnce, 0},
+		{"502", http.StatusBadGateway, nil, retryServerErrorOnce, 0},
+		{"400 は bug", http.StatusBadRequest, nil, retryNone, 0},
+		{"401", http.StatusUnauthorized, nil, retryNone, 0},
+		{"404", http.StatusNotFound, nil, retryNone, 0},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+
+			// When: 分類する
+			gotKind, gotWait := classifyStreamStatus(tc.status, tc.header)
+
+			// Then: 方針と待ちが決まる
+			if gotKind != tc.wantKind || gotWait != tc.wantWait {
+				t.Fatalf("classifyStreamStatus(%d, %v) = (%v, %v), want (%v, %v)", tc.status, tc.header, gotKind, gotWait, tc.wantKind, tc.wantWait)
+			}
+		})
+	}
+}
+
+func TestIsCreateSourceExhausted_returnsTrue_forCredentialRateLimitServerAndUsageLimit(t *testing.T) {
+
+	// Given: create（非 idempotent）の失敗 status と body の組
+	cases := []struct {
+		name   string
+		status int
+		body   string
+		want   bool
+	}{
+		{"401 は credential 失効", http.StatusUnauthorized, `{}`, true},
+		{"403 は credential 失効", http.StatusForbidden, `{}`, true},
+		{"429 は待たずに枯渇", http.StatusTooManyRequests, `{}`, true},
+		{"500 は枯渇", http.StatusInternalServerError, `{}`, true},
+		{"503 は枯渇", http.StatusServiceUnavailable, `{}`, true},
+		{"400 + usage_limit_exceeded は利用枠喪失", http.StatusBadRequest, `{"error":{"code":"usage_limit_exceeded"}}`, true},
+		{"400 は bug", http.StatusBadRequest, `{"error":"malformed"}`, false},
+		{"404 は bug", http.StatusNotFound, `{}`, false},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+
+			// When: 判定する
+			got := isCreateSourceExhausted(tc.status, []byte(tc.body))
+
+			// Then: 枯渇かどうかが決まる
+			if got != tc.want {
+				t.Fatalf("isCreateSourceExhausted(%d, %s) = %v, want %v", tc.status, tc.body, got, tc.want)
+			}
+		})
 	}
 }
 
@@ -787,12 +861,12 @@ func TestWrite_wrapsSourceExhausted_whenCreateRunStatusIs401Or403(t *testing.T) 
 	assertCursorInfraErrorOp(t, err, "create_run_status")
 }
 
-func TestWrite_doesNotWrapSourceExhausted_whenCreateStatusIsNot401Or403Or429(t *testing.T) {
-	for _, status := range []int{http.StatusBadRequest, http.StatusInternalServerError} {
+func TestWrite_doesNotWrapSourceExhausted_whenCreateStatusIsBug(t *testing.T) {
+	for _, status := range []int{http.StatusBadRequest, http.StatusNotFound} {
 		status := status
 		t.Run(strconv.Itoa(status), func(t *testing.T) {
 
-			// Given: create が 400 / 5xx を返す（枯渇ではない。400 の body に usage_limit_exceeded は無い）
+			// Given: create が 400 / 404 を返す（bug であり枯渇ではない。400 の body に usage_limit_exceeded は無い）
 			w, _ := newFakeTextWriter(fakeClientResponse{status: status, body: `{"error":"x"}`})
 
 			// When: Write する

@@ -78,9 +78,11 @@ func ctxSleep(ctx context.Context, d time.Duration) {
 //
 // @invariant createAgent（POST /v1/agents）は no-repo・非 retry。createRun（POST /v1/agents/{id}/runs）も
 //
-//	同一 agentId への追加会話なので非 idempotent・非 retry。SSE 取得は idempotent GET として
-//	Do error / 5xx を 1 回再試行し、429 は Retry-After が解釈できる時だけ MaxAttempts まで待って再試行する
-//	（解釈できない 429 と使い切りは待たずに port.ErrSourceExhausted を wrap）。SSE 途中断は再 stream
+//	同一 agentId への追加会話なので非 idempotent・非 retry。create は 401 / 403・429・5xx・
+//	400 + usage_limit_exceeded を port.ErrSourceExhausted で wrap し、それ以外の 4xx は wrap せず返す。
+//	SSE 取得は idempotent GET として Do error を 1 回再試行して使い切りはそのまま返し、5xx を 1 回再試行して
+//	使い切りは port.ErrSourceExhausted で wrap する。429 は Retry-After が解釈できる時だけ MaxAttempts まで
+//	待って再試行し、使い切りと、解釈できない 429 は待たずに port.ErrSourceExhausted で wrap する。SSE 途中断は再 stream
 //	しない。secret 実値は error へ出さない。buildFn 呼び出しは 1 attempt につき高々 1 回。
 func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(string) (models.ManuscriptDraft, error)) (models.ManuscriptDraft, error) {
 	if w == nil || w.client == nil {
@@ -154,7 +156,7 @@ type createAgentResponse struct {
 }
 
 // createAgent は no-repo で agent を create し、agentId と runId を返す。
-// why: 非 idempotent なので Do error / 5xx / timeout でも再試行しない（二重 agent 回避）。
+// why: 非 idempotent なので Do error / 5xx / timeout でも再試行しない（二重 agent 回避）。5xx は再試行せず枯渇として別の取得元へ渡す。
 func (w *TextWriter) createAgent(ctx context.Context, brief string) (string, string, error) {
 	body, err := json.Marshal(createAgentRequest{
 		Prompt: promptText{Text: brief},
@@ -244,19 +246,7 @@ func (w *TextWriter) postJSON(ctx context.Context, url string, body []byte, op s
 		// why: System 失敗の切り分けに理由本文が要る。secret は Authorization header にしか
 		//      載せないので body 全体を bounded で出しても credential は漏れない。
 		createErr := infraErr(op, fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
-		// why: 401/403 は API key / subscription の失効。400 + usage_limit_exceeded は
-		//      Background Agent の利用枠喪失（run 34132953055 で実証。Decision 2026-09-07T23-30-00）。
-		//      どちらも「Cursor から原稿を取れない」状態なので、別の取得元へ切り替えてよい合図として
-		//      vendor 非依存の番兵で wrap する。呼び出し側は errors.Is(err, port.ErrSourceExhausted)
-		//      だけを見て、wrap した Infrastructure Error の中身は知らない。それ以外の 400（malformed request 等）は
-		//      wrap せず赤で止める。error JSON は struct で parse せず code 文字列の存在だけを見る。
-		//      429 は create が処理されなかった rate limit なので、非 idempotent でも再 create せず
-		//      待たずに枯渇として扱う（body は読まない）。
-		exhausted := res.StatusCode == http.StatusUnauthorized ||
-			res.StatusCode == http.StatusForbidden ||
-			res.StatusCode == http.StatusTooManyRequests ||
-			(res.StatusCode == http.StatusBadRequest && bytes.Contains(raw, []byte("usage_limit_exceeded")))
-		if exhausted {
+		if isCreateSourceExhausted(res.StatusCode, raw) {
 			return nil, fmt.Errorf("%w: %w", port.ErrSourceExhausted, createErr)
 		}
 		return nil, createErr
@@ -268,14 +258,62 @@ func (w *TextWriter) postJSON(ctx context.Context, url string, body []byte, op s
 type streamRetryKind int
 
 const (
-	// retryNone は再試行しない（4xx（429 除く）、run 終端 error、空 text、SSE 途中断、parse 失敗）。
+	// retryNone は再試行せず、そのまま error を返す（bug。4xx（429 除く）、run 終端 error、空 text、SSE 途中断、parse 失敗）。
 	retryNone streamRetryKind = iota
-	// retryTransientOnce は Do error / idempotent GET の 5xx。+1 即再試行を 1 回だけ。
+	// retryTransientOnce は Do error。+1 即再試行を 1 回だけ。使い切りはそのまま error。
 	retryTransientOnce
-	// retryRateLimited は 429。Retry-After で回復が明示された時だけ MaxAttempts まで待って再試行し、
-	// 明示が無ければ待たずに枯渇として扱う。
+	// retryServerErrorOnce は idempotent GET の 5xx。+1 即再試行を 1 回だけ。使い切りは枯渇。
+	retryServerErrorOnce
+	// retryRateLimited は Retry-After で回復が明示された 429。MaxAttempts まで待って再試行する。使い切りは枯渇。
 	retryRateLimited
+	// retryExhausted は再試行せず枯渇として扱う。回復の明示が無い 429。
+	retryExhausted
 )
+
+func (k streamRetryKind) spentMeansExhausted() bool {
+	return k == retryServerErrorOnce || k == retryRateLimited || k == retryExhausted
+}
+
+func terminalError(kind streamRetryKind, err error) error {
+	if kind.spentMeansExhausted() {
+		return fmt.Errorf("%w: %w", port.ErrSourceExhausted, err)
+	}
+	return err
+}
+
+// why: Cursor は 429 の機械可読 code を公式に定めていないので body を読まず、標準 header の Retry-After だけを
+//
+//	回復の明示とする。4xx（429 除く）は bug なので再試行も枯渇扱いもしない（Decision 2026-09-17T15-06-00）。
+func classifyStreamStatus(status int, header http.Header) (streamRetryKind, time.Duration) {
+	switch {
+	case status == http.StatusTooManyRequests:
+		if wait := retryAfter(header); wait > 0 {
+			return retryRateLimited, wait
+		}
+		return retryExhausted, 0
+	case status >= http.StatusInternalServerError:
+		return retryServerErrorOnce, 0
+	default:
+		return retryNone, 0
+	}
+}
+
+// why: create は非 idempotent で再試行しないので、429・5xx は待たずに枯渇とする。401/403 は API key /
+//
+//	subscription の失効、400 + usage_limit_exceeded は利用枠喪失（run 34132953055。Decision 2026-09-07T23-30-00）。
+//	それ以外の 4xx は bug なので赤で止める。error JSON は公式に code の定義が無いため parse せず、文字列の存在だけを見る。
+func isCreateSourceExhausted(status int, raw []byte) bool {
+	switch {
+	case status == http.StatusUnauthorized, status == http.StatusForbidden:
+		return true
+	case status == http.StatusTooManyRequests, status >= http.StatusInternalServerError:
+		return true
+	case status == http.StatusBadRequest:
+		return bytes.Contains(raw, []byte("usage_limit_exceeded"))
+	default:
+		return false
+	}
+}
 
 // streamResult は run の SSE を読み、終端 result event の text を断片として返す。
 // why: Do error / 5xx は 1 回だけ。429 は Retry-After で回復が明示された時だけ MaxAttempts まで待つ（Decision 2026-09-17T15-06-00）。
@@ -290,23 +328,20 @@ func (w *TextWriter) streamResult(ctx context.Context, agentID, runID string) (s
 			return text, nil
 		}
 		switch kind {
-		case retryTransientOnce:
+		case retryTransientOnce, retryServerErrorOnce:
 			if transientUsed {
-				return "", err
+				return "", terminalError(kind, err)
 			}
 			transientUsed = true
 		case retryRateLimited:
 			rateLimitAttempt++
-			// why: 回復の明示（解釈できる Retry-After）が無い 429 は、待っても戻る保証が無い。
-			//      Cursor は error body の機械可読 code を公式に定めていないため body は読まず、
-			//      待たずに枯渇として次 source へ渡す（Decision 2026-09-17T15-06-00）。
-			if wait <= 0 || rateLimitAttempt >= MaxAttempts {
-				return "", fmt.Errorf("%w: %w", port.ErrSourceExhausted, err)
+			if rateLimitAttempt >= MaxAttempts {
+				return "", terminalError(kind, err)
 			}
 			w.retry.Retry("stream_result", rateLimitAttempt, MaxAttempts, err.Error())
 			w.backoffSleepFn(ctx, wait)
 		default:
-			return "", err
+			return "", terminalError(kind, err)
 		}
 	}
 }
@@ -326,13 +361,9 @@ func (w *TextWriter) fetchStream(ctx context.Context, url string) (string, strea
 	}
 	defer func() { _ = res.Body.Close() }()
 
-	switch {
-	case res.StatusCode == http.StatusTooManyRequests:
-		return "", retryRateLimited, retryAfter(res.Header), infraErr("stream_status", fmt.Errorf("stream status %d", res.StatusCode))
-	case res.StatusCode >= 500:
-		return "", retryTransientOnce, 0, infraErr("stream_status", fmt.Errorf("stream status %d", res.StatusCode))
-	case res.StatusCode != http.StatusOK:
-		return "", retryNone, 0, infraErr("stream_status", fmt.Errorf("stream status %d", res.StatusCode))
+	if res.StatusCode != http.StatusOK {
+		kind, wait := classifyStreamStatus(res.StatusCode, res.Header)
+		return "", kind, wait, infraErr("stream_status", fmt.Errorf("stream status %d", res.StatusCode))
 	}
 
 	text, err := parseResultText(res.Body)
