@@ -36,7 +36,6 @@ func NewTextWriter(client *http.Client, apiKey string, retry port.RetryReporter)
 	return newTextWriter(client, apiKey, ctxSleep, retry)
 }
 
-// newTextWriter は backoff の sleep 関数を差し込める内部 constructor。
 // why: NewTextWriter は本番の ctxSleep を固定し、test は待ちを観測する fake を渡す。
 func newTextWriter(client *http.Client, apiKey string, backoffSleepFn func(context.Context, time.Duration), retry port.RetryReporter) *TextWriter {
 	if backoffSleepFn == nil {
@@ -45,7 +44,6 @@ func newTextWriter(client *http.Client, apiKey string, backoffSleepFn func(conte
 	return &TextWriter{client: client, apiKey: apiKey, backoffSleepFn: backoffSleepFn, retry: retry}
 }
 
-// ctxSleep は ctx が先に切れたらそちらを優先して待ちを中断する。
 func ctxSleep(ctx context.Context, d time.Duration) {
 	timer := time.NewTimer(d)
 	defer timer.Stop()
@@ -55,35 +53,14 @@ func ctxSleep(ctx context.Context, d time.Duration) {
 	}
 }
 
-// Write は brief から Cloud Agents で原稿断片を得て、buildFn で ManuscriptDraft へ解釈する。
-// invalid-draft retry（最大 TextWriterMaxAttempts 回）は同一 agent への follow-up run で行う：
-// 1 回目は createAgent（agent と run を同時 create）、2 回目以降は同じ agentId へ createRun で
-// rejection 理由だけを新しい prompt として送る（brief 全体は再送しない。§follow-up run の brief 設計）。
-// 前回生成した raw 本文も follow-up run では送らない：Cloud Agents の run は同一 agent 内の会話継続であり、
-// 前回の agent 出力は Cursor 側が会話履歴として既に保持している。そのため raw を再送する必要がなく、
-// rejection 理由だけを新しい prompt として渡せば agent は自分の前回出力を踏まえて修正できる
-// （毎回 brief 全体を再送する必要がある geminiapi の stateless generateContent とは前提が異なる）。
+// Write は brief から原稿断片を得て、buildFn で ManuscriptDraft へ解釈する。
 //
 // @require brief は trim 後に非空。buildFn は非 nil。
 // @ensure 成功時は buildFn が返す非 nil な models.ManuscriptDraft を返す。
-// @ensure createAgent / createRun / streamResult が返す retry しない error は、直前 attempt で
-//
-//	buildFn が invalid と判定していれば（lastRaw/lastBuildErr が揃っていれば）port.LastAttempt を
-//	fmt.Errorf("%w: %w", err, port.LastAttempt{...}) の chain に含めて返す。直前 attempt が
-//	無ければ error をそのまま透過する。
-//
-// @ensure buildFn が TextWriterMaxAttempts 回とも error を返したら、最後の error を
-//
-//	fmt.Errorf("%w: %w: %w", port.ErrDraftRejected, lastErr, port.LastAttempt{...}) で wrap して返す。
-//
-// @invariant createAgent（POST /v1/agents）は no-repo・非 retry。createRun（POST /v1/agents/{id}/runs）も
-//
-//	同一 agentId への追加会話なので非 idempotent・非 retry。create は 401 / 403・429・5xx・
-//	400 + usage_limit_exceeded を port.ErrSourceExhausted で wrap し、それ以外の 4xx は wrap せず返す。
-//	SSE 取得は idempotent GET として Do error を 1 回再試行して使い切りはそのまま返し、5xx を 1 回再試行して
-//	使い切りは port.ErrSourceExhausted で wrap する。429 は Retry-After が解釈できる時だけ MaxAttempts まで
-//	待って再試行し、使い切りと、解釈できない 429 は待たずに port.ErrSourceExhausted で wrap する。SSE 途中断は再 stream
-//	しない。secret 実値は error へ出さない。buildFn 呼び出しは 1 attempt につき高々 1 回。
+// @ensure buildFn が invalid と判定した後の取得 error には port.LastAttempt を chain に含める。
+// @ensure buildFn が TextWriterMaxAttempts 回とも error を返したら、port.ErrDraftRejected・最後の error・port.LastAttempt を wrap して返す。
+// @ensure 取得元が当面使えないと分かった error は port.ErrSourceExhausted を wrap して返す（fallback へ渡す）。
+// @invariant buildFn 呼び出しは 1 attempt につき高々 1 回。secret 実値は error へ出さない。
 func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(string) (models.ManuscriptDraft, error)) (models.ManuscriptDraft, error) {
 	if w == nil || w.client == nil {
 		return models.ManuscriptDraft{}, infraErr("build_request", fmt.Errorf("client is nil"))
@@ -94,43 +71,51 @@ func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(strin
 	}
 
 	var agentID string
-	var lastErr error
-	var lastRaw string
-	var lastBuildErr error
+	var last port.LastAttempt
 	for attempt := 1; attempt <= TextWriterMaxAttempts; attempt++ {
-		var runID string
+		var raw string
 		var err error
-		if attempt == 1 {
-			agentID, runID, err = w.createAgent(ctx, trimmed)
-		} else {
-			runID, err = w.createRun(ctx, agentID, port.RejectionMiddleText+lastBuildErr.Error()+port.RejectionSuffixText)
-		}
+		agentID, raw, err = w.fetchFragment(ctx, agentID, trimmed, last)
 		if err != nil {
-			if lastBuildErr != nil {
-				err = fmt.Errorf("%w: %w", err, port.LastAttempt{Raw: lastRaw, BuildErr: lastBuildErr})
-			}
-			return models.ManuscriptDraft{}, err
-		}
-
-		raw, err := w.streamResult(ctx, agentID, runID)
-		if err != nil {
-			if lastBuildErr != nil {
-				err = fmt.Errorf("%w: %w", err, port.LastAttempt{Raw: lastRaw, BuildErr: lastBuildErr})
-			}
-			return models.ManuscriptDraft{}, err
+			return models.ManuscriptDraft{}, withLastAttempt(err, last)
 		}
 		draft, err := buildFn(raw)
 		if err == nil {
 			return draft, nil
 		}
-		lastErr = err
-		lastRaw = raw
-		lastBuildErr = err
+		last = port.LastAttempt{Raw: raw, BuildErr: err}
 		if attempt < TextWriterMaxAttempts {
-			w.retry.Retry("write_manuscript_draft", attempt, TextWriterMaxAttempts, lastBuildErr.Error())
+			w.retry.Retry("write_manuscript_draft", attempt, TextWriterMaxAttempts, err.Error())
 		}
 	}
-	return models.ManuscriptDraft{}, fmt.Errorf("%w: %w: %w", port.ErrDraftRejected, lastErr, port.LastAttempt{Raw: lastRaw, BuildErr: lastBuildErr})
+	return models.ManuscriptDraft{}, fmt.Errorf("%w: %w: %w", port.ErrDraftRejected, last.BuildErr, last)
+}
+
+// withLastAttempt は直前 attempt が invalid だった時だけ、その記録を err の chain へ足す。
+func withLastAttempt(err error, last port.LastAttempt) error {
+	if last.BuildErr == nil {
+		return err
+	}
+	return fmt.Errorf("%w: %w", err, last)
+}
+
+// fetchFragment は run を 1 本起こして原稿断片を得る。agentID が空なら agent ごと create し、あれば同じ agent への follow-up run にする。
+func (w *TextWriter) fetchFragment(ctx context.Context, agentID, brief string, last port.LastAttempt) (string, string, error) {
+	agentID, runID, err := w.startRun(ctx, agentID, brief, last)
+	if err != nil {
+		return agentID, "", err
+	}
+	raw, err := w.streamResult(ctx, agentID, runID)
+	return agentID, raw, err
+}
+
+// why: follow-up run は同一 agent の会話継続で、前回出力は Cursor 側が保持している。rejection 理由だけを送れば足りるので、brief も raw も再送しない。
+func (w *TextWriter) startRun(ctx context.Context, agentID, brief string, last port.LastAttempt) (string, string, error) {
+	if agentID == "" {
+		return w.createAgent(ctx, brief)
+	}
+	runID, err := w.createRun(ctx, agentID, port.RejectionMiddleText+last.BuildErr.Error()+port.RejectionSuffixText)
+	return agentID, runID, err
 }
 
 type createAgentRequest struct {
@@ -155,8 +140,7 @@ type createAgentResponse struct {
 	} `json:"run"`
 }
 
-// createAgent は no-repo で agent を create し、agentId と runId を返す。
-// why: 非 idempotent なので Do error / 5xx / timeout でも再試行しない（二重 agent 回避）。5xx は再試行せず枯渇として別の取得元へ渡す。
+// why: createAgent は非 idempotent なので Do error・5xx・timeout でも再試行しない（二重 agent 回避）。
 func (w *TextWriter) createAgent(ctx context.Context, brief string) (string, string, error) {
 	body, err := json.Marshal(createAgentRequest{
 		Prompt: promptText{Text: brief},
@@ -191,11 +175,7 @@ type createRunResponse struct {
 	ID string `json:"id"`
 }
 
-// createRun は既存 agentID へ follow-up prompt を送り、新しい runId を返す。
-// why: createAgent と同じく非 idempotent（同一 agent への追加会話）なので再試行しない。model は
-//
-//	agent create 時に確定済みなので follow-up run では送らない（Create A Run は既存 agent への
-//	追加 prompt のみを受け取る）。
+// why: createRun も非 idempotent（同一 agent への追加会話）なので再試行しない。model は agent create 時に確定済みで、Create A Run は prompt だけを受け取る。
 func (w *TextWriter) createRun(ctx context.Context, agentID, prompt string) (string, error) {
 	body, err := json.Marshal(createRunRequest{Prompt: promptText{Text: prompt}})
 	if err != nil {
@@ -218,12 +198,6 @@ func (w *TextWriter) createRun(ctx context.Context, agentID, prompt string) (str
 	return runID, nil
 }
 
-// postJSON は no-repo create 系 POST（createAgent / createRun）に共通の実行・status 判定を行い、
-// 成功時は応答 body を返す。
-// why: createAgent と createRun は「非 idempotent なので再試行しない」「401/403/400+usage_limit_exceeded は
-//
-//	ErrSourceExhausted で wrap する」という判定が完全に同型（Decision 2026-09-07T23-30-00）。
-//	op だけを呼び分けて Infrastructure Error の切り分け粒度を保つ。
 func (w *TextWriter) postJSON(ctx context.Context, url string, body []byte, op string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
@@ -234,147 +208,152 @@ func (w *TextWriter) postJSON(ctx context.Context, url string, body []byte, op s
 
 	res, err := w.client.Do(req)
 	if err != nil {
-		return nil, infraErr("do", err)
+		return nil, passToFallback(infraErr("do", err))
 	}
 	defer func() { _ = res.Body.Close() }()
 
 	raw, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, infraErr("read_body", err)
+		return nil, passToFallback(infraErr("read_body", err))
 	}
 	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusCreated {
-		// why: System 失敗の切り分けに理由本文が要る。secret は Authorization header にしか
-		//      載せないので body 全体を bounded で出しても credential は漏れない。
-		createErr := infraErr(op, fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw)))
-		if isCreateSourceExhausted(res.StatusCode, raw) {
-			return nil, fmt.Errorf("%w: %w", port.ErrSourceExhausted, createErr)
-		}
-		return nil, createErr
+		return nil, createStatusError(op, res.StatusCode, raw)
 	}
 	return raw, nil
+}
+
+// createStatusError は create 系 POST の失敗 status を Infrastructure Error にし、fallback へ渡す status なら番兵で wrap する。
+// why: System 失敗の切り分けに理由 body が要る。secret は Authorization header にしか載せないので、body を bounded で出しても credential は漏れない。
+func createStatusError(op string, status int, raw []byte) error {
+	err := infraErr(op, fmt.Errorf("status %d; response body: %s", status, httpdiag.BodySnippet(raw)))
+	if shouldFallbackOnCreateStatus(status, raw) {
+		return passToFallback(err)
+	}
+	return err
+}
+
+// why: create は非 idempotent で再試行しないので、429・5xx は待たずに fallback へ渡す。401・403 は API key・subscription の失効、
+//
+//	400 + usage_limit_exceeded は利用枠の喪失（run 34132953055。Decision generator-api-failure-retry-or-fallback）。
+//	Cursor は error body の code を公式に定めていないので、parse せず文字列の存在だけを見る。
+func shouldFallbackOnCreateStatus(status int, raw []byte) bool {
+	switch {
+	case status == http.StatusUnauthorized, status == http.StatusForbidden,
+		status == http.StatusTooManyRequests, status >= http.StatusInternalServerError:
+		return true
+	case status == http.StatusBadRequest:
+		return bytes.Contains(raw, []byte(usageLimitExceededCode))
+	default:
+		return false
+	}
+}
+
+// passToFallback は err を、呼び出し元が次の取得元へ切り替える番兵で wrap する。
+func passToFallback(err error) error {
+	return fmt.Errorf("%w: %w", port.ErrSourceExhausted, err)
 }
 
 // streamRetryKind は stream 取得失敗の再試行方針。
 type streamRetryKind int
 
 const (
-	// retryNone は再試行せず、そのまま error を返す（bug。4xx（429 除く）、run 終端 error、空 text、SSE 途中断、parse 失敗）。
+	// retryNone は再試行せず、そのまま error を返す（bug。4xx（429・401・403 除く）、run 終端 error、空 text、SSE 途中断、parse 失敗）。
 	retryNone streamRetryKind = iota
-	// retryTransientOnce は Do error。+1 即再試行を 1 回だけ。使い切りはそのまま error。
-	retryTransientOnce
-	// retryServerErrorOnce は idempotent GET の 5xx。+1 即再試行を 1 回だけ。使い切りは枯渇。
-	retryServerErrorOnce
-	// retryRateLimited は Retry-After で回復が明示された 429。MaxAttempts まで待って再試行する。使い切りは枯渇。
+	// retryOnce は Do error / idempotent GET の 5xx。+1 即再試行を 1 回だけ。使い切りは fallback へ渡す。
+	retryOnce
+	// retryRateLimited は Retry-After で回復が明示された 429。MaxAttempts まで待って再試行する。使い切りは fallback へ渡す。
 	retryRateLimited
-	// retryExhausted は再試行せず枯渇として扱う。回復の明示が無い 429。
-	retryExhausted
+	// retryFallback は再試行せず fallback へ渡す。回復の明示が無い 429、API key の失効（401・403）。
+	retryFallback
 )
 
-func (k streamRetryKind) spentMeansExhausted() bool {
-	return k == retryServerErrorOnce || k == retryRateLimited || k == retryExhausted
+// streamRetryPolicy は失敗した stream 取得への対処。zero value は再試行しない。
+type streamRetryPolicy struct {
+	kind streamRetryKind
+	wait time.Duration
 }
 
-func terminalError(kind streamRetryKind, err error) error {
-	if kind.spentMeansExhausted() {
-		return fmt.Errorf("%w: %w", port.ErrSourceExhausted, err)
-	}
-	return err
-}
-
-// why: Cursor は 429 の機械可読 code を公式に定めていないので body を読まず、標準 header の Retry-After だけを
-//
-//	回復の明示とする。4xx（429 除く）は bug なので再試行も枯渇扱いもしない（Decision 2026-09-17T15-06-00）。
-func classifyStreamStatus(status int, header http.Header) (streamRetryKind, time.Duration) {
-	switch {
-	case status == http.StatusTooManyRequests:
-		if wait := retryAfter(header); wait > 0 {
-			return retryRateLimited, wait
-		}
-		return retryExhausted, 0
-	case status >= http.StatusInternalServerError:
-		return retryServerErrorOnce, 0
-	default:
-		return retryNone, 0
-	}
-}
-
-// why: create は非 idempotent で再試行しないので、429・5xx は待たずに枯渇とする。401/403 は API key /
-//
-//	subscription の失効、400 + usage_limit_exceeded は利用枠喪失（run 34132953055。Decision 2026-09-07T23-30-00）。
-//	それ以外の 4xx は bug なので赤で止める。error JSON は公式に code の定義が無いため parse せず、文字列の存在だけを見る。
-func isCreateSourceExhausted(status int, raw []byte) bool {
+// why: Cursor は 429 の機械可読 code を公式に定めていないので body を読まず、標準 header の Retry-After だけを回復の明示とする。
+func classifyStreamStatus(status int, header http.Header) streamRetryPolicy {
 	switch {
 	case status == http.StatusUnauthorized, status == http.StatusForbidden:
-		return true
-	case status == http.StatusTooManyRequests, status >= http.StatusInternalServerError:
-		return true
-	case status == http.StatusBadRequest:
-		return bytes.Contains(raw, []byte("usage_limit_exceeded"))
+		return streamRetryPolicy{kind: retryFallback}
+	case status == http.StatusTooManyRequests:
+		if wait := retryAfter(header); wait > 0 {
+			return streamRetryPolicy{kind: retryRateLimited, wait: wait}
+		}
+		return streamRetryPolicy{kind: retryFallback}
+	case status >= http.StatusInternalServerError:
+		return streamRetryPolicy{kind: retryOnce}
 	default:
-		return false
+		return streamRetryPolicy{kind: retryNone}
 	}
 }
 
-// streamResult は run の SSE を読み、終端 result event の text を断片として返す。
-// why: Do error / 5xx は 1 回だけ。429 は Retry-After で回復が明示された時だけ MaxAttempts まで待つ（Decision 2026-09-17T15-06-00）。
+// giveUpError は再試行を終える時の error を返す。retryNone 以外は fallback へ渡す。
+func giveUpError(kind streamRetryKind, err error) error {
+	if kind == retryNone {
+		return err
+	}
+	return passToFallback(err)
+}
+
 func (w *TextWriter) streamResult(ctx context.Context, agentID, runID string) (string, error) {
 	url := fmt.Sprintf(StreamPathTemplate, APIBaseURL+AgentsPath, agentID, runID)
 
-	transientUsed := false
-	rateLimitAttempt := 0
+	onceRetried := false
+	rateLimitedAttempts := 0
 	for {
-		text, kind, wait, err := w.fetchStream(ctx, url)
+		text, policy, err := w.fetchStream(ctx, url)
 		if err == nil {
 			return text, nil
 		}
-		switch kind {
-		case retryTransientOnce, retryServerErrorOnce:
-			if transientUsed {
-				return "", terminalError(kind, err)
+		switch policy.kind {
+		case retryOnce:
+			if onceRetried {
+				return "", giveUpError(policy.kind, err)
 			}
-			transientUsed = true
+			onceRetried = true
 		case retryRateLimited:
-			rateLimitAttempt++
-			if rateLimitAttempt >= MaxAttempts {
-				return "", terminalError(kind, err)
+			rateLimitedAttempts++
+			if rateLimitedAttempts >= MaxAttempts {
+				return "", giveUpError(policy.kind, err)
 			}
-			w.retry.Retry("stream_result", rateLimitAttempt, MaxAttempts, err.Error())
-			w.backoffSleepFn(ctx, wait)
+			w.retry.Retry("stream_result", rateLimitedAttempts, MaxAttempts, err.Error())
+			w.backoffSleepFn(ctx, policy.wait)
 		default:
-			return "", terminalError(kind, err)
+			return "", giveUpError(policy.kind, err)
 		}
 	}
 }
 
-// fetchStream は 1 回の GET を実行し、(断片, 再試行方針, 追加待ち, error) を返す。
-func (w *TextWriter) fetchStream(ctx context.Context, url string) (string, streamRetryKind, time.Duration, error) {
+// fetchStream は 1 回の GET を実行する。失敗時は error と、その失敗への再試行方針を返す。
+func (w *TextWriter) fetchStream(ctx context.Context, url string) (string, streamRetryPolicy, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", retryNone, 0, infraErr("build_request", err)
+		return "", streamRetryPolicy{}, infraErr("build_request", err)
 	}
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set(AuthorizationHeader, BearerTokenPrefix+w.apiKey)
 
 	res, err := w.client.Do(req)
 	if err != nil {
-		return "", retryTransientOnce, 0, infraErr("do", err)
+		return "", streamRetryPolicy{kind: retryOnce}, infraErr("do", err)
 	}
 	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode != http.StatusOK {
-		kind, wait := classifyStreamStatus(res.StatusCode, res.Header)
-		return "", kind, wait, infraErr("stream_status", fmt.Errorf("stream status %d", res.StatusCode))
+		return "", classifyStreamStatus(res.StatusCode, res.Header), infraErr("stream_status", fmt.Errorf("stream status %d", res.StatusCode))
 	}
 
 	text, err := parseResultText(res.Body)
 	if err != nil {
-		// why: SSE 途中断・parse 失敗は再 stream しない。run は既に終端しうるし、再 create は Decision §5 で禁止。
-		return "", retryNone, 0, err
+		// why: SSE 途中断・parse 失敗は再 stream しない。run は既に終端しうるし、再 create は禁止（Decision 2026-09-03T17-03-33-feature-generator-cursor-cli-to-http-api）。
+		return "", streamRetryPolicy{}, err
 	}
-	return text, retryNone, 0, nil
+	return text, streamRetryPolicy{}, nil
 }
 
-// retryAfter は Retry-After header を待ち時間へ変換する。無ければ 0、MaxRetryAfter でクランプ。
 // why: delta-seconds 形式のみ尊重する。RFC 9110 の HTTP-date 形式は解釈せず backoff にフォールバックする（YAGNI）。
 func retryAfter(header http.Header) time.Duration {
 	v := strings.TrimSpace(header.Get("Retry-After"))
@@ -397,10 +376,24 @@ type resultEventData struct {
 	Text   string `json:"text"`
 }
 
-// parseResultText は text/event-stream を走査し、終端 result event の text を返す。
+func decodeResultEvent(data string) (string, error) {
+	var parsed resultEventData
+	if err := json.Unmarshal([]byte(data), &parsed); err != nil {
+		return "", infraErr("parse_sse", err)
+	}
+	if parsed.Status != "" && parsed.Status != "FINISHED" {
+		return "", infraErr("run_status", fmt.Errorf("run terminated with status %s", parsed.Status))
+	}
+	text := strings.TrimSpace(parsed.Text)
+	if text == "" {
+		return "", infraErr("empty_text", fmt.Errorf("result event has empty text"))
+	}
+	return text, nil
+}
+
 func parseResultText(body io.Reader) (string, error) {
 	scanner := bufio.NewScanner(body)
-	scanner.Buffer(make([]byte, 0, 64*1024), StreamBufferBytes)
+	scanner.Buffer(make([]byte, 0, scanBufferInitialBytes), StreamBufferBytes)
 
 	var eventName string
 	var lastData string
@@ -410,18 +403,8 @@ func parseResultText(body io.Reader) (string, error) {
 		if name != "result" || data == "" {
 			return "", false, nil
 		}
-		var parsed resultEventData
-		if err := json.Unmarshal([]byte(data), &parsed); err != nil {
-			return "", false, infraErr("parse_sse", err)
-		}
-		if parsed.Status != "" && parsed.Status != "FINISHED" {
-			return "", false, infraErr("run_status", fmt.Errorf("run terminated with status %s", parsed.Status))
-		}
-		text := strings.TrimSpace(parsed.Text)
-		if text == "" {
-			return "", false, infraErr("empty_text", fmt.Errorf("result event has empty text"))
-		}
-		return text, true, nil
+		text, err := decodeResultEvent(data)
+		return text, err == nil, err
 	}
 
 	for scanner.Scan() {
