@@ -1,5 +1,5 @@
 // Package manuscript は原稿取得の UseCase を提供する。
-// source を順に試し、番兵 error の種類に応じて次 source へ渡す brief を変えて切り替える。
+// 取得元（source）を順に試し、原稿を得られなかった source があれば次の source へ切り替える。
 package manuscript
 
 import (
@@ -16,7 +16,6 @@ import (
 
 var _ port.TextWriter = (*TextWriter)(nil)
 
-// why: event 名の typo は compile で捕まらないので定数化する。
 const fallbackEventSourceSwitched = "manuscript_source_switched"
 
 // TextWriter は sources を先頭から順に試し原稿断片を確保する UseCase である。
@@ -38,25 +37,16 @@ func NewTextWriter(sources []port.TextWriter, fallback port.FallbackReporter) *T
 // @require brief は trim 後に非空。違反時は domainerrors.DomainErr(OpEmptyBrief) を返し source を呼ばない。
 // @require buildFn は非 nil。各 source.Write へそのまま渡す。
 // @ensure ある source が成功したら即その draft を返し、以降の source を呼ばない。
-// @ensure source の error が errors.Is(err, port.ErrSourceExhausted)==true のとき、fallback.Fallback を呼んでから
-//
-//	次 source へ切り替える。error chain から port.LastAttempt を取り出せれば
-//	（errors.As）port.BuildRejectionBrief の brief で、取り出せなければ「素の brief」で切り替える。
-//
-// @ensure source の error が errors.Is(err, port.ErrDraftRejected)==true のとき、fallback.Fallback を呼んでから
-//
-//	次 source へ切り替える。port.LastAttempt を取り出せれば port.BuildRejectionBrief の brief、
-//	取り出せなければ port.BuildRejectionBriefWithoutRaw の brief で切り替える。
-//
-// @ensure source の error がどちらの番兵でもないとき、その error をそのまま返し以降の source を呼ばない。
-// @ensure 全 source を使い切ったら最後の source の error を返す。
-// @invariant sources の順序は呼び出し順を規定する（追い越しなし）。切り替え時に次 source の error を
-//
-//	別型で再 wrap しない。番兵の判定は種別のみで vendor を問わない。invalid-draft retry 自体は
-//	持たない（各 source の Adapter 実装が持つ）。
+// @ensure source の error が port.ErrSourceExhausted または port.ErrDraftRejected を含むとき、
+// fallback.Fallback を呼んでから次 source へ切り替える。次 source へ渡す brief は、error chain から
+// port.LastAttempt を取り出せれば port.BuildRejectionBrief、取り出せず port.ErrDraftRejected なら
+// port.BuildRejectionBriefWithoutRaw、それ以外は素の brief。
+// @ensure どちらの番兵も含まない error は、そのまま返して以降の source を呼ばない。
+// @ensure 全 source が切り替え対象の error なら、最後の source の error を返す。
+// @invariant sources の順序は呼び出し順を規定する。切り替え時に error を再 wrap しない。
+// invalid-draft retry は持たない（各 source の Adapter が持つ）。
 func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(string) (models.ManuscriptDraft, error)) (models.ManuscriptDraft, error) {
-	trimmed := strings.TrimSpace(brief)
-	if trimmed == "" {
+	if strings.TrimSpace(brief) == "" {
 		// why: 前提違反は Application 層の Domain Error 規約（write_episode の OpEmptyEpisodeID 等）に揃える。
 		return models.ManuscriptDraft{}, domainerrors.DomainErr(domainerrors.OpEmptyBrief, fmt.Errorf("brief is empty after trim"))
 	}
@@ -68,24 +58,29 @@ func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(strin
 		if err == nil {
 			return draft, nil
 		}
-		lastErr = err
-
-		isDraftRejected := errors.Is(err, port.ErrDraftRejected)
-		if !errors.Is(err, port.ErrSourceExhausted) && !isDraftRejected {
+		if !shouldSwitchSource(err) {
 			return models.ManuscriptDraft{}, err
 		}
 		w.fallback.Fallback(fallbackEventSourceSwitched)
-
-		var lastAttempt port.LastAttempt
-		switch {
-		case errors.As(err, &lastAttempt):
-			attemptBrief = port.BuildRejectionBrief(brief, lastAttempt.Raw, lastAttempt.BuildErr.Error())
-		case isDraftRejected:
-			attemptBrief = port.BuildRejectionBriefWithoutRaw(brief, err.Error())
-		default:
-			attemptBrief = brief
-		}
+		attemptBrief = nextSourceBrief(brief, err)
+		lastErr = err
 	}
 
 	return models.ManuscriptDraft{}, lastErr
+}
+
+func shouldSwitchSource(err error) bool {
+	return errors.Is(err, port.ErrSourceExhausted) || errors.Is(err, port.ErrDraftRejected)
+}
+
+func nextSourceBrief(brief string, err error) string {
+	var lastAttempt port.LastAttempt
+	switch {
+	case errors.As(err, &lastAttempt):
+		return port.BuildRejectionBrief(brief, lastAttempt.Raw, lastAttempt.BuildErr.Error())
+	case errors.Is(err, port.ErrDraftRejected):
+		return port.BuildRejectionBriefWithoutRaw(brief, err.Error())
+	default:
+		return brief
+	}
 }
