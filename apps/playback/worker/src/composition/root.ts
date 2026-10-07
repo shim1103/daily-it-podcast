@@ -1,9 +1,3 @@
-import type {
-  ListEpisodesResponse,
-  ProgressPullResponse,
-  ProgressWriteRequest,
-  ProgressWriteResponse,
-} from "../../../contracts/index.ts";
 import type { Clock } from "../application/ports/clock.ts";
 import type { EpisodeRepository } from "../application/ports/episode-repository.ts";
 import type { ProgressRepository } from "../application/ports/progress-repository.ts";
@@ -13,13 +7,22 @@ import { getAudio } from "../application/use-cases/get-audio.ts";
 import { listEpisodes } from "../application/use-cases/list-episodes.ts";
 import { pullProgress } from "../application/use-cases/pull-progress.ts";
 import { updateProgress } from "../application/use-cases/update-progress.ts";
-import type { GetAudioController } from "../controllers/get-audio-controller.ts";
+import type { GetAudioController, GetAudioUseCase } from "../controllers/get-audio-controller.ts";
 import { createGetAudioController } from "../controllers/get-audio-controller.ts";
-import type { ListEpisodesController } from "../controllers/list-episodes-controller.ts";
+import type {
+  ListEpisodesController,
+  ListEpisodesUseCase,
+} from "../controllers/list-episodes-controller.ts";
 import { createListEpisodesController } from "../controllers/list-episodes-controller.ts";
-import type { ProgressWriteController } from "../controllers/progress-write-controller.ts";
+import type {
+  ProgressWriteController,
+  ProgressWriteUseCase,
+} from "../controllers/progress-write-controller.ts";
 import { createProgressWriteController } from "../controllers/progress-write-controller.ts";
-import type { PullProgressController } from "../controllers/pull-progress-controller.ts";
+import type {
+  PullProgressController,
+  PullProgressUseCase,
+} from "../controllers/pull-progress-controller.ts";
 import { createPullProgressController } from "../controllers/pull-progress-controller.ts";
 import { D1ProgressRepository } from "../infrastructure/d1/d1-progress-repository.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/in-memory/in-memory-episode-repository.ts";
@@ -58,21 +61,12 @@ export type PlaybackControllers = {
  */
 export type PlaybackUseCaseOverrides = {
   useCases: {
-    listEpisodes: () => Promise<ListEpisodesResponse>;
-    getAudio: (episodeId: string) => Promise<Uint8Array>;
-    createProgress: (
-      episodeId: string,
-      body: ProgressWriteRequest,
-    ) => Promise<ProgressWriteResponse>;
-    updateProgress: (
-      episodeId: string,
-      body: ProgressWriteRequest,
-    ) => Promise<ProgressWriteResponse>;
-    completeProgress: (
-      episodeId: string,
-      body: ProgressWriteRequest,
-    ) => Promise<ProgressWriteResponse>;
-    pullProgress: (since: string) => Promise<ProgressPullResponse>;
+    listEpisodes: ListEpisodesUseCase;
+    getAudio: GetAudioUseCase;
+    createProgress: ProgressWriteUseCase;
+    updateProgress: ProgressWriteUseCase;
+    completeProgress: ProgressWriteUseCase;
+    pullProgress: PullProgressUseCase;
   };
 };
 
@@ -179,18 +173,18 @@ export function createPlaybackControllers(
     listEpisodesController: createListEpisodesController(() =>
       listEpisodes(repository, progressRepository),
     ),
-    getAudioController: createGetAudioController((episodeId) => getAudio(repository, episodeId)),
-    createProgressController: createProgressWriteController((episodeId, body) =>
-      createProgress(progressRepository, { episodeId, ...body }),
+    getAudioController: createGetAudioController((input) => getAudio(repository, input)),
+    createProgressController: createProgressWriteController((input) =>
+      createProgress(progressRepository, input),
     ),
-    updateProgressController: createProgressWriteController((episodeId, body) =>
-      updateProgress(progressRepository, { episodeId, ...body }),
+    updateProgressController: createProgressWriteController((input) =>
+      updateProgress(progressRepository, input),
     ),
-    completeProgressController: createProgressWriteController((episodeId, body) =>
-      completeProgress(repository, progressRepository, { episodeId, ...body }),
+    completeProgressController: createProgressWriteController((input) =>
+      completeProgress(repository, progressRepository, input),
     ),
-    pullProgressController: createPullProgressController((since) =>
-      pullProgress(progressRepository, since),
+    pullProgressController: createPullProgressController((input) =>
+      pullProgress(progressRepository, input),
     ),
   };
 }

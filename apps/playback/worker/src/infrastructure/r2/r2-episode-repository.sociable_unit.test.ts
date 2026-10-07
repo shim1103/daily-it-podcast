@@ -183,7 +183,7 @@ describe("R2EpisodeRepository", () => {
       const repository = new R2EpisodeRepository({ bucket });
 
       // When: 1 件取得する
-      const got = await repository.getManuscript("ep-1");
+      const got = await repository.getManuscript({ episodeId: "ep-1" });
 
       // Then: 検証せず生のまま返す
       expect(got).toEqual({ stem: "ep-1", json: manuscriptJson });
@@ -194,7 +194,7 @@ describe("R2EpisodeRepository", () => {
       const repository = new R2EpisodeRepository({ bucket: createBucket() });
 
       // When / Then
-      expect(await repository.getManuscript("missing")).toBeUndefined();
+      expect(await repository.getManuscript({ episodeId: "missing" })).toBeUndefined();
     });
 
     it("json として parse できない本文は decode した生文字列をそのまま返す", async () => {
@@ -205,7 +205,7 @@ describe("R2EpisodeRepository", () => {
       const repository = new R2EpisodeRepository({ bucket });
 
       // When: 1 件取得する
-      const got = await repository.getManuscript("ep-1");
+      const got = await repository.getManuscript({ episodeId: "ep-1" });
 
       // Then: schema 判定はせず生文字列のまま返す
       expect(got).toEqual({ stem: "ep-1", json: "not json" });
@@ -222,7 +222,7 @@ describe("R2EpisodeRepository", () => {
       const repository = new R2EpisodeRepository({ bucket });
 
       // When: 原稿を取得する
-      const got = repository.getManuscript("ep-1");
+      const got = repository.getManuscript({ episodeId: "ep-1" });
 
       // Then: storage I/O 失敗は元の例外を cause に持つ R2Error
       await expect(got).rejects.toBeInstanceOf(R2Error);
@@ -238,7 +238,7 @@ describe("R2EpisodeRepository", () => {
       const repository = new R2EpisodeRepository({ bucket });
 
       // When / Then
-      await expect(repository.getManuscript("ep-1")).rejects.toBeInstanceOf(R2Error);
+      await expect(repository.getManuscript({ episodeId: "ep-1" })).rejects.toBeInstanceOf(R2Error);
     });
 
     it("json 本文の arrayBuffer 読み出しが失敗する時、R2Error を throw する", async () => {
@@ -254,7 +254,7 @@ describe("R2EpisodeRepository", () => {
       const repository = new R2EpisodeRepository({ bucket });
 
       // When: 原稿を取得する
-      const got = repository.getManuscript("ep-1");
+      const got = repository.getManuscript({ episodeId: "ep-1" });
 
       // Then: bytes 読み出し失敗は元の例外を cause に持つ R2Error
       await expect(got).rejects.toBeInstanceOf(R2Error);
@@ -276,7 +276,7 @@ describe("R2EpisodeRepository", () => {
       const repository = new R2EpisodeRepository({ bucket });
 
       // When: 音声を取得する
-      const got = await repository.getAudio("ep-1");
+      const got = await repository.getAudio({ episodeId: "ep-1" });
 
       // Then: 格納 byte と一致する
       expect(got).toEqual(validAudioBytes);
@@ -287,7 +287,7 @@ describe("R2EpisodeRepository", () => {
       const repository = new R2EpisodeRepository({ bucket: createBucket() });
 
       // When / Then
-      expect(await repository.getAudio("missing")).toBeUndefined();
+      expect(await repository.getAudio({ episodeId: "missing" })).toBeUndefined();
     });
 
     it("get が例外を throw する時、元の例外を cause に保持した R2Error を throw する", async () => {
@@ -301,7 +301,7 @@ describe("R2EpisodeRepository", () => {
       const repository = new R2EpisodeRepository({ bucket });
 
       // When: 音声を取得する
-      const got = repository.getAudio("ep-1");
+      const got = repository.getAudio({ episodeId: "ep-1" });
 
       // Then: storage I/O 失敗は元の例外を cause に持つ R2Error
       await expect(got).rejects.toBeInstanceOf(R2Error);
@@ -317,7 +317,7 @@ describe("R2EpisodeRepository", () => {
       const repository = new R2EpisodeRepository({ bucket });
 
       // When / Then
-      await expect(repository.getAudio("ep-1")).rejects.toBeInstanceOf(R2Error);
+      await expect(repository.getAudio({ episodeId: "ep-1" })).rejects.toBeInstanceOf(R2Error);
     });
 
     it("get が null（object 型でない）を返す時、不正の理由を message に含めて R2Error を throw する", async () => {
@@ -329,13 +329,15 @@ describe("R2EpisodeRepository", () => {
       const repository = new R2EpisodeRepository({ bucket });
 
       // When / Then: message に「object 型でない」旨の診断理由が含まれる
-      await expect(repository.getAudio("ep-1")).rejects.toSatisfy((error: unknown) => {
-        return (
-          error instanceof R2Error &&
-          error.message.includes("object") &&
-          error.message.includes("string")
-        );
-      });
+      await expect(repository.getAudio({ episodeId: "ep-1" })).rejects.toSatisfy(
+        (error: unknown) => {
+          return (
+            error instanceof R2Error &&
+            error.message.includes("object") &&
+            error.message.includes("string")
+          );
+        },
+      );
     });
 
     it("get が arrayBuffer を持たない object を返す時、不正の理由を message に含めて R2Error を throw する", async () => {
@@ -347,13 +349,15 @@ describe("R2EpisodeRepository", () => {
       const repository = new R2EpisodeRepository({ bucket });
 
       // When / Then: message に「arrayBuffer が function でない」旨の診断理由が含まれる
-      await expect(repository.getAudio("ep-1")).rejects.toSatisfy((error: unknown) => {
-        return (
-          error instanceof R2Error &&
-          error.message.includes("arrayBuffer") &&
-          error.message.includes("function")
-        );
-      });
+      await expect(repository.getAudio({ episodeId: "ep-1" })).rejects.toSatisfy(
+        (error: unknown) => {
+          return (
+            error instanceof R2Error &&
+            error.message.includes("arrayBuffer") &&
+            error.message.includes("function")
+          );
+        },
+      );
     });
 
     it("mp3 の arrayBuffer 読み出しが失敗する時、元の例外を cause に保持した R2Error を throw する", async () => {
@@ -369,7 +373,7 @@ describe("R2EpisodeRepository", () => {
       const repository = new R2EpisodeRepository({ bucket });
 
       // When: 音声を取得する
-      const got = repository.getAudio("ep-1");
+      const got = repository.getAudio({ episodeId: "ep-1" });
 
       // Then: bytes 読み出し失敗は元の例外を cause に持つ R2Error
       await expect(got).rejects.toBeInstanceOf(R2Error);

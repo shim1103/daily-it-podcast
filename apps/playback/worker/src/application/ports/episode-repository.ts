@@ -1,8 +1,3 @@
-import type { EpisodeItem, ListEpisodesResponse } from "../../../../contracts/index.ts";
-
-export type EpisodeListItem = ListEpisodesResponse["episodes"][number];
-export type EpisodeManuscript = Omit<EpisodeItem, "audioRef" | "progress">;
-
 /**
  * 取得したままの原稿 json 1 件。`stem` は取得元ファイル名の stem（= 期待 episodeId）。
  */
@@ -10,6 +5,14 @@ export type RawManuscriptEntry = {
   stem: string;
   json: unknown;
 };
+
+export type ListManuscriptsResult = RawManuscriptEntry[];
+
+export type GetManuscriptArgs = { readonly episodeId: string };
+export type GetManuscriptResult = RawManuscriptEntry | undefined;
+
+export type GetAudioArgs = { readonly episodeId: string };
+export type GetAudioResult = Uint8Array | undefined;
 
 /**
  * 所定 object 空間の原稿 json / 音声を「取得したまま返す」Driven Port。schema 検証・stem 一致判定は
@@ -28,7 +31,7 @@ export interface EpisodeRepository {
    * @ensure 各要素の `json` は取得して decode しただけの生 payload。該当なしは空配列（null でない）。
    * @ensure storage I/O 自体の失敗（認証・network・非 2xx・応答形式不正）は Infrastructure Error を throw する。
    */
-  listManuscripts(): Promise<RawManuscriptEntry[]>;
+  listManuscripts(): Promise<ListManuscriptsResult>;
 
   /**
    * 対象 episodeId の原稿 json を 1 件、取得したまま返す。
@@ -36,7 +39,7 @@ export interface EpisodeRepository {
    * @ensure 各戻り値の `json` は取得して decode しただけの生 payload。該当なしは `undefined`（throw しない）。
    * @ensure storage I/O 自体の失敗は Infrastructure Error を throw する。
    */
-  getManuscript(episodeId: string): Promise<RawManuscriptEntry | undefined>;
+  getManuscript(args: GetManuscriptArgs): Promise<GetManuscriptResult>;
 
   /**
    * 対象 episodeId の音声 byte を取得したまま返す。
@@ -44,5 +47,5 @@ export interface EpisodeRepository {
    * @ensure 音声エントリまたは byte が無い時は `undefined` を返す（throw しない）。
    * @ensure storage I/O 自体の失敗は Infrastructure Error を throw する。
    */
-  getAudio(episodeId: string): Promise<Uint8Array | undefined>;
+  getAudio(args: GetAudioArgs): Promise<GetAudioResult>;
 }

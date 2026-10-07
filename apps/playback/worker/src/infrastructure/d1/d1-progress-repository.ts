@@ -1,12 +1,18 @@
+import type { EpisodeProgress } from "../../entities/models/episode-progress.ts";
 import type {
-  ProgressChangeSet,
+  GetByEpisodeIdsArgs,
+  GetByEpisodeIdsResult,
+  GetProgressWithVersionArgs,
+  GetProgressWithVersionResult,
+  InsertProgressIfAbsentArgs,
+  ListChangedAfterArgs,
+  ListChangedAfterResult,
   ProgressConditionalWriteResult,
-  ProgressCursor,
   ProgressRepository,
+  ProgressRow,
   ProgressUpdatedEntry,
-  ProgressUpsertRow,
   ProgressVersion,
-  VersionedProgress,
+  ReplaceProgressIfVersionArgs,
 } from "../../application/ports/progress-repository.ts";
 import type {
   D1DatabaseBinding,
@@ -20,7 +26,6 @@ import {
   episodeProgressColumns,
 } from "./progress-d1-constants.ts";
 
-type EpisodeProgress = ProgressUpdatedEntry["progress"];
 type D1RunResult = Awaited<ReturnType<D1PreparedStatementBinding["run"]>>;
 
 const columns = episodeProgressColumns;
@@ -128,7 +133,7 @@ function toEpisodeProgress(row: D1Row): EpisodeProgress {
 }
 
 /** ALL_COLUMNS の列順（?1 episodeId, ?2 positionSec, ?3 firstPlayedAt, ?4 firstCompletedAt, ?5 lastPlayedAt）の bind 値。 */
-function rowValues(row: ProgressUpsertRow): unknown[] {
+function rowValues(row: ProgressRow): unknown[] {
   return [
     row.episodeId,
     row.positionSec,
@@ -145,6 +150,10 @@ function toUpdatedEntry(row: D1Row): ProgressUpdatedEntry {
   };
 }
 
+function toConditionalWriteResult(result: D1RunResult): ProgressConditionalWriteResult {
+  return result.meta.changes === 1 ? "written" : "conflict";
+}
+
 function toProgressVersion(row: D1Row): ProgressVersion {
   // why: ProgressVersion は Port が公開する不透明な型で、行の採番列から作れるのはこの adapter だけ
   return numberColumn(row, columns.seq) as ProgressVersion;
@@ -155,8 +164,9 @@ function toProgressVersion(row: D1Row): ProgressVersion {
  * 渡された行を保存し、読み返すだけで merge しない。
  *
  * @require deps.database は migration 適用済みの進捗表を持つ D1 binding
- * @require 時刻は辞書順が時系列と一致する表記（UTC 固定幅の ISO-8601）で渡される。契約 schema が入口で保証し、adapter は変換しない（`>` 比較と並びを文字列で行うため）
+ * @require 旧面 `listUpdatedSince` の `since` と行の時刻は、辞書順が時系列と一致する表記（UTC 固定幅の ISO-8601）。契約 schema が入口で保証し、adapter は変換しない（`>` 比較と並びを文字列で行うため）
  * @ensure D1 の例外・`run()` の `success === false`・列型の不一致は D1Error を throw する。adapter 内で再試行しない
+ * @invariant `seq` と cursor を数値のまま扱い、文字列へ変換しない
  * @invariant SQL 全文と bind 値を Error message に含めない
  */
 export class D1ProgressRepository implements ProgressRepository {
@@ -166,11 +176,9 @@ export class D1ProgressRepository implements ProgressRepository {
     this.database = deps.database;
   }
 
-  async getByEpisodeIds(
-    episodeIds: readonly string[],
-  ): Promise<ReadonlyMap<string, EpisodeProgress>> {
+  async getByEpisodeIds(args: GetByEpisodeIdsArgs): Promise<GetByEpisodeIdsResult> {
     const progressByEpisodeId = new Map<string, EpisodeProgress>();
-    for (const chunk of chunksOf(episodeIds, D1_MAX_BOUND_PARAMETERS_PER_QUERY)) {
+    for (const chunk of chunksOf(args.episodeIds, D1_MAX_BOUND_PARAMETERS_PER_QUERY)) {
       const rows = await this.queryAll(selectByEpisodeIdsSql(chunk.length), chunk);
       for (const row of rows) {
         progressByEpisodeId.set(stringColumn(row, columns.episodeId), toEpisodeProgress(row));
@@ -179,7 +187,7 @@ export class D1ProgressRepository implements ProgressRepository {
     return progressByEpisodeId;
   }
 
-  async upsertProgress(row: ProgressUpsertRow): Promise<void> {
+  async upsertProgress(row: ProgressRow): Promise<void> {
     await this.runWrite(UPSERT_SQL, rowValues(row));
   }
 
@@ -188,30 +196,38 @@ export class D1ProgressRepository implements ProgressRepository {
     return rows.map(toUpdatedEntry);
   }
 
-  async getProgressWithVersion(episodeId: string): Promise<VersionedProgress | null> {
-    const row = await this.queryFirst(SELECT_WITH_VERSION_SQL, [episodeId]);
+  async getProgressWithVersion(
+    args: GetProgressWithVersionArgs,
+  ): Promise<GetProgressWithVersionResult> {
+    const row = await this.queryFirst(SELECT_WITH_VERSION_SQL, [args.episodeId]);
     if (row === null) {
       return null;
     }
     return { progress: toEpisodeProgress(row), version: toProgressVersion(row) };
   }
 
-  async upsertProgressIfVersion(
-    row: ProgressUpsertRow,
-    expectedVersion: ProgressVersion | null,
+  async insertProgressIfAbsent(
+    args: InsertProgressIfAbsentArgs,
   ): Promise<ProgressConditionalWriteResult> {
-    const result =
-      expectedVersion === null
-        ? await this.runWrite(INSERT_IF_ABSENT_SQL, rowValues(row))
-        : await this.runWrite(UPDATE_IF_VERSION_SQL, [...rowValues(row), expectedVersion]);
-    return result.meta.changes === 1 ? "written" : "conflict";
+    const result = await this.runWrite(INSERT_IF_ABSENT_SQL, rowValues(args.row));
+    return toConditionalWriteResult(result);
   }
 
-  async listChangedAfter(cursor: ProgressCursor): Promise<ProgressChangeSet> {
-    const rows = await this.queryAll(LIST_CHANGED_AFTER_SQL, [Number(cursor)]);
+  async replaceProgressIfVersion(
+    args: ReplaceProgressIfVersionArgs,
+  ): Promise<ProgressConditionalWriteResult> {
+    const result = await this.runWrite(UPDATE_IF_VERSION_SQL, [
+      ...rowValues(args.row),
+      args.expectedVersion,
+    ]);
+    return toConditionalWriteResult(result);
+  }
+
+  async listChangedAfter(args: ListChangedAfterArgs): Promise<ListChangedAfterResult> {
+    const rows = await this.queryAll(LIST_CHANGED_AFTER_SQL, [args.cursor]);
     const lastRow = rows.at(-1);
     return {
-      cursor: lastRow === undefined ? cursor : String(numberColumn(lastRow, columns.seq)),
+      cursor: lastRow === undefined ? args.cursor : numberColumn(lastRow, columns.seq),
       entries: rows.map(toUpdatedEntry),
     };
   }

@@ -1,4 +1,4 @@
-import type { EpisodeProgress } from "../../../../contracts/index.ts";
+import type { EpisodeProgress } from "../../entities/models/episode-progress.ts";
 
 /** merge に渡す incoming write（HTTP body と同形の核）。 */
 export type ProgressMergeIncoming = {
@@ -14,7 +14,7 @@ export type ProgressMergeIncoming = {
  * positionSec / lastPlayedAt は後勝ち（より遅い時刻。同時刻は incoming を採る）。
  * 同時刻規則の why は Decision の先勝ち／後勝ち意味を崩さず、再送でカーソルだけ揃えられるようにするため。
  *
- * @require `incoming.clientAt` は契約どおりのタイムゾーン付き ISO-8601
+ * @require `incoming.clientAt` は UTC 固定幅の ISO 表記（`EpisodeProgress` と同じ。契約境界で正規化済み）
  * @ensure 常に完全な `EpisodeProgress` を返す（existing null なら初回行を構築）
  * @ensure `firstCompletedAt` を新設しない（existing null なら null、既存ありなら据え置きまたは先勝ちの既存完走のみ）
  */

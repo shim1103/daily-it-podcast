@@ -119,8 +119,7 @@ export function createApp(useCaseOverrides?: PlaybackUseCaseOverrides) {
       zValidator("query", ProgressPullQuerySchema, throwOnContractValidationFailure),
       async (c) => {
         const { pullProgressController } = c.get("controllers");
-        const { since } = c.req.valid("query");
-        const body = await pullProgressController(since);
+        const body = await pullProgressController(c.req.valid("query"));
         return c.json(body, 200, progressPullCacheHeaders);
       },
     )

@@ -400,7 +400,7 @@ describe("app", () => {
     expect(got.headers.get("Cache-Control")).toBe("no-store");
     const body: unknown = await got.json();
     expect(ProgressPullResponseSchema.safeParse(body).success).toBe(true);
-    expect(pullProgressController).toHaveBeenCalledWith(since);
+    expect(pullProgressController).toHaveBeenCalledWith({ since });
   });
 
   it("method または path が契約に無い時、400 と validation_error を返す", async () => {

@@ -13,11 +13,19 @@ export default {
     {
       name: "worker-application-no-outer",
       severity: "error",
-      comment: "Application は entities/application/contracts のみ（generator 寄せ）",
+      comment: "Application は entities/application のみ",
       from: { path: "^worker/src/application/" },
       to: {
         path: "^worker/src/(infrastructure|controllers|routes|composition)/",
       },
+    },
+    {
+      name: "worker-application-no-http-contracts",
+      severity: "error",
+      comment:
+        "Application は境界共有型（apps/playback/contracts）を import しない。UseCase の入出力は application の型で受け、Controller が契約の型へ写す。repo 根の contracts は別物で対象外",
+      from: { path: "^worker/src/application/" },
+      to: { path: "^contracts/" },
     },
     {
       name: "worker-infra-ports-only",

@@ -7,7 +7,7 @@ import {
   listEpisodesPath,
 } from "../contracts/index.ts";
 import { createFakeEpisodeAudioBytes } from "../worker/src/test/fixtures/audio-bytes.ts";
-import { validEpisodeItem } from "../worker/src/controllers/fake-use-cases.ts";
+import { validEpisodeWithProgress } from "../worker/src/controllers/fake-use-cases.ts";
 import { createDummyBackendMiddleware } from "./vite.config.ts";
 
 const origin = "http://localhost";
@@ -49,7 +49,7 @@ describe("createDummyBackendMiddleware", () => {
     // Then: fake-use-cases の byte がそのまま配線される
     expect(got.headers.get("Content-Type")).toBe(episodeAudioContentType);
     const bytes = new Uint8Array(await got.arrayBuffer());
-    const expected = createFakeEpisodeAudioBytes(validEpisodeItem.durationSec);
+    const expected = createFakeEpisodeAudioBytes(validEpisodeWithProgress.durationSec);
     expect(Buffer.from(bytes).equals(Buffer.from(expected))).toBe(true);
   });
 

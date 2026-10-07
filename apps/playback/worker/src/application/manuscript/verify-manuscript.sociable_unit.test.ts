@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { episodeAudioPath } from "../../../../contracts/index.ts";
 import { EpisodeContentError } from "../../entities/errors/episode-content-error.ts";
-import { selectValidListItem, verifyManuscript } from "./verify-manuscript.ts";
+import { selectValidManuscript, verifyManuscript } from "./verify-manuscript.ts";
 
 const validManuscript = {
   episodeId: "ep-1",
@@ -88,39 +87,37 @@ describe("verifyManuscript", () => {
   });
 });
 
-describe("selectValidListItem", () => {
-  it("schema 適合かつ stem 一致の時、原稿全文付き EpisodeListItem を返す", () => {
+describe("selectValidManuscript", () => {
+  it("schema 適合かつ stem 一致の時、audioRef と progress を持たない原稿全文を返す", () => {
     // Given: 適合 json
     // When: 一覧用に選ぶ
-    const got = selectValidListItem(validManuscript, "ep-1");
+    const got = selectValidManuscript(validManuscript, "ep-1");
 
-    // Then: body 全文と audioRef がある
+    // Then: 原稿の field だけを持つ
     expect(got).toEqual({
       episodeId: "ep-1",
       date: "2026-08-17",
       title: "題",
       durationSec: 60,
       body: validManuscript.body,
-      audioRef: episodeAudioPath("ep-1"),
-      progress: null,
     });
   });
 
   it("schema 不適合の時、throw せず undefined を返す（listEpisodes の除外用）", () => {
     // Given: 不適合 json
     // When / Then
-    expect(selectValidListItem({ episodeId: "bad" }, "bad")).toBeUndefined();
+    expect(selectValidManuscript({ episodeId: "bad" }, "bad")).toBeUndefined();
   });
 
   it("不正 JSON 由来の non object の時、throw せず undefined を返す", () => {
-    expect(selectValidListItem("not json", "ep-1")).toBeUndefined();
+    expect(selectValidManuscript("not json", "ep-1")).toBeUndefined();
   });
 
   it("stem 不一致の時、throw せず undefined を返す", () => {
     // Given: episodeId が stem と別物
     // When / Then
     expect(
-      selectValidListItem({ ...validManuscript, episodeId: "ep-other" }, "ep-1"),
+      selectValidManuscript({ ...validManuscript, episodeId: "ep-other" }, "ep-1"),
     ).toBeUndefined();
   });
 });

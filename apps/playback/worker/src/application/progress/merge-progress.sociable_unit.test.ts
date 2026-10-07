@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { EpisodeProgress } from "../../../../contracts/index.ts";
+import type { EpisodeProgress } from "../../entities/models/episode-progress.ts";
 import { mergeProgress, mergeProgressAsCompleted } from "./merge-progress.ts";
 
 const EARLIER = "2026-09-22T10:00:00.000Z";

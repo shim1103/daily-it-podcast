@@ -1,5 +1,10 @@
 import type {
   EpisodeRepository,
+  GetAudioArgs,
+  GetAudioResult,
+  GetManuscriptArgs,
+  GetManuscriptResult,
+  ListManuscriptsResult,
   RawManuscriptEntry,
 } from "../../application/ports/episode-repository.ts";
 
@@ -21,7 +26,7 @@ export class InMemoryEpisodeRepository implements EpisodeRepository {
     this.episodes.set(episodeId, { json, audio });
   }
 
-  async listManuscripts(): Promise<RawManuscriptEntry[]> {
+  async listManuscripts(): Promise<ListManuscriptsResult> {
     const entries: RawManuscriptEntry[] = [];
     for (const [stem, entry] of this.episodes) {
       entries.push({ stem, json: entry.json });
@@ -29,7 +34,7 @@ export class InMemoryEpisodeRepository implements EpisodeRepository {
     return entries;
   }
 
-  async getManuscript(episodeId: string): Promise<RawManuscriptEntry | undefined> {
+  async getManuscript({ episodeId }: GetManuscriptArgs): Promise<GetManuscriptResult> {
     const entry = this.episodes.get(episodeId);
     if (entry === undefined) {
       return undefined;
@@ -37,7 +42,7 @@ export class InMemoryEpisodeRepository implements EpisodeRepository {
     return { stem: episodeId, json: entry.json };
   }
 
-  async getAudio(episodeId: string): Promise<Uint8Array | undefined> {
+  async getAudio({ episodeId }: GetAudioArgs): Promise<GetAudioResult> {
     return this.episodes.get(episodeId)?.audio;
   }
 }

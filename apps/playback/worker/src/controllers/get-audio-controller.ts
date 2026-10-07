@@ -1,6 +1,10 @@
+import type {
+  GetAudioUseCaseInput,
+  GetAudioUseCaseOutput,
+} from "../application/use-cases/get-audio.ts";
 import { mapInternalErrorToExternal } from "./map-internal-error.ts";
 
-export type GetAudioUseCase = (episodeId: string) => Promise<Uint8Array>;
+export type GetAudioUseCase = (input: GetAudioUseCaseInput) => Promise<GetAudioUseCaseOutput>;
 
 export type GetAudioController = (episodeId: string) => Promise<Uint8Array>;
 
@@ -14,7 +18,7 @@ export type GetAudioController = (episodeId: string) => Promise<Uint8Array>;
 export function createGetAudioController(useCase: GetAudioUseCase): GetAudioController {
   return async function getAudioController(episodeId: string): Promise<Uint8Array> {
     try {
-      return await useCase(episodeId);
+      return await useCase({ episodeId });
     } catch (error) {
       throw mapInternalErrorToExternal(error);
     }

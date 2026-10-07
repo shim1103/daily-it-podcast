@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
+import { episodeAudioPath } from "../../../contracts/index.ts";
 import { createFakeLocalD1Binding } from "../../../test/support/create-fake-local-d1-binding.ts";
 import {
   createFakeGetAudioUseCase,
   createFakeListEpisodesUseCase,
   createFakeProgressWriteUseCase,
   createFakePullProgressUseCase,
-  validListEpisodesResponse,
-  validProgressPullResponse,
-  validProgressWriteResponse,
+  validListEpisodesUseCaseOutput,
+  validProgressWriteUseCaseOutput,
+  validPullProgressUseCaseOutput,
 } from "../controllers/fake-use-cases.ts";
 import { D1ProgressRepository } from "../infrastructure/d1/d1-progress-repository.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/in-memory/in-memory-episode-repository.ts";
@@ -207,7 +208,7 @@ describe("createPlaybackControllers", () => {
         positionSec: 12,
         clientAt: "2026-09-22T10:00:00.000Z",
       });
-      const pull = await got.pullProgressController("2026-09-22T09:00:00.000Z");
+      const pull = await got.pullProgressController({ since: "2026-09-22T09:00:00.000Z" });
 
       // Then: create と pull が同じ ProgressRepository を共有し、作成した進捗が読める
       expect(pull).toEqual({
@@ -238,7 +239,7 @@ describe("createPlaybackControllers", () => {
         positionSec: 30,
         clientAt: "2026-09-22T10:01:00.000Z",
       });
-      const pull = await got.pullProgressController("2026-09-22T09:00:00.000Z");
+      const pull = await got.pullProgressController({ since: "2026-09-22T09:00:00.000Z" });
 
       // Then: update が create と同じ ProgressRepository の行を見つけて通り（行なし 404 にならない）、
       // pull は後勝ちの位置を返す
@@ -318,7 +319,7 @@ describe("createPlaybackControllers", () => {
       });
 
       // When: 作成より前の since で pull する
-      const pull = await got.pullProgressController("2026-09-22T09:00:00.000Z");
+      const pull = await got.pullProgressController({ since: "2026-09-22T09:00:00.000Z" });
 
       // Then: episode が r2 でも、進捗は同じ組み立ての in-memory ProgressRepository が保持している
       expect(pull.episodes).toHaveLength(1);
@@ -370,17 +371,22 @@ describe("createPlaybackControllers", () => {
     // When: override 付きで Controller 一式を組み立てる
     const got = createPlaybackControllers(env, {}, { useCases });
 
-    // Then: repository 解決を経由せず、stub use case の応答をそのまま返す
-    await expect(got.listEpisodesController()).resolves.toEqual(validListEpisodesResponse);
+    // Then: repository 解決を経由せず、stub use case の応答を契約の Response へ写して返す
+    await expect(got.listEpisodesController()).resolves.toEqual({
+      episodes: validListEpisodesUseCaseOutput.episodes.map((episode) => ({
+        ...episode,
+        audioRef: episodeAudioPath(episode.episodeId),
+      })),
+    });
     await expect(
       got.createProgressController("ep-1", {
         positionSec: 1,
         clientAt: "2026-09-22T10:00:00.000Z",
       }),
-    ).resolves.toEqual(validProgressWriteResponse);
-    await expect(got.pullProgressController("2026-09-22T10:00:00.000Z")).resolves.toEqual(
-      validProgressPullResponse,
-    );
+    ).resolves.toEqual(validProgressWriteUseCaseOutput);
+    await expect(
+      got.pullProgressController({ since: "2026-09-22T10:00:00.000Z" }),
+    ).resolves.toEqual(validPullProgressUseCaseOutput);
   });
 
   it("throws_without_building_controllers_when_mode_is_missing", () => {

@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { ProgressWriteResponseSchema } from "../../../../contracts/index.ts";
 import { ProgressNotFoundError } from "../../entities/errors/progress-not-found-error.ts";
 import { InMemoryProgressRepository } from "../../infrastructure/in-memory/in-memory-progress-repository.ts";
-import type { ProgressUpsertRow } from "../ports/progress-repository.ts";
-import type { ProgressWriteCommand } from "../progress/progress-write-command.ts";
+import type { ProgressRow } from "../ports/progress-repository.ts";
+import type { ProgressWriteUseCaseInput } from "../progress/progress-write-use-case-io.ts";
 import { updateProgress } from "./update-progress.ts";
 
 /**
@@ -14,7 +13,7 @@ import { updateProgress } from "./update-progress.ts";
 const EARLIER = "2026-09-22T10:00:00.000Z";
 const LATER = "2026-09-22T11:00:00.000Z";
 
-const command: ProgressWriteCommand = {
+const input: ProgressWriteUseCaseInput = {
   episodeId: "ep-1",
   positionSec: 40,
   clientAt: LATER,
@@ -26,17 +25,17 @@ describe("updateProgress", () => {
     const repository = new InMemoryProgressRepository();
 
     // When: update を実行する
-    const act = updateProgress(repository, command);
+    const act = updateProgress(repository, input);
 
     // Then: 行不在の Domain Error（永続は触らない）
     await expect(act).rejects.toBeInstanceOf(ProgressNotFoundError);
-    const stored = await repository.getByEpisodeIds(["ep-1"]);
+    const stored = await repository.getByEpisodeIds({ episodeIds: ["ep-1"] });
     expect(stored.size).toBe(0);
   });
 
   it("行ありの時、merge して upsert し勝ち側 first* を返す", async () => {
     // Given: 既存行あり
-    const seed: ProgressUpsertRow = {
+    const seed: ProgressRow = {
       episodeId: "ep-1",
       positionSec: 10,
       firstPlayedAt: EARLIER,
@@ -46,12 +45,11 @@ describe("updateProgress", () => {
     const repository = new InMemoryProgressRepository([seed]);
 
     // When: より遅い clientAt で update する
-    const got = await updateProgress(repository, command);
+    const got = await updateProgress(repository, input);
 
     // Then: position/last は後勝ち。first* は既存据え置き
-    expect(ProgressWriteResponseSchema.safeParse(got).success).toBe(true);
     expect(got).toEqual({ firstPlayedAt: EARLIER, firstCompletedAt: null });
-    const stored = await repository.getByEpisodeIds(["ep-1"]);
+    const stored = await repository.getByEpisodeIds({ episodeIds: ["ep-1"] });
     expect(stored.get("ep-1")).toEqual({
       positionSec: 40,
       firstPlayedAt: EARLIER,

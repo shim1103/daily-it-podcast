@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ProgressPullResponseSchema } from "../../../../contracts/index.ts";
 import { InMemoryProgressRepository } from "../../infrastructure/in-memory/in-memory-progress-repository.ts";
-import type { ProgressUpsertRow } from "../ports/progress-repository.ts";
+import type { ProgressRow } from "../ports/progress-repository.ts";
 import { pullProgress } from "./pull-progress.ts";
 
 /**
@@ -11,7 +10,7 @@ import { pullProgress } from "./pull-progress.ts";
  */
 const SINCE = "2026-09-15T00:00:00.000Z";
 
-const beforeSince: ProgressUpsertRow = {
+const beforeSince: ProgressRow = {
   episodeId: "ep-before",
   positionSec: 10,
   firstPlayedAt: "2026-09-01T00:00:00.000Z",
@@ -19,7 +18,7 @@ const beforeSince: ProgressUpsertRow = {
   lastPlayedAt: "2026-09-10T12:00:00.000Z",
 };
 
-const afterSince: ProgressUpsertRow = {
+const afterSince: ProgressRow = {
   episodeId: "ep-after",
   positionSec: 20,
   firstPlayedAt: "2026-09-02T00:00:00.000Z",
@@ -27,7 +26,7 @@ const afterSince: ProgressUpsertRow = {
   lastPlayedAt: "2026-09-20T12:00:00.000Z",
 };
 
-const equalSince: ProgressUpsertRow = {
+const equalSince: ProgressRow = {
   episodeId: "ep-equal",
   positionSec: 15,
   firstPlayedAt: "2026-09-03T00:00:00.000Z",
@@ -36,15 +35,14 @@ const equalSince: ProgressUpsertRow = {
 };
 
 describe("pullProgress", () => {
-  it("該当なしの時、空の ProgressPullResponse を返す", async () => {
+  it("該当なしの時、空の episodes を返す", async () => {
     // Given: 空 Fake
     const repository = new InMemoryProgressRepository();
 
     // When: pull を実行する
-    const got = await pullProgress(repository, SINCE);
+    const got = await pullProgress(repository, { since: SINCE });
 
-    // Then: 契約形を満たし episodes は空
-    expect(ProgressPullResponseSchema.safeParse(got).success).toBe(true);
+    // Then: episodes は空
     expect(got).toEqual({ episodes: [] });
   });
 
@@ -53,9 +51,9 @@ describe("pullProgress", () => {
     const repository = new InMemoryProgressRepository([beforeSince, afterSince]);
 
     // When: 間の since で pull する
-    const got = await pullProgress(repository, SINCE);
+    const got = await pullProgress(repository, { since: SINCE });
 
-    // Then: after だけ。形は pull 契約の episodes 要素
+    // Then: after だけ。要素は episodeId と progress 本体
     expect(got).toEqual({
       episodes: [
         {
@@ -76,7 +74,7 @@ describe("pullProgress", () => {
     const repository = new InMemoryProgressRepository([equalSince]);
 
     // When: 同一時刻の since で pull する
-    const got = await pullProgress(repository, SINCE);
+    const got = await pullProgress(repository, { since: SINCE });
 
     // Then: 空（境界は厳密な >）
     expect(got).toEqual({ episodes: [] });

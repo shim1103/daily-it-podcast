@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ProgressWriteResponseSchema } from "../../../../contracts/index.ts";
 import { InMemoryProgressRepository } from "../../infrastructure/in-memory/in-memory-progress-repository.ts";
-import type { ProgressUpsertRow } from "../ports/progress-repository.ts";
-import type { ProgressWriteCommand } from "../progress/progress-write-command.ts";
+import type { ProgressRow } from "../ports/progress-repository.ts";
+import type { ProgressWriteUseCaseInput } from "../progress/progress-write-use-case-io.ts";
 import { createProgress } from "./create-progress.ts";
 
 /**
@@ -13,7 +12,7 @@ import { createProgress } from "./create-progress.ts";
 const EARLIER = "2026-09-22T10:00:00.000Z";
 const LATER = "2026-09-22T11:00:00.000Z";
 
-const command: ProgressWriteCommand = {
+const input: ProgressWriteUseCaseInput = {
   episodeId: "ep-1",
   positionSec: 12,
   clientAt: EARLIER,
@@ -25,12 +24,11 @@ describe("createProgress", () => {
     const repository = new InMemoryProgressRepository();
 
     // When: create を実行する
-    const got = await createProgress(repository, command);
+    const got = await createProgress(repository, input);
 
     // Then: firstPlayedAt は clientAt、完走は null。永続も同値
-    expect(ProgressWriteResponseSchema.safeParse(got).success).toBe(true);
     expect(got).toEqual({ firstPlayedAt: EARLIER, firstCompletedAt: null });
-    const stored = await repository.getByEpisodeIds(["ep-1"]);
+    const stored = await repository.getByEpisodeIds({ episodeIds: ["ep-1"] });
     expect(stored.get("ep-1")).toEqual({
       positionSec: 12,
       firstPlayedAt: EARLIER,
@@ -41,7 +39,7 @@ describe("createProgress", () => {
 
   it("行ありの時、Error にせず merge し勝ち側 first* を返す", async () => {
     // Given: 既存行あり（後から届くより早い初回）
-    const seed: ProgressUpsertRow = {
+    const seed: ProgressRow = {
       episodeId: "ep-1",
       positionSec: 40,
       firstPlayedAt: LATER,
@@ -49,7 +47,7 @@ describe("createProgress", () => {
       lastPlayedAt: LATER,
     };
     const repository = new InMemoryProgressRepository([seed]);
-    const lateCreate: ProgressWriteCommand = {
+    const lateCreate: ProgressWriteUseCaseInput = {
       episodeId: "ep-1",
       positionSec: 5,
       clientAt: EARLIER,
@@ -60,7 +58,7 @@ describe("createProgress", () => {
 
     // Then: 冪等成功。firstPlayedAt は先勝ち、position/last は後勝ちで既存のまま
     expect(got).toEqual({ firstPlayedAt: EARLIER, firstCompletedAt: null });
-    const stored = await repository.getByEpisodeIds(["ep-1"]);
+    const stored = await repository.getByEpisodeIds({ episodeIds: ["ep-1"] });
     expect(stored.get("ep-1")).toEqual({
       positionSec: 40,
       firstPlayedAt: EARLIER,

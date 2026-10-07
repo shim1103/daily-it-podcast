@@ -28,10 +28,27 @@ describe("getAudio", () => {
     const repository = createFakeRepository();
 
     // When: 音声取得 UseCase を実行する
-    const got = await getAudio(repository, "ep-1");
+    const got = await getAudio(repository, { episodeId: "ep-1" });
 
     // Then: byte が一致する
     expect(got).toEqual(validAudioBytes);
+  });
+
+  it("Input の episodeId で Port に音声を問い合わせる", async () => {
+    // Given: 受け取った引数を記録する Fake Port
+    const received: unknown[] = [];
+    const repository = createFakeRepository({
+      getAudio: async (args) => {
+        received.push(args);
+        return validAudioBytes;
+      },
+    });
+
+    // When: 音声取得 UseCase を実行する
+    await getAudio(repository, { episodeId: "ep-7" });
+
+    // Then: Port へは episodeId だけの引数 object を 1 回渡す
+    expect(received).toEqual([{ episodeId: "ep-7" }]);
   });
 
   it("Port が undefined（mp3 無し）を返す時、EpisodeContentError（音声が無い）", async () => {
@@ -39,7 +56,7 @@ describe("getAudio", () => {
     const repository = createFakeRepository({ getAudio: async () => undefined });
 
     // When: 音声取得 UseCase を実行する
-    const act = getAudio(repository, "ep-1");
+    const act = getAudio(repository, { episodeId: "ep-1" });
 
     // Then: Domain の実体不備
     await expect(act).rejects.toBeInstanceOf(EpisodeContentError);

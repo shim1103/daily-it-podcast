@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ProgressWriteResponseSchema } from "../../../../contracts/index.ts";
 import { EpisodeContentError } from "../../entities/errors/episode-content-error.ts";
 import { ProgressNotFoundError } from "../../entities/errors/progress-not-found-error.ts";
 import { ProgressRuleError } from "../../entities/errors/progress-rule-error.ts";
 import { PROGRESS_COMPLETE_ZONE_SEC } from "../../entities/constants/progress.ts";
 import { InMemoryProgressRepository } from "../../infrastructure/in-memory/in-memory-progress-repository.ts";
 import type { EpisodeRepository } from "../ports/episode-repository.ts";
-import type { ProgressUpsertRow } from "../ports/progress-repository.ts";
-import type { ProgressWriteCommand } from "../progress/progress-write-command.ts";
+import type { ProgressRow } from "../ports/progress-repository.ts";
+import type { ProgressWriteUseCaseInput } from "../progress/progress-write-use-case-io.ts";
 import { completeProgress } from "./complete-progress.ts";
 
 /**
@@ -35,13 +34,13 @@ const validManuscript = {
   },
 };
 
-const inZoneCommand: ProgressWriteCommand = {
+const inZoneInput: ProgressWriteUseCaseInput = {
   episodeId: "ep-1",
   positionSec: IN_ZONE_POSITION,
   clientAt: EARLIER,
 };
 
-const existingRow: ProgressUpsertRow = {
+const existingRow: ProgressRow = {
   episodeId: "ep-1",
   positionSec: 10,
   firstPlayedAt: EARLIER,
@@ -56,7 +55,8 @@ function createFakeEpisodeRepository(
     listManuscripts: async () => {
       throw new Error("not used");
     },
-    getManuscript: async () => ({ stem: "ep-1", json: validManuscript }),
+    getManuscript: async ({ episodeId }) =>
+      episodeId === "ep-1" ? { stem: "ep-1", json: validManuscript } : undefined,
     getAudio: async () => {
       throw new Error("not used");
     },
@@ -71,11 +71,11 @@ describe("completeProgress", () => {
     const progress = new InMemoryProgressRepository();
 
     // When: complete を実行する
-    const act = completeProgress(episodes, progress, inZoneCommand);
+    const act = completeProgress(episodes, progress, inZoneInput);
 
     // Then: 行不在。bootstrap しない
     await expect(act).rejects.toBeInstanceOf(ProgressNotFoundError);
-    const stored = await progress.getByEpisodeIds(["ep-1"]);
+    const stored = await progress.getByEpisodeIds({ episodeIds: ["ep-1"] });
     expect(stored.size).toBe(0);
   });
 
@@ -85,12 +85,11 @@ describe("completeProgress", () => {
     const progress = new InMemoryProgressRepository([existingRow]);
 
     // When: complete を実行する
-    const got = await completeProgress(episodes, progress, inZoneCommand);
+    const got = await completeProgress(episodes, progress, inZoneInput);
 
     // Then: firstPlayedAt は既存、firstCompletedAt は今回 clientAt
-    expect(ProgressWriteResponseSchema.safeParse(got).success).toBe(true);
     expect(got).toEqual({ firstPlayedAt: EARLIER, firstCompletedAt: EARLIER });
-    const stored = await progress.getByEpisodeIds(["ep-1"]);
+    const stored = await progress.getByEpisodeIds({ episodeIds: ["ep-1"] });
     expect(stored.get("ep-1")).toEqual({
       positionSec: IN_ZONE_POSITION,
       firstPlayedAt: EARLIER,
@@ -103,7 +102,7 @@ describe("completeProgress", () => {
     // Given: 未完走行あり・ゾーン内の後続 complete
     const episodes = createFakeEpisodeRepository();
     const progress = new InMemoryProgressRepository([existingRow]);
-    const later: ProgressWriteCommand = {
+    const later: ProgressWriteUseCaseInput = {
       episodeId: "ep-1",
       positionSec: IN_ZONE_POSITION,
       clientAt: "2026-09-22T11:00:00.000Z",
@@ -123,7 +122,7 @@ describe("completeProgress", () => {
     // Given: 行あり・ゾーン外 position
     const episodes = createFakeEpisodeRepository();
     const progress = new InMemoryProgressRepository([existingRow]);
-    const outOfZone: ProgressWriteCommand = {
+    const outOfZone: ProgressWriteUseCaseInput = {
       episodeId: "ep-1",
       positionSec: OUT_ZONE_POSITION,
       clientAt: EARLIER,
@@ -134,7 +133,7 @@ describe("completeProgress", () => {
 
     // Then: 完走規則違反。既存行は完走にならない
     await expect(act).rejects.toBeInstanceOf(ProgressRuleError);
-    const stored = await progress.getByEpisodeIds(["ep-1"]);
+    const stored = await progress.getByEpisodeIds({ episodeIds: ["ep-1"] });
     expect(stored.get("ep-1")?.firstCompletedAt).toBeNull();
   });
 
@@ -146,7 +145,7 @@ describe("completeProgress", () => {
     const progress = new InMemoryProgressRepository([existingRow]);
 
     // When: complete を実行する
-    const act = completeProgress(episodes, progress, inZoneCommand);
+    const act = completeProgress(episodes, progress, inZoneInput);
 
     // Then: 既存の原稿不在 path
     await expect(act).rejects.toBeInstanceOf(EpisodeContentError);
@@ -160,7 +159,7 @@ describe("completeProgress", () => {
     const progress = new InMemoryProgressRepository([existingRow]);
 
     // When: complete を実行する
-    const act = completeProgress(episodes, progress, inZoneCommand);
+    const act = completeProgress(episodes, progress, inZoneInput);
 
     // Then: verifyManuscript の schema 不適合 path
     await expect(act).rejects.toBeInstanceOf(EpisodeContentError);
@@ -173,14 +172,14 @@ describe("completeProgress", () => {
       getManuscript: async () => ({ stem: "ep-1", json: shortManuscript }),
     });
     const progress = new InMemoryProgressRepository([existingRow]);
-    const shortCommand: ProgressWriteCommand = {
+    const shortInput: ProgressWriteUseCaseInput = {
       episodeId: "ep-1",
       positionSec: 0,
       clientAt: EARLIER,
     };
 
     // When: complete を実行する
-    const got = await completeProgress(episodes, progress, shortCommand);
+    const got = await completeProgress(episodes, progress, shortInput);
 
     // Then: 短尺専用枝なしで完走記録される
     expect(got.firstCompletedAt).toBe(EARLIER);

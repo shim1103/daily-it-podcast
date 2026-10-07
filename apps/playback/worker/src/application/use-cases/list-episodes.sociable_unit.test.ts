@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { episodeAudioPath, ListEpisodesResponseSchema } from "../../../../contracts/index.ts";
 import { InMemoryProgressRepository } from "../../infrastructure/in-memory/in-memory-progress-repository.ts";
 import type { EpisodeRepository, RawManuscriptEntry } from "../ports/episode-repository.ts";
-import type { ProgressUpsertRow } from "../ports/progress-repository.ts";
+import type { ProgressRow } from "../ports/progress-repository.ts";
 import { listEpisodes } from "./list-episodes.ts";
 
 /**
@@ -25,7 +24,7 @@ const validManuscriptJson = {
   },
 };
 
-const seededProgress: ProgressUpsertRow = {
+const seededProgress: ProgressRow = {
   episodeId: "ep-1",
   positionSec: 12,
   firstPlayedAt: "2026-09-22T10:00:00.000Z",
@@ -54,8 +53,7 @@ describe("listEpisodes", () => {
     // When: 一覧 UseCase を実行する
     const got = await listEpisodes(repository, progress);
 
-    // Then: 契約 schema を満たし、progress が載る
-    expect(ListEpisodesResponseSchema.safeParse(got).success).toBe(true);
+    // Then: audioRef を持たず、progress が載る
     expect(got.episodes).toEqual([
       {
         episodeId: "ep-1",
@@ -63,7 +61,6 @@ describe("listEpisodes", () => {
         title: "題",
         durationSec: 60,
         body: validManuscriptJson.body,
-        audioRef: episodeAudioPath("ep-1"),
         progress: {
           positionSec: 12,
           firstPlayedAt: "2026-09-22T10:00:00.000Z",
@@ -90,7 +87,6 @@ describe("listEpisodes", () => {
         title: "題",
         durationSec: 60,
         body: validManuscriptJson.body,
-        audioRef: episodeAudioPath("ep-1"),
         progress: null,
       },
     ]);

@@ -2,56 +2,47 @@ import { describe, expect, it } from "vitest";
 import { NotFoundError, UnavailableError } from "../../../contracts/index.ts";
 import { EpisodeContentError } from "../entities/errors/episode-content-error.ts";
 import { R2Error } from "../infrastructure/r2/r2-error.ts";
+import { validAudioBytes } from "../test/fixtures/audio-bytes.ts";
 import { createGetAudioController } from "./get-audio-controller.ts";
-import { createFakeEpisodeAudioBytes } from "../test/fixtures/audio-bytes.ts";
-import { createFakeGetAudioUseCase, validEpisodeItem } from "./fake-use-cases.ts";
 
+/**
+ * scope: Sociable Unit
+ * real: createGetAudioController, map-internal-error
+ * double: GetAudioUseCase を test 内の Stub に差し替え
+ */
 describe("createGetAudioController", () => {
-  it("UseCase が成功する時、音声 byte を返す", async () => {
-    // Given: mp3 byte を返す Fake UseCase
-    const useCase = createFakeGetAudioUseCase();
-    const controller = createGetAudioController(useCase);
+  it("UseCase が成功する時、UseCase が返した音声 byte をそのまま返す", async () => {
+    // Given: mp3 byte を返す Stub UseCase
+    const controller = createGetAudioController(async () => validAudioBytes);
 
     // When: 検証済み episodeId を渡す
     const got = await controller("ep-1");
-    const expected = createFakeEpisodeAudioBytes(validEpisodeItem.durationSec);
-
-    // Then: Fake が返した再生可能 mp3 と一致する
-    expect(Buffer.from(got).equals(Buffer.from(expected))).toBe(true);
-  });
-
-  it("同一 episodeId を連続取得する時、キャッシュ済み mp3 を返す", async () => {
-    // Given: mp3 byte を返す Fake UseCase
-    const useCase = createFakeGetAudioUseCase();
-    const controller = createGetAudioController(useCase);
-
-    // When: 同じ episodeId で2回取得する
-    const first = await controller("ep-1");
-    const second = await controller("ep-1");
 
     // Then: 同一参照の byte を返す
-    expect(second).toBe(first);
+    expect(got).toBe(validAudioBytes);
   });
 
-  it("存在しない episodeId の時、NotFoundError に変換して throw する", async () => {
-    // Given: fake data に無い episodeId
-    const useCase = createFakeGetAudioUseCase();
-    const controller = createGetAudioController(useCase);
+  it("episodeId は { episodeId } の Input として UseCase に渡される", async () => {
+    // Given: 受け取った Input を記録する Stub UseCase
+    const received: unknown[] = [];
+    const controller = createGetAudioController(async (input) => {
+      received.push(input);
+      return validAudioBytes;
+    });
 
-    // When: 存在しない episodeId で呼ぶ
-    const act = controller("missing");
+    // When: episodeId を渡す
+    await controller("ep-7");
 
-    // Then: Domain 不在が External NotFound になる
-    await expect(act).rejects.toBeInstanceOf(NotFoundError);
+    // Then: episodeId だけの Input を 1 回渡す
+    expect(received).toEqual([{ episodeId: "ep-7" }]);
   });
 
   it("UseCase が EpisodeContentError を throw する時、NotFoundError に cause 付きで変換する", async () => {
-    // Given: Domain 不在を throw する Fake UseCase
-    const domainError = new EpisodeContentError("音声エントリが無い: ep-1");
-    const useCase = createFakeGetAudioUseCase(async () => {
+    // Given: Domain 不在を throw する Stub UseCase
+    const domainError = new EpisodeContentError("音声が無い: ep-1");
+    const controller = createGetAudioController(async () => {
       throw domainError;
     });
-    const controller = createGetAudioController(useCase);
 
     // When: 有効な episodeId で呼ぶ
     const act = controller("ep-1");
@@ -63,12 +54,11 @@ describe("createGetAudioController", () => {
   });
 
   it("UseCase が R2Error を throw する時、UnavailableError に cause 付きで変換する", async () => {
-    // Given: Infrastructure 失敗を throw する Fake UseCase
+    // Given: Infrastructure 失敗を throw する Stub UseCase
     const r2Error = new R2Error("R2 読取に失敗");
-    const useCase = createFakeGetAudioUseCase(async () => {
+    const controller = createGetAudioController(async () => {
       throw r2Error;
     });
-    const controller = createGetAudioController(useCase);
 
     // When: 有効な episodeId で呼ぶ
     const act = controller("ep-1");

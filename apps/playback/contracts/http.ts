@@ -43,8 +43,9 @@ const progressInstantSchema = z.iso
 
 /**
  * 進捗 pull の cursor。10 進の非負整数の文字列（15 桁以下、先頭 0 は `"0"` のみ）。
- * wire 上の形式だけを契約が知る。形式外は Route の検証が 400 にする。
- * client は中身を解釈せず、応答で受け取った値をそのまま次回の要求へ渡す不透明値として扱う。
+ * 形式の正本はこの schema で、形式外は Route の検証が 400 にする。桁数の上限は、整数へ変換しても精度が落ちない範囲に収まる。
+ * client は中身を解釈せず、応答で受け取った値をそのまま次回の要求へ渡す。文字列から整数への変換は route の zod が行う設計
+ * （Decision 2026-10-01T23-32-40）だが、この schema はまだ変換せず、文字列の形式だけを検証する。
  */
 const progressCursorSchema = z.string().regex(/^(0|[1-9][0-9]{0,14})$/);
 
@@ -197,7 +198,8 @@ export const ProgressWriteResponseSchema = z.strictObject({
 
 /**
  * DB が空の初回 pull が返す cursor。「どの行より前」を指す起点で、
- * cursor を省略した要求は Application がこの値として扱う。
+ * cursor を省略した要求は、route の zod が既定値としてこの値にする設計（Decision 2026-10-01T23-32-40）。
+ * cursor 版へ切り替えるまで、既定値の設定は未実装。
  */
 export const PROGRESS_PULL_ORIGIN_CURSOR = "0" as const;
 

@@ -1,6 +1,10 @@
 import { EpisodeContentError } from "../../entities/errors/episode-content-error.ts";
 import type { EpisodeRepository } from "../ports/episode-repository.ts";
 
+export type GetAudioUseCaseInput = { readonly episodeId: string };
+
+export type GetAudioUseCaseOutput = Uint8Array;
+
 /**
  * 対象 episodeId の mp3 byte を返す。
  *
@@ -11,11 +15,11 @@ import type { EpisodeRepository } from "../ports/episode-repository.ts";
  */
 export async function getAudio(
   repository: EpisodeRepository,
-  episodeId: string,
-): Promise<Uint8Array> {
-  const audio = await repository.getAudio(episodeId);
+  input: GetAudioUseCaseInput,
+): Promise<GetAudioUseCaseOutput> {
+  const audio = await repository.getAudio({ episodeId: input.episodeId });
   if (audio === undefined) {
-    throw new EpisodeContentError(`音声が無い: ${episodeId}`);
+    throw new EpisodeContentError(`音声が無い: ${input.episodeId}`);
   }
   return audio;
 }
