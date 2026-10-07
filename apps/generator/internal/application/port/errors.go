@@ -18,11 +18,6 @@ func BuildRejectionBrief(brief, raw, rejectionReason string) string {
 	return brief + RejectionPrefixText + raw + RejectionMiddleText + rejectionReason + RejectionSuffixText
 }
 
-// BuildRejectionBriefWithoutRaw は BuildRejectionBrief の、直前 attempt の raw response が無い場合の版である。
-func BuildRejectionBriefWithoutRaw(brief, rejectionReason string) string {
-	return brief + RejectionPrefixText + RejectionMiddleText + rejectionReason + RejectionSuffixText
-}
-
 // LastAttempt は invalid-draft retry の直前 attempt が残した raw response と buildFn の error を、
 // retry を抜ける error の chain で次の取得元へ持ち越す（Decision 2026-09-16T13-06-32 §1-1）。
 // TextWriter 実装は error の chain に含め、呼び出し側は errors.As で取り出す。

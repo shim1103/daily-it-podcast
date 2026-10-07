@@ -224,8 +224,7 @@ func TestWrite_switchesToSecondSourceWithPlainBrief_whenFirstSourceReportsDraftR
 	t.Parallel()
 
 	// Given: 先頭 source が LastAttempt を伴わない port.ErrDraftRejected を返し、2 番目は成功する
-	firstErr := rejectedErr("invalid after max attempts")
-	first := &fakeTextWriter{err: firstErr}
+	first := &fakeTextWriter{err: rejectedErr("invalid after max attempts")}
 	second := &fakeTextWriter{draft: models.ManuscriptDraft{Title: "2 番目 source の draft"}}
 	uc, fallback := newUCWithSpies(first, second)
 	brief := "本文の要約から原稿を書いて"
@@ -233,7 +232,7 @@ func TestWrite_switchesToSecondSourceWithPlainBrief_whenFirstSourceReportsDraftR
 	// When: Write する
 	got, err := uc.Write(context.Background(), brief, noopBuildFn)
 
-	// Then: 2 番目へ渡る brief は port.BuildRejectionBriefWithoutRaw で組み立てた brief
+	// Then: 直前の失敗 response が無いので、2 番目へ渡る brief は素の brief のまま
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
@@ -241,9 +240,8 @@ func TestWrite_switchesToSecondSourceWithPlainBrief_whenFirstSourceReportsDraftR
 	if fallback.calls != 1 {
 		t.Fatalf("Fallback calls = %d, want 1", fallback.calls)
 	}
-	wantBrief := port.BuildRejectionBriefWithoutRaw(brief, firstErr.Error())
-	if second.lastBrief != wantBrief {
-		t.Fatalf("second brief = %q, want %q", second.lastBrief, wantBrief)
+	if second.lastBrief != brief {
+		t.Fatalf("second brief = %q, want %q", second.lastBrief, brief)
 	}
 }
 
