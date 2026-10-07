@@ -37,8 +37,7 @@ const MaxRetryAfter = 30 * time.Second
 const StreamBufferBytes = 1 << 20
 
 const (
-	// usageLimitExceededCode は Cursor が利用枠の喪失を 400 の body で示す文字列。
+	// what: Cursor が利用枠の喪失を 400 の body で示す文字列。
 	usageLimitExceededCode = "usage_limit_exceeded"
-	// scanBufferInitialBytes は SSE scanner buffer の初期容量。上限は StreamBufferBytes。
 	scanBufferInitialBytes = 64 * 1024
 )
