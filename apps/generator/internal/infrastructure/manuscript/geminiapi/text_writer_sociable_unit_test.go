@@ -29,7 +29,8 @@ import (
 // port.BuildRejectionBrief で組んだ brief で TextWriterMaxAttempts 回まで再試行 / 使い切ったら
 // port.ErrDraftRejected を wrap し port.LastAttempt を chain へ含める / generateContent が retry
 // しない error で抜けるとき、直前 attempt の raw/buildErr があれば port.LastAttempt として chain
-// へ含め、無ければ透過する / HTTP 層の retry 方針（429 backoff・5xx 1 回・その他非 retry）は既存のまま。
+// へ含め、無ければ透過する / HTTP 層の方針は fetchRetryKind が決める（Retry-After 付き 429 だけ backoff、
+// 5xx・通信断は 1 回再試行、使い切りと Retry-After 無しの 429 は fallback へ渡し、その他は再試行しない）。
 
 const fakeAPIKey = "gemini-fake-key-must-not-leak"
 
@@ -181,6 +182,19 @@ func successResponse(finishReason string, texts ...string) fakeClientResponse {
 		header: http.Header{"Content-Type": {"application/json"}},
 		body:   generateContentBody(finishReason, texts...),
 	}
+}
+
+// retryAfterRateLimitedResponses は Retry-After で回復を明示した 429 応答を n 件並べる。
+func retryAfterRateLimitedResponses(n int) []fakeClientResponse {
+	responses := make([]fakeClientResponse, 0, n)
+	for i := 0; i < n; i++ {
+		responses = append(responses, fakeClientResponse{
+			status: http.StatusTooManyRequests,
+			header: http.Header{"Retry-After": {"1"}},
+			body:   `{"error":"rate limited"}`,
+		})
+	}
+	return responses
 }
 
 func assertGeminiInfraError(t *testing.T, err error) {
@@ -510,15 +524,7 @@ func TestGenerateContent_notifiesRetryReporter_on429BeforeEachBackoff(t *testing
 	t.Parallel()
 
 	// Given: server が Retry-After で回復を明示した 429 を MaxAttempts 回返し続ける
-	responses := make([]fakeClientResponse, 0, MaxAttempts)
-	for i := 0; i < MaxAttempts; i++ {
-		responses = append(responses, fakeClientResponse{
-			status: http.StatusTooManyRequests,
-			header: http.Header{"Retry-After": {"1"}},
-			body:   `{"error":"rate limited"}`,
-		})
-	}
-	w, _, _, retry := newFakeTextWriterWithSpies(responses...)
+	w, _, _, retry := newFakeTextWriterWithSpies(retryAfterRateLimitedResponses(MaxAttempts)...)
 
 	// When: Write する
 	_, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
@@ -692,13 +698,13 @@ func TestClassifyFailedStatus_returnsRetryKindAndWait_perStatusAndRetryAfter(t *
 	}{
 		{"429 Retry-After 付き", http.StatusTooManyRequests, http.Header{"Retry-After": {"3"}}, retryRateLimited, 3 * time.Second},
 		{"429 Retry-After 過大はクランプ", http.StatusTooManyRequests, http.Header{"Retry-After": {"999999"}}, retryRateLimited, MaxRetryAfter},
-		{"429 Retry-After 無し", http.StatusTooManyRequests, nil, retryExhausted, 0},
-		{"429 Retry-After 解釈不能", http.StatusTooManyRequests, http.Header{"Retry-After": {"soon"}}, retryExhausted, 0},
-		{"500", http.StatusInternalServerError, nil, retryServerErrorOnce, 0},
-		{"503", http.StatusServiceUnavailable, nil, retryServerErrorOnce, 0},
+		{"429 Retry-After 無し", http.StatusTooManyRequests, nil, retryFallback, 0},
+		{"429 Retry-After 解釈不能", http.StatusTooManyRequests, http.Header{"Retry-After": {"soon"}}, retryFallback, 0},
+		{"500", http.StatusInternalServerError, nil, retryOnce, 0},
+		{"503", http.StatusServiceUnavailable, nil, retryOnce, 0},
 		{"400 は bug", http.StatusBadRequest, nil, retryNone, 0},
-		{"401", http.StatusUnauthorized, nil, retryNone, 0},
-		{"403", http.StatusForbidden, nil, retryNone, 0},
+		{"401 は credential 失効", http.StatusUnauthorized, nil, retryFallback, 0},
+		{"403 は credential 失効", http.StatusForbidden, nil, retryFallback, 0},
 		{"404", http.StatusNotFound, nil, retryNone, 0},
 	}
 	for _, tc := range cases {
@@ -739,7 +745,7 @@ func TestWrite_retriesOnceThenSucceeds_whenBodyReadIsInterrupted(t *testing.T) {
 	}
 }
 
-func TestWrite_doesNotRetryTwice_whenBodyReadInterruptionPersists(t *testing.T) {
+func TestWrite_wrapsSourceExhaustedAfterOneRetry_whenBodyReadInterruptionPersists(t *testing.T) {
 	t.Parallel()
 
 	// Given: body 読み取り途中断が 2 回続く
@@ -751,9 +757,34 @@ func TestWrite_doesNotRetryTwice_whenBodyReadInterruptionPersists(t *testing.T) 
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
 
-	// Then: 即再試行は 1 回だけ（calls == 2）で read_body の Infrastructure Error
+	// Then: 即再試行は 1 回だけ（calls == 2）で、次 source へ渡せる番兵と read_body の Infrastructure Error
 	assertGeminiInfraErrorOp(t, err, "read_body")
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v", err)
+	}
 	assertDraftEqual(t, got, models.ManuscriptDraft{})
+	if len(rt.calls) != 2 {
+		t.Fatalf("call count = %d, want 2", len(rt.calls))
+	}
+}
+
+func TestWrite_wrapsSourceExhaustedAfterOneRetry_whenDoErrorPersists(t *testing.T) {
+	t.Parallel()
+
+	// Given: client.Do error が 2 回続く（client 起因か server 起因かは区別できない）
+	w, rt := newFakeTextWriter(
+		fakeClientResponse{err: errors.New("connection reset")},
+		fakeClientResponse{err: errors.New("connection reset")},
+	)
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
+
+	// Then: 即再試行は 1 回だけ（calls == 2）で、次 source へ渡せる番兵と do の Infrastructure Error
+	assertGeminiInfraErrorOp(t, err, "do")
+	if !errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v", err)
+	}
 	if len(rt.calls) != 2 {
 		t.Fatalf("call count = %d, want 2", len(rt.calls))
 	}
@@ -763,15 +794,7 @@ func TestWrite_wrapsSourceExhausted_afterTierFreeUsesAll429Attempts(t *testing.T
 	t.Parallel()
 
 	// Given: server が Retry-After で回復を明示した 429 を MaxAttempts 回返し続ける
-	responses := make([]fakeClientResponse, 0, MaxAttempts)
-	for i := 0; i < MaxAttempts; i++ {
-		responses = append(responses, fakeClientResponse{
-			status: http.StatusTooManyRequests,
-			header: http.Header{"Retry-After": {"1"}},
-			body:   `{"error":"rate limited"}`,
-		})
-	}
-	w, rt, spy := newFakeTextWriterWithSleepSpy(responses...)
+	w, rt, spy := newFakeTextWriterWithSleepSpy(retryAfterRateLimitedResponses(MaxAttempts)...)
 
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
@@ -794,15 +817,7 @@ func TestWrite_wrapsSourceExhausted_afterTierPaidUsesAll429Attempts(t *testing.T
 	t.Parallel()
 
 	// Given: paid source が Retry-After 付きの 429 を MaxAttempts 回返し続ける
-	responses := make([]fakeClientResponse, 0, MaxAttempts)
-	for i := 0; i < MaxAttempts; i++ {
-		responses = append(responses, fakeClientResponse{
-			status: http.StatusTooManyRequests,
-			header: http.Header{"Retry-After": {"1"}},
-			body:   `{"error":"rate limited"}`,
-		})
-	}
-	w, _, _ := newFakeTextWriterWithSleepSpy(responses...)
+	w, _, _ := newFakeTextWriterWithSleepSpy(retryAfterRateLimitedResponses(MaxAttempts)...)
 	w.tier = TierPaid
 
 	// When: Write する
@@ -867,7 +882,7 @@ func TestWrite_wrapsSourceExhaustedWithoutWaiting_when429DeclaresNoRecovery(t *t
 			// When: Write する
 			_, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
 
-			// Then: retry も待ちもせず 1 call で枯渇番兵を返す
+			// Then: retry も待ちもせず 1 call で fallback へ渡す番兵を返す
 			assertGeminiInfraErrorOp(t, err, "http_status")
 			if !errors.Is(err, port.ErrSourceExhausted) {
 				t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v", err)
@@ -882,31 +897,50 @@ func TestWrite_wrapsSourceExhaustedWithoutWaiting_when429DeclaresNoRecovery(t *t
 	}
 }
 
-func TestWrite_doesNotRetry_whenClientErrorStatus(t *testing.T) {
+func TestWrite_wrapsSourceExhaustedWithoutRetry_whenCredentialIsRejected(t *testing.T) {
 	t.Parallel()
 
-	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusBadRequest} {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden} {
 		status := status
 		t.Run(strconv.Itoa(status), func(t *testing.T) {
 			t.Parallel()
 
-			// Given: client error status を返す
+			// Given: API key の失効を示す status を返す
 			w, rt := newFakeTextWriter(fakeClientResponse{status: status, body: `{"error":"denied"}`})
 
 			// When: Write する
 			got, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
 
-			// Then: 非 retry（calls == 1）で *adaptererror.Error、draft は zero value
+			// Then: 非 retry（calls == 1）で、次 source へ渡せる番兵と *adaptererror.Error
 			assertGeminiInfraErrorOp(t, err, "http_status")
+			if !errors.Is(err, port.ErrSourceExhausted) {
+				t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = false: %v", err)
+			}
 			assertDraftEqual(t, got, models.ManuscriptDraft{})
 			if len(rt.calls) != 1 {
 				t.Fatalf("call count = %d, want 1", len(rt.calls))
 			}
-			// geminiapi は secondary。番兵 port.ErrSourceExhausted を出す相手がいない。
-			if errors.Is(err, port.ErrSourceExhausted) {
-				t.Fatalf("errors.Is(err, port.ErrSourceExhausted) が true: %v", err)
-			}
 		})
+	}
+}
+
+func TestWrite_doesNotRetryOrWrap_whenRequestIsMalformed(t *testing.T) {
+	t.Parallel()
+
+	// Given: 呼び出し側の誤りを示す 400 を返す
+	w, rt := newFakeTextWriter(fakeClientResponse{status: http.StatusBadRequest, body: `{"error":"bad request"}`})
+
+	// When: Write する
+	got, err := w.Write(context.Background(), "原稿を書いて", validBuildFn)
+
+	// Then: 非 retry（calls == 1）で、bug として番兵で wrap せず返す
+	assertGeminiInfraErrorOp(t, err, "http_status")
+	if errors.Is(err, port.ErrSourceExhausted) {
+		t.Fatalf("errors.Is(err, port.ErrSourceExhausted) = true: %v", err)
+	}
+	assertDraftEqual(t, got, models.ManuscriptDraft{})
+	if len(rt.calls) != 1 {
+		t.Fatalf("call count = %d, want 1", len(rt.calls))
 	}
 }
 
