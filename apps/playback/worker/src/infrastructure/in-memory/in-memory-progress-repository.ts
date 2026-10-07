@@ -11,11 +11,6 @@ import type {
 
 type EpisodeProgress = ProgressUpdatedEntry["progress"];
 
-type StoredProgress = {
-  readonly progress: EpisodeProgress;
-  readonly version: ProgressVersion;
-};
-
 /**
  * 進捗行をメモリ上の Map に保持して動く `ProgressRepository`。local development・in-memory mode・
  * UseCase test が、状態を持つ代替として使う。
@@ -28,7 +23,7 @@ type StoredProgress = {
  * @invariant 保持する行は instance ごとに独立し、プロセスを越えて残らない
  */
 export class InMemoryProgressRepository implements ProgressRepository {
-  private readonly store = new Map<string, StoredProgress>();
+  private readonly store = new Map<string, VersionedProgress>();
   private lastVersion = 0;
 
   constructor(seed: readonly ProgressUpsertRow[] = []) {

@@ -34,6 +34,14 @@ const replacedA: ProgressUpsertRow = {
   lastPlayedAt: "2026-09-17T00:00:00.000Z",
 };
 
+const intermediateA: ProgressUpsertRow = {
+  episodeId: "ep-a",
+  positionSec: 50,
+  firstPlayedAt: "2026-09-03T00:00:00.000Z",
+  firstCompletedAt: null,
+  lastPlayedAt: "2026-09-12T00:00:00.000Z",
+};
+
 async function readVersion(
   repository: InMemoryProgressRepository,
   episodeId: string,
@@ -129,20 +137,21 @@ describe("InMemoryProgressRepository", () => {
 
   describe("getProgressWithVersion", () => {
     it("returns_progress_with_version_when_row_is_seeded", async () => {
-      // Given: ep-a を seed した repository
-      const repository = new InMemoryProgressRepository([rowA]);
+      // Given: ep-a、ep-b の順で seed し、後に seed した ep-b の版を読んだ repository
+      const repository = new InMemoryProgressRepository([rowA, rowB]);
+      const versionOfLaterSeed = await readVersion(repository, "ep-b");
 
-      // When: 版つきで取得する
+      // When: ep-a を版つきで取得する
       const got = await repository.getProgressWithVersion("ep-a");
 
-      // Then: 進捗本体と版が返る
+      // Then: 進捗本体が返り、版は後に seed した行より小さい
       expect(got?.progress).toEqual({
         positionSec: 10,
         firstPlayedAt: "2026-09-01T00:00:00.000Z",
         firstCompletedAt: null,
         lastPlayedAt: "2026-09-10T12:00:00.000Z",
       });
-      expect(got?.version).toBeTypeOf("number");
+      expect(got?.version).toBeLessThan(versionOfLaterSeed);
     });
 
     it("returns_null_when_row_is_missing", async () => {
@@ -177,24 +186,30 @@ describe("InMemoryProgressRepository", () => {
       });
     });
 
-    it("returns_conflict_and_keeps_row_when_expected_version_is_stale", async () => {
-      // Given: 版を読んだ後に、別の書込で行の版が進んだ repository
+    it("returns_conflict_and_writes_nothing_when_expected_version_is_stale", async () => {
+      // Given: 古い版を読んだ後に、seed と別の値で書込が入り、行の版が進んだ repository
       const repository = new InMemoryProgressRepository([rowA]);
       const staleVersion = await readVersion(repository, "ep-a");
-      await repository.upsertProgressIfVersion(rowA, staleVersion);
+      await repository.upsertProgressIfVersion(intermediateA, staleVersion);
+      const versionBeforeConflict = await readVersion(repository, "ep-a");
+      const cursorBeforeConflict = (await repository.listChangedAfter("0")).cursor;
 
       // When: 古い版を期待値にして別の値を書く
       const got = await repository.upsertProgressIfVersion(replacedA, staleVersion);
       const stored = await repository.getByEpisodeIds(["ep-a"]);
+      const versionAfterConflict = await readVersion(repository, "ep-a");
+      const changes = await repository.listChangedAfter("0");
 
-      // Then: conflict を返し、行は直前の書込のまま
+      // Then: conflict を返し、行の値と版と cursor は途中の書込のまま動かない
       expect(got).toBe("conflict");
       expect(stored.get("ep-a")).toEqual({
-        positionSec: 10,
-        firstPlayedAt: "2026-09-01T00:00:00.000Z",
+        positionSec: 50,
+        firstPlayedAt: "2026-09-03T00:00:00.000Z",
         firstCompletedAt: null,
-        lastPlayedAt: "2026-09-10T12:00:00.000Z",
+        lastPlayedAt: "2026-09-12T00:00:00.000Z",
       });
+      expect(versionAfterConflict).toBe(versionBeforeConflict);
+      expect(changes.cursor).toBe(cursorBeforeConflict);
     });
 
     it("returns_conflict_and_writes_nothing_when_expected_version_is_given_but_row_is_missing", async () => {
