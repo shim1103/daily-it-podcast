@@ -32,8 +32,7 @@ func NewTextWriter(sources []port.TextWriter, fallback port.FallbackReporter) *T
 
 // Write は sources を先頭から順に試す。
 //
-// @require brief は trim 後に非空。違反時は domainerrors.DomainErr(OpEmptyBrief) を返し source を呼ばない。
-// @require buildFn は非 nil。各 source.Write へそのまま渡す。
+// @ensure brief が trim 後に空なら domainerrors.DomainErr(OpEmptyBrief) を返し、source を呼ばない。
 // @ensure ある source が成功したら即その draft を返し、以降の source を呼ばない。
 // @ensure source の error が port.ErrSourceExhausted または port.ErrDraftRejected を含むとき、
 // fallback.Fallback を呼んでから次 source へ切り替える。次 source へ渡す brief は、error chain から
