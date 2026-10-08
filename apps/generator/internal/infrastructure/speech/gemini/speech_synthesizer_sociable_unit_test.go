@@ -1412,24 +1412,29 @@ func TestQuotaExceeded_returnsFalse_whenBodyInvalidJSON(t *testing.T) {
 	}
 }
 
-func TestToSpeechAudio_returnsInfrastructureError_whenWAVCorrupt(t *testing.T) {
+func TestDecodeWAV_returnsError_whenWAVCorrupt(t *testing.T) {
 	t.Parallel()
 
-	// Given: 壊れた WAV bytes
-	corrupt := []byte("not-a-wav-byte-stream")
+	// Given: 不正な WAV（RIFF/WAVE header が無い）を base64 化した Interaction 応答
+	corruptWAV := []byte("not-a-wav-byte-stream")
+	body, err := json.Marshal(map[string]any{
+		"steps": []map[string]any{
+			{
+				"content": []map[string]any{
+					{"data": base64.StdEncoding.EncodeToString(corruptWAV)},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
 
-	// When: toSpeechAudio する
-	_, err := toSpeechAudio(corrupt)
+	// When: decodeWAV する
+	_, _, err = decodeWAV(body)
 
-	// Then: wav_duration Infrastructure Error
+	// Then: error（WAV header 解析失敗）
 	if err == nil {
-		t.Fatal("expected error")
-	}
-	var infra *adaptererror.Error
-	if !errors.As(err, &infra) {
-		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, infra)
-	}
-	if infra.Op != "wav_duration" {
-		t.Fatalf("Op = %q, want %q", infra.Op, "wav_duration")
+		t.Fatal("expected error for corrupt WAV")
 	}
 }

@@ -156,12 +156,11 @@ func (s *SpeechSynthesizer) synthesizeOne(ctx context.Context, text string, maxA
 	run := &segmentRun{maxAttempts: max(maxAttempts, 1)}
 	for {
 		s.waitCallGap()
-		wav, failure := s.fetchWAV(ctx, trimmed)
+		wav, duration, failure := s.fetchWAV(ctx, trimmed)
 		s.stampCallFinished()
 		run.calls++
 		if failure == nil {
-			audio, err := toSpeechAudio(wav)
-			return audio, run.calls, err
+			return toSpeechAudio(wav, duration), run.calls, nil
 		}
 		run.recordFailure(failure)
 		if run.shouldGiveUp(failure) {
@@ -215,12 +214,8 @@ func sameGeminiOp(prev, cur error) bool {
 	return prevErr.Source == curErr.Source && prevErr.Op == curErr.Op
 }
 
-func toSpeechAudio(wav []byte) (models.SpeechAudio, error) {
-	duration, err := wavDurationSec(wav)
-	if err != nil {
-		return models.SpeechAudio{}, infraErr("wav_duration", err)
-	}
-	return models.SpeechAudio{Content: wav, DurationSec: duration}, nil
+func toSpeechAudio(wav []byte, duration float64) models.SpeechAudio {
+	return models.SpeechAudio{Content: wav, DurationSec: duration}
 }
 
 func (s *SpeechSynthesizer) waitCallGap() {
@@ -344,41 +339,41 @@ func wrapForFallback(kind speechFetchRetryKind, err error) error {
 	return fmt.Errorf("%w: %w", port.ErrSourceExhausted, err)
 }
 
-func (s *SpeechSynthesizer) fetchWAV(ctx context.Context, transcript string) ([]byte, *fetchFailure) {
+func (s *SpeechSynthesizer) fetchWAV(ctx context.Context, transcript string) ([]byte, float64, *fetchFailure) {
 	req, err := s.newSynthesizeRequest(ctx, transcript)
 	if err != nil {
-		return nil, failedFetch(wavRetryNone, err)
+		return nil, 0, failedFetch(wavRetryNone, err)
 	}
 	res, err := s.client.Do(req)
 	if err != nil {
-		return nil, failedFetch(wavRetryTransient, infraErr("do", err))
+		return nil, 0, failedFetch(wavRetryTransient, infraErr("do", err))
 	}
 	defer func() { _ = res.Body.Close() }()
 
 	raw, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, failedFetch(wavRetryTransient, infraErr("read_body", err))
+		return nil, 0, failedFetch(wavRetryTransient, infraErr("read_body", err))
 	}
 
 	if detectProhibitedContent(raw) {
-		return nil, failedFetch(wavRetryNone, infraErr("prohibited_content", errors.New(prohibitedContentMarker)))
+		return nil, 0, failedFetch(wavRetryNone, infraErr("prohibited_content", errors.New(prohibitedContentMarker)))
 	}
 
 	if res.StatusCode != http.StatusOK {
 		kind, wait := s.classifyFailedStatus(res.StatusCode, res.Header, raw)
-		return nil, &fetchFailure{
+		return nil, 0, &fetchFailure{
 			kind:          kind,
 			err:           infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw))),
 			suggestedWait: wait,
 		}
 	}
 
-	wav, err := decodeWAV(raw)
+	wav, duration, err := decodeWAV(raw)
 	if err != nil {
 		// why: audio 欠落・極小音声は公式 Limitation の一過性劣化なので Transient にする。原因（finish_reason / safety / body 内 quota）を後から読めるよう、応答本文の snippet を error に載せる。
-		return nil, failedFetch(wavRetryTransient, infraErr("decode_wav", fmt.Errorf("%w; response body: %s", err, httpdiag.BodySnippet(raw))))
+		return nil, 0, failedFetch(wavRetryTransient, infraErr("decode_wav", fmt.Errorf("%w; response body: %s", err, httpdiag.BodySnippet(raw))))
 	}
-	return wav, nil
+	return wav, duration, nil
 }
 
 func (s *SpeechSynthesizer) newSynthesizeRequest(ctx context.Context, transcript string) (*http.Request, error) {
@@ -459,19 +454,20 @@ func rateLimitExceeded(raw []byte) bool {
 	return errorCode(raw) == errorCodeRateLimitExceeded
 }
 
-func decodeWAV(body []byte) ([]byte, error) {
+func decodeWAV(body []byte) ([]byte, float64, error) {
 	data, err := extractAudioBase64(body)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	wav, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	if err := validateAudioWAV(wav); err != nil {
-		return nil, err
+	duration, err := validateAudioWAV(wav)
+	if err != nil {
+		return nil, 0, err
 	}
-	return wav, nil
+	return wav, duration, nil
 }
 
 func extractAudioBase64(body []byte) (string, error) {
@@ -487,19 +483,19 @@ func extractAudioBase64(body []byte) (string, error) {
 	return data, nil
 }
 
-func validateAudioWAV(wav []byte) error {
+func validateAudioWAV(wav []byte) (float64, error) {
 	if len(wav) == 0 {
-		return fmt.Errorf("output audio is empty")
+		return 0, fmt.Errorf("output audio is empty")
 	}
 	duration, err := wavDurationSec(wav)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	// why: HTTP 200 で返る極小音声は実質無音の一過性劣化。audio 欠落と同じく fetchWAV が Transient にする。
 	if duration < minSpeechDurationSec {
-		return fmt.Errorf("output audio is too short: %.2fs < %.1fs", duration, minSpeechDurationSec)
+		return 0, fmt.Errorf("output audio is too short: %.2fs < %.1fs", duration, minSpeechDurationSec)
 	}
-	return nil
+	return duration, nil
 }
 
 // why: 実 Interactions API の audio base64 は steps[].content[].data に入る。steps[0].content[0] へ決め打ちせず、空を飛ばして最初に見つかった data を採る。
