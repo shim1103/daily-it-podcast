@@ -1,5 +1,5 @@
 ---
-name: generator fuzzing は stdlib で PCM to WAV の local bounded fuzz から始める
+name: generator fuzzing は stdlib で WAV 再生尺算出（wavDurationSec）の local bounded fuzz から始める
 date: 2026-08-22T17:57:00
 branch: chore/generator-ci-test-configuration-hardening
 ---
