@@ -3,13 +3,10 @@ package gemini
 import "time"
 
 const (
-	// why: 公式 Interactions TTS preview。変更は Adapter 定数だけで閉じる。
-	ModelID     = "gemini-3.1-flash-tts-preview"
+	// why: 公式 Interactions TTS 3.8 Flash。変更は Adapter 定数だけで閉じる。
+	ModelID     = "gemini-3.8-flash-tts"
 	VoiceName   = "Charon"
 	EndpointURL = "https://generativelanguage.googleapis.com/v1beta/interactions"
-	// why: 公式 Limitation。演出文を読み上げないよう preamble と Transcript ラベルを分ける。
-	EnvelopePreamble = "Synthesize the following speech. Read only the transcript below.\n\n"
-	TranscriptLabel  = "#### TRANSCRIPT\n"
 )
 
 const (
@@ -34,7 +31,7 @@ const MaxAttempts = 3
 const maxConsecutiveSameOp = 2
 
 // SynthesizeBudget は TierFree での 1 度の SynthesizeAll 呼び出し全体で許す Gemini 呼び出しの合計上限。
-// why: AI Studio 実測 RPD=10（gemini-3.1-flash-tts-preview）を 1 episode で焼き切らないため、
+// why: AI Studio 実測 RPD=10（gemini-3.8-flash-tts）を 1 episode で焼き切らないため、
 // セグメント単位の MaxAttempts ではなく呼び出し群の合計で絞る（Decision 2026-09-16T11-41-59）。
 const SynthesizeBudget = 10
 
@@ -53,7 +50,7 @@ const (
 )
 
 // defaultCallGap は client.Do どうしの最小間隔（成功・失敗を問わない）の既定値。
-// why: AI Studio 実測 RPM=10（gemini-3.1-flash-tts-preview）を根拠に callGap = 60/RPM = 6s へ
+// why: AI Studio 実測 RPM=10 を根拠に callGap = 60/RPM = 6s へ
 // 改める（Decision 2026-09-16T11-41-59）。旧 20s は無料枠 3 RPM 前提（Decision 2026-09-02T13-56-00）
 // だったが、実測値と乖離していたため式ごと差し替える。RPM が変われば 60/RPM を計算し直すこと。
 const defaultCallGap = 6 * time.Second
@@ -63,21 +60,5 @@ const defaultCallGap = 6 * time.Second
 // Composition から渡る *http.Client は全体 timeout を持たないので、この値は Adapter が付け直す。
 const httpCallTimeout = 5 * time.Minute
 
-// Gemini TTS が返す raw PCM の形式（公式 L16: 24 kHz / 16-bit / mono）。
-// WAV wrap と decode の前提。HTTP 定数（ModelID 等）とは別責務。
-const (
-	pcmSampleRate = 24000
-	pcmChannels   = 1
-	pcmBitDepth   = 16
-	pcmByteRate   = pcmSampleRate * pcmChannels * pcmBitDepth / 8
-)
-
-// minSpeechDurationSec は「実質無音でない」とみなす raw PCM の最小尺（秒）。
+// minSpeechDurationSec は「実質無音でない」とみなす朗読音声の最小尺（秒）。
 const minSpeechDurationSec = 0.5
-
-// minPCMBytes は minSpeechDurationSec 相当の raw PCM バイト数。これ未満の PCM は
-// 非空でも「実質無音の極小応答」として retryable な decode 失敗に落とす。
-// why: Gemini が HTTP 200 で len(pcm)==2（1 サンプル ≒ 1/24000 秒）のような極小 PCM を
-// 返すことがある。decode_pcm の audio 欠落 500 相当と同じ一過性劣化なので、
-// Adapter のループ内で retry し、非空・最小尺の WAV を contract として保証する。
-const minPCMBytes = int(pcmSampleRate * pcmChannels * (pcmBitDepth / 8) * minSpeechDurationSec)
