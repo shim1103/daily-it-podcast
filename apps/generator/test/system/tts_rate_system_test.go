@@ -98,8 +98,8 @@ func rateMeasureDraft(prefaceLen, detailLen, introLen, closingLen int) models.Ma
 	preface := jpFiller(prefaceLen, prefaceSentence)
 	detail := jpFiller(detailLen, detailSentence)
 	return models.ManuscriptDraft{
-		Title:          "きょうの IT ニュースまとめ回",
-		OpeningIntro:          jpFiller(introLen, "本日は注目の発表をまとめてお届けします。"),
+		Title:         "きょうの IT ニュースまとめ回",
+		OpeningIntro:  jpFiller(introLen, "本日は注目の発表をまとめてお届けします。"),
 		EndingSummary: jpFiller(closingLen, "本日取り上げた話題を振り返ります。"),
 		Topics: []models.ManuscriptDraftTopic{
 			{Title: "話題一の見出しです", Preface: preface, Detail: detail},

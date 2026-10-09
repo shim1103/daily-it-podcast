@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -34,17 +35,17 @@ func (s *retryReporterSpy) Retry(step string, attempt, maxAttempts int, reason s
 	s.calls++
 }
 
-// why: minPCMBytes 未満だと decodePCM が極小 PCM として一過性の失敗に落とすため、閾値を超える長さにする。
-func minimalPCM() []byte {
-	return make([]byte, 2*minPCMBytes)
+// why: minSpeechDurationSec 未満だと decodeWAV が極小音声として一過性の失敗に落とすため、閾値を超える長さにする。
+func minimalWAV() []byte {
+	return synthHelperWAV(1, 24000, 16, 1.0)
 }
 
-func audioInteractionResponse(pcm []byte) map[string]any {
+func audioInteractionResponse(wav []byte) map[string]any {
 	return map[string]any{
 		"status": "completed",
 		"steps": []map[string]any{
 			{"content": []map[string]any{
-				{"data": base64.StdEncoding.EncodeToString(pcm)},
+				{"data": base64.StdEncoding.EncodeToString(wav)},
 			}},
 		},
 	}
@@ -217,7 +218,7 @@ func TestSynthesizeAll_succeedsForAllTexts_whenEveryCallReturnsAudio(t *testing.
 	for i := range responses {
 		responses[i] = fakeClientResponse{
 			status: http.StatusOK,
-			body:   jsonBody(t, audioInteractionResponse(minimalPCM())),
+			body:   jsonBody(t, audioInteractionResponse(minimalWAV())),
 		}
 	}
 	synth, rt := newFakeSynthesizer(responses...)
@@ -243,15 +244,13 @@ func TestSynthesizeAll_succeedsForAllTexts_whenEveryCallReturnsAudio(t *testing.
 }
 
 func TestSynthesizeAll_fillsDurationSecOfEachContent_whenEveryCallReturnsAudio(t *testing.T) {
-	// Given: 尺の異なる既知長 PCM を返す 2 回の呼び出し（24 kHz / 16-bit / mono = 48000 byte/秒）
-	const bytesPerSecond = 48000
-	pcmLengths := []int{bytesPerSecond * 3 / 2, bytesPerSecond * 5 / 2} // 1.5 秒, 2.5 秒
+	// Given: 尺の異なる既知長 WAV を返す 2 回の呼び出し
 	wantDurations := []float64{1.5, 2.5}
-	responses := make([]fakeClientResponse, len(pcmLengths))
-	for i, n := range pcmLengths {
+	responses := make([]fakeClientResponse, len(wantDurations))
+	for i, d := range wantDurations {
 		responses[i] = fakeClientResponse{
 			status: http.StatusOK,
-			body:   jsonBody(t, audioInteractionResponse(make([]byte, n))),
+			body:   jsonBody(t, audioInteractionResponse(synthHelperWAV(1, 24000, 16, d))),
 		}
 	}
 	synth, _ := newFakeSynthesizer(responses...)
@@ -259,7 +258,7 @@ func TestSynthesizeAll_fillsDurationSecOfEachContent_whenEveryCallReturnsAudio(t
 	// When: SynthesizeAll する
 	got, err := synth.SynthesizeAll(context.Background(), []string{"一本目", "二本目"})
 
-	// Then: 各要素の DurationSec が PCM 長から求めた秒数と一致する（0 のまま残らない）
+	// Then: 各要素の DurationSec が WAV から求めた秒数と一致する（0 のまま残らない）
 	if err != nil {
 		t.Fatalf("SynthesizeAll: %v", err)
 	}
@@ -267,7 +266,7 @@ func TestSynthesizeAll_fillsDurationSecOfEachContent_whenEveryCallReturnsAudio(t
 		t.Fatalf("audios = %d, want %d", len(got), len(wantDurations))
 	}
 	for i, a := range got {
-		if a.DurationSec != wantDurations[i] {
+		if math.Abs(a.DurationSec-wantDurations[i]) > 1e-4 {
 			t.Fatalf("audios[%d].DurationSec = %v, want %v", i, a.DurationSec, wantDurations[i])
 		}
 	}
@@ -309,11 +308,11 @@ func TestSynthesizeAll_consumesBudgetAcrossSegments_thenErrorsWhenExhausted(t *t
 	for seg := 0; seg < fullSegments; seg++ {
 		responses = append(responses,
 			fakeClientResponse{status: http.StatusServiceUnavailable, body: jsonBody(t, map[string]any{"error": "UNAVAILABLE"})},
-			fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
+			fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalWAV()))},
 		)
 	}
 	// 6 本目用の応答も足しておく（予算切れで呼ばれないことを assert する）。
-	responses = append(responses, fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))})
+	responses = append(responses, fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalWAV()))})
 	synth, rt := newFakeSynthesizer(responses...)
 
 	// When: SynthesizeAll する
@@ -345,7 +344,7 @@ func TestSynthesizeAll_capsLastSegmentAttemptsToRemainingBudget(t *testing.T) {
 	}
 	var responses []fakeClientResponse
 	for i := 0; i < SynthesizeBudget-1; i++ {
-		responses = append(responses, fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))})
+		responses = append(responses, fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalWAV()))})
 	}
 	// 最後のセグメント用に 503 を複数積む（1 回しか呼ばれないはず）。
 	responses = append(responses,
@@ -374,7 +373,7 @@ func TestSynthesizeAll_capsSingleSegmentAtMaxAttempts_whenBudgetRemains(t *testi
 	responses := []fakeClientResponse{
 		{status: http.StatusServiceUnavailable, body: jsonBody(t, map[string]any{"error": "UNAVAILABLE"})},
 		{status: http.StatusServiceUnavailable, body: jsonBody(t, map[string]any{"error": "UNAVAILABLE"})},
-		{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
+		{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalWAV()))},
 	}
 	synth, rt := newFakeSynthesizer(responses...)
 
@@ -400,7 +399,7 @@ func TestSynthesizeAll_consumesPaidBudget_whenTierPaid(t *testing.T) {
 	}
 	responses := make([]fakeClientResponse, len(texts))
 	for i := range responses {
-		responses[i] = fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))}
+		responses[i] = fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalWAV()))}
 	}
 	synth, rt := newFakeSynthesizer(responses...)
 	synth.tier = TierPaid
@@ -498,7 +497,7 @@ func TestSynthesizeOne_retriesTransientError_thenSucceeds(t *testing.T) {
 	// Given: 1 回目 503、2 回目成功
 	synth, rt := newFakeSynthesizer(
 		fakeClientResponse{status: http.StatusServiceUnavailable, body: jsonBody(t, map[string]any{"error": "UNAVAILABLE"})},
-		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
+		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalWAV()))},
 	)
 
 	// When: Synthesize する
@@ -570,7 +569,7 @@ func TestSynthesizeOne_retriesMissingAudio_whenStatusInternalError(t *testing.T)
 	// Given: 1 回目 500（audio 欠落）、2 回目成功
 	synth, rt := newFakeSynthesizer(
 		fakeClientResponse{status: http.StatusInternalServerError, body: jsonBody(t, map[string]any{"error": "internal"})},
-		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
+		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalWAV()))},
 	)
 
 	// When: Synthesize する
@@ -593,7 +592,7 @@ func TestSynthesizeOne_retriesTooManyRequests_thenSucceeds(t *testing.T) {
 	// Given: 1 回目 429（公式 error.code が rate_limit_exceeded）、2 回目成功
 	synth, rt := newFakeSynthesizer(
 		fakeClientResponse{status: http.StatusTooManyRequests, body: jsonBody(t, map[string]any{"error": map[string]any{"code": "rate_limit_exceeded"}})},
-		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
+		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalWAV()))},
 	)
 
 	// When: Synthesize する
@@ -663,7 +662,7 @@ func TestSynthesizeOne_retries429_whenRetryAfterHeaderDeclaresRecovery(t *testin
 			header: http.Header{"Retry-After": {"1"}},
 			body:   jsonBody(t, map[string]any{"error": "RESOURCE_EXHAUSTED"}),
 		},
-		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
+		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalWAV()))},
 	)
 
 	// When: Synthesize する
@@ -872,8 +871,8 @@ func TestParseRetryAfter_returnsZero_whenHeaderMissingOrInvalid(t *testing.T) {
 func TestWaitCallGap_usesInjectedCallGap_whenTuningProvided(t *testing.T) {
 	// Given: 常に成功応答を返す fake client と、待機呼び出しを記録する sleep spy
 	rt := &fakeRoundTripper{responses: []fakeClientResponse{
-		{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
-		{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
+		{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalWAV()))},
+		{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalWAV()))},
 	}}
 	var sleeps []time.Duration
 	const injectedGap = 5 * time.Millisecond
@@ -903,8 +902,8 @@ func TestWaitCallGap_usesInjectedCallGap_whenTuningProvided(t *testing.T) {
 func TestWaitCallGap_skipsWait_whenElapsedExceedsInjectedGap(t *testing.T) {
 	// Given: 成功応答 2 回分の fake client
 	rt := &fakeRoundTripper{responses: []fakeClientResponse{
-		{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
-		{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
+		{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalWAV()))},
+		{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalWAV()))},
 	}}
 	var sleeps []time.Duration
 	synth := NewSpeechSynthesizerWithTuning(&http.Client{Transport: rt}, "gemini-fake-key", TierFree, Tuning{CallGap: time.Second}, nil)
@@ -930,7 +929,7 @@ func TestWaitCallGap_skipsWait_whenElapsedExceedsInjectedGap(t *testing.T) {
 	}
 }
 
-// why: System で `decode_pcm: output audio is missing` が MaxAttempts 尽きても
+// why: System で `decode_wav: output audio is missing` が MaxAttempts 尽きても
 //
 //	応答本文が error に載らず原因（finish_reason / safety / body 内 quota）が読めない（run 33581258235）。
 //	HTTP 200 で audio 欠落のとき、error は本文の bounded snippet を含む。
@@ -962,19 +961,19 @@ func TestSynthesize_includesResponseBodySnippet_whenOutputAudioMissingOnOK(t *te
 	}
 }
 
-func TestBuildInput_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
+func TestBuildInput_structuresTranscriptWithSpeechMetadata_whenCallingProxy(t *testing.T) {
 
 	// Given: 成功応答を返す Client Stub
 	const transcript = "朗読する本文だけ"
 	synth, rt := newFakeSynthesizer(fakeClientResponse{
 		status: http.StatusOK,
-		body:   jsonBody(t, audioInteractionResponse(minimalPCM())),
+		body:   jsonBody(t, audioInteractionResponse(minimalWAV())),
 	})
 
 	// When: Synthesize する
 	_, err := synth.synthTestOne(context.Background(), transcript)
 
-	// Then: envelope + Transcript ラベル + 本文が input へ入る
+	// Then: user_input + text + speech_metadata annotation が input へ入る
 	if err != nil {
 		t.Fatalf("Synthesize: %v", err)
 	}
@@ -985,15 +984,32 @@ func TestBuildInput_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
 	if err := json.Unmarshal(rt.calls[0].Body, &req); err != nil {
 		t.Fatalf("decode request: %v", err)
 	}
-	input, _ := req["input"].(string)
-	if !strings.Contains(input, EnvelopePreamble) {
-		t.Fatalf("input missing preamble: %q", input)
+	input, _ := req["input"].([]any)
+	if len(input) != 1 {
+		t.Fatalf("input len = %d, want 1", len(input))
 	}
-	if !strings.Contains(input, TranscriptLabel) {
-		t.Fatalf("input missing transcript label: %q", input)
+	firstInput, _ := input[0].(map[string]any)
+	if firstInput["type"] != "user_input" {
+		t.Fatalf("input[0].type = %v, want user_input", firstInput["type"])
 	}
-	if !strings.Contains(input, transcript) {
-		t.Fatalf("input missing transcript: %q", input)
+	contentList, _ := firstInput["content"].([]any)
+	if len(contentList) != 1 {
+		t.Fatalf("content len = %d, want 1", len(contentList))
+	}
+	firstContent, _ := contentList[0].(map[string]any)
+	if firstContent["type"] != "text" {
+		t.Fatalf("content[0].type = %v, want text", firstContent["type"])
+	}
+	if firstContent["text"] != transcript {
+		t.Fatalf("content[0].text = %v, want %q", firstContent["text"], transcript)
+	}
+	annotations, _ := firstContent["annotations"].([]any)
+	if len(annotations) != 1 {
+		t.Fatalf("annotations len = %d, want 1", len(annotations))
+	}
+	firstAnnotation, _ := annotations[0].(map[string]any)
+	if firstAnnotation["type"] != "speech_metadata" {
+		t.Fatalf("annotation[0].type = %v, want speech_metadata", firstAnnotation["type"])
 	}
 	genCfg, _ := req["generation_config"].(map[string]any)
 	speechCfg, _ := genCfg["speech_config"].([]any)
@@ -1009,7 +1025,7 @@ func TestBuildInput_wrapsTranscriptWithEnvelope_whenCallingProxy(t *testing.T) {
 	}
 }
 
-func TestFetchPCM_includesResponseBodySnippet_whenClientErrorStatus(t *testing.T) {
+func TestFetchWAV_includesResponseBodySnippet_whenClientErrorStatus(t *testing.T) {
 
 	// Given: 403 応答の body に切り分け用の理由が入っている
 	const reason = "PERMISSION_DENIED"
@@ -1116,7 +1132,7 @@ func TestFetchPCM_retries_whenStatusTooManyRequestsWithRateLimitExceeded(t *test
 			status: http.StatusTooManyRequests,
 			body:   jsonBody(t, map[string]any{"error": map[string]any{"code": "rate_limit_exceeded"}}),
 		},
-		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalPCM()))},
+		fakeClientResponse{status: http.StatusOK, body: jsonBody(t, audioInteractionResponse(minimalWAV()))},
 	)
 
 	// When: Synthesize する
@@ -1164,19 +1180,19 @@ func TestClassifyFailedStatus_returnsRetryKind_perStatusAndErrorCode(t *testing.
 		status   int
 		header   http.Header
 		body     []byte
-		wantKind pcmFetchRetryKind
+		wantKind speechFetchRetryKind
 	}{
-		{"429 rate_limit_exceeded", http.StatusTooManyRequests, nil, body("rate_limit_exceeded"), pcmRetryRateLimited},
-		{"429 Retry-After 付き", http.StatusTooManyRequests, http.Header{"Retry-After": {"2"}}, body("unknown"), pcmRetryRateLimited},
-		{"429 回復の明示なし", http.StatusTooManyRequests, nil, body("unknown"), pcmRetryFallback},
-		{"429 quota_exceeded は Retry-After があっても fallback", http.StatusTooManyRequests, http.Header{"Retry-After": {"2"}}, body("quota_exceeded"), pcmRetryFallback},
-		{"400 quota_exceeded", http.StatusBadRequest, nil, body("quota_exceeded"), pcmRetryFallback},
-		{"401", http.StatusUnauthorized, nil, body("authentication"), pcmRetryFallback},
-		{"403", http.StatusForbidden, nil, body("permission_denied"), pcmRetryFallback},
-		{"400 は bug", http.StatusBadRequest, nil, body("invalid_request"), pcmRetryNone},
-		{"404 は bug", http.StatusNotFound, nil, body("not_found"), pcmRetryNone},
-		{"500", http.StatusInternalServerError, nil, body("internal"), pcmRetryTransient},
-		{"503 service_unavailable", http.StatusServiceUnavailable, nil, body("service_unavailable"), pcmRetryTransient},
+		{"429 rate_limit_exceeded", http.StatusTooManyRequests, nil, body("rate_limit_exceeded"), wavRetryRateLimited},
+		{"429 Retry-After 付き", http.StatusTooManyRequests, http.Header{"Retry-After": {"2"}}, body("unknown"), wavRetryRateLimited},
+		{"429 回復の明示なし", http.StatusTooManyRequests, nil, body("unknown"), wavRetryFallback},
+		{"429 quota_exceeded は Retry-After があっても fallback", http.StatusTooManyRequests, http.Header{"Retry-After": {"2"}}, body("quota_exceeded"), wavRetryFallback},
+		{"400 quota_exceeded", http.StatusBadRequest, nil, body("quota_exceeded"), wavRetryFallback},
+		{"401", http.StatusUnauthorized, nil, body("authentication"), wavRetryFallback},
+		{"403", http.StatusForbidden, nil, body("permission_denied"), wavRetryFallback},
+		{"400 は bug", http.StatusBadRequest, nil, body("invalid_request"), wavRetryNone},
+		{"404 は bug", http.StatusNotFound, nil, body("not_found"), wavRetryNone},
+		{"500", http.StatusInternalServerError, nil, body("internal"), wavRetryTransient},
+		{"503 service_unavailable", http.StatusServiceUnavailable, nil, body("service_unavailable"), wavRetryTransient},
 	}
 	for _, tc := range cases {
 		tc := tc
@@ -1194,10 +1210,10 @@ func TestClassifyFailedStatus_returnsRetryKind_perStatusAndErrorCode(t *testing.
 	}
 }
 
-func TestDecodePCM_extractsAudioFromStepsContentData_whenRealResponseShape(t *testing.T) {
+func TestDecodeWAV_extractsAudioFromStepsContentData_whenRealResponseShape(t *testing.T) {
 
 	// Given: 実 Interactions API そっくりの応答（steps[].content[].data に audio base64）
-	pcm := minimalPCM()
+	wav := minimalWAV()
 	body := map[string]any{
 		"id":           "v1_real_shape",
 		"object":       "interaction",
@@ -1215,7 +1231,7 @@ func TestDecodePCM_extractsAudioFromStepsContentData_whenRealResponseShape(t *te
 		},
 		"steps": []map[string]any{
 			{"content": []map[string]any{
-				{"data": base64.StdEncoding.EncodeToString(pcm)},
+				{"data": base64.StdEncoding.EncodeToString(wav)},
 			}},
 		},
 	}
@@ -1239,9 +1255,9 @@ func TestDecodePCM_extractsAudioFromStepsContentData_whenRealResponseShape(t *te
 	}
 }
 
-func TestDecodePCM_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *testing.T) {
+func TestDecodeWAV_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *testing.T) {
 
-	// Given: HTTP 200 だが output_audio が無い（同種 retryable = Op "decode_pcm"）
+	// Given: HTTP 200 だが output_audio が無い（同種 retryable = Op "decode_wav"）
 	responses := make([]fakeClientResponse, MaxAttempts)
 	for i := range responses {
 		responses[i] = fakeClientResponse{
@@ -1270,11 +1286,11 @@ func TestDecodePCM_returnsInfrastructureError_whenOutputAudioMissingOnOK(t *test
 	}
 }
 
-func TestDecodePCM_retriesTooShortPCM_asTransientDecodeFailure(t *testing.T) {
+func TestDecodeWAV_retriesTooShortWAV_asTransientDecodeFailure(t *testing.T) {
 
-	// Given: HTTP 200 だが尺が minPCMBytes 未満の極小 PCM（1 サンプル）。
-	//        Gemini の一過性劣化なので decode_pcm 相当の retryable として retry される。
-	tinyPCM := []byte{0x00, 0x00}
+	// Given: HTTP 200 だが尺が minSpeechDurationSec 未満の極小 WAV（0.1s）。
+	//        Gemini の一過性劣化なので decode_wav 相当の retryable として retry される。
+	tinyWAV := synthHelperWAV(1, 24000, 16, 0.1)
 	responses := make([]fakeClientResponse, MaxAttempts)
 	for i := range responses {
 		responses[i] = fakeClientResponse{
@@ -1282,7 +1298,7 @@ func TestDecodePCM_retriesTooShortPCM_asTransientDecodeFailure(t *testing.T) {
 			body: jsonBody(t, map[string]any{
 				"steps": []map[string]any{
 					{"content": []map[string]any{
-						{"data": base64.StdEncoding.EncodeToString(tinyPCM)},
+						{"data": base64.StdEncoding.EncodeToString(tinyWAV)},
 					}},
 				},
 			}),
@@ -1291,9 +1307,9 @@ func TestDecodePCM_retriesTooShortPCM_asTransientDecodeFailure(t *testing.T) {
 	synth, rt := newFakeSynthesizer(responses...)
 
 	// When: Synthesize する
-	_, err := synth.synthTestOne(context.Background(), "極小 PCM")
+	_, err := synth.synthTestOne(context.Background(), "極小 WAV")
 
-	// Then: 同種 retryable（Op "decode_pcm"）2 連続で打ち切り Infrastructure Error
+	// Then: 同種 retryable（Op "decode_wav"）2 連続で打ち切り Infrastructure Error
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -1301,17 +1317,17 @@ func TestDecodePCM_retriesTooShortPCM_asTransientDecodeFailure(t *testing.T) {
 	if !errors.As(err, &infra) {
 		t.Fatalf("error type %T (%v), want *adaptererror.Error", err, err)
 	}
-	if infra.Op != "decode_pcm" {
-		t.Fatalf("Op = %q, want %q（極小 PCM は decode_pcm 系 retryable）", infra.Op, "decode_pcm")
+	if infra.Op != "decode_wav" {
+		t.Fatalf("Op = %q, want %q（極小 WAV は decode_wav 系 retryable）", infra.Op, "decode_wav")
 	}
 	if len(rt.calls) != 2 {
 		t.Fatalf("call count = %d, want 2（同種 2 連続打ち切り）", len(rt.calls))
 	}
 }
 
-func TestDecodePCM_returnsInfrastructureError_whenResponseBodyInvalidJSON(t *testing.T) {
+func TestDecodeWAV_returnsInfrastructureError_whenResponseBodyInvalidJSON(t *testing.T) {
 
-	// Given: 壊れた JSON（同種 retryable = Op "decode_pcm"）
+	// Given: 壊れた JSON（同種 retryable = Op "decode_wav"）
 	responses := make([]fakeClientResponse, MaxAttempts)
 	for i := range responses {
 		responses[i] = fakeClientResponse{status: http.StatusOK, body: []byte(`not-json`)}
@@ -1330,9 +1346,9 @@ func TestDecodePCM_returnsInfrastructureError_whenResponseBodyInvalidJSON(t *tes
 	}
 }
 
-func TestDecodePCM_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
+func TestDecodeWAV_returnsInfrastructureError_whenBase64Invalid(t *testing.T) {
 
-	// Given: 不正 base64（同種 retryable = Op "decode_pcm"）
+	// Given: 不正 base64（同種 retryable = Op "decode_wav"）
 	responses := make([]fakeClientResponse, MaxAttempts)
 	for i := range responses {
 		responses[i] = fakeClientResponse{
@@ -1396,30 +1412,29 @@ func TestQuotaExceeded_returnsFalse_whenBodyInvalidJSON(t *testing.T) {
 	}
 }
 
-func TestDecodePCM_returnsInfrastructureError_whenPCMLengthOdd(t *testing.T) {
+func TestDecodeWAV_returnsError_whenWAVCorrupt(t *testing.T) {
+	t.Parallel()
 
-	// Given: 最小尺は満たすが 16-bit 非整列（奇数 byte）の PCM。
-	//        極小 PCM の retryable 判定は抜け、pcmToWAV の非整列拒否（非 retry）に落ちる。
-	oddPCM := make([]byte, minPCMBytes+1)
-	synth, rt := newFakeSynthesizer(fakeClientResponse{
-		status: http.StatusOK,
-		body: jsonBody(t, map[string]any{
-			"steps": []map[string]any{
-				{"content": []map[string]any{
-					{"data": base64.StdEncoding.EncodeToString(oddPCM)},
-				}},
+	// Given: 不正な WAV（RIFF/WAVE header が無い）を base64 化した Interaction 応答
+	corruptWAV := []byte("not-a-wav-byte-stream")
+	body, err := json.Marshal(map[string]any{
+		"steps": []map[string]any{
+			{
+				"content": []map[string]any{
+					{"data": base64.StdEncoding.EncodeToString(corruptWAV)},
+				},
 			},
-		}),
+		},
 	})
-
-	// When: Synthesize する
-	_, err := synth.synthTestOne(context.Background(), "奇数 pcm")
-
-	// Then: pcm 変換失敗（非 retry）
-	if err == nil {
-		t.Fatal("expected error")
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
 	}
-	if len(rt.calls) != 1 {
-		t.Fatalf("call count = %d, want 1", len(rt.calls))
+
+	// When: decodeWAV する
+	_, _, err = decodeWAV(body)
+
+	// Then: error（WAV header 解析失敗）
+	if err == nil {
+		t.Fatal("expected error for corrupt WAV")
 	}
 }

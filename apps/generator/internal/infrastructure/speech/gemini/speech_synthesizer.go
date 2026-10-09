@@ -156,12 +156,11 @@ func (s *SpeechSynthesizer) synthesizeOne(ctx context.Context, text string, maxA
 	run := &segmentRun{maxAttempts: max(maxAttempts, 1)}
 	for {
 		s.waitCallGap()
-		pcm, failure := s.fetchPCM(ctx, trimmed)
+		wav, duration, failure := s.fetchWAV(ctx, trimmed)
 		s.stampCallFinished()
 		run.calls++
 		if failure == nil {
-			audio, err := toSpeechAudio(pcm)
-			return audio, run.calls, err
+			return toSpeechAudio(wav, duration), run.calls, nil
 		}
 		run.recordFailure(failure)
 		if run.shouldGiveUp(failure) {
@@ -190,7 +189,7 @@ type failureStreak struct {
 	count int
 }
 
-func (f *failureStreak) record(kind pcmFetchRetryKind, err error) {
+func (f *failureStreak) record(kind speechFetchRetryKind, err error) {
 	if kind.retryable() && sameGeminiOp(f.last, err) {
 		f.count++
 	} else {
@@ -215,12 +214,8 @@ func sameGeminiOp(prev, cur error) bool {
 	return prevErr.Source == curErr.Source && prevErr.Op == curErr.Op
 }
 
-func toSpeechAudio(pcm []byte) (models.SpeechAudio, error) {
-	wav, err := pcmToWAV(pcm)
-	if err != nil {
-		return models.SpeechAudio{}, infraErr("pcm_to_wav", err)
-	}
-	return models.SpeechAudio{Content: wav, DurationSec: pcmDurationSec(pcm)}, nil
+func toSpeechAudio(wav []byte, duration float64) models.SpeechAudio {
+	return models.SpeechAudio{Content: wav, DurationSec: duration}
 }
 
 func (s *SpeechSynthesizer) waitCallGap() {
@@ -309,76 +304,76 @@ func (s *SpeechSynthesizer) nowFunc() func() time.Time {
 	return s.nowFn
 }
 
-type pcmFetchRetryKind int
+type speechFetchRetryKind int
 
 const (
 	// what: 再試行も fallback もせず、error をそのまま返す。
-	pcmRetryNone pcmFetchRetryKind = iota
+	wavRetryNone speechFetchRetryKind = iota
 	// what: 待って再試行する。同種 error の連続は synthesizeOne が打ち切る。
-	pcmRetryTransient
+	wavRetryTransient
 	// what: 回復が明示された 429。待って再試行する。
-	pcmRetryRateLimited
+	wavRetryRateLimited
 	// what: 再試行せず fallback へ渡す。
-	pcmRetryFallback
+	wavRetryFallback
 )
 
-func (k pcmFetchRetryKind) retryable() bool {
-	return k == pcmRetryTransient || k == pcmRetryRateLimited
+func (k speechFetchRetryKind) retryable() bool {
+	return k == wavRetryTransient || k == wavRetryRateLimited
 }
 
 type fetchFailure struct {
-	kind          pcmFetchRetryKind
+	kind          speechFetchRetryKind
 	err           error
 	suggestedWait time.Duration
 }
 
-func failedFetch(kind pcmFetchRetryKind, err error) *fetchFailure {
+func failedFetch(kind speechFetchRetryKind, err error) *fetchFailure {
 	return &fetchFailure{kind: kind, err: err}
 }
 
 // why: 再試行の使い切り（Transient・RateLimited）も Fallback と同じく fallback へ渡す。
-func wrapForFallback(kind pcmFetchRetryKind, err error) error {
-	if kind == pcmRetryNone {
+func wrapForFallback(kind speechFetchRetryKind, err error) error {
+	if kind == wavRetryNone {
 		return err
 	}
 	return fmt.Errorf("%w: %w", port.ErrSourceExhausted, err)
 }
 
-func (s *SpeechSynthesizer) fetchPCM(ctx context.Context, transcript string) ([]byte, *fetchFailure) {
+func (s *SpeechSynthesizer) fetchWAV(ctx context.Context, transcript string) ([]byte, float64, *fetchFailure) {
 	req, err := s.newSynthesizeRequest(ctx, transcript)
 	if err != nil {
-		return nil, failedFetch(pcmRetryNone, err)
+		return nil, 0, failedFetch(wavRetryNone, err)
 	}
 	res, err := s.client.Do(req)
 	if err != nil {
-		return nil, failedFetch(pcmRetryTransient, infraErr("do", err))
+		return nil, 0, failedFetch(wavRetryTransient, infraErr("do", err))
 	}
 	defer func() { _ = res.Body.Close() }()
 
 	raw, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, failedFetch(pcmRetryTransient, infraErr("read_body", err))
+		return nil, 0, failedFetch(wavRetryTransient, infraErr("read_body", err))
 	}
 
 	if detectProhibitedContent(raw) {
-		return nil, failedFetch(pcmRetryNone, infraErr("prohibited_content", errors.New(prohibitedContentMarker)))
+		return nil, 0, failedFetch(wavRetryNone, infraErr("prohibited_content", errors.New(prohibitedContentMarker)))
 	}
 
 	if res.StatusCode != http.StatusOK {
 		kind, wait := s.classifyFailedStatus(res.StatusCode, res.Header, raw)
-		return nil, &fetchFailure{
+		return nil, 0, &fetchFailure{
 			kind:          kind,
 			err:           infraErr("http_status", fmt.Errorf("status %d; response body: %s", res.StatusCode, httpdiag.BodySnippet(raw))),
 			suggestedWait: wait,
 		}
 	}
 
-	pcm, err := decodePCM(raw)
+	wav, duration, err := decodeWAV(raw)
 	if err != nil {
-		// why: audio 欠落・極小 PCM は公式 Limitation の一過性劣化なので Transient にする。原因（finish_reason / safety / body 内 quota）を後から読めるよう、応答本文の snippet を error に載せる。
-		return nil, failedFetch(pcmRetryTransient, infraErr("decode_pcm", fmt.Errorf("%w; response body: %s", err, httpdiag.BodySnippet(raw))))
+		// why: audio 欠落・極小音声は公式 Limitation の一過性劣化なので Transient にする。原因（finish_reason / safety / body 内 quota）を後から読めるよう、応答本文の snippet を error に載せる。
+		return nil, 0, failedFetch(wavRetryTransient, infraErr("decode_wav", fmt.Errorf("%w; response body: %s", err, httpdiag.BodySnippet(raw))))
 	}
-	return pcm, nil
+	return wav, duration, nil
 }
 
 func (s *SpeechSynthesizer) newSynthesizeRequest(ctx context.Context, transcript string) (*http.Request, error) {
@@ -401,8 +396,21 @@ func (s *SpeechSynthesizer) newSynthesizeRequest(ctx context.Context, transcript
 	return req, nil
 }
 
-func buildInput(transcript string) string {
-	return EnvelopePreamble + TranscriptLabel + transcript
+func buildInput(transcript string) []interactionInput {
+	return []interactionInput{
+		{
+			Type: "user_input",
+			Content: []inputContent{
+				{
+					Type: "text",
+					Text: transcript,
+					Annotations: []inputAnnotation{
+						{Type: "speech_metadata"},
+					},
+				},
+			},
+		},
+	}
 }
 
 func detectProhibitedContent(body []byte) bool {
@@ -410,22 +418,22 @@ func detectProhibitedContent(body []byte) bool {
 }
 
 // why: 429 の回復は response の message でなく、公式 error.code と Retry-After で見る。quota_exceeded は 400 でも返るので status を問わず見る（Decision generator-genai-api-failure-retry-or-fallback）。
-func (s *SpeechSynthesizer) classifyFailedStatus(status int, header http.Header, raw []byte) (pcmFetchRetryKind, time.Duration) {
+func (s *SpeechSynthesizer) classifyFailedStatus(status int, header http.Header, raw []byte) (speechFetchRetryKind, time.Duration) {
 	wait := s.parseRetryAfter(header)
 	switch {
 	case status == http.StatusUnauthorized, status == http.StatusForbidden:
-		return pcmRetryFallback, 0
+		return wavRetryFallback, 0
 	case (status == http.StatusBadRequest || status == http.StatusTooManyRequests) && quotaExceeded(raw):
-		return pcmRetryFallback, 0
+		return wavRetryFallback, 0
 	case status == http.StatusTooManyRequests:
 		if wait > 0 || rateLimitExceeded(raw) {
-			return pcmRetryRateLimited, wait
+			return wavRetryRateLimited, wait
 		}
-		return pcmRetryFallback, 0
+		return wavRetryFallback, 0
 	case status >= http.StatusInternalServerError:
-		return pcmRetryTransient, wait
+		return wavRetryTransient, wait
 	default:
-		return pcmRetryNone, 0
+		return wavRetryNone, 0
 	}
 }
 
@@ -446,28 +454,48 @@ func rateLimitExceeded(raw []byte) bool {
 	return errorCode(raw) == errorCodeRateLimitExceeded
 }
 
-func decodePCM(body []byte) ([]byte, error) {
+func decodeWAV(body []byte) ([]byte, float64, error) {
+	data, err := extractAudioBase64(body)
+	if err != nil {
+		return nil, 0, err
+	}
+	wav, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return nil, 0, err
+	}
+	duration, err := validateAudioWAV(wav)
+	if err != nil {
+		return nil, 0, err
+	}
+	return wav, duration, nil
+}
+
+func extractAudioBase64(body []byte) (string, error) {
 	var parsed interactionResponse
 	if err := json.Unmarshal(body, &parsed); err != nil {
-		return nil, err
+		return "", err
 	}
 	data := firstAudioData(parsed)
 	if data == "" {
 		// why: struct 経由の parse では audio 欠落の原因が読めない。body のトップレベルキー一覧を添え、応答構造の想定違いを切り分ける。
-		return nil, fmt.Errorf("output audio is missing%s", topLevelKeysHint(body))
+		return "", fmt.Errorf("output audio is missing%s", topLevelKeysHint(body))
 	}
-	pcm, err := base64.StdEncoding.DecodeString(data)
+	return data, nil
+}
+
+func validateAudioWAV(wav []byte) (float64, error) {
+	if len(wav) == 0 {
+		return 0, fmt.Errorf("output audio is empty")
+	}
+	duration, err := wavDurationSec(wav)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	if len(pcm) == 0 {
-		return nil, fmt.Errorf("output audio is empty")
+	// why: HTTP 200 で返る極小音声は実質無音の一過性劣化。audio 欠落と同じく fetchWAV が Transient にする。
+	if duration < minSpeechDurationSec {
+		return 0, fmt.Errorf("output audio is too short: %.2fs < %.1fs", duration, minSpeechDurationSec)
 	}
-	// why: HTTP 200 で返る極小 PCM は実質無音の一過性劣化。audio 欠落と同じく fetchPCM が Transient にする。
-	if len(pcm) < minPCMBytes {
-		return nil, fmt.Errorf("output audio is too short: %d bytes < %d (%.1fs)", len(pcm), minPCMBytes, minSpeechDurationSec)
-	}
-	return pcm, nil
+	return duration, nil
 }
 
 // why: 実 Interactions API の audio base64 は steps[].content[].data に入る。steps[0].content[0] へ決め打ちせず、空を飛ばして最初に見つかった data を採る。
@@ -496,10 +524,25 @@ func topLevelKeysHint(body []byte) string {
 }
 
 type interactionRequest struct {
-	Model            string           `json:"model"`
-	Input            string           `json:"input"`
-	Format           responseFormat   `json:"response_format"`
-	GenerationConfig generationConfig `json:"generation_config"`
+	Model            string             `json:"model"`
+	Input            []interactionInput `json:"input"`
+	Format           responseFormat     `json:"response_format"`
+	GenerationConfig generationConfig   `json:"generation_config"`
+}
+
+type interactionInput struct {
+	Type    string         `json:"type"`
+	Content []inputContent `json:"content"`
+}
+
+type inputContent struct {
+	Type        string            `json:"type"`
+	Text        string            `json:"text"`
+	Annotations []inputAnnotation `json:"annotations,omitempty"`
+}
+
+type inputAnnotation struct {
+	Type string `json:"type"`
 }
 
 type responseFormat struct {
