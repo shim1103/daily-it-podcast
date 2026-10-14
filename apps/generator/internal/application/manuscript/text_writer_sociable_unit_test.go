@@ -44,15 +44,21 @@ func (f *fakeTextWriter) Write(_ context.Context, brief string, buildFn func(str
 	return f.draft, f.err
 }
 
-// fakeFallback は port.FallbackReporter の Spy。呼び出し回数と最後の event 名を記録する。
+// fakeFallback は port.FallbackReporter の Spy。呼び出し回数と最後の field を記録する。
 type fakeFallback struct {
-	calls     int
-	lastEvent string
+	calls      int
+	lastEvent  string
+	lastFrom   string
+	lastTo     string
+	lastReason string
 }
 
-func (f *fakeFallback) Fallback(event string) {
+func (f *fakeFallback) Fallback(event, from, to, reason string) {
 	f.calls++
 	f.lastEvent = event
+	f.lastFrom = from
+	f.lastTo = to
+	f.lastReason = reason
 }
 
 var _ port.FallbackReporter = (*fakeFallback)(nil)
@@ -61,10 +67,12 @@ var _ port.FallbackReporter = (*fakeFallback)(nil)
 func newUCWithSpies(sources ...*fakeTextWriter) (*TextWriter, *fakeFallback) {
 	fallback := &fakeFallback{}
 	portSources := make([]port.TextWriter, len(sources))
+	names := make([]string, len(sources))
 	for i, s := range sources {
 		portSources[i] = s
+		names[i] = fmt.Sprintf("source_%d", i)
 	}
-	uc := NewTextWriter(portSources, fallback)
+	uc := NewTextWriter(portSources, names, fallback)
 	return uc, fallback
 }
 
@@ -184,6 +192,9 @@ func TestWrite_switchesToSecondSource_whenFirstSourceReportsSourceExhaustedWitho
 	}
 	if fallback.lastEvent != fallbackEventSourceSwitched {
 		t.Fatalf("Fallback event = %q, want %q", fallback.lastEvent, fallbackEventSourceSwitched)
+	}
+	if fallback.lastFrom != "source_0" || fallback.lastTo != "source_1" || fallback.lastReason != fallbackReasonSourceExhausted {
+		t.Fatalf("Fallback from/to/reason = %q/%q/%q, want source_0/source_1/%s", fallback.lastFrom, fallback.lastTo, fallback.lastReason, fallbackReasonSourceExhausted)
 	}
 	if second.calls != 1 {
 		t.Fatalf("second calls = %d, want 1", second.calls)
@@ -382,7 +393,7 @@ func TestWrite_returnsError_whenBriefEmptyAfterTrim(t *testing.T) {
 func TestNewTextWriter_returnsNonNil(t *testing.T) {
 	t.Parallel()
 
-	uc := NewTextWriter([]port.TextWriter{&fakeTextWriter{}, &fakeTextWriter{}}, &fakeFallback{})
+	uc := NewTextWriter([]port.TextWriter{&fakeTextWriter{}, &fakeTextWriter{}}, []string{"a", "b"}, &fakeFallback{})
 	if uc == nil {
 		t.Fatal("NewTextWriter が nil を返した")
 	}

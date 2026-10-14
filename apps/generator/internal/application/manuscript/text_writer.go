@@ -19,15 +19,16 @@ var _ port.TextWriter = (*TextWriter)(nil)
 // TextWriter は sources を先頭から順に試し原稿断片を確保する UseCase である。
 type TextWriter struct {
 	sources  []port.TextWriter
+	names    []string
 	fallback port.FallbackReporter
 }
 
 // NewTextWriter は sources と、切り替え発生時の観測面を束ねる。
 //
-// @require len(sources) > 0 かつ全要素が非 nil。fallback != nil。
+// @require len(sources) > 0 かつ全要素が非 nil。len(names) == len(sources)。fallback != nil。
 // @ensure 戻りは *TextWriter（port.TextWriter を満たす）。
-func NewTextWriter(sources []port.TextWriter, fallback port.FallbackReporter) *TextWriter {
-	return &TextWriter{sources: sources, fallback: fallback}
+func NewTextWriter(sources []port.TextWriter, names []string, fallback port.FallbackReporter) *TextWriter {
+	return &TextWriter{sources: sources, names: names, fallback: fallback}
 }
 
 // Write は sources を先頭から順に試す。
@@ -49,7 +50,7 @@ func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(strin
 
 	attemptBrief := brief
 	var lastErr error
-	for _, source := range w.sources {
+	for i, source := range w.sources {
 		draft, err := source.Write(ctx, attemptBrief, buildFn)
 		if err == nil {
 			return draft, nil
@@ -57,7 +58,7 @@ func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(strin
 		if !shouldSwitchSource(err) {
 			return models.ManuscriptDraft{}, err
 		}
-		w.fallback.Fallback(fallbackEventSourceSwitched)
+		w.fallback.Fallback(fallbackEventSourceSwitched, w.sourceName(i), w.sourceName(i+1), fallbackReason(err))
 		attemptBrief = nextSourceBrief(brief, err)
 		lastErr = err
 	}
@@ -67,8 +68,27 @@ func (w *TextWriter) Write(ctx context.Context, brief string, buildFn func(strin
 
 const fallbackEventSourceSwitched = "manuscript_source_switched"
 
+const (
+	fallbackReasonSourceExhausted = "source_exhausted"
+	fallbackReasonDraftRejected   = "draft_rejected"
+)
+
+func (w *TextWriter) sourceName(i int) string {
+	if i < 0 || i >= len(w.names) {
+		return ""
+	}
+	return w.names[i]
+}
+
 func shouldSwitchSource(err error) bool {
 	return errors.Is(err, port.ErrSourceExhausted) || errors.Is(err, port.ErrDraftRejected)
+}
+
+func fallbackReason(err error) string {
+	if errors.Is(err, port.ErrDraftRejected) {
+		return fallbackReasonDraftRejected
+	}
+	return fallbackReasonSourceExhausted
 }
 
 func nextSourceBrief(brief string, err error) string {

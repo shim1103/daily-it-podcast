@@ -64,8 +64,13 @@ func (l *LogWriter) Done(step, detail string) {
 }
 
 // Fallback は取得元切替などの観測イベントを "category=fallback" 行で書く。
-func (l *LogWriter) Fallback(event string) {
-	l.Event("fallback", event)
+func (l *LogWriter) Fallback(event, from, to, reason string) {
+	fields := []Field{
+		{Key: "from", Value: from},
+		{Key: "to", Value: to},
+		{Key: "reason", Value: reason},
+	}
+	l.Event("fallback", event, fields...)
 }
 
 // Retry は retry ループ内の 1 attempt 失敗を
