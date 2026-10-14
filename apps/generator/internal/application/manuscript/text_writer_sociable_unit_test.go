@@ -44,15 +44,21 @@ func (f *fakeTextWriter) Write(_ context.Context, brief string, buildFn func(str
 	return f.draft, f.err
 }
 
-// fakeFallback は port.FallbackReporter の Spy。呼び出し回数と最後の event 名を記録する。
+// fakeFallback は port.FallbackReporter の Spy。呼び出し回数と最後の field を記録する。
 type fakeFallback struct {
-	calls     int
-	lastEvent string
+	calls      int
+	lastEvent  string
+	lastFrom   string
+	lastTo     string
+	lastReason string
 }
 
-func (f *fakeFallback) Fallback(event string) {
+func (f *fakeFallback) Fallback(event, from, to, reason string) {
 	f.calls++
 	f.lastEvent = event
+	f.lastFrom = from
+	f.lastTo = to
+	f.lastReason = reason
 }
 
 var _ port.FallbackReporter = (*fakeFallback)(nil)
@@ -61,14 +67,16 @@ var _ port.FallbackReporter = (*fakeFallback)(nil)
 func newUCWithSpies(sources ...*fakeTextWriter) (*TextWriter, *fakeFallback) {
 	fallback := &fakeFallback{}
 	portSources := make([]port.TextWriter, len(sources))
+	names := make([]string, len(sources))
 	for i, s := range sources {
 		portSources[i] = s
+		names[i] = fmt.Sprintf("source_%d", i)
 	}
-	uc := NewTextWriter(portSources, fallback)
+	uc := NewTextWriter(portSources, names, fallback)
 	return uc, fallback
 }
 
-func exhaustedErr(inner string) error {
+func sourceUnavailableErr(inner string) error {
 	return fmt.Errorf("%w: %w", port.ErrSourceExhausted, errors.New(inner))
 }
 
@@ -76,9 +84,9 @@ func rejectedErr(inner string) error {
 	return fmt.Errorf("%w: %w", port.ErrDraftRejected, errors.New(inner))
 }
 
-// exhaustedErrWithLastAttempt / rejectedErrWithLastAttempt は、番兵 + port.LastAttempt を
+// sourceUnavailableErrWithLastAttempt / rejectedErrWithLastAttempt は、番兵 + port.LastAttempt を
 // chain に含めた error を組み立てる。errors.As で取り出せることを呼び出し側が確認できる形。
-func exhaustedErrWithLastAttempt(raw string, buildErr error) error {
+func sourceUnavailableErrWithLastAttempt(raw string, buildErr error) error {
 	return fmt.Errorf("%w: %w", port.ErrSourceExhausted, port.LastAttempt{Raw: raw, BuildErr: buildErr})
 }
 
@@ -167,7 +175,7 @@ func TestWrite_switchesToSecondSource_whenFirstSourceReportsSourceExhaustedWitho
 	t.Parallel()
 
 	// Given: 先頭 source が LastAttempt を伴わない port.ErrSourceExhausted を返し、2 番目は成功する
-	first := &fakeTextWriter{err: exhaustedErr("boom")}
+	first := &fakeTextWriter{err: sourceUnavailableErr("boom")}
 	second := &fakeTextWriter{draft: models.ManuscriptDraft{Title: "2 番目 source の draft"}}
 	uc, fallback := newUCWithSpies(first, second)
 
@@ -185,6 +193,9 @@ func TestWrite_switchesToSecondSource_whenFirstSourceReportsSourceExhaustedWitho
 	if fallback.lastEvent != fallbackEventSourceSwitched {
 		t.Fatalf("Fallback event = %q, want %q", fallback.lastEvent, fallbackEventSourceSwitched)
 	}
+	if fallback.lastFrom != "source_0" || fallback.lastTo != "source_1" || fallback.lastReason != fallbackReasonSourceExhausted {
+		t.Fatalf("Fallback from/to/reason = %q/%q/%q, want source_0/source_1/%s", fallback.lastFrom, fallback.lastTo, fallback.lastReason, fallbackReasonSourceExhausted)
+	}
 	if second.calls != 1 {
 		t.Fatalf("second calls = %d, want 1", second.calls)
 	}
@@ -198,7 +209,7 @@ func TestWrite_switchesToSecondSourceWithRejectionBrief_whenFirstSourceReportsSo
 
 	// Given: 先頭 source が LastAttempt を伴う port.ErrSourceExhausted を返し、2 番目は成功する
 	buildErr := errors.New("invalid draft")
-	first := &fakeTextWriter{err: exhaustedErrWithLastAttempt("raw response", buildErr)}
+	first := &fakeTextWriter{err: sourceUnavailableErrWithLastAttempt("raw response", buildErr)}
 	second := &fakeTextWriter{draft: models.ManuscriptDraft{Title: "2 番目 source の draft"}}
 	uc, fallback := newUCWithSpies(first, second)
 	brief := "本文の要約から原稿を書いて"
@@ -224,8 +235,7 @@ func TestWrite_switchesToSecondSourceWithPlainBrief_whenFirstSourceReportsDraftR
 	t.Parallel()
 
 	// Given: 先頭 source が LastAttempt を伴わない port.ErrDraftRejected を返し、2 番目は成功する
-	firstErr := rejectedErr("invalid after max attempts")
-	first := &fakeTextWriter{err: firstErr}
+	first := &fakeTextWriter{err: rejectedErr("invalid after max attempts")}
 	second := &fakeTextWriter{draft: models.ManuscriptDraft{Title: "2 番目 source の draft"}}
 	uc, fallback := newUCWithSpies(first, second)
 	brief := "本文の要約から原稿を書いて"
@@ -233,7 +243,7 @@ func TestWrite_switchesToSecondSourceWithPlainBrief_whenFirstSourceReportsDraftR
 	// When: Write する
 	got, err := uc.Write(context.Background(), brief, noopBuildFn)
 
-	// Then: 2 番目へ渡る brief は port.BuildRejectionBriefWithoutRaw で組み立てた brief
+	// Then: 直前の失敗 response が無いので、2 番目へ渡る brief は素の brief のまま
 	if err != nil {
 		t.Fatalf("Write() error = %v, want nil", err)
 	}
@@ -241,9 +251,8 @@ func TestWrite_switchesToSecondSourceWithPlainBrief_whenFirstSourceReportsDraftR
 	if fallback.calls != 1 {
 		t.Fatalf("Fallback calls = %d, want 1", fallback.calls)
 	}
-	wantBrief := port.BuildRejectionBriefWithoutRaw(brief, firstErr.Error())
-	if second.lastBrief != wantBrief {
-		t.Fatalf("second brief = %q, want %q", second.lastBrief, wantBrief)
+	if second.lastBrief != brief {
+		t.Fatalf("second brief = %q, want %q", second.lastBrief, brief)
 	}
 }
 
@@ -303,8 +312,8 @@ func TestWrite_returnsLastSourceError_whenAllSourcesExhausted(t *testing.T) {
 	t.Parallel()
 
 	// Given: 先頭・2 番目とも port.ErrSourceExhausted を返す（source は 2 つのみ）
-	first := &fakeTextWriter{err: exhaustedErr("first boom")}
-	secondErr := exhaustedErr("second boom")
+	first := &fakeTextWriter{err: sourceUnavailableErr("first boom")}
+	secondErr := sourceUnavailableErr("second boom")
 	second := &fakeTextWriter{err: secondErr}
 	uc, fallback := newUCWithSpies(first, second)
 
@@ -319,7 +328,7 @@ func TestWrite_returnsLastSourceError_whenAllSourcesExhausted(t *testing.T) {
 		t.Fatalf("Write() error = %v, want 2 番目の error", err)
 	}
 	assertDraftEqual(t, got, models.ManuscriptDraft{})
-	// what: 2 は「先頭 source の exhausted 判定」と「2 番目 source の exhausted 判定」の合計回数。
+	// what: 2 は、先頭 source と 2 番目 source がそれぞれ切り替え対象の error を返した回数の合計。
 	if fallback.calls != 2 {
 		t.Fatalf("Fallback calls = %d, want 2", fallback.calls)
 	}
@@ -328,9 +337,9 @@ func TestWrite_returnsLastSourceError_whenAllSourcesExhausted(t *testing.T) {
 func TestWrite_triesThirdSource_whenFirstAndSecondBothExhausted(t *testing.T) {
 	t.Parallel()
 
-	// Given: source が 3 つ（可変長）、先頭・2 番目が exhausted、3 番目が成功する
-	first := &fakeTextWriter{err: exhaustedErr("first boom")}
-	second := &fakeTextWriter{err: exhaustedErr("second boom")}
+	// Given: source が 3 つ（可変長）、先頭・2 番目が port.ErrSourceExhausted、3 番目が成功する
+	first := &fakeTextWriter{err: sourceUnavailableErr("first boom")}
+	second := &fakeTextWriter{err: sourceUnavailableErr("second boom")}
 	third := &fakeTextWriter{draft: models.ManuscriptDraft{Title: "3 番目 source の draft"}}
 	uc, fallback := newUCWithSpies(first, second, third)
 
@@ -384,7 +393,7 @@ func TestWrite_returnsError_whenBriefEmptyAfterTrim(t *testing.T) {
 func TestNewTextWriter_returnsNonNil(t *testing.T) {
 	t.Parallel()
 
-	uc := NewTextWriter([]port.TextWriter{&fakeTextWriter{}, &fakeTextWriter{}}, &fakeFallback{})
+	uc := NewTextWriter([]port.TextWriter{&fakeTextWriter{}, &fakeTextWriter{}}, []string{"a", "b"}, &fakeFallback{})
 	if uc == nil {
 		t.Fatal("NewTextWriter が nil を返した")
 	}

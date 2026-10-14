@@ -8,30 +8,30 @@ import (
 func TestBodySnippet_returnsTrimmedBodyUnchanged_whenShort(t *testing.T) {
 	t.Parallel()
 
-	// Given: maxRunes 以下で前後に空白のある本文
+	// Given: 前後に空白のある本文
 	raw := []byte("  {\"error\":\"UNAUTHENTICATED\"}  ")
 
 	// When: snippet へ落とす
 	got := BodySnippet(raw)
 
-	// Then: trim だけされ ellipsis は付かない
+	// Then: trim だけされる
 	if got != `{"error":"UNAUTHENTICATED"}` {
 		t.Fatalf("BodySnippet() = %q, want %q", got, `{"error":"UNAUTHENTICATED"}`)
 	}
 }
 
-func TestBodySnippet_truncatesWithEllipsis_whenBodyExceedsMax(t *testing.T) {
+func TestBodySnippet_keepsFullBody_whenBodyIsLong(t *testing.T) {
 	t.Parallel()
 
-	// Given: maxRunes を超える本文
-	got := BodySnippet([]byte(strings.Repeat("a", maxRunes*2)))
+	// Given: 長い本文（旧 maxRunes=400 を超える長さ）
+	body := strings.Repeat("a", 800)
 
-	// Then: maxRunes + ellipsis 長を超えず ellipsis で終わる
-	if len(got) != maxRunes+len(ellipsis) {
-		t.Fatalf("len(BodySnippet()) = %d, want %d", len(got), maxRunes+len(ellipsis))
-	}
-	if !strings.HasSuffix(got, ellipsis) {
-		t.Fatalf("BodySnippet() = %q, want ellipsis suffix", got)
+	// When: snippet へ落とす
+	got := BodySnippet([]byte(body))
+
+	// Then: 切り詰めず全文を返す
+	if got != body {
+		t.Fatalf("BodySnippet() len = %d, want %d", len(got), len(body))
 	}
 }
 

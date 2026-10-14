@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -178,13 +179,37 @@ func assertIntegrationSecretsNotLeaked(t *testing.T, err error) {
 	}
 }
 
-func minimalIntegrationGeminiPCM() []byte {
-	// why: Adapter の最小尺閾値（0.5s）を超える長さ。これ未満だと極小 PCM として retry される。
-	const sampleCount = 24000 // 1.0s 相当
-	return make([]byte, sampleCount*2)
+func minimalIntegrationGeminiWAV() []byte {
+	// why: Adapter の最小尺閾値（0.5s）を超える長さ（1.0s 相当の 24kHz 16-bit mono WAV）。
+	const (
+		sampleRate    = 24000
+		channels      = 1
+		bitsPerSample = 16
+	)
+	blockAlign := channels * bitsPerSample / 8
+	byteRate := sampleRate * blockAlign
+	dataLen := byteRate // 1.0s
+
+	buf := make([]byte, 44+dataLen)
+	copy(buf[0:4], []byte("RIFF"))
+	binary.LittleEndian.PutUint32(buf[4:8], uint32(36+dataLen))
+	copy(buf[8:12], []byte("WAVE"))
+
+	copy(buf[12:16], []byte("fmt "))
+	binary.LittleEndian.PutUint32(buf[16:20], 16)
+	binary.LittleEndian.PutUint16(buf[20:22], 1)
+	binary.LittleEndian.PutUint16(buf[22:24], uint16(channels))
+	binary.LittleEndian.PutUint32(buf[24:28], uint32(sampleRate))
+	binary.LittleEndian.PutUint32(buf[28:32], uint32(byteRate))
+	binary.LittleEndian.PutUint16(buf[32:34], uint16(blockAlign))
+	binary.LittleEndian.PutUint16(buf[34:36], uint16(bitsPerSample))
+
+	copy(buf[36:40], []byte("data"))
+	binary.LittleEndian.PutUint32(buf[40:44], uint32(dataLen))
+	return buf
 }
 
-func writeIntegrationGeminiAudioResponse(t *testing.T, w http.ResponseWriter, pcm []byte) {
+func writeIntegrationGeminiAudioResponse(t *testing.T, w http.ResponseWriter, wav []byte) {
 	t.Helper()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -192,7 +217,7 @@ func writeIntegrationGeminiAudioResponse(t *testing.T, w http.ResponseWriter, pc
 		"status": "completed",
 		"steps": []map[string]any{
 			{"content": []map[string]any{
-				{"data": base64.StdEncoding.EncodeToString(pcm)},
+				{"data": base64.StdEncoding.EncodeToString(wav)},
 			}},
 		},
 	})
@@ -509,7 +534,7 @@ func newBroadProduceEpisodeHarness(t *testing.T, cfg broadProduceEpisodeConfig) 
 			_, _ = w.Write([]byte(`{"error":"INVALID_ARGUMENT"}`))
 			return
 		}
-		writeIntegrationGeminiAudioResponse(t, w, minimalIntegrationGeminiPCM())
+		writeIntegrationGeminiAudioResponse(t, w, minimalIntegrationGeminiWAV())
 	}
 
 	hackernewsHandler := integrationHackerNewsSuccessHandler(t)
