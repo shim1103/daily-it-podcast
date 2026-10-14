@@ -53,6 +53,7 @@ func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter
 			newCursorTextWriter(appruntime.HTTPClientWithoutTimeout(), cfg.Cursor, logw),
 			newGeminiTextWriterSpare(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini, logw),
 		},
+		[]string{"gemini_free", "cursor", "gemini_paid"},
 		logw,
 	)
 	// why: TTS も TextWriter と同型の合成 layer 経由にする（Decision 2026-09-16T11-41-59）。
@@ -63,6 +64,7 @@ func newProduceEpisodeWithTopicCount(cfg config.Config, logw *delivery.LogWriter
 			newGeminiSpeechSynthesizerPrimary(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini, logw),
 			newGeminiSpeechSynthesizerSpare(appruntime.HTTPClientWithoutTimeout(), cfg.Gemini, logw),
 		},
+		[]string{"gemini_free", "gemini_paid"},
 		logw,
 	)
 	encode := newFFmpegWAVToMP3Encoder()

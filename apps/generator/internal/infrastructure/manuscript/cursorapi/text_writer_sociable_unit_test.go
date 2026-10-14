@@ -727,7 +727,7 @@ func TestWrite_returnsInfraError_whenResultTextEmpty(t *testing.T) {
 	}
 }
 
-func TestWrite_returnsInfraError_whenRunTerminatedWithError(t *testing.T) {
+func TestWrite_returnsSourceExhausted_whenRunTerminatedWithError(t *testing.T) {
 
 	// Given: create 成功後、終端 result の status が ERROR
 	w, _ := newFakeTextWriter(
@@ -742,9 +742,62 @@ func TestWrite_returnsInfraError_whenRunTerminatedWithError(t *testing.T) {
 	// When: Write する
 	got, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
 
-	// Then: run 終端 error は非 retry の Infra Error
+	// Then: 非 FINISHED は再試行せず番兵で fallback へ渡す
+	assertSourceExhausted(t, err)
 	assertCursorInfraErrorOp(t, err, "run_status")
 	assertZeroDraft(t, got)
+}
+
+func TestWrite_includesSSEErrorInMessage_whenErrorEventPrecededResultError(t *testing.T) {
+
+	// Given: create 成功後、SSE error event のあと result status=ERROR
+	const sseErr = `{"error":"MODEL_ERROR","quotaMetric":"generate_requests"}`
+	w, _ := newFakeTextWriter(
+		fakeClientResponse{status: http.StatusOK, body: createAgentBody("bc-1", "run-1")},
+		fakeClientResponse{
+			status: http.StatusOK,
+			header: http.Header{"Content-Type": {"text/event-stream"}},
+			body: sseStream(
+				sseEventFixture{name: "error", data: sseErr},
+				resultEvent("ERROR", ""),
+				sseEventFixture{name: "done", data: `{}`},
+			),
+		},
+	)
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
+
+	// Then: 番兵付きで、error event 本文が message に残る
+	assertSourceExhausted(t, err)
+	assertCursorInfraErrorOp(t, err, "run_status")
+	if !strings.Contains(err.Error(), "quotaMetric") {
+		t.Fatalf("error message %q does not carry sse error body", err.Error())
+	}
+}
+
+func TestWrite_returnsSourceExhausted_whenStreamEndsWithErrorEventOnly(t *testing.T) {
+
+	// Given: create 成功後、result が無く SSE error event だけで stream が終わる
+	const sseErr = `{"error":"stream failed","detail":"upstream reset"}`
+	w, _ := newFakeTextWriter(
+		fakeClientResponse{status: http.StatusOK, body: createAgentBody("bc-1", "run-1")},
+		fakeClientResponse{
+			status: http.StatusOK,
+			header: http.Header{"Content-Type": {"text/event-stream"}},
+			body:   sseStream(sseEventFixture{name: "error", data: sseErr}, sseEventFixture{name: "done", data: `{}`}),
+		},
+	)
+
+	// When: Write する
+	_, err := w.Write(context.Background(), "原稿を書いて", alwaysValidBuildFn)
+
+	// Then: error event だけで fallback へ渡し、本文が message に残る
+	assertSourceExhausted(t, err)
+	assertCursorInfraErrorOp(t, err, "sse_error")
+	if !strings.Contains(err.Error(), "upstream reset") {
+		t.Fatalf("error message %q does not carry sse error body", err.Error())
+	}
 }
 
 func TestWrite_excludesAPIKeyFromErrorMessage_whenCreateFails(t *testing.T) {

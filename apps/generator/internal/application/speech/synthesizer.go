@@ -16,18 +16,21 @@ var _ port.SpeechSynthesizer = (*SpeechSynthesizer)(nil)
 // why: event 名の typo は compile で捕まらないので定数化する。
 const fallbackEventTTSSourceSwitched = "tts_source_switched"
 
+const fallbackReasonSourceExhausted = "source_exhausted"
+
 // SpeechSynthesizer は sources を先頭から順に試し音声を合成する UseCase である。
 type SpeechSynthesizer struct {
 	sources  []port.SpeechSynthesizer
+	names    []string
 	fallback port.FallbackReporter
 }
 
 // NewSpeechSynthesizer は sources と、切り替え発生時の観測面を束ねる。
 //
-// @require len(sources) > 0 かつ全要素が非 nil。fallback != nil。
+// @require len(sources) > 0 かつ全要素が非 nil。len(names) == len(sources)。fallback != nil。
 // @ensure 戻りは *SpeechSynthesizer（port.SpeechSynthesizer を満たす）。
-func NewSpeechSynthesizer(sources []port.SpeechSynthesizer, fallback port.FallbackReporter) *SpeechSynthesizer {
-	return &SpeechSynthesizer{sources: sources, fallback: fallback}
+func NewSpeechSynthesizer(sources []port.SpeechSynthesizer, names []string, fallback port.FallbackReporter) *SpeechSynthesizer {
+	return &SpeechSynthesizer{sources: sources, names: names, fallback: fallback}
 }
 
 // SynthesizeAll は sources を先頭から順に試す。
@@ -36,7 +39,7 @@ func NewSpeechSynthesizer(sources []port.SpeechSynthesizer, fallback port.Fallba
 // @ensure ある source が残り texts 全件の合成に成功したら、それまでに蓄積した分と合わせて全 audios を返す。
 // @ensure source の error が errors.Is(err, port.ErrSourceExhausted)==true のとき、その source が返した
 //
-//	部分成功分（got）を蓄積し、fallback.Fallback(fallbackEventTTSSourceSwitched) を呼んでから
+//	部分成功分（got）を蓄積し、fallback.Fallback(fallbackEventTTSSourceSwitched, from, to, reason) を呼んでから
 //	残りの texts（remaining[len(got):]）だけを次 source へ渡す。
 //
 // @ensure source の error が port.ErrSourceExhausted でないとき、その error をそのまま返す。
@@ -52,7 +55,7 @@ func (s *SpeechSynthesizer) SynthesizeAll(ctx context.Context, texts []string) (
 	accumulated := make([]models.SpeechAudio, 0, len(texts))
 	var lastErr error
 
-	for _, source := range s.sources {
+	for i, source := range s.sources {
 		got, err := source.SynthesizeAll(ctx, remaining)
 		if err == nil {
 			return append(accumulated, got...), nil
@@ -65,8 +68,15 @@ func (s *SpeechSynthesizer) SynthesizeAll(ctx context.Context, texts []string) (
 
 		accumulated = append(accumulated, got...)
 		remaining = remaining[len(got):]
-		s.fallback.Fallback(fallbackEventTTSSourceSwitched)
+		s.fallback.Fallback(fallbackEventTTSSourceSwitched, s.sourceName(i), s.sourceName(i+1), fallbackReasonSourceExhausted)
 	}
 
 	return nil, lastErr
+}
+
+func (s *SpeechSynthesizer) sourceName(i int) string {
+	if i < 0 || i >= len(s.names) {
+		return ""
+	}
+	return s.names[i]
 }

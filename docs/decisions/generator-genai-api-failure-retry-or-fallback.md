@@ -1,6 +1,6 @@
 ---
 name: "原稿生成（Gemini・Cursor）と音声合成（Gemini TTS）のAPI失敗は、再試行・fallback・即errorのどれにするか？"
-description: 対象は原稿生成（TextWriter）と音声合成（TTS）のAPIだけ。4xx（429除く）はbugとして即error。429は回復の明示がある時だけ再試行し、5xx・通信断は1回再試行する。使い切り、または回復の明示が無い429はfallbackする。例外として401/403と公式の利用枠喪失codeもfallbackする。分類はstatusなどを再試行定数へ写す純粋関数に置く。
+description: 対象は原稿生成（TextWriter）と音声合成（TTS）のAPIだけ。4xx（429除く）はbugとして即error。429は回復の明示がある時だけ再試行し、5xx・通信断は1回再試行する。使い切り、または回復の明示が無い429はfallbackする。例外として401/403と公式の利用枠喪失code、およびCursor run終端の非FINISHED（ERROR等）もfallbackする。分類はstatusなどを再試行定数へ写す純粋関数に置く。
 ---
 
 ## 1. Decision
@@ -11,7 +11,8 @@ description: 対象は原稿生成（TextWriter）と音声合成（TTS）のAPI
 4. 4xx（429を除く）は呼び出し側のbugとして、再試行もfallbackもせずそのままerrorにする。例外としてfallbackするのは、API keyやsubscriptionの失効（401・403）と、公式が利用枠の喪失を示すcode（Gemini TTSの`quota_exceeded`、Cursorの400 + `usage_limit_exceeded`）である。
 5. 429は、回復の明示（`Retry-After`。TTSは公式`error.code`の`rate_limit_exceeded`も）がある時だけ待って再試行し、使い切りはfallbackする。回復の明示が無い429は、待たずにfallbackする。
 6. 5xx・通信断（Do error・body読み取り途中断）・TTSの音声欠落は、再試行し、使い切りはfallbackする。idempotentな呼び出しは1回、TTSは同種2連続まで。非idempotentなCursorのcreateは再試行せずfallbackする。
-7. fallbackはAdapterが`port.ErrSourceExhausted`をwrapして示す。呼び出し元のUseCaseは番兵の有無だけを見る。この番兵は「利用枠が尽きた」ではなく「この取得元は当面使えない」を表し、原因と課金Tier（`TierFree`・`TierPaid`）を問わない。再試行の途中で成功した場合は成功を返す。
+7. Cursor Cloud Agents の SSE 終端 `result.status` が `FINISHED` 以外（`ERROR` 等）のとき、再試行せず `port.ErrSourceExhausted` で wrap して fallback する。空 text・SSE 途中断・parse 失敗は従来どおり即 error（fallback しない）。
+8. fallbackはAdapterが`port.ErrSourceExhausted`をwrapして示す。呼び出し元のUseCaseは番兵の有無だけを見る。この番兵は「利用枠が尽きた」ではなく「この取得元は当面使えない」を表し、原因と課金Tier（`TierFree`・`TierPaid`）を問わない。再試行の途中で成功した場合は成功を返す。
 
 ## 2. Reason
 
@@ -27,6 +28,7 @@ description: 対象は原稿生成（TextWriter）と音声合成（TTS）のAPI
 10. 401・403を例外にするのは、原稿のfallbackがCursorのsubscription失効（401・403）を契機に導入されたためで、外すと元の目的を失う。
 11. 429の分類は課金区分ではなく、そのcredentialを現在使えるかを表す。run 35188139273で、primary Geminiが429を使い切った後にCursorへ切り替わらず停止した。
 12. 未実測: GeminiとCursorの429に`Retry-After`が実際に付くか。付かなければTextWriterの429は実質すぐfallbackになる。1日1回のproduce運用では一過性のrate limitに当たる頻度が低く、fallbackが受けると推論している。
+13. CursorのSSE終端`result.status`が`ERROR`等の非`FINISHED`のとき、createは通っているが原稿textは得られない。再試行しても同じrunは終端済みで、再createは非idempotentで禁止（`generator-cursor-text-writer-transport`）。run 38333211070でGemini free→Cursor切替後に`run terminated with status ERROR`のまま赤停止し、paid Geminiへ進まなかった。この状態は「この取得元は当面使えない」と同等なのでfallbackにする。空textやparse失敗は応答形のbug寄りなので即errorのまま残す。
 
 ## 3. Rejected
 
@@ -39,3 +41,4 @@ description: 対象は原稿生成（TextWriter）と音声合成（TTS）のAPI
 7. 通信断をfallbackしない旧答え（「別sourceも同じnetworkの先にある」） — 未検証の推測だった。client起因か区別できず、別sourceは別hostなので成功しうる。1回再試行してからfallbackする形へ変えた。
 8. 5xxを再試行せず即fallbackする案 — idempotentな呼び出しは1回の再試行で一過性を拾える。
 9. status分岐を各fetch関数やretry loopへ直書きする旧形 — 方針が分散して読めず、`retryRateLimited`が再試行しないケースにも使われていた。
+10. Cursor run終端`ERROR`を即errorのままにする旧答え — 原稿を取り続けられないのに次sourceへ渡さず、paid Geminiの最終手段が死ぬ（run 38333211070）。再試行しない判断（transport）は維持し、番兵だけ付ける。

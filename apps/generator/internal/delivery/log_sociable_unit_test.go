@@ -134,7 +134,7 @@ func TestDone_omitsDetailField_whenDetailEmpty(t *testing.T) {
 	}
 }
 
-func TestFallback_writesCategoryFallbackWithEventName(t *testing.T) {
+func TestFallback_writesCategoryFallbackWithFromToReason(t *testing.T) {
 	t.Parallel()
 
 	// Given: bytes.Buffer を出力先にした LogWriter
@@ -142,10 +142,11 @@ func TestFallback_writesCategoryFallbackWithEventName(t *testing.T) {
 	l := delivery.NewLogWriter(&buf)
 
 	// When: 切替イベントを書く
-	l.Fallback("manuscript_source_switched")
+	l.Fallback("manuscript_source_switched", "gemini_free", "cursor", "source_exhausted")
 
-	// Then: category=fallback の 1 行
-	if got := buf.String(); got != "generator: category=fallback event=manuscript_source_switched\n" {
-		t.Fatalf("Fallback() = %q, want %q", got, "generator: category=fallback event=manuscript_source_switched\n")
+	// Then: category=fallback に from / to / reason が並ぶ 1 行
+	want := "generator: category=fallback event=manuscript_source_switched from=gemini_free to=cursor reason=source_exhausted\n"
+	if got := buf.String(); got != want {
+		t.Fatalf("Fallback() = %q, want %q", got, want)
 	}
 }
