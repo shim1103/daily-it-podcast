@@ -268,7 +268,8 @@ func decodeResultEvent(data string) (string, error) {
 		return "", infraErr("parse_sse", err)
 	}
 	if parsed.Status != "" && parsed.Status != "FINISHED" {
-		return "", infraErr("run_status", fmt.Errorf("run terminated with status %s", parsed.Status))
+		// why: 非 FINISHED は再 create せず番兵で fallback へ渡す（Decision generator-genai-api-failure-retry-or-fallback）。
+		return "", writerretry.PassToFallback(infraErr("run_status", fmt.Errorf("run terminated with status %s", parsed.Status)))
 	}
 	text := strings.TrimSpace(parsed.Text)
 	if text == "" {
@@ -283,14 +284,23 @@ func parseResultText(body io.Reader) (string, error) {
 
 	var eventName string
 	var lastData string
+	var sseErrorData string
 	flush := func() (string, bool, error) {
 		name, data := eventName, lastData
 		eventName, lastData = "", ""
+		if name == "error" && data != "" {
+			// why: Cursor SSE の error event を捨てると ERROR 終端の原因（quotaMetric 等）が log から消える。
+			sseErrorData = data
+			return "", false, nil
+		}
 		if name != "result" || data == "" {
 			return "", false, nil
 		}
 		text, err := decodeResultEvent(data)
-		return text, err == nil, err
+		if err != nil {
+			return "", false, annotateSSEError(err, sseErrorData)
+		}
+		return text, true, nil
 	}
 
 	for scanner.Scan() {
@@ -323,5 +333,16 @@ func parseResultText(body io.Reader) (string, error) {
 	if done {
 		return text, nil
 	}
+	if sseErrorData != "" {
+		return "", writerretry.PassToFallback(infraErr("sse_error", fmt.Errorf("stream error event: %s", httpdiag.BodySnippet([]byte(sseErrorData)))))
+	}
 	return "", infraErr("parse_sse", fmt.Errorf("stream ended without result event"))
+}
+
+// annotateSSEError は result 失敗に先行する SSE error event の本文を、切り分け用に error message へ添える。
+func annotateSSEError(err error, sseErrorData string) error {
+	if sseErrorData == "" {
+		return err
+	}
+	return fmt.Errorf("%w; sse error: %s", err, httpdiag.BodySnippet([]byte(sseErrorData)))
 }
