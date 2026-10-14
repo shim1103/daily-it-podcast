@@ -16,7 +16,7 @@ import (
 var _ port.EpisodeWriter = (*EpisodeWriter)(nil)
 
 // EpisodeWriter は R2 へ {episodeId}.json / {episodeId}.mp3 を put する。
-// method は Write のみ（delete を公開しない）。
+// Write のみ。同日 object 削除は SameDayObjectCleaner（Compose 外）。
 type EpisodeWriter struct {
 	client          *http.Client
 	accessKeyID     string

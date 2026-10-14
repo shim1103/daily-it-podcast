@@ -19,11 +19,9 @@ on:
         required: false
         default: "1"
 
-# why: 旧 Drive 用の直列化理由（test 用 Drive folder の書込・検証・削除を1 runで完結する設計。
-#   Decision 2026-08-30T16-23-00）は Google OAuth / Drive 実装の撤去により成立しなくなった。
-#   R2 側は produce_episode_system_test.go の @invariant により同 stem upsert で残骸許容・cleanup なしの
-#   設計であり、同一 test 用 R2 bucket への並行書込が競合する根拠は現状確認できていない。
-#   ただし直列化を外すことは挙動変更になるため、確信が持てるまでは concurrency 自体は保持する。
+# why: system-test は Run 前に同日 date 一致 json（+ sibling mp3、不完全残骸含む）を
+#   test bucket から消す（Decision generator-system-test-same-day-fixture-reset）。
+#   並行 run が同じ暦日を掃除・書込すると競合し得るため concurrency で直列化する。別日は触らない。
 concurrency:
   group: generator-system
   cancel-in-progress: false
