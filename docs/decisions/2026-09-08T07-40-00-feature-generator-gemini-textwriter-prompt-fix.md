@@ -17,7 +17,7 @@ branch: feature/generator-gemini-textwriter-prompt-fix
 
 ## 2. Reason
 
-1. fallback 実装（Decision `2026-09-07T19-06-00`）で Gemini generateContent 経路が primary 枯渇時の secondary になったが、`geminiapi.ModelID` が `ManuscriptDraft` 検証（topic 3〜7・各 field 文字数・全体 8〜12 分・JSON 1 オブジェクト）を何割で通すかは未実測だった（`generator-lane.md` D 表「Gemini fallback 原稿の品質・token・尺」）。cursor と同じ台帳・同じ閾値で測れるようにするのが最小の解。
+1. fallback 実装（Decision `generator-text-writer-source-fallback`）で Gemini generateContent 経路が primary 枯渇時の secondary になったが、`geminiapi.ModelID` が `ManuscriptDraft` 検証（topic 3〜7・各 field 文字数・全体 8〜12 分・JSON 1 オブジェクト）を何割で通すかは未実測だった（`generator-lane.md` D 表「Gemini fallback 原稿の品質・token・尺」）。cursor と同じ台帳・同じ閾値で測れるようにするのが最小の解。
 2. `api` を入力にして 1 dispatch = 1 API にするのは、PASS 率は「その API がどれだけ prompt を守るか」の指標であり、2 API を混ぜると率が API 構成比で揺れて読めなくなるから。cursor と gemini で所要も課金枠も違うので、必要な側だけ回せる方が運用しやすい。
 3. 環境除外を `Op == "do"` で API 非依存に統一できるのは、`cursorapi.Error` と `geminiapi.Error` が同型（`Op string` / `Err error`）で、どちらも `client.Do` 失敗を `Op: "do"` で包むから。片方だけ特別扱いする理由がない。
 4. prompt を専用 variant でなく `const` 直編集で直すのは、fallback 経路は本番で実際に使われる secondary であり、「cursor では通るが gemini では通らない prompt」を放置すると枯渇時に原稿が出せないから。variant は A/B 用の仕組みで、確定した改善は `const` へ寄せるのが Decision `2026-09-03T14-47-00` §3 の方針。

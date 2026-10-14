@@ -61,7 +61,7 @@ func TestGeminiSpeechSynthesizer_deliversPostWithAPIKeyHeader_whenUpstreamSuccee
 	// Given: dummy API key と、成功応答を返す upstream double
 	const apiKey = "narrow-gemini-real-value"
 	synth, probe := newGeminiSynthesizerWithProxy(t, apiKey, func(w http.ResponseWriter, r *http.Request) {
-		writeIntegrationGeminiAudioResponse(t, w, minimalIntegrationGeminiPCM())
+		writeIntegrationGeminiAudioResponse(t, w, minimalIntegrationGeminiWAV())
 	})
 
 	// When: SynthesizeAll する（1 本）

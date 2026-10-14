@@ -1,5 +1,5 @@
 ---
-name: generator fuzzing は stdlib で PCM to WAV の local bounded fuzz から始める
+name: generator fuzzing は stdlib で WAV 再生尺算出（wavDurationSec）の local bounded fuzz から始める
 date: 2026-08-22T17:57:00
 branch: chore/generator-ci-test-configuration-hardening
 ---
@@ -7,7 +7,7 @@ branch: chore/generator-ci-test-configuration-hardening
 ## 1. Decision
 
 1. generator fuzzing は Go stdlib の `testing.F` と `go test -fuzz` を使う
-2. 初回 target は raw PCM を WAV byte へ変換する pure function とする
+2. 初回 target は raw PCM を WAV byte へ変換する pure function（その後 Gemini 3.8 Flash 移行に伴い WAV 再生尺算出の `wavDurationSec` へ移行）とする
 3. fuzzing は bounded local 実行だけにし、hook、pull request CI、scheduled CI には載せない
 4. fuzz failure input は repository の seed corpus に保存し、通常の Unit Test の regression として実行する
 

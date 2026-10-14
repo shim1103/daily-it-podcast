@@ -41,15 +41,21 @@ func (f *fakeSpeechSynthesizer) SynthesizeAll(_ context.Context, texts []string)
 
 var _ port.SpeechSynthesizer = (*fakeSpeechSynthesizer)(nil)
 
-// fakeFallback は port.FallbackReporter の Spy。呼び出し回数と最後の event 名を記録する。
+// fakeFallback は port.FallbackReporter の Spy。呼び出し回数と最後の field を記録する。
 type fakeFallback struct {
-	calls     int
-	lastEvent string
+	calls      int
+	lastEvent  string
+	lastFrom   string
+	lastTo     string
+	lastReason string
 }
 
-func (f *fakeFallback) Fallback(event string) {
+func (f *fakeFallback) Fallback(event, from, to, reason string) {
 	f.calls++
 	f.lastEvent = event
+	f.lastFrom = from
+	f.lastTo = to
+	f.lastReason = reason
 }
 
 var _ port.FallbackReporter = (*fakeFallback)(nil)
@@ -58,10 +64,12 @@ var _ port.FallbackReporter = (*fakeFallback)(nil)
 func newUCWithSpies(sources ...*fakeSpeechSynthesizer) (*SpeechSynthesizer, *fakeFallback) {
 	fallback := &fakeFallback{}
 	portSources := make([]port.SpeechSynthesizer, len(sources))
+	names := make([]string, len(sources))
 	for i, s := range sources {
 		portSources[i] = s
+		names[i] = fmt.Sprintf("source_%d", i)
 	}
-	uc := NewSpeechSynthesizer(portSources, fallback)
+	uc := NewSpeechSynthesizer(portSources, names, fallback)
 	return uc, fallback
 }
 
@@ -139,6 +147,9 @@ func TestSynthesizeAll_switchesToSecondSourceWithRemainingTexts_whenFirstSourceE
 	}
 	if fallback.lastEvent != fallbackEventTTSSourceSwitched {
 		t.Fatalf("Fallback event = %q, want %q", fallback.lastEvent, fallbackEventTTSSourceSwitched)
+	}
+	if fallback.lastFrom != "source_0" || fallback.lastTo != "source_1" || fallback.lastReason != fallbackReasonSourceExhausted {
+		t.Fatalf("Fallback from/to/reason = %q/%q/%q, want source_0/source_1/%s", fallback.lastFrom, fallback.lastTo, fallback.lastReason, fallbackReasonSourceExhausted)
 	}
 	wantRemaining := []string{"二本目", "三本目"}
 	if !reflect.DeepEqual(second.lastTexts, wantRemaining) {
@@ -235,7 +246,7 @@ func TestSynthesizeAll_triesThirdSource_whenFirstAndSecondBothExhausted(t *testi
 func TestNewSpeechSynthesizer_returnsNonNil(t *testing.T) {
 	t.Parallel()
 
-	uc := NewSpeechSynthesizer([]port.SpeechSynthesizer{&fakeSpeechSynthesizer{}, &fakeSpeechSynthesizer{}}, &fakeFallback{})
+	uc := NewSpeechSynthesizer([]port.SpeechSynthesizer{&fakeSpeechSynthesizer{}, &fakeSpeechSynthesizer{}}, []string{"a", "b"}, &fakeFallback{})
 	if uc == nil {
 		t.Fatal("NewSpeechSynthesizer が nil を返した")
 	}

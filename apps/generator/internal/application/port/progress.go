@@ -9,8 +9,10 @@ type ProgressReporter interface {
 }
 
 // FallbackReporter は取得元切替などの観測イベントを 1 件知らせる。
+// from / to は Composition が付けた取得元ラベル、reason は切替理由（例: source_exhausted）。
+// 次取得元が無いときは to を空にする。
 type FallbackReporter interface {
-	Fallback(event string)
+	Fallback(event, from, to, reason string)
 }
 
 // RetryReporter は retry ループ内で 1 attempt が失敗し次 attempt へ進む直前の

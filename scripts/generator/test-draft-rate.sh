@@ -4,7 +4,6 @@
 #              対象 API は DRAFT_RATE_API（cursor | gemini、既定 cursor）で選ぶ。1 実行 = 1 API。
 # @require リポジトリ内から呼ぶ。Go が PATH にある。apps/generator が存在する。
 # @require 選んだ API の key が env に渡っている（cursor→TEST_CURSOR_API_KEY / gemini→TEST_GEMINI_API_KEY。無ければ test 側で Skip）。
-#          Cursor CLI の `agent` binary は要らない（HTTP API 移行済み。Decision 2026-09-03T17-03-33）。
 # @ensure `system ratemeasure` tag の TestDraftRate だけ実行する。他 System test を巻き込まない。
 # @invariant Unit / Integration gate を呼ばない。cron gate（test-system.sh）に載せない。secret 値を log に出さない。
 set -euo pipefail

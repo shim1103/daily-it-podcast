@@ -64,17 +64,3 @@ func TestLastAttempt_Error_doesNotPanic_whenBuildErrNil(t *testing.T) {
 		t.Fatalf("Error() = %q, want %q", got, want)
 	}
 }
-
-func TestBuildRejectionBriefWithoutRaw_embedsReasonWithoutRaw(t *testing.T) {
-	t.Parallel()
-
-	// Given: brief と rejection 理由
-	brief := "本文の要約から原稿を書いて"
-	reason := "invalid draft"
-
-	// Then: Prefix/Middle/Suffix で reason を挟む（raw は挟まない）
-	want := brief + port.RejectionPrefixText + port.RejectionMiddleText + reason + port.RejectionSuffixText
-	if got := port.BuildRejectionBriefWithoutRaw(brief, reason); got != want {
-		t.Fatalf("BuildRejectionBriefWithoutRaw() = %q, want %q", got, want)
-	}
-}

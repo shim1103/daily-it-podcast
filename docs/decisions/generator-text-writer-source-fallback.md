@@ -1,7 +1,6 @@
 ---
-name: Cursor 利用枠喪失時に原稿取得を Gemini Flash-Lite へ切り替える UseCase を Application に置く
-date: 2026-09-07T19:06:00
-branch: feature/generator-text-writer-fallback
+name: "Cursor が使えない時の原稿取得の切り替えは、どの層が担い、secondary に何を使うか？"
+description: 原稿取得の切り替えはApplicationのUseCaseが担い、primaryはCursor、secondaryはGemini Flash-Liteとする。切り替えの合図は番兵port.ErrSourceExhaustedだけで、その発動条件はgenerator-genai-api-failure-retry-or-fallbackが定める。
 ---
 
 ## 1. Decision
@@ -9,14 +8,14 @@ branch: feature/generator-text-writer-fallback
 1. 原稿取得の切り替えは **Application の UseCase**（`internal/application/manuscript` の `TextWriter`）が担う。この UseCase は `port.TextWriter` を 2 つ（primary / secondary）と切り替え通知関数 `onFallback func()` を受け取り、自身も `port.TextWriter` を実装する。`ProduceEpisode` は従来どおり `port.TextWriter` を 1 つ受け取り、その中身がこの UseCase になる（`ProduceEpisode` の signature・本文は変えない）。契約値（dir・constructor・番兵 error・定数）の正本は `apps/generator/internal/application/{manuscript,port}` と `apps/generator/internal/infrastructure/manuscript/geminiapi` の source（A）とする。
 2. 2 実装の結線は **Composition Root の `newProduceEpisode`** が行う。primary は `newCursorTextWriter`、secondary は `newGeminiTextWriter`、通知は Composition の `logManuscriptSourceSwitched`。`composition/cursorapi.go` は変えない。
 3. secondary の model は **Gemini の現行 Flash-Lite**。具体値は Adapter 定数 `geminiapi.ModelID` を SSOT とし、この Decision には写さない。TTS で使う `GEMINI_API_KEY`（`config.GeminiConfig`）を流用し、新しい env / Secret は足さない。「同社で最も安い Flash-Lite を使う」という選定理由は版が変わっても不変で、版更新は Adapter 定数だけで閉じる（後述 §Reason の価格・無料枠の議論は当初検討した 2.5 時点の記録として残す。当初値 `gemini-2.5-flash-lite` の base alias が `v1beta` generateContent で 404 になった経緯は §Rejected 末尾に記録）。
-4. 切り替えの発動条件は **cursorapi の create が HTTP 401 もしくは 403**。cursorapi は 401/403 のとき、自分の infra error を **vendor 非依存の番兵 `port.ErrSourceExhausted`** で wrap して返す。UseCase は `errors.Is(err, port.ErrSourceExhausted)` だけを見て切り替え、cursorapi の error 型・Op・HTTP status を知らない。429 / 5xx / SSE 途中断 / 到達不可（`Op=="do"`）は番兵で wrap せず、現行の Cursor 内 retry のままにする。
+4. 切り替えの発動条件は **cursorapi の create が HTTP 401 もしくは 403**。cursorapi は 401/403 のとき、自分の infra error を **vendor 非依存の番兵 `port.ErrSourceExhausted`** で wrap して返す。UseCase は `errors.Is(err, port.ErrSourceExhausted)` だけを見て切り替え、cursorapi の error 型・Op・HTTP status を知らない。401/403 以外の失敗（429・5xx・通信断・利用枠喪失）を番兵で wrap する条件は `generator-genai-api-failure-retry-or-fallback` が定める。
 5. 切り替えは **高々 1 回**。secondary の戻り（成功・失敗）をそのまま `ProduceEpisode` へ返す。secondary の error を別型でラップしない。secondary が再び `port.ErrSourceExhausted` を返しても 3 つ目の取得元は無い。
 6. `geminiapi.TextWriter` の transport は `speech/gemini`（TTS）を再利用せず独立させる。endpoint は `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`、API key は `x-goog-api-key` header。model は Adapter 定数固定で、runtime の model 存在確認はしない。
-7. `geminiapi` の retry は `speech/gemini` の重装 retry（call gap・synthesize budget・分単位 backoff）を流用しない。`client.Do` error と 5xx を 1 回、429 を有限回（`MaxAttempts`）+ backoff（`Retry-After` delta-seconds 尊重、上限 `MaxRetryAfter`）で再試行する。401/403・その他 4xx・`finishReason` が STOP 以外・空 text・parse 失敗は再試行しない。
+7. `geminiapi` の retry は `speech/gemini` の重装 retry（call gap・synthesize budget・分単位 backoff）を流用しない。`client.Do` error と 5xx を 1 回（使い切りは fallback。`generator-genai-api-failure-retry-or-fallback`）、429 は `Retry-After` delta-seconds が付いた時だけ有限回（`MaxAttempts`）、上限 `MaxRetryAfter` まで待って再試行し、付かない 429 は待たず fallback へ渡す（`generator-genai-api-failure-retry-or-fallback`）。401/403・その他 4xx・`finishReason` が STOP 以外・空 text・parse 失敗は再試行しない。
 8. `geminiapi.Error` は `cursorapi.Error` と同型（`Op` / `Err` / `Unwrap` / package prefix）。secret 実値を `Err` に入れない。`cursorapi.Error` の型は変えない（HTTP status を外へ出す field は足さない。切り替え可否は番兵で表現する）。
 9. 切り替えが起きたことは、当面 Composition が渡す `logManuscriptSourceSwitched` が標準 `log`（stderr）へ 1 行出すだけとする。構造化 log 基盤の導入と、能動的な通知（毎日 Gemini に落ちている状態の検知）は本 Decision の scope 外。
 
-先行 Decision `2026-09-03T17-03-33-feature-generator-cursor-cli-to-http-api.md` の §Decision 2「実装が SSE で行き詰まった時の fallback は将来の別判断とし、初回の正は SSE とする」を、本 Decision が具体化する。先行 Decision は supersede しない（transport を Cloud Agents REST + SSE に置く判断は維持し、本 Decision は「その primary が利用枠喪失で使えないときの退避先」だけを足す）。先行 Decision の file 本文は書き換えない。
+先行 Decision `generator-cursor-text-writer-transport.md` の §Decision 2「実装が SSE で行き詰まった時の fallback は将来の別判断とし、初回の正は SSE とする」を、本 Decision が具体化する。先行 Decision は supersede しない（transport を Cloud Agents REST + SSE に置く判断は維持し、本 Decision は「その primary が利用枠喪失で使えないときの退避先」だけを足す）。先行 Decision の file 本文は書き換えない。
 
 non-scope: Flash-Lite が返す原稿の品質・token 消費・尺下限割れの実測。3 実装目の追加。Gemini 応答 status の詳細な分類。切り替え発火の能動通知。構造化 log 基盤の導入。
 
@@ -41,9 +40,9 @@ UseCase が primary の vendor（cursorapi）の error 型を `errors.As` で覗
 3. **無料枠が日次 1 回の produce を包む**: 無料枠は RPD 約 1,000・TPM 250,000・1M context。1 日 1 回の `ProduceEpisode()` は、原稿 1 回あたり入力 3.3 万〜8.3 万 tokens・出力 4 千〜5 千 tokens（System 実測の原稿長 3,362〜3,723 字から換算）、draft 検証 retry を最大数えても 1 日 2〜3 call。RPD・TPM のどちらにも当たらない。
 4. **出力が今の 3 倍になっても無料枠内**: 尺モデルを 3 倍（全体 24〜36 分相当）にしても出力は 1.2 万〜3 万 tokens/日で、入力は `{{SOURCES}}` 支配のためほぼ不変。無料枠で $0、有料換算でも月 $1 未満。Anthropic Haiku は無料枠が無く、同条件で月 $2.7〜$10 かかり「完全無料枠」要件に反する。Groq は無料枠内だが新 Secret と日本語原稿品質の未実測リスクを抱える。
 
-### なぜ 401/403 限定の trigger か
+### なぜ 401/403 を最初の trigger とするか
 
-Cursor Cloud Agents REST は Dashboard の `crsr_` key 1 種で、subscription / Pro の失効も key の失効も `create` の HTTP 401/403 として現れる（`2026-09-04T15-05-00` の daily で 401 を実証済み）。これが「Cursor が使えない」と確実に言える唯一の観測点である。429 は rate limit で、Cursor 内の backoff retry で回復しうる。5xx や SSE 途中断は一過性で、切り替えると「一時的な Cursor 障害のたびに Gemini 原稿へ落ちる」ことになり、primary の品質を捨てる頻度が上がる。到達不可（`Op=="do"`）は network 要因で、secondary も同じ network の先にあるため切り替えの意味が薄い。
+Cursor Cloud Agents REST は Dashboard の `crsr_` key 1 種で、subscription / Pro の失効も key の失効も `create` の HTTP 401/403 として現れる（`2026-09-04T15-05-00` の daily で 401 を実証済み）。これが「Cursor が使えない」と確実に言える最初の観測点である。429・5xx・通信断を切り替えの合図にするかは、後の `generator-genai-api-failure-retry-or-fallback` が status 別に決めた。ここでは 401/403 を確実な観測点として置いた理由だけを持つ。
 
 ### なぜ primary を降格せず env 切替もしないか
 
@@ -55,7 +54,7 @@ Cursor Cloud Agents REST は Dashboard の `crsr_` key 1 種で、subscription /
 
 ### なぜ model 存在確認をしないか
 
-先行 Decision `2026-09-03T17-03-33` §Reason「なぜ model list 確認をしないか」と同型。日次 1 回の起動で `GET /models` を列挙しても稀な破壊的変更への過剰防衛にしかならず、失敗したら Infra Error で落ちて定数を直す方が分岐が少ない。
+先行 Decision `generator-cursor-text-writer-transport` §Reason「なぜ model list 確認をしないか」と同型。日次 1 回の起動で `GET /models` を列挙しても稀な破壊的変更への過剰防衛にしかならず、失敗したら Infra Error で落ちて定数を直す方が分岐が少ない。
 
 ### なぜ log は当面 stderr 1 行か
 
