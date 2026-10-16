@@ -9,7 +9,7 @@ description: "共有語彙は apps/playback/domain/ に置き、時刻は brand 
 2. 時刻は brand 型 `UtcInstant`（UTC 固定幅の ISO 表記）にする。固定幅への変換と instant の範囲の正本は、domain の `toUtcInstant`（入力は `Date`）とする。この関数を通った値だけが `UtcInstant` になる。入力文字列の文法（offset 付き ISO、実在する暦日）は domain が持たず、contracts の zod が持つ。
 3. `contracts/` は HTTP の wire 形だけを持つ。時刻は zod の `z.iso.datetime({ offset: true })` で文法を検証したあと、domain の `toUtcInstant` を呼び、範囲外を HTTP の issue に写す。Request／Query は、client が送る wire 形（入力型）と、route の zod が parse した後の形（`Parsed…`）を別の型にする。
 4. 不変の信頼は型が運ぶ。UseCase・Port・Controller は時刻を再検証しない。保証するのは、未知の入力が既知になる境界だけとする。route の zod、原稿 JSON の ajv、保存先から読む D1 adapter（`isUtcInstant` で正規形を確認し、満たさなければ Infrastructure Error）である。
-5. domain に置く語彙は、時刻（brand 型 `UtcInstant`）、`EpisodeId`・`PositionSec`・`ClientAt`（別名）、`ProgressReport`（端末からの**進捗報告**。`positionSec` と `clientAt`）、`EpisodeProgress` とする。基本型で表す domain の語は、型の名前を domain に置く。brand にするのは、取り違えると静かに壊れる値に限り、今は時刻だけである。別名の三つは名前の SSoT で、不変（非空・非負）は入口の zod と JSON Schema が保証する。cursor は範囲外とする。
+5. domain に置く語彙は、時刻（brand 型 `UtcInstant`）、`EpisodeId`・`PositionSec`（音声内の位置。再生位置と原稿の各区間の開始位置 `startSec`）・`DurationSec`（音声全体の長さ）・`ClientAt`（別名）、`ProgressReport`（端末からの**進捗報告**。`positionSec` と `clientAt`）、`EpisodeProgress` とする。基本型で表す domain の語は、型の名前を domain に置く。brand にするのは、取り違えると静かに壊れる値に限り、今は時刻だけである。別名は名前の SSoT で、不変（非空・非負）は入口の zod と JSON Schema が保証する。cursor は範囲外とする。
 6. UseCase の入出力・Port の引数と戻り値（束）は application が持ち、domain の語彙と layer 固有の都合から合成する（交差型・`Pick`）。field を再宣言しない。worker だけが使う語彙（`EpisodeManuscript`・`EpisodeAudio`）は worker の `entities/` に置く。
 
 ## 2. Reason
@@ -37,3 +37,4 @@ description: "共有語彙は apps/playback/domain/ に置き、時刻は brand 
 8. **`EpisodeId` を brand にし、非空の入口を domain に置く案** — 非空を domain が手書きで持つと、入口の zod の `min(1)` と二重になる。zod で守るには domain が zod に依存する必要があり、7 で却下した。brand にする根拠（繰り返し破られた証拠）も無い。test の literal は166箇所、入口は4つで、費用が便益に見合わない。
 9. **UseCase の入出力・Port の引数と戻り値（束）を domain に置く案** — 最内側が Port と UseCase の形を知る逆向きの依存になる（Reason 7）。
 10. **`Uint8Array` の別名（音声）を domain に置く案** — web が使わず、platform の型の別名にすぎない（Reason 9）。worker の `entities/` に `EpisodeAudio` を置く。
+11. **`EpisodeManuscript`（worker の entities）と `EpisodeItem`（契約の応答）を統合する案** — 前者は Reader が検証した Drive の原稿で、後者は wire の形（`audioRef`・`progress` を足し、`strictObject` で閉じる）である。HTTP の変更が Drive の読取を壊さないよう別に持つ（`2026-08-25T18-42-00-chore-playback-worker-web-layer.md` §2-5）。一方を変える理由が必ずもう一方を変える理由にはならないので、同じ知識ではない（`module-design` §3-5）。共有するのは葉の語彙（`EpisodeId`・`PositionSec`・`DurationSec`）だけである。
