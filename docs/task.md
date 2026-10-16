@@ -21,3 +21,14 @@ non-scope: "branch非依存の未完了とOpen questions（→wiki）、完了�
     - 追加の候補: 「層の入出力の束は、domainの葉と層固有の都合から合成する」の原則を`dto-naming.md`か`application.md`に書く（依頼されたtask 6の範囲外）
 5. Write の retry を実装する時、上限の定数をview-modelへ置く
     - 上限は初回を含め3試行。Decision `2026-09-22T19-23-39-feature-playback-progress.md`が設計意図の置き場。再試行してよい語彙は`catalogErrorPresentation`の`retryable`を使う
+6. `ProgressRow`・`ProgressUpdatedEntry`を`domain/`へ昇格するか決める（旧task 2の一部。判断せずに落としていたので戻した）
+    - 今は`worker/src/application/ports/progress-repository.ts`にある。`ProgressRow`は`{ episodeId } & EpisodeProgress`、`ProgressUpdatedEntry`は`{ episodeId, progress }`
+    - 基準案: web・worker・contractsのうち2つ以上が使うか。`ProgressUpdatedEntry`は契約のpull応答の1件と同形
+7. 旧task 4（retry定数）を、計画と違う手段で解決した点をshimが確認する
+    - 計画は「試行回数はweb側のVM、retry可否の導出は`web/api`へ移す」。実際は使用者ゼロなので削除し、設計意図をDecisionに残した
+    - 戻す案: web側へ定数を置く（使用者ゼロのまま）。このまま案: 実装時にVMへ置く
+8. 旧task 3（brandの手書き）と旧task 1（写しの範囲）は、shimの答えが無いまま私が決めた。結論を確認する
+    - brand: 現状維持（3つは別の層の別概念。共通helperは、routesとapplicationにdomainのimportを強いるだけ）
+    - 写し: `toEpisodeProgressResponse`に共通化。`EpisodeManuscript`と`EpisodeItem`は統合しない
+9. `Uint8Array`が残る2箇所（`routes/audio-response.ts`、`r2-episode-repository.ts`の`readBytes`）の方針を確認する
+    - 指示欄に本文が無く、現状維持と解釈した。routesはentitiesをimportできず、`readBytes`はjsonと音声の共用
