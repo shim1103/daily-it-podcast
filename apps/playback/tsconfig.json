@@ -21,6 +21,7 @@
     "web/src/**/*.tsx",
     "worker/src/**/*.ts",
     "contracts/**/*.ts",
+    "domain/**/*.ts",
     "test/**/*.ts"
   ]
 }

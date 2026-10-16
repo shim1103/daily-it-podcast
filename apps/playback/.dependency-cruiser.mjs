@@ -4,11 +4,43 @@ export default {
     {
       name: "worker-entities-no-outer",
       severity: "error",
-      comment: "Entities は内側のみ",
+      comment: "Entities は内側のみ。domain とは並立の最内側で、互いに import しない",
       from: { path: "^worker/src/entities/" },
       to: {
-        path: "^worker/src/(application|infrastructure|controllers|routes|composition)/|^contracts/",
+        path: "^worker/src/(application|infrastructure|controllers|routes|composition)/|^contracts/|^domain/",
       },
+    },
+    {
+      name: "domain-no-outer",
+      severity: "error",
+      comment:
+        "domain は web・worker・contracts を import しない。web と worker が共有する、http 非依存の語彙",
+      from: { path: "^domain/" },
+      to: { path: "^(worker|web|contracts)/" },
+    },
+    {
+      name: "domain-no-npm",
+      severity: "error",
+      comment: "domain は外部依存ゼロ（zod など npm の package を import しない）",
+      from: { path: "^domain/" },
+      to: {
+        dependencyTypes: [
+          "npm",
+          "npm-dev",
+          "npm-optional",
+          "npm-peer",
+          "npm-bundled",
+          "npm-no-pkg",
+          "npm-unknown",
+        ],
+      },
+    },
+    {
+      name: "contracts-only-domain",
+      severity: "error",
+      comment: "contracts（HTTP の wire 形）が import してよいのは domain のみ。worker・web は不可",
+      from: { path: "^contracts/" },
+      to: { path: "^(worker|web)/" },
     },
     {
       name: "worker-application-no-outer",
@@ -109,10 +141,10 @@ export default {
     {
       name: "web-primitive-strict",
       severity: "error",
-      comment: "Primitive は utils + 他 Primitive のみ",
+      comment: "Primitive は utils + 他 Primitive のみ（domain knowledge zero なので domain も不可）",
       from: { path: "^web/src/components/primitive/" },
       to: {
-        path: "^web/src/(api|lib|pages|view-models|components/feature)/|^contracts/",
+        path: "^web/src/(api|lib|pages|view-models|components/feature)/|^contracts/|^domain/",
       },
     },
   ],
