@@ -10,9 +10,9 @@ non-scope: "branch非依存の未完了とOpen questions（→wiki）、完了�
     - shimの判断: fixtureをschemaで検証するcontract test（案i）は大変なのでやめる
     - 残る案: ii=型の生成（要tool導入と版固定。未導入）、iii=`z.fromJSONSchema`。実測: 検証は動く（空id・余分なfield・負のdurationを拒否）が、出力型は静的に推論されない
     - iiとzodの関係: 生成するのは`EpisodeManuscript`型だけで、zodはHTTP契約とdomainの葉schemaに残る。JSON Schemaの`minLength`は型にならないので、`EpisodeId`のbrandは生成型から出ない（manuscript境界で`episodeIdSchema.parse`する）
-2. `Uint8Array`が残る2箇所（`routes/audio-response.ts`、`r2-episode-repository.ts`の`readBytes`）の方針を決める
-    - shimの問い（外部の byte をどこで保証し`EpisodeAudio`にするか、routes はどちらを要求するか、r2 adapter が infra 内で保証するか）に、非editで答えた。答えを見て決める
-    - 私の見立て: routes は`Uint8Array`（platform の型。entities を import できない）、保証は I/O 成功まで infra、内容の妥当性は application（`verifyManuscript`と同じ型）
-3. `agent-standards`に入れたskillの編集をcommitする（shim。`agent-standards`の`AGENTS.md`は「`/commit`を勝手に実行しない」）
-    - 未commit: `3:workflow/shape`→`3:workflow/split`のrenameと参照の置換、`coding-terms/split.md`§1-6（使われない定数・error型もAとして置く。使用者が無くcoverageに影響するなら`TODO:`でコメントアウト）、`doc-terms/epic.md`（Sub-featuresの章を無くし、ACが子の一覧）、`3:workflow/issue/SKILL.md`（`--epic`から書き方を外し、merged済みの子Issueを閉じる手順を足した）、`doc-terms/commit.md` Granularity§10と`3:workflow/commit/SKILL.md`（indexへ合成した内容をstageしない）
-4. `3:workflow/issue/SKILL.md`の default flow §2 と anti-pattern §3 にも、`doc-terms`が持つ書き方の記述が残る（依頼は`--epic`のみ）。外すか決める
+2. `agent-standards`の未commitの変更をcommitする（shim。`agent-standards`の`AGENTS.md`は「`/commit`を勝手に実行しない」）
+    - Issue／worktree: `doc-terms/taxonomy`§3（titleは`{kind}({branch名}): {要約}`）、`doc-terms/issue.md`§0-9、`doc-terms/epic.md`§0-5、`3:workflow/worktree-setup`（branch名はIssueのtitleに決まっていればそれを使う）、`3:workflow/issue/SKILL.md`（default flowの書き方記述を外した）
+    - 知識: 新規`coding-terms/boundary-trust.md`（知らない・保証・信頼、型で信頼を運ぶ、形式と不変の分担）と、`coding-terms/SKILL.md`の表、`backend-terms/{application,infrastructure,controller,route-handler}.md`、`frontend-terms/{api-client,view-model}.md`の差分
+3. 既存の子Issue（#195〜#200・#217〜#223）のtitleに、branch名を足すか決める
+    - 新しい規約は、titleに`{kind}({branch名}): {要約}`を求める。既存のtitleは`feat(playback): …`か`playback: …`で、branch名を含まない
+    - #193（epic）のtitleも`epic({epic branch名}): …`に揃えるか
