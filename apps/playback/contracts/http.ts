@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { type EpisodeProgress, normalizeUtcInstant } from "../domain/index.ts";
+import { type EpisodeProgress, toUtcInstant } from "../domain/index.ts";
 
 export const playbackHttpErrorCodes = [
   "episode_not_found",
@@ -26,16 +26,17 @@ export const progressWriteRetryableHttpErrorCodes = [
 
 /**
  * 進捗の時刻（`clientAt`・`since`・`first*`・`lastPlayedAt`）が共有する schema。
- * 入力は offset 付き（`Z` または `±hh:mm`）の ISO-8601 を受け、出力は同じ instant の UTC 固定幅
- * （`UtcInstant`）で、文字列順が時系列順と一致する。文法・暦・範囲の判定と正規化の正本は
- * `domain` の `normalizeUtcInstant` で、本 schema はそれを呼んで HTTP の検証失敗（issue）に写す。
+ * 入力の文法は zod の `z.iso.datetime({ offset: true })` が持ち（offset 付きの ISO-8601 だけを受け、
+ * 実在しない暦日や offset の範囲外を拒む）、出力は同じ instant の UTC 固定幅（`UtcInstant`）で、
+ * 文字列順が時系列順と一致する。固定幅への変換と範囲（1970〜2100）の正本は `domain` の `toUtcInstant`。
  */
-const progressInstantSchema = z.string().transform((value, ctx) => {
-  const instant = normalizeUtcInstant(value);
+const progressInstantSchema = z.iso.datetime({ offset: true }).transform((value, ctx) => {
+  // why: 小数が 4 桁以上の表記は Date Time String Format（ECMA-262）が規定せず、実装依存の恐れがある。3 桁へ切ってから Date に渡す
+  const instant = toUtcInstant(new Date(value.replace(/(\.\d{3})\d+/, "$1")));
   if (instant === undefined) {
     ctx.issues.push({
       code: "custom",
-      message: "offset 付きの ISO-8601 で、範囲内の実在する時刻でなければならない",
+      message: "時刻が範囲（1970-01-01T00:00:00Z より後、2100-01-01T00:00:00Z より前）の外",
       input: value,
     });
     return z.NEVER;
