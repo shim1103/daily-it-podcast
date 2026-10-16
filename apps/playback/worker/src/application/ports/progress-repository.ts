@@ -1,4 +1,4 @@
-import type { EpisodeProgress } from "../../entities/models/episode-progress.ts";
+import type { EpisodeProgress } from "../../../../domain/index.ts";
 
 /** pull で返す 1 件。更新があった episode の進捗。 */
 export type ProgressUpdatedEntry = {

@@ -2,34 +2,35 @@ import { describe, expect, it } from "vitest";
 import { InMemoryProgressRepository } from "../../infrastructure/in-memory/in-memory-progress-repository.ts";
 import type { ProgressRow } from "../ports/progress-repository.ts";
 import { pullProgress } from "./pull-progress.ts";
+import { utc } from "../../../../test/support/utc-instant.ts";
 
 /**
  * scope: Sociable Unit
  * real: pullProgress use-case（lastPlayedAt > since 境界）
  * double: InMemoryProgressRepository (Fake)
  */
-const SINCE = "2026-09-15T00:00:00.000Z";
+const SINCE = utc("2026-09-15T00:00:00.000Z");
 
 const beforeSince: ProgressRow = {
   episodeId: "ep-before",
   positionSec: 10,
-  firstPlayedAt: "2026-09-01T00:00:00.000Z",
+  firstPlayedAt: utc("2026-09-01T00:00:00.000Z"),
   firstCompletedAt: null,
-  lastPlayedAt: "2026-09-10T12:00:00.000Z",
+  lastPlayedAt: utc("2026-09-10T12:00:00.000Z"),
 };
 
 const afterSince: ProgressRow = {
   episodeId: "ep-after",
   positionSec: 20,
-  firstPlayedAt: "2026-09-02T00:00:00.000Z",
-  firstCompletedAt: "2026-09-05T00:00:00.000Z",
-  lastPlayedAt: "2026-09-20T12:00:00.000Z",
+  firstPlayedAt: utc("2026-09-02T00:00:00.000Z"),
+  firstCompletedAt: utc("2026-09-05T00:00:00.000Z"),
+  lastPlayedAt: utc("2026-09-20T12:00:00.000Z"),
 };
 
 const equalSince: ProgressRow = {
   episodeId: "ep-equal",
   positionSec: 15,
-  firstPlayedAt: "2026-09-03T00:00:00.000Z",
+  firstPlayedAt: utc("2026-09-03T00:00:00.000Z"),
   firstCompletedAt: null,
   lastPlayedAt: SINCE,
 };

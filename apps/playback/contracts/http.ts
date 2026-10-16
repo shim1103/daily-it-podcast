@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { type EpisodeProgress, normalizeUtcInstant } from "../domain/index.ts";
 
 export const playbackHttpErrorCodes = [
   "episode_not_found",
@@ -23,23 +24,24 @@ export const progressWriteRetryableHttpErrorCodes = [
   "unavailable",
 ] as const satisfies readonly PlaybackHttpErrorCode[];
 
-const progressInstantLowerExclusiveMs = Date.UTC(1970, 0, 1);
-const progressInstantUpperExclusiveMs = Date.UTC(2100, 0, 1);
-
 /**
  * 進捗の時刻（`clientAt`・`since`・`first*`・`lastPlayedAt`）が共有する schema。
- * 入力は offset 付き（`Z` または `±hh:mm`）の ISO-8601 を受け、instant が範囲外なら拒否する。
- * 出力は同じ instant の UTC 固定幅（`YYYY-MM-DDTHH:mm:ss.sssZ`）で、文字列順が時系列順と一致する。
+ * 入力は offset 付き（`Z` または `±hh:mm`）の ISO-8601 を受け、出力は同じ instant の UTC 固定幅
+ * （`UtcInstant`）で、文字列順が時系列順と一致する。文法・暦・範囲の判定と正規化の正本は
+ * `domain` の `normalizeUtcInstant` で、本 schema はそれを呼んで HTTP の検証失敗（issue）に写す。
  */
-const progressInstantSchema = z.iso
-  .datetime({ offset: true })
-  .refine((value) => {
-    const instantMs = Date.parse(value);
-    return (
-      instantMs > progressInstantLowerExclusiveMs && instantMs < progressInstantUpperExclusiveMs
-    );
-  })
-  .transform((value) => new Date(value).toISOString());
+const progressInstantSchema = z.string().transform((value, ctx) => {
+  const instant = normalizeUtcInstant(value);
+  if (instant === undefined) {
+    ctx.issues.push({
+      code: "custom",
+      message: "offset 付きの ISO-8601 で、範囲内の実在する時刻でなければならない",
+      input: value,
+    });
+    return z.NEVER;
+  }
+  return instant;
+});
 
 /**
  * 進捗 pull の cursor。10 進の非負整数の文字列（15 桁以下、先頭 0 は `"0"` のみ）。
@@ -81,13 +83,14 @@ const bodySchema = z.strictObject({
  * list embed / 永続行が共有する再生進捗。未playは episode 側で `progress: null`（行なし）。
  * 行があるとき `firstPlayedAt` / `lastPlayedAt` は必須。`firstCompletedAt` のみ未完走で null。
  * 時刻の形式・範囲・正規化は {@link progressInstantSchema} に従う（parse 後は UTC 固定幅）。
+ * parse 後の形が domain の `EpisodeProgress` に代入できることを型で結ぶ（食い違えば compile error）。
  */
 export const episodeProgressSchema = z.strictObject({
   positionSec: z.number().min(0),
   firstPlayedAt: progressInstantSchema,
   firstCompletedAt: progressInstantSchema.nullable(),
   lastPlayedAt: progressInstantSchema,
-});
+}) satisfies z.ZodType<EpisodeProgress, unknown>;
 
 export const episodeItemSchema = z.strictObject({
   episodeId: episodeIdSchema,
@@ -250,14 +253,19 @@ export const ErrorResponseSchema = z.strictObject({
   code: z.enum(playbackHttpErrorCodes),
 });
 
-export type EpisodeProgress = z.infer<typeof episodeProgressSchema>;
 export type EpisodeItem = z.infer<typeof episodeItemSchema>;
 export type ListEpisodesResponse = z.infer<typeof ListEpisodesResponseSchema>;
 export type EpisodeIdRequest = z.infer<typeof EpisodeIdRequestSchema>;
-export type ProgressWriteRequest = z.infer<typeof ProgressWriteRequestSchema>;
+/** wire 形（client が送る形）。`clientAt` は offset 付きの文字列でよい。 */
+export type ProgressWriteRequest = z.input<typeof ProgressWriteRequestSchema>;
+/** 検証後の形（route の zod が parse した後）。`clientAt` は `UtcInstant`。 */
+export type ParsedProgressWriteRequest = z.output<typeof ProgressWriteRequestSchema>;
 export type ProgressWriteResponse = z.infer<typeof ProgressWriteResponseSchema>;
 // todo: C が route と UseCase を ProgressCursorPull* へ切り替えたら、この型を削除する
-export type ProgressPullQuery = z.infer<typeof ProgressPullQuerySchema>;
+/** wire 形（client が送る形）。`since` は offset 付きの文字列でよい。 */
+export type ProgressPullQuery = z.input<typeof ProgressPullQuerySchema>;
+/** 検証後の形（route の zod が parse した後）。`since` は `UtcInstant`。 */
+export type ParsedProgressPullQuery = z.output<typeof ProgressPullQuerySchema>;
 // todo: C が route と UseCase を ProgressCursorPull* へ切り替えたら、この型を削除する
 export type ProgressPullResponse = z.infer<typeof ProgressPullResponseSchema>;
 export type ProgressCursorPullQuery = z.infer<typeof ProgressCursorPullQuerySchema>;

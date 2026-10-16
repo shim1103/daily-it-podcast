@@ -1,4 +1,4 @@
-import type { EpisodeProgress } from "../../entities/models/episode-progress.ts";
+import { type EpisodeProgress, isUtcInstant, type UtcInstant } from "../../../../domain/index.ts";
 import type {
   GetByEpisodeIdsArgs,
   GetByEpisodeIdsResult,
@@ -111,8 +111,16 @@ function stringColumn(row: D1Row, column: string): string {
   return value;
 }
 
-function nullableStringColumn(row: D1Row, column: string): string | null {
-  return row[column] === null ? null : stringColumn(row, column);
+function utcInstantColumn(row: D1Row, column: string): UtcInstant {
+  const value = stringColumn(row, column);
+  if (!isUtcInstant(value)) {
+    throw new D1Error(`D1 の進捗行の列 ${column} が UTC 固定幅の時刻でない`);
+  }
+  return value;
+}
+
+function nullableUtcInstantColumn(row: D1Row, column: string): UtcInstant | null {
+  return row[column] === null ? null : utcInstantColumn(row, column);
 }
 
 function numberColumn(row: D1Row, column: string): number {
@@ -126,9 +134,9 @@ function numberColumn(row: D1Row, column: string): number {
 function toEpisodeProgress(row: D1Row): EpisodeProgress {
   return {
     positionSec: numberColumn(row, columns.positionSec),
-    firstPlayedAt: stringColumn(row, columns.firstPlayedAt),
-    firstCompletedAt: nullableStringColumn(row, columns.firstCompletedAt),
-    lastPlayedAt: stringColumn(row, columns.lastPlayedAt),
+    firstPlayedAt: utcInstantColumn(row, columns.firstPlayedAt),
+    firstCompletedAt: nullableUtcInstantColumn(row, columns.firstCompletedAt),
+    lastPlayedAt: utcInstantColumn(row, columns.lastPlayedAt),
   };
 }
 
@@ -164,8 +172,8 @@ function toProgressVersion(row: D1Row): ProgressVersion {
  * 渡された行を保存し、読み返すだけで merge しない。
  *
  * @require deps.database は migration 適用済みの進捗表を持つ D1 binding
- * @require 旧面 `listUpdatedSince` の `since` と行の時刻は、辞書順が時系列と一致する表記（UTC 固定幅の ISO-8601）。契約 schema が入口で保証し、adapter は変換しない（`>` 比較と並びを文字列で行うため）
- * @ensure D1 の例外・`run()` の `success === false`・列型の不一致は D1Error を throw する。adapter 内で再試行しない
+ * @require 旧面 `listUpdatedSince` の `since` は、辞書順が時系列と一致する表記（UTC 固定幅の ISO-8601）。契約 schema が入口で保証し、adapter は変換しない（`>` 比較と並びを文字列で行うため）
+ * @ensure D1 の例外・`run()` の `success === false`・列型の不一致・時刻列が UTC 固定幅でない行は D1Error を throw する。adapter 内で再試行しない
  * @invariant `seq` と cursor を数値のまま扱い、文字列へ変換しない
  * @invariant SQL 全文と bind 値を Error message に含めない
  */

@@ -7,10 +7,11 @@ import type {
 import { ProgressRuleError } from "../entities/errors/progress-rule-error.ts";
 import { R2Error } from "../infrastructure/r2/r2-error.ts";
 import { createProgressWriteController } from "./progress-write-controller.ts";
+import { utc } from "../../../test/support/utc-instant.ts";
 
-const CLIENT_AT = "2026-09-22T10:00:00.000Z";
-const FIRST_PLAYED_AT = "2026-09-21T09:00:00.000Z";
-const FIRST_COMPLETED_AT = "2026-09-21T09:30:00.000Z";
+const CLIENT_AT = utc("2026-09-22T10:00:00.000Z");
+const FIRST_PLAYED_AT = utc("2026-09-21T09:00:00.000Z");
+const FIRST_COMPLETED_AT = utc("2026-09-21T09:30:00.000Z");
 
 describe("createProgressWriteController", () => {
   it("passes_episode_id_and_every_body_field_to_use_case_input_when_called", async () => {

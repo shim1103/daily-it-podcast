@@ -29,10 +29,11 @@ export {
 } from "./http.ts";
 export type {
   EpisodeItem,
-  EpisodeProgress,
   ErrorResponse,
   EpisodeIdRequest,
   ListEpisodesResponse,
+  ParsedProgressPullQuery,
+  ParsedProgressWriteRequest,
   PlaybackHttpErrorCode,
   ProgressCursorPullQuery,
   ProgressCursorPullResponse,

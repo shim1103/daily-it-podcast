@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createFakeLocalD1Binding } from "../../../../test/support/create-fake-local-d1-binding.ts";
+import { utc } from "../../../../test/support/utc-instant.ts";
 import type { ProgressRow, ProgressVersion } from "../../application/ports/progress-repository.ts";
 import type { D1Row } from "./d1-database-binding.ts";
 import { D1Error } from "./d1-error.ts";
@@ -30,9 +31,9 @@ const nextSeqSubquery = `(SELECT COALESCE(MAX(${columns.seq}), 0) + 1 FROM ${EPI
 const writeRow: ProgressRow = {
   episodeId: "ep-1",
   positionSec: 42.5,
-  firstPlayedAt: "2026-10-01T00:00:00.000Z",
+  firstPlayedAt: utc("2026-10-01T00:00:00.000Z"),
   firstCompletedAt: null,
-  lastPlayedAt: "2026-10-01T00:05:00.000Z",
+  lastPlayedAt: utc("2026-10-01T00:05:00.000Z"),
 };
 
 // why: ProgressVersion は Port が公開する不透明な型で、生成手段は adapter が読んで返す経路だけ。入力値を作る test 用に限り brand を付ける
@@ -201,9 +202,9 @@ describe("D1ProgressRepository", () => {
     const row = {
       episodeId: "ep-1",
       positionSec: 42.5,
-      firstPlayedAt: "2026-10-01T00:00:00.000Z",
+      firstPlayedAt: utc("2026-10-01T00:00:00.000Z"),
       firstCompletedAt: null,
-      lastPlayedAt: "2026-10-01T00:05:00.000Z",
+      lastPlayedAt: utc("2026-10-01T00:05:00.000Z"),
     };
 
     it("binds_row_columns_in_table_order_with_one_statement", async () => {
@@ -231,7 +232,10 @@ describe("D1ProgressRepository", () => {
       const repository = new D1ProgressRepository({ database });
 
       // When: 完走済みの row を upsert する
-      await repository.upsertProgress({ ...row, firstCompletedAt: "2026-10-01T00:04:00.000Z" });
+      await repository.upsertProgress({
+        ...row,
+        firstCompletedAt: utc("2026-10-01T00:04:00.000Z"),
+      });
 
       // Then: firstCompletedAt を値のまま bind する
       expect(calls[0]?.values[3]).toBe("2026-10-01T00:04:00.000Z");
@@ -425,6 +429,15 @@ describe("D1ProgressRepository", () => {
       ["first_played_at is not a string", { [columns.firstPlayedAt]: null }],
       ["first_completed_at is neither null nor a string", { [columns.firstCompletedAt]: 1 }],
       ["episode_id is not a string", { [columns.episodeId]: 1 }],
+      [
+        "first_played_at is not a utc fixed width instant",
+        { [columns.firstPlayedAt]: "2026-10-01T09:00:00+09:00" },
+      ],
+      [
+        "first_completed_at is non null and not a utc fixed width instant",
+        { [columns.firstCompletedAt]: "2026-10-01T00:04:00Z" },
+      ],
+      ["last_played_at is not a utc fixed width instant", { [columns.lastPlayedAt]: "not-a-time" }],
     ])("throws_d1_error_when_row_is_malformed_because_%s", async (_name, overrides) => {
       // Given: 列型が期待と違う行を返す D1
       const { database } = await createFakeLocalD1Binding({
@@ -602,7 +615,7 @@ describe("D1ProgressRepository", () => {
 
       // When: 完走済みの row を条件付き挿入する
       await repository.insertProgressIfAbsent({
-        row: { ...writeRow, firstCompletedAt: "2026-10-01T00:04:00.000Z" },
+        row: { ...writeRow, firstCompletedAt: utc("2026-10-01T00:04:00.000Z") },
       });
 
       // Then: row の列を値のまま表の列順に bind する。採番は SQL が持つので bind しない
@@ -742,7 +755,7 @@ describe("D1ProgressRepository", () => {
 
       // When: 完走済みの row を期待値 3 で条件付き更新する
       await repository.replaceProgressIfVersion({
-        row: { ...writeRow, firstCompletedAt: "2026-10-01T00:04:00.000Z" },
+        row: { ...writeRow, firstCompletedAt: utc("2026-10-01T00:04:00.000Z") },
         expectedVersion: versionOf(3),
       });
 

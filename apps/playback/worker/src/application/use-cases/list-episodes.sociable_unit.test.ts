@@ -3,6 +3,7 @@ import { InMemoryProgressRepository } from "../../infrastructure/in-memory/in-me
 import type { EpisodeRepository, RawManuscriptEntry } from "../ports/episode-repository.ts";
 import type { ProgressRow } from "../ports/progress-repository.ts";
 import { listEpisodes } from "./list-episodes.ts";
+import { utc } from "../../../../test/support/utc-instant.ts";
 
 /**
  * scope: Sociable Unit
@@ -27,9 +28,9 @@ const validManuscriptJson = {
 const seededProgress: ProgressRow = {
   episodeId: "ep-1",
   positionSec: 12,
-  firstPlayedAt: "2026-09-22T10:00:00.000Z",
+  firstPlayedAt: utc("2026-09-22T10:00:00.000Z"),
   firstCompletedAt: null,
-  lastPlayedAt: "2026-09-22T11:00:00.000Z",
+  lastPlayedAt: utc("2026-09-22T11:00:00.000Z"),
 };
 
 function createFakeRepository(entries: RawManuscriptEntry[]): EpisodeRepository {

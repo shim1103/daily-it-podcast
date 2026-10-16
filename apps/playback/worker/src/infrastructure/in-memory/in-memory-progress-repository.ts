@@ -1,4 +1,4 @@
-import type { EpisodeProgress } from "../../entities/models/episode-progress.ts";
+import type { EpisodeProgress } from "../../../../domain/index.ts";
 import type {
   GetByEpisodeIdsArgs,
   GetByEpisodeIdsResult,

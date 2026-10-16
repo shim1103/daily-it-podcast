@@ -4,6 +4,7 @@ import type {
   ProgressRow,
   ProgressVersion,
 } from "../../application/ports/progress-repository.ts";
+import { utc } from "../../../../test/support/utc-instant.ts";
 import { InMemoryProgressRepository } from "./in-memory-progress-repository.ts";
 
 /**
@@ -14,33 +15,33 @@ import { InMemoryProgressRepository } from "./in-memory-progress-repository.ts";
 const rowA: ProgressRow = {
   episodeId: "ep-a",
   positionSec: 10,
-  firstPlayedAt: "2026-09-01T00:00:00.000Z",
+  firstPlayedAt: utc("2026-09-01T00:00:00.000Z"),
   firstCompletedAt: null,
-  lastPlayedAt: "2026-09-10T12:00:00.000Z",
+  lastPlayedAt: utc("2026-09-10T12:00:00.000Z"),
 };
 
 const rowB: ProgressRow = {
   episodeId: "ep-b",
   positionSec: 20,
-  firstPlayedAt: "2026-09-02T00:00:00.000Z",
-  firstCompletedAt: "2026-09-05T00:00:00.000Z",
-  lastPlayedAt: "2026-09-20T12:00:00.000Z",
+  firstPlayedAt: utc("2026-09-02T00:00:00.000Z"),
+  firstCompletedAt: utc("2026-09-05T00:00:00.000Z"),
+  lastPlayedAt: utc("2026-09-20T12:00:00.000Z"),
 };
 
 const replacedA: ProgressRow = {
   episodeId: "ep-a",
   positionSec: 99,
-  firstPlayedAt: "2026-09-15T00:00:00.000Z",
-  firstCompletedAt: "2026-09-16T00:00:00.000Z",
-  lastPlayedAt: "2026-09-17T00:00:00.000Z",
+  firstPlayedAt: utc("2026-09-15T00:00:00.000Z"),
+  firstCompletedAt: utc("2026-09-16T00:00:00.000Z"),
+  lastPlayedAt: utc("2026-09-17T00:00:00.000Z"),
 };
 
 const intermediateA: ProgressRow = {
   episodeId: "ep-a",
   positionSec: 50,
-  firstPlayedAt: "2026-09-03T00:00:00.000Z",
+  firstPlayedAt: utc("2026-09-03T00:00:00.000Z"),
   firstCompletedAt: null,
-  lastPlayedAt: "2026-09-12T00:00:00.000Z",
+  lastPlayedAt: utc("2026-09-12T00:00:00.000Z"),
 };
 
 // why: 契約の起点 `PROGRESS_PULL_ORIGIN_CURSOR` は文字列。infrastructure は contracts を import しないので、Port の数値 cursor の起点をここで持つ
@@ -91,9 +92,9 @@ describe("InMemoryProgressRepository", () => {
     const replaced: ProgressRow = {
       episodeId: "ep-a",
       positionSec: 99,
-      firstPlayedAt: "2026-09-15T00:00:00.000Z",
-      firstCompletedAt: "2026-09-16T00:00:00.000Z",
-      lastPlayedAt: "2026-09-17T00:00:00.000Z",
+      firstPlayedAt: utc("2026-09-15T00:00:00.000Z"),
+      firstCompletedAt: utc("2026-09-16T00:00:00.000Z"),
+      lastPlayedAt: utc("2026-09-17T00:00:00.000Z"),
     };
     await repository.upsertProgress(replaced);
     const got = await repository.getByEpisodeIds({ episodeIds: ["ep-a"] });

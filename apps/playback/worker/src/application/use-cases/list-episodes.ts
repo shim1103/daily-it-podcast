@@ -1,5 +1,5 @@
 import type { EpisodeManuscript } from "../../entities/models/episode-manuscript.ts";
-import type { EpisodeProgress } from "../../entities/models/episode-progress.ts";
+import type { EpisodeProgress } from "../../../../domain/index.ts";
 import { selectValidManuscript } from "../manuscript/verify-manuscript.ts";
 import type { EpisodeRepository } from "../ports/episode-repository.ts";
 import type { ProgressRepository } from "../ports/progress-repository.ts";

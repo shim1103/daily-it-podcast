@@ -31,6 +31,7 @@ import {
   type LocalD1BindingHandle,
   createLocalD1Binding,
 } from "../support/create-local-d1-binding.ts";
+import { utc } from "../support/utc-instant.ts";
 
 // why: 起動に失敗すると handle は未代入のまま afterAll に来る。dispose の TypeError で元の失敗原因を隠さない
 let handle: LocalD1BindingHandle | undefined;
@@ -59,9 +60,9 @@ function progressRow(episodeId: string, overrides: Partial<ProgressRow> = {}): P
   return {
     episodeId,
     positionSec: 10,
-    firstPlayedAt: "2026-10-01T00:00:10.000Z",
+    firstPlayedAt: utc("2026-10-01T00:00:10.000Z"),
     firstCompletedAt: null,
-    lastPlayedAt: "2026-10-01T00:00:10.000Z",
+    lastPlayedAt: utc("2026-10-01T00:00:10.000Z"),
     ...overrides,
   };
 }
@@ -84,8 +85,8 @@ describe("D1ProgressRepository on local D1", () => {
       // Given: 行の無い episode と、完走済みの row
       const row = progressRow("ep-1", {
         positionSec: 60.5,
-        firstCompletedAt: "2026-10-01T00:01:00.000Z",
-        lastPlayedAt: "2026-10-01T00:02:00.000Z",
+        firstCompletedAt: utc("2026-10-01T00:01:00.000Z"),
+        lastPlayedAt: utc("2026-10-01T00:02:00.000Z"),
       });
 
       // When: upsert する
@@ -105,9 +106,9 @@ describe("D1ProgressRepository on local D1", () => {
       await repository.upsertProgress(
         progressRow("ep-1", {
           positionSec: 60,
-          firstPlayedAt: "2026-10-01T00:00:10.000Z",
-          firstCompletedAt: "2026-10-01T00:01:00.000Z",
-          lastPlayedAt: "2026-10-01T00:02:00.000Z",
+          firstPlayedAt: utc("2026-10-01T00:00:10.000Z"),
+          firstCompletedAt: utc("2026-10-01T00:01:00.000Z"),
+          lastPlayedAt: utc("2026-10-01T00:02:00.000Z"),
         }),
       );
 
@@ -115,9 +116,9 @@ describe("D1ProgressRepository on local D1", () => {
       await repository.upsertProgress(
         progressRow("ep-1", {
           positionSec: 5,
-          firstPlayedAt: "2026-10-01T00:00:20.000Z",
+          firstPlayedAt: utc("2026-10-01T00:00:20.000Z"),
           firstCompletedAt: null,
-          lastPlayedAt: "2026-10-01T00:00:30.000Z",
+          lastPlayedAt: utc("2026-10-01T00:00:30.000Z"),
         }),
       );
 
@@ -179,10 +180,10 @@ describe("D1ProgressRepository on local D1", () => {
     it("excludes_row_whose_last_played_at_equals_since", async () => {
       // Given: last_played_at が 00:00:10 / 00:00:20 の 2 行
       await repository.upsertProgress(
-        progressRow("ep-1", { lastPlayedAt: "2026-10-01T00:00:10.000Z" }),
+        progressRow("ep-1", { lastPlayedAt: utc("2026-10-01T00:00:10.000Z") }),
       );
       await repository.upsertProgress(
-        progressRow("ep-2", { lastPlayedAt: "2026-10-01T00:00:20.000Z" }),
+        progressRow("ep-2", { lastPlayedAt: utc("2026-10-01T00:00:20.000Z") }),
       );
 
       // When: since = 00:00:10 で pull する
@@ -195,13 +196,13 @@ describe("D1ProgressRepository on local D1", () => {
     it("orders_by_last_played_at_then_episode_id", async () => {
       // Given: 書込順と更新時刻順が食い違い、同時刻の行を含む 3 行
       await repository.upsertProgress(
-        progressRow("ep-b", { lastPlayedAt: "2026-10-01T00:00:20.000Z" }),
+        progressRow("ep-b", { lastPlayedAt: utc("2026-10-01T00:00:20.000Z") }),
       );
       await repository.upsertProgress(
-        progressRow("ep-c", { lastPlayedAt: "2026-10-01T00:00:10.000Z" }),
+        progressRow("ep-c", { lastPlayedAt: utc("2026-10-01T00:00:10.000Z") }),
       );
       await repository.upsertProgress(
-        progressRow("ep-a", { lastPlayedAt: "2026-10-01T00:00:20.000Z" }),
+        progressRow("ep-a", { lastPlayedAt: utc("2026-10-01T00:00:20.000Z") }),
       );
 
       // When: pull する
@@ -260,7 +261,7 @@ describe("D1ProgressRepository on local D1", () => {
       const got = await repository.insertProgressIfAbsent({
         row: progressRow("ep-1", {
           positionSec: 60.5,
-          firstCompletedAt: "2026-10-01T00:01:00.000Z",
+          firstCompletedAt: utc("2026-10-01T00:01:00.000Z"),
         }),
       });
 
@@ -318,7 +319,7 @@ describe("D1ProgressRepository on local D1", () => {
       const got = await repository.replaceProgressIfVersion({
         row: progressRow("ep-1", {
           positionSec: 30,
-          lastPlayedAt: "2026-10-01T00:00:30.000Z",
+          lastPlayedAt: utc("2026-10-01T00:00:30.000Z"),
         }),
         expectedVersion,
       });
@@ -338,9 +339,9 @@ describe("D1ProgressRepository on local D1", () => {
       await repository.insertProgressIfAbsent({
         row: progressRow("ep-1", {
           positionSec: 60,
-          firstPlayedAt: "2026-10-01T00:00:10.000Z",
-          firstCompletedAt: "2026-10-01T00:01:00.000Z",
-          lastPlayedAt: "2026-10-01T00:02:00.000Z",
+          firstPlayedAt: utc("2026-10-01T00:00:10.000Z"),
+          firstCompletedAt: utc("2026-10-01T00:01:00.000Z"),
+          lastPlayedAt: utc("2026-10-01T00:02:00.000Z"),
         }),
       });
       const expectedVersion = await versionOf("ep-1");
@@ -350,9 +351,9 @@ describe("D1ProgressRepository on local D1", () => {
       await repository.replaceProgressIfVersion({
         row: progressRow("ep-1", {
           positionSec: 5,
-          firstPlayedAt: "2026-10-01T00:00:20.000Z",
+          firstPlayedAt: utc("2026-10-01T00:00:20.000Z"),
           firstCompletedAt: null,
-          lastPlayedAt: "2026-10-01T00:00:30.000Z",
+          lastPlayedAt: utc("2026-10-01T00:00:30.000Z"),
         }),
         expectedVersion,
       });

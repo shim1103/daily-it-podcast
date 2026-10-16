@@ -8,13 +8,14 @@ import type { EpisodeRepository } from "../ports/episode-repository.ts";
 import type { ProgressRow } from "../ports/progress-repository.ts";
 import type { ProgressWriteUseCaseInput } from "../progress/progress-write-use-case-io.ts";
 import { completeProgress } from "./complete-progress.ts";
+import { utc } from "../../../../test/support/utc-instant.ts";
 
 /**
  * scope: Sociable Unit
  * real: completeProgress use-case（原稿 duration・完走ゾーン・行必須・merge）
  * double: EpisodeRepository Fake / InMemoryProgressRepository (Fake)
  */
-const EARLIER = "2026-09-22T10:00:00.000Z";
+const EARLIER = utc("2026-09-22T10:00:00.000Z");
 const DURATION_SEC = 60;
 const IN_ZONE_POSITION = DURATION_SEC - PROGRESS_COMPLETE_ZONE_SEC;
 const OUT_ZONE_POSITION = IN_ZONE_POSITION - 1;
@@ -105,7 +106,7 @@ describe("completeProgress", () => {
     const later: ProgressWriteUseCaseInput = {
       episodeId: "ep-1",
       positionSec: IN_ZONE_POSITION,
-      clientAt: "2026-09-22T11:00:00.000Z",
+      clientAt: utc("2026-09-22T11:00:00.000Z"),
     };
 
     // When: complete を実行する

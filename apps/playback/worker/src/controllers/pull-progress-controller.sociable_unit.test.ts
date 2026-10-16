@@ -6,8 +6,9 @@ import type {
 } from "../application/use-cases/pull-progress.ts";
 import { R2Error } from "../infrastructure/r2/r2-error.ts";
 import { createPullProgressController } from "./pull-progress-controller.ts";
+import { utc } from "../../../test/support/utc-instant.ts";
 
-const SINCE = "2026-09-22T10:00:00.000Z";
+const SINCE = utc("2026-09-22T10:00:00.000Z");
 
 const output: PullProgressUseCaseOutput = {
   episodes: [
@@ -15,18 +16,18 @@ const output: PullProgressUseCaseOutput = {
       episodeId: "ep-completed",
       progress: {
         positionSec: 58.5,
-        firstPlayedAt: "2026-09-20T09:00:00.000Z",
-        firstCompletedAt: "2026-09-20T09:30:00.000Z",
-        lastPlayedAt: "2026-09-22T11:00:00.000Z",
+        firstPlayedAt: utc("2026-09-20T09:00:00.000Z"),
+        firstCompletedAt: utc("2026-09-20T09:30:00.000Z"),
+        lastPlayedAt: utc("2026-09-22T11:00:00.000Z"),
       },
     },
     {
       episodeId: "ep-playing",
       progress: {
         positionSec: 7,
-        firstPlayedAt: "2026-09-21T09:00:00.000Z",
+        firstPlayedAt: utc("2026-09-21T09:00:00.000Z"),
         firstCompletedAt: null,
-        lastPlayedAt: "2026-09-22T12:00:00.000Z",
+        lastPlayedAt: utc("2026-09-22T12:00:00.000Z"),
       },
     },
   ],
@@ -110,9 +111,9 @@ describe("createPullProgressController", () => {
       episodeId: "ep-1",
       progress: {
         positionSec: 1,
-        firstPlayedAt: "2026-09-21T09:00:00.000Z",
+        firstPlayedAt: utc("2026-09-21T09:00:00.000Z"),
         firstCompletedAt: null,
-        lastPlayedAt: "2026-09-22T12:00:00.000Z",
+        lastPlayedAt: utc("2026-09-22T12:00:00.000Z"),
         seq: 5,
       },
       seq: 5,

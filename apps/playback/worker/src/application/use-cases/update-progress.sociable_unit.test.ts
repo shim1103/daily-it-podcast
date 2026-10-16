@@ -4,14 +4,15 @@ import { InMemoryProgressRepository } from "../../infrastructure/in-memory/in-me
 import type { ProgressRow } from "../ports/progress-repository.ts";
 import type { ProgressWriteUseCaseInput } from "../progress/progress-write-use-case-io.ts";
 import { updateProgress } from "./update-progress.ts";
+import { utc } from "../../../../test/support/utc-instant.ts";
 
 /**
  * scope: Sociable Unit
  * real: updateProgress use-case（行なし 404・merge）
  * double: InMemoryProgressRepository (Fake)
  */
-const EARLIER = "2026-09-22T10:00:00.000Z";
-const LATER = "2026-09-22T11:00:00.000Z";
+const EARLIER = utc("2026-09-22T10:00:00.000Z");
+const LATER = utc("2026-09-22T11:00:00.000Z");
 
 const input: ProgressWriteUseCaseInput = {
   episodeId: "ep-1",

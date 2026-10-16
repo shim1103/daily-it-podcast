@@ -18,6 +18,7 @@ import { EpisodeContentError } from "../entities/errors/episode-content-error.ts
 import type { EpisodeManuscript } from "../entities/models/episode-manuscript.ts";
 import { createFakeEpisodeAudioBytes } from "../test/fixtures/audio-bytes.ts";
 import fakeEpisodesJson from "./fake-episodes.json" with { type: "json" };
+import { utc } from "../../../test/support/utc-instant.ts";
 
 type FakeEpisodeRecord = {
   episodeId: string;
@@ -87,7 +88,7 @@ export function createFakeGetAudioUseCase(
 
 /** A 足場・Controller test 用の Write 成功出力。 */
 export const validProgressWriteUseCaseOutput: ProgressWriteUseCaseOutput = {
-  firstPlayedAt: "2026-09-22T10:00:00.000Z",
+  firstPlayedAt: utc("2026-09-22T10:00:00.000Z"),
   firstCompletedAt: null,
 };
 

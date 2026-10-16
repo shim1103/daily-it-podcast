@@ -1,4 +1,4 @@
-import type { ProgressPullQuery, ProgressPullResponse } from "../../../contracts/index.ts";
+import type { ParsedProgressPullQuery, ProgressPullResponse } from "../../../contracts/index.ts";
 import type {
   PullProgressUseCaseInput,
   PullProgressUseCaseOutput,
@@ -9,9 +9,11 @@ export type PullProgressUseCase = (
   input: PullProgressUseCaseInput,
 ) => Promise<PullProgressUseCaseOutput>;
 
-export type PullProgressController = (query: ProgressPullQuery) => Promise<ProgressPullResponse>;
+export type PullProgressController = (
+  query: ParsedProgressPullQuery,
+) => Promise<ProgressPullResponse>;
 
-function toPullProgressUseCaseInput(query: ProgressPullQuery): PullProgressUseCaseInput {
+function toPullProgressUseCaseInput(query: ParsedProgressPullQuery): PullProgressUseCaseInput {
   return { since: query.since };
 }
 
@@ -38,7 +40,7 @@ function toProgressPullResponse(output: PullProgressUseCaseOutput): ProgressPull
  */
 export function createPullProgressController(useCase: PullProgressUseCase): PullProgressController {
   return async function pullProgressController(
-    query: ProgressPullQuery,
+    query: ParsedProgressPullQuery,
   ): Promise<ProgressPullResponse> {
     try {
       return toProgressPullResponse(await useCase(toPullProgressUseCaseInput(query)));

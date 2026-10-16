@@ -7,6 +7,7 @@ import {
 import type { ListEpisodesUseCaseOutput } from "../application/use-cases/list-episodes.ts";
 import { R2Error } from "../infrastructure/r2/r2-error.ts";
 import { createListEpisodesController } from "./list-episodes-controller.ts";
+import { utc } from "../../../test/support/utc-instant.ts";
 
 /**
  * scope: Sociable Unit
@@ -32,9 +33,9 @@ const useCaseOutput: ListEpisodesUseCaseOutput = {
       },
       progress: {
         positionSec: 12,
-        firstPlayedAt: "2026-09-22T10:00:00.000Z",
-        firstCompletedAt: "2026-09-22T10:30:00.000Z",
-        lastPlayedAt: "2026-09-22T11:00:00.000Z",
+        firstPlayedAt: utc("2026-09-22T10:00:00.000Z"),
+        firstCompletedAt: utc("2026-09-22T10:30:00.000Z"),
+        lastPlayedAt: utc("2026-09-22T11:00:00.000Z"),
       },
     },
     {
