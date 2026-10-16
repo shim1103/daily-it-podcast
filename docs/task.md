@@ -5,6 +5,10 @@ when_to_use: "feature/playback-progress-versioned-persistenceで作業を再開�
 non-scope: "branch非依存の未完了とOpen questions（→wiki）、完了済みのtask、sessionの経緯（→daily）。"
 ---
 
+0. 時刻のbrand型`UtcInstant`を、web・worker共有の新dir`apps/playback/domain/`へ置く（shim確定。実装中）
+    - 計画は`plan.md`（scratchpad）。Opus 5.5のreview待ち。review後にPhase 1（domainのRed→Green、設定）→ Phase 2（sub-agent 3本の平行）→ Phase 3（diff確認・全gate）→ Phase 4（`/decision`・`/commit --repo`）
+    - 範囲外: `MAX_ATTEMPTS`移設、manuscript fixture test、cursor・EpisodeIdのbrand、Controllerのfield copy削減、skillsの更新
+    - 注意: `.codex/config.toml`はshimの未commit編集。stageしない
 1. playback/workerの同形の型・写しを削る範囲をshimと決める
     - 調査済み（editなし）。候補は`ProgressMergeIncoming`の再構築3箇所の削除、progress→contract写像の1関数化、`ProgressWriteUseCaseOutput`を`Pick<EpisodeProgress, ...>`へ寄せること
     - `EpisodeManuscript`と`EpisodeItem`の統合は`application.md`§7-2との関係で慎重に扱う。shimの許可待ち
