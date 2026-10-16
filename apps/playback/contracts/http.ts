@@ -3,6 +3,7 @@ import {
   type DurationSec,
   type EpisodeId,
   type EpisodeProgress,
+  type EpisodeProgressEntry,
   type PositionSec,
   type ProgressReport,
   toUtcInstant,
@@ -209,7 +210,7 @@ export const PROGRESS_PULL_ORIGIN_CURSOR = "0" as const;
 const progressPullEntrySchema = z.strictObject({
   episodeId: episodeIdSchema,
   progress: episodeProgressSchema,
-});
+}) satisfies z.ZodType<EpisodeProgressEntry, unknown>;
 
 // todo: C が route と UseCase を ProgressCursorPull* へ切り替えたら、この schema と型を削除する
 /**

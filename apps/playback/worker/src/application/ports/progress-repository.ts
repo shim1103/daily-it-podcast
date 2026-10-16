@@ -1,10 +1,4 @@
-import type { EpisodeId, EpisodeProgress } from "../../../../domain/index.ts";
-
-/** pull で返す 1 件。更新があった episode の進捗。 */
-export type ProgressUpdatedEntry = {
-  readonly episodeId: EpisodeId;
-  readonly progress: EpisodeProgress;
-};
+import type { EpisodeId, EpisodeProgress, EpisodeProgressEntry } from "../../../../domain/index.ts";
 
 /** 行の版。Application からは不透明で、同じ行の `replaceProgressIfVersion` の期待値にだけ使う。 */
 export type ProgressVersion = number & { readonly __brand: "ProgressVersion" };
@@ -42,7 +36,7 @@ export type ListChangedAfterArgs = { readonly cursor: ProgressCursor };
 /** 差分取得の結果。`cursor` は次回の `listChangedAfter` に渡す位置。 */
 export type ListChangedAfterResult = {
   readonly cursor: ProgressCursor;
-  readonly entries: readonly ProgressUpdatedEntry[];
+  readonly entries: readonly EpisodeProgressEntry[];
 };
 
 /**
@@ -77,7 +71,7 @@ export interface ProgressRepository {
    * @ensure 該当なしは空配列（null でない）
    * @ensure storage I/O 失敗は Infrastructure Error を throw する
    */
-  listUpdatedSince(since: string): Promise<readonly ProgressUpdatedEntry[]>;
+  listUpdatedSince(since: string): Promise<readonly EpisodeProgressEntry[]>;
 
   /**
    * 指定 episode の進捗行を、その時点の版つきで取得する。

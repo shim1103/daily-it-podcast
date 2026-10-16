@@ -1,6 +1,7 @@
 import {
   type EpisodeId,
   type EpisodeProgress,
+  type EpisodeProgressEntry,
   isUtcInstant,
   type UtcInstant,
 } from "../../../../domain/index.ts";
@@ -15,7 +16,6 @@ import type {
   ProgressConditionalWriteResult,
   ProgressRepository,
   ProgressRow,
-  ProgressUpdatedEntry,
   ProgressVersion,
   ReplaceProgressIfVersionArgs,
 } from "../../application/ports/progress-repository.ts";
@@ -156,7 +156,7 @@ function rowValues(row: ProgressRow): unknown[] {
   ];
 }
 
-function toUpdatedEntry(row: D1Row): ProgressUpdatedEntry {
+function toUpdatedEntry(row: D1Row): EpisodeProgressEntry {
   return {
     episodeId: stringColumn(row, columns.episodeId),
     progress: toEpisodeProgress(row),
@@ -204,7 +204,7 @@ export class D1ProgressRepository implements ProgressRepository {
     await this.runWrite(UPSERT_SQL, rowValues(row));
   }
 
-  async listUpdatedSince(since: string): Promise<readonly ProgressUpdatedEntry[]> {
+  async listUpdatedSince(since: string): Promise<readonly EpisodeProgressEntry[]> {
     const rows = await this.queryAll(LIST_UPDATED_SINCE_SQL, [since]);
     return rows.map(toUpdatedEntry);
   }

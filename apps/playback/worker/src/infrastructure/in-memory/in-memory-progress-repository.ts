@@ -1,4 +1,4 @@
-import type { EpisodeId, EpisodeProgress } from "../../../../domain/index.ts";
+import type { EpisodeId, EpisodeProgress, EpisodeProgressEntry } from "../../../../domain/index.ts";
 import type {
   GetByEpisodeIdsArgs,
   GetByEpisodeIdsResult,
@@ -10,7 +10,6 @@ import type {
   ProgressConditionalWriteResult,
   ProgressRepository,
   ProgressRow,
-  ProgressUpdatedEntry,
   ProgressVersion,
   ReplaceProgressIfVersionArgs,
   VersionedProgress,
@@ -53,8 +52,8 @@ export class InMemoryProgressRepository implements ProgressRepository {
     this.write(row);
   }
 
-  async listUpdatedSince(since: string): Promise<readonly ProgressUpdatedEntry[]> {
-    const entries: ProgressUpdatedEntry[] = [];
+  async listUpdatedSince(since: string): Promise<readonly EpisodeProgressEntry[]> {
+    const entries: EpisodeProgressEntry[] = [];
     for (const [episodeId, { progress }] of this.store) {
       if (progress.lastPlayedAt > since) {
         entries.push({ episodeId, progress });

@@ -1,8 +1,9 @@
-import type { ProgressRepository, ProgressUpdatedEntry } from "../ports/progress-repository.ts";
+import type { EpisodeProgressEntry } from "../../../../domain/index.ts";
+import type { ProgressRepository } from "../ports/progress-repository.ts";
 
 export type PullProgressUseCaseInput = { readonly since: string };
 
-export type PullProgressUseCaseOutput = { readonly episodes: readonly ProgressUpdatedEntry[] };
+export type PullProgressUseCaseOutput = { readonly episodes: readonly EpisodeProgressEntry[] };
 
 // todo: C が cursor 版（`ProgressCursorPull*`・`listChangedAfter`）へ置換したら、この UseCase の since 版を削除する
 /**
