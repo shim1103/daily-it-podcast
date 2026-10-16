@@ -1,27 +1,39 @@
-import {
-  episodeAudioPath,
-  type EpisodeItem,
-  type ListEpisodesResponse,
-  type ProgressPullResponse,
-  type ProgressWriteRequest,
-  type ProgressWriteResponse,
-} from "../../../contracts/index.ts";
-import { createFakeEpisodeAudioBytes } from "../test/fixtures/audio-bytes.ts";
+import type { DurationSec, EpisodeId } from "../../../domain/index.ts";
+import type {
+  ProgressWriteUseCaseInput,
+  ProgressWriteUseCaseOutput,
+} from "../application/progress/progress-write-use-case-io.ts";
+import type {
+  EpisodeWithProgress,
+  ListEpisodesUseCaseOutput,
+} from "../application/use-cases/list-episodes.ts";
+import type {
+  GetAudioUseCaseInput,
+  GetAudioUseCaseOutput,
+} from "../application/use-cases/get-audio.ts";
+import type {
+  PullProgressUseCaseInput,
+  PullProgressUseCaseOutput,
+} from "../application/use-cases/pull-progress.ts";
 import { EpisodeContentError } from "../entities/errors/episode-content-error.ts";
+import type { EpisodeAudio } from "../entities/models/episode-audio.ts";
+import type { EpisodeManuscript } from "../entities/models/episode-manuscript.ts";
+import { createFakeEpisodeAudioBytes } from "../test/fixtures/audio-bytes.ts";
 import fakeEpisodesJson from "./fake-episodes.json" with { type: "json" };
+import { utc } from "../../../test/support/utc-instant.ts";
 
 type FakeEpisodeRecord = {
-  episodeId: string;
+  episodeId: EpisodeId;
   date: string;
   title: string;
-  durationSec: number;
-  body: EpisodeItem["body"];
+  durationSec: DurationSec;
+  body: EpisodeManuscript["body"];
 };
 
 const fakeEpisodes = fakeEpisodesJson as FakeEpisodeRecord[];
-const fakeAudioCache = new Map<string, Uint8Array>();
+const fakeAudioCache = new Map<EpisodeId, EpisodeAudio>();
 
-function loadFakeEpisodeAudio(episodeId: string): Uint8Array {
+function loadFakeEpisodeAudio(episodeId: EpisodeId): EpisodeAudio {
   const cached = fakeAudioCache.get(episodeId);
   if (cached !== undefined) {
     return cached;
@@ -32,19 +44,18 @@ function loadFakeEpisodeAudio(episodeId: string): Uint8Array {
   return bytes;
 }
 
-function toEpisodeItem(record: FakeEpisodeRecord): EpisodeItem {
+function toEpisodeWithProgress(record: FakeEpisodeRecord): EpisodeWithProgress {
   return {
     episodeId: record.episodeId,
     date: record.date,
     title: record.title,
     durationSec: record.durationSec,
     body: record.body,
-    audioRef: episodeAudioPath(record.episodeId),
     progress: null,
   };
 }
 
-function findFakeEpisode(episodeId: string): FakeEpisodeRecord {
+function findFakeEpisode(episodeId: EpisodeId): FakeEpisodeRecord {
   const found = fakeEpisodes.find((episode) => episode.episodeId === episodeId);
   if (!found) {
     throw new EpisodeContentError(`JSON エントリが無い: ${episodeId}`);
@@ -52,48 +63,50 @@ function findFakeEpisode(episodeId: string): FakeEpisodeRecord {
   return found;
 }
 
-export const validListEpisodesResponse: ListEpisodesResponse = {
-  episodes: fakeEpisodes.map(toEpisodeItem),
+export const validListEpisodesUseCaseOutput: ListEpisodesUseCaseOutput = {
+  episodes: fakeEpisodes.map(toEpisodeWithProgress),
 };
 
-export const validEpisodeItem: EpisodeItem = toEpisodeItem(findFakeEpisode("ep-1"));
+export const validEpisodeWithProgress: EpisodeWithProgress = toEpisodeWithProgress(
+  findFakeEpisode("ep-1"),
+);
 
 export function createFakeListEpisodesUseCase(
-  impl?: () => Promise<ListEpisodesResponse>,
-): () => Promise<ListEpisodesResponse> {
-  return impl ?? (async () => validListEpisodesResponse);
+  impl?: () => Promise<ListEpisodesUseCaseOutput>,
+): () => Promise<ListEpisodesUseCaseOutput> {
+  return impl ?? (async () => validListEpisodesUseCaseOutput);
 }
 
 export function createFakeGetAudioUseCase(
-  impl?: (episodeId: string) => Promise<Uint8Array>,
-): (episodeId: string) => Promise<Uint8Array> {
+  impl?: (input: GetAudioUseCaseInput) => Promise<GetAudioUseCaseOutput>,
+): (input: GetAudioUseCaseInput) => Promise<GetAudioUseCaseOutput> {
   return (
     impl ??
-    (async (episodeId) => {
+    (async ({ episodeId }) => {
       return loadFakeEpisodeAudio(episodeId);
     })
   );
 }
 
-/** A 足場・Controller test 用の Write 成功応答。 */
-export const validProgressWriteResponse: ProgressWriteResponse = {
-  firstPlayedAt: "2026-09-22T10:00:00.000Z",
+/** A 足場・Controller test 用の Write 成功出力。 */
+export const validProgressWriteUseCaseOutput: ProgressWriteUseCaseOutput = {
+  firstPlayedAt: utc("2026-09-22T10:00:00.000Z"),
   firstCompletedAt: null,
 };
 
-/** A 足場・Controller test 用の pull 成功応答（差分なし）。 */
-export const validProgressPullResponse: ProgressPullResponse = {
+/** A 足場・Controller test 用の pull 成功出力（差分なし）。 */
+export const validPullProgressUseCaseOutput: PullProgressUseCaseOutput = {
   episodes: [],
 };
 
 export function createFakeProgressWriteUseCase(
-  impl?: (episodeId: string, body: ProgressWriteRequest) => Promise<ProgressWriteResponse>,
-): (episodeId: string, body: ProgressWriteRequest) => Promise<ProgressWriteResponse> {
-  return impl ?? (async () => validProgressWriteResponse);
+  impl?: (input: ProgressWriteUseCaseInput) => Promise<ProgressWriteUseCaseOutput>,
+): (input: ProgressWriteUseCaseInput) => Promise<ProgressWriteUseCaseOutput> {
+  return impl ?? (async () => validProgressWriteUseCaseOutput);
 }
 
 export function createFakePullProgressUseCase(
-  impl?: (since: string) => Promise<ProgressPullResponse>,
-): (since: string) => Promise<ProgressPullResponse> {
-  return impl ?? (async () => validProgressPullResponse);
+  impl?: (input: PullProgressUseCaseInput) => Promise<PullProgressUseCaseOutput>,
+): (input: PullProgressUseCaseInput) => Promise<PullProgressUseCaseOutput> {
+  return impl ?? (async () => validPullProgressUseCaseOutput);
 }

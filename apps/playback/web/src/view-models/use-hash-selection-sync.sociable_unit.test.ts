@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { useRef } from "react";
 import { describe, expect, it, vi } from "vitest";
+import type { EpisodeId } from "../../../domain/index.ts";
 import { createFakeHashSelectionAdapter } from "../lib/hash-selection-adapter.fake.ts";
 import type { EpisodeData, SelectionState } from "./playback-state.ts";
 import { useHashSelectionSync } from "./use-hash-selection-sync.ts";
@@ -208,7 +209,7 @@ describe("useHashSelectionSync", () => {
   it("deep-link 復元後、caller が selection をその episode へ更新し hash へ書き戻しても無限ループしない", () => {
     // Given: 既存 hash ep-1・catalog 未完了で mount。caller は流れてきた episodeId を selection へ反映する
     let currentSelection: SelectionState = noSelection;
-    const onHashEpisodeIdChange = vi.fn((episodeId: string | null) => {
+    const onHashEpisodeIdChange = vi.fn((episodeId: EpisodeId | null) => {
       currentSelection = episodeId === "ep-1" ? selectOne : noSelection;
     });
     const adapter = createFakeHashSelectionAdapter("ep-1");
@@ -293,7 +294,7 @@ describe("useHashSelectionSync", () => {
   it("外部 hash 変化由来で caller が同じ episode を選択し hash へ書き戻しても無限ループしない", () => {
     // Given: 外部変化を受けたら selection をその episode へ更新する caller を模す
     let currentSelection: SelectionState = noSelection;
-    const onHashEpisodeIdChange = vi.fn((episodeId: string | null) => {
+    const onHashEpisodeIdChange = vi.fn((episodeId: EpisodeId | null) => {
       currentSelection =
         episodeId === "ep-1" ? selectOne : episodeId === "ep-2" ? selectTwo : noSelection;
     });

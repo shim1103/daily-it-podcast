@@ -1,5 +1,10 @@
 import type {
   EpisodeRepository,
+  GetAudioArgs,
+  GetAudioResult,
+  GetManuscriptArgs,
+  GetManuscriptResult,
+  ListManuscriptsResult,
   RawManuscriptEntry,
 } from "../../application/ports/episode-repository.ts";
 import { audioExtension, jsonExtension, stemOf } from "../episode-layout.ts";
@@ -74,7 +79,7 @@ export class R2EpisodeRepository implements EpisodeRepository {
     this.bucket = deps.bucket;
   }
 
-  async listManuscripts(): Promise<RawManuscriptEntry[]> {
+  async listManuscripts(): Promise<ListManuscriptsResult> {
     const keys = await this.listJsonKeys();
 
     const entries = await Promise.all(
@@ -92,7 +97,7 @@ export class R2EpisodeRepository implements EpisodeRepository {
     return entries.filter((entry): entry is RawManuscriptEntry => entry !== undefined);
   }
 
-  async getManuscript(episodeId: string): Promise<RawManuscriptEntry | undefined> {
+  async getManuscript({ episodeId }: GetManuscriptArgs): Promise<GetManuscriptResult> {
     const key = `${episodeId}${jsonExtension}`;
     const body = await this.get(key);
     if (body === null) {
@@ -102,7 +107,7 @@ export class R2EpisodeRepository implements EpisodeRepository {
     return { stem: episodeId, json };
   }
 
-  async getAudio(episodeId: string): Promise<Uint8Array | undefined> {
+  async getAudio({ episodeId }: GetAudioArgs): Promise<GetAudioResult> {
     const key = `${episodeId}${audioExtension}`;
     const body = await this.get(key);
     if (body === null) {

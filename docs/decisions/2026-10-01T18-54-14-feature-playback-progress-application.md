@@ -10,7 +10,7 @@ branch: feature/playback-progress-application
 2. merge（`clientAt` 先勝ち／後勝ち）・冪等 create・行なし update の 404・完走ゾーン判定は Application UseCase の責務とする。
 3. complete の `durationSec` は `EpisodeRepository` から原稿 1 件取得（`getManuscript`）して得る。HTTP body / 進捗 store へ `durationSec` を載せない。
 4. no-op の `StubProgressRepository` は廃止する。進捗の mode が `in-memory` の時は Map で動く in-memory 実装（`InMemoryProgressRepository`）を選び、UseCase test 用 Fake と実体を同じにする。behavior 検証はこの実装が持つ（`2026-10-02T13-06-35-feature-playback-progress-d1-local-peer.md`）。A の契約面へ Fake を先置きしない点は変わらない。
-5. pull の差分印は、時刻（`lastPlayedAt > since`）ではなく DB 採番の `seq` とし、契約は不透明な `cursor` を使う（`2026-10-01T23-32-40-feature-playback-progress-d1-local-peer.md` が正）。切替の実施は後続 Issue #220 で、現行の route・UseCase は `since` のままである。
+5. pull の差分印は、時刻（`lastPlayedAt > since`）ではなく DB 採番の `seq` とし、契約は 10 進文字列の `cursor` を使う（`2026-10-01T23-32-40-feature-playback-progress-d1-local-peer.md` が正）。切替の実施は後続 Issue #220 で、現行の route・UseCase は `since` のままである。
 
 ## 2. Reason
 

@@ -13,14 +13,14 @@ export const episodeProgressTable = sqliteTable(
     firstCompletedAt: text("first_completed_at"),
     lastPlayedAt: text("last_played_at").notNull(),
     // why: pull の差分印（cursor）と、行ごとの版（条件付き書込の期待値）を兼ねる
-    // todo: 現行 adapter が seq を知らない間だけ、5 列 INSERT を通すために既定値 0 を置く。adapter が seq を採番して書くようになったら外す
+    // todo: 旧 upsertProgress（seq を書かない 5 列 INSERT）が残る間だけ既定値 0 を置く。C が旧 upsertProgress を削除したら外す
     seq: integer("seq").notNull().default(0),
   },
   (table) => [
     // why: 列側の `.primaryKey()` は drizzle-kit(rc) が NOT NULL を出さない。SQLite は非 INTEGER の PK に NULL を許すため、表側の宣言で NOT NULL PRIMARY KEY を出す
     primaryKey({ columns: [table.episodeId] }),
     // why: pull（seq > ?）と採番の最大値取得を全件走査にしないための索引
-    // todo: 現行 adapter が seq=0 で複数行を挿入する間は UNIQUE にできない。adapter が seq を採番して書くようになったら UNIQUE を検討する
+    // todo: 旧 upsertProgress が seq=0 で複数行を挿入する間は UNIQUE にできない。C が旧 upsertProgress を削除したら UNIQUE を検討する
     index("episode_progress_seq_idx").on(table.seq),
   ],
 );

@@ -1,5 +1,11 @@
+import type { EpisodeId } from "../../../../domain/index.ts";
 import type {
   EpisodeRepository,
+  GetAudioArgs,
+  GetAudioResult,
+  GetManuscriptArgs,
+  GetManuscriptResult,
+  ListManuscriptsResult,
   RawManuscriptEntry,
 } from "../../application/ports/episode-repository.ts";
 
@@ -12,16 +18,16 @@ type StoredEpisode = {
  * local development / unit test 用に、原稿 json / mp3 をメモリ上に保持する `EpisodeRepository`。
  *
  * 真の外部境界（ここでは Map への格納・取り出し）だけを担い、schema 適合・stem 一致・不正 JSON・
- * mp3 欠落の判定はしない。判定は use-case（`application/use-cases/*`）が行う。
+ * mp3 欠落と内容の判定はしない。判定は use-case（`application/use-cases/*`）が行う。
  */
 export class InMemoryEpisodeRepository implements EpisodeRepository {
-  private readonly episodes = new Map<string, StoredEpisode>();
+  private readonly episodes = new Map<EpisodeId, StoredEpisode>();
 
-  put(episodeId: string, json: unknown, audio?: Uint8Array): void {
+  put(episodeId: EpisodeId, json: unknown, audio?: Uint8Array): void {
     this.episodes.set(episodeId, { json, audio });
   }
 
-  async listManuscripts(): Promise<RawManuscriptEntry[]> {
+  async listManuscripts(): Promise<ListManuscriptsResult> {
     const entries: RawManuscriptEntry[] = [];
     for (const [stem, entry] of this.episodes) {
       entries.push({ stem, json: entry.json });
@@ -29,7 +35,7 @@ export class InMemoryEpisodeRepository implements EpisodeRepository {
     return entries;
   }
 
-  async getManuscript(episodeId: string): Promise<RawManuscriptEntry | undefined> {
+  async getManuscript({ episodeId }: GetManuscriptArgs): Promise<GetManuscriptResult> {
     const entry = this.episodes.get(episodeId);
     if (entry === undefined) {
       return undefined;
@@ -37,7 +43,7 @@ export class InMemoryEpisodeRepository implements EpisodeRepository {
     return { stem: episodeId, json: entry.json };
   }
 
-  async getAudio(episodeId: string): Promise<Uint8Array | undefined> {
+  async getAudio({ episodeId }: GetAudioArgs): Promise<GetAudioResult> {
     return this.episodes.get(episodeId)?.audio;
   }
 }

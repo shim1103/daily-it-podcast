@@ -15,7 +15,7 @@ export const EPISODE_PROGRESS_D1_BINDING = "EPISODE_PROGRESS" as const;
 /**
  * Worker→D1 の1操作あたりの最大試行回数（初回含む）。
  * 1 = adapter 内で再試行しない。一時失敗は Infrastructure Error → External unavailable とし、
- * browser の HTTP retry（contracts の PROGRESS_WRITE_MAX_ATTEMPTS）に任せる。
+ * browser の HTTP retry に任せる。
  */
 export const PROGRESS_D1_ADAPTER_MAX_ATTEMPTS = 1 as const;
 

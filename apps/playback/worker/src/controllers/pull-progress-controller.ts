@@ -1,21 +1,45 @@
-import type { ProgressPullResponse } from "../../../contracts/index.ts";
+import type { ParsedProgressPullQuery, ProgressPullResponse } from "../../../contracts/index.ts";
+import type {
+  PullProgressUseCaseInput,
+  PullProgressUseCaseOutput,
+} from "../application/use-cases/pull-progress.ts";
 import { mapInternalErrorToExternal } from "./map-internal-error.ts";
+import { toEpisodeProgressResponse } from "./to-episode-progress-response.ts";
 
-export type PullProgressUseCase = (since: string) => Promise<ProgressPullResponse>;
+export type PullProgressUseCase = (
+  input: PullProgressUseCaseInput,
+) => Promise<PullProgressUseCaseOutput>;
 
-export type PullProgressController = (since: string) => Promise<ProgressPullResponse>;
+export type PullProgressController = (
+  query: ParsedProgressPullQuery,
+) => Promise<ProgressPullResponse>;
+
+function toPullProgressUseCaseInput(query: ParsedProgressPullQuery): PullProgressUseCaseInput {
+  return { since: query.since };
+}
+
+function toProgressPullResponse(output: PullProgressUseCaseOutput): ProgressPullResponse {
+  return {
+    episodes: output.episodes.map((entry) => ({
+      episodeId: entry.episodeId,
+      progress: toEpisodeProgressResponse(entry.progress),
+    })),
+  };
+}
 
 /**
  * 進捗 pull を返す Controller を組み立てる。
  *
- * @require since は呼び出し側（Hono route の zValidator）が契約 schema で検証済み
+ * @require query は呼び出し側（Hono route の zValidator）が契約 schema で検証済み
  * @ensure 戻り関数は契約の ProgressPullResponse を返す。Internal は External に変換して throw する
  * @invariant HTTP status と Response object を作らない
  */
 export function createPullProgressController(useCase: PullProgressUseCase): PullProgressController {
-  return async function pullProgressController(since: string): Promise<ProgressPullResponse> {
+  return async function pullProgressController(
+    query: ParsedProgressPullQuery,
+  ): Promise<ProgressPullResponse> {
     try {
-      return await useCase(since);
+      return toProgressPullResponse(await useCase(toPullProgressUseCaseInput(query)));
     } catch (error) {
       throw mapInternalErrorToExternal(error);
     }

@@ -1,10 +1,4 @@
-import type { EpisodeProgress } from "../../../../contracts/index.ts";
-
-/** merge に渡す incoming write（HTTP body と同形の核）。 */
-export type ProgressMergeIncoming = {
-  readonly positionSec: number;
-  readonly clientAt: string;
-};
+import type { EpisodeProgress, ProgressReport, UtcInstant } from "../../../../domain/index.ts";
 
 /**
  * 既存進捗行と incoming write を `clientAt` 鍵で merge する純関数（create／update 用）。
@@ -14,13 +8,12 @@ export type ProgressMergeIncoming = {
  * positionSec / lastPlayedAt は後勝ち（より遅い時刻。同時刻は incoming を採る）。
  * 同時刻規則の why は Decision の先勝ち／後勝ち意味を崩さず、再送でカーソルだけ揃えられるようにするため。
  *
- * @require `incoming.clientAt` は契約どおりのタイムゾーン付き ISO-8601
  * @ensure 常に完全な `EpisodeProgress` を返す（existing null なら初回行を構築）
  * @ensure `firstCompletedAt` を新設しない（existing null なら null、既存ありなら据え置きまたは先勝ちの既存完走のみ）
  */
 export function mergeProgress(
   existing: EpisodeProgress | null,
-  incoming: ProgressMergeIncoming,
+  incoming: ProgressReport,
 ): EpisodeProgress {
   if (existing === null) {
     return {
@@ -43,9 +36,9 @@ export function mergeProgress(
  */
 export function mergeProgressAsCompleted(
   existing: EpisodeProgress,
-  incoming: ProgressMergeIncoming,
+  incoming: ProgressReport,
 ): EpisodeProgress {
-  let firstCompletedAt: string;
+  let firstCompletedAt: UtcInstant;
   if (existing.firstCompletedAt === null) {
     firstCompletedAt = incoming.clientAt;
   } else {
@@ -59,8 +52,8 @@ export function mergeProgressAsCompleted(
 
 function mergeFields(
   existing: EpisodeProgress,
-  incoming: ProgressMergeIncoming,
-  firstCompletedAt: string | null,
+  incoming: ProgressReport,
+  firstCompletedAt: UtcInstant | null,
 ): EpisodeProgress {
   // why: 同時刻は既存据え置き。再書込で first* を揺らさない
   const firstPlayedAt =

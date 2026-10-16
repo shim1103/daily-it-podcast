@@ -20,7 +20,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "biome lint .",
     "format:check": "biome format .",
-    "lint:layers": "depcruise --config .dependency-cruiser.mjs --ts-pre-compilation-deps \"worker/src/**/*.ts\" \"web/src/**/*.ts\" \"web/src/**/*.tsx\""
+    "lint:layers": "depcruise --config .dependency-cruiser.mjs --ts-pre-compilation-deps \"worker/src/**/*.ts\" \"web/src/**/*.ts\" \"web/src/**/*.tsx\" \"contracts/**/*.ts\" \"domain/**/*.ts\""
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.9",

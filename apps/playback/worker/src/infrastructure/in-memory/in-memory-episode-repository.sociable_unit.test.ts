@@ -37,7 +37,7 @@ describe("InMemoryEpisodeRepository", () => {
     repository.put("ep-1", manuscriptJson, validAudioBytes);
 
     // When: 1 件取得する
-    const got = await repository.getManuscript("ep-1");
+    const got = await repository.getManuscript({ episodeId: "ep-1" });
 
     // Then: 検証せず生のまま返す
     expect(got).toEqual({ stem: "ep-1", json: manuscriptJson });
@@ -48,7 +48,7 @@ describe("InMemoryEpisodeRepository", () => {
     const repository = new InMemoryEpisodeRepository();
 
     // When / Then: 該当なしは throw せず undefined
-    expect(await repository.getManuscript("missing")).toBeUndefined();
+    expect(await repository.getManuscript({ episodeId: "missing" })).toBeUndefined();
   });
 
   it("put した mp3 は getAudio でそのまま取り出せる", async () => {
@@ -57,7 +57,7 @@ describe("InMemoryEpisodeRepository", () => {
     repository.put("ep-1", manuscriptJson, validAudioBytes);
 
     // When: 音声を取得する
-    const got = await repository.getAudio("ep-1");
+    const got = await repository.getAudio({ episodeId: "ep-1" });
 
     // Then: 格納した byte と一致する
     expect(got).toEqual(validAudioBytes);
@@ -69,7 +69,7 @@ describe("InMemoryEpisodeRepository", () => {
     repository.put("ep-1", manuscriptJson);
 
     // When / Then: どちらも undefined
-    expect(await repository.getAudio("ep-1")).toBeUndefined();
-    expect(await repository.getAudio("missing")).toBeUndefined();
+    expect(await repository.getAudio({ episodeId: "ep-1" })).toBeUndefined();
+    expect(await repository.getAudio({ episodeId: "missing" })).toBeUndefined();
   });
 });

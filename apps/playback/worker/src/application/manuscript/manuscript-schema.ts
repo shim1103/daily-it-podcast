@@ -2,7 +2,7 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 import manuscriptJsonSchema from "../../../../../../contracts/manuscript.schema.json" with {
   type: "json",
 };
-import type { EpisodeManuscript } from "../ports/episode-repository.ts";
+import type { EpisodeManuscript } from "../../entities/models/episode-manuscript.ts";
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validateManuscript = ajv.compile(manuscriptJsonSchema);

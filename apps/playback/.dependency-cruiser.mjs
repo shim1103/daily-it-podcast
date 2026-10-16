@@ -4,20 +4,61 @@ export default {
     {
       name: "worker-entities-no-outer",
       severity: "error",
-      comment: "Entities は内側のみ",
+      comment:
+        "Entities は内側のみ。外部依存ゼロの最内側 domain の語彙は型に使ってよい（逆は domain-no-outer が禁じる）",
       from: { path: "^worker/src/entities/" },
       to: {
         path: "^worker/src/(application|infrastructure|controllers|routes|composition)/|^contracts/",
       },
     },
     {
+      name: "domain-no-outer",
+      severity: "error",
+      comment:
+        "domain は web・worker・contracts を import しない。web と worker が共有する、http 非依存の語彙",
+      from: { path: "^domain/" },
+      to: { path: "^(worker|web|contracts)/" },
+    },
+    {
+      name: "domain-no-npm",
+      severity: "error",
+      comment: "domain は外部依存ゼロ（zod など npm の package を import しない）",
+      from: { path: "^domain/" },
+      to: {
+        dependencyTypes: [
+          "npm",
+          "npm-dev",
+          "npm-optional",
+          "npm-peer",
+          "npm-bundled",
+          "npm-no-pkg",
+          "npm-unknown",
+        ],
+      },
+    },
+    {
+      name: "contracts-only-domain",
+      severity: "error",
+      comment: "contracts（HTTP の wire 形）が import してよいのは domain のみ。worker・web は不可",
+      from: { path: "^contracts/" },
+      to: { path: "^(worker|web)/" },
+    },
+    {
       name: "worker-application-no-outer",
       severity: "error",
-      comment: "Application は entities/application/contracts のみ（generator 寄せ）",
+      comment: "Application は entities/application のみ",
       from: { path: "^worker/src/application/" },
       to: {
         path: "^worker/src/(infrastructure|controllers|routes|composition)/",
       },
+    },
+    {
+      name: "worker-application-no-http-contracts",
+      severity: "error",
+      comment:
+        "Application は境界共有型（apps/playback/contracts）を import しない。UseCase の入出力は application の型で受け、Controller が契約の型へ写す。repo 根の contracts は別物で対象外",
+      from: { path: "^worker/src/application/" },
+      to: { path: "^contracts/" },
     },
     {
       name: "worker-infra-ports-only",
@@ -101,10 +142,10 @@ export default {
     {
       name: "web-primitive-strict",
       severity: "error",
-      comment: "Primitive は utils + 他 Primitive のみ",
+      comment: "Primitive は utils + 他 Primitive のみ（domain knowledge zero なので domain も不可）",
       from: { path: "^web/src/components/primitive/" },
       to: {
-        path: "^web/src/(api|lib|pages|view-models|components/feature)/|^contracts/",
+        path: "^web/src/(api|lib|pages|view-models|components/feature)/|^contracts/|^domain/",
       },
     },
   ],

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import type { DurationSec, EpisodeId, PositionSec } from "../../../domain/index.ts";
 import type { AudioLifecyclePhase } from "../lib/audio-element.ts";
 import {
   pauseAudioElement,
@@ -11,10 +12,13 @@ import type { ActivePlayback, PlaybackPhase, PlaybackState } from "./playback-st
 export type EpisodePlaybackViewModel = {
   playback: PlaybackState;
   audioElementRef: RefObject<HTMLAudioElement | null>;
-  play(episodeId: string, audioRef: string, positionSec?: number): void;
-  seek(episodeId: string, audioRef: string, positionSec: number): void;
+  play(episodeId: EpisodeId, audioRef: string, positionSec?: PositionSec): void;
+  seek(episodeId: EpisodeId, audioRef: string, positionSec: PositionSec): void;
   stop(): void;
 };
+
+// TODO: Write の retry を実装したらこの定数を有効にして使う。初回を含め 3 試行（Decision 2026-09-22T19-23-39-feature-playback-progress.md）。使用者が入るまではコメントアウトで置く
+// export const PROGRESS_WRITE_MAX_ATTEMPTS = 3 as const;
 
 const IDLE: PlaybackState = { kind: "idle" };
 
@@ -94,14 +98,14 @@ export function useEpisodePlayback(): EpisodePlaybackViewModel {
   );
 
   const applyPosition = useCallback(
-    (positionSec: number): void => {
+    (positionSec: PositionSec): void => {
       updateActive((state) => ({ ...state, positionSec }));
     },
     [updateActive],
   );
 
   const applyDuration = useCallback(
-    (durationSec: number): void => {
+    (durationSec: DurationSec): void => {
       updateActive((state) => ({ ...state, durationSec }));
     },
     [updateActive],
@@ -109,9 +113,9 @@ export function useEpisodePlayback(): EpisodePlaybackViewModel {
 
   const moveTo = useCallback(
     (
-      episodeId: string,
+      episodeId: EpisodeId,
       audioRef: string,
-      positionSec: number,
+      positionSec: PositionSec,
       transition: { phase: PlaybackPhase; shouldPlay: boolean },
     ): void => {
       const audio = audioElementRef.current;
@@ -154,7 +158,7 @@ export function useEpisodePlayback(): EpisodePlaybackViewModel {
   );
 
   const play = useCallback(
-    (episodeId: string, audioRef: string, positionSec?: number): void => {
+    (episodeId: EpisodeId, audioRef: string, positionSec?: PositionSec): void => {
       const prev = playbackRef.current;
       const isResumingSameEpisode = prev.kind === "active" && prev.episodeId === episodeId;
       const resumeSec = isResumingSameEpisode ? prev.positionSec : 0;
@@ -166,7 +170,7 @@ export function useEpisodePlayback(): EpisodePlaybackViewModel {
   );
 
   const seek = useCallback(
-    (episodeId: string, audioRef: string, positionSec: number): void => {
+    (episodeId: EpisodeId, audioRef: string, positionSec: PositionSec): void => {
       // why: topic の sec bar は「そこから聴く位置を決める」操作であり、「再生を始めろ」という
       //   独立の指示ではない。今まさに何か再生中（phase:loading/playing）なら、その続きとして
       //   新しい位置からの再生を継続する。今何も再生していない（idle、または active でも

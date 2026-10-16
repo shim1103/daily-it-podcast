@@ -1,19 +1,16 @@
-import type { EpisodeProgress, ProgressWriteResponse } from "../../../../contracts/index.ts";
+import type { EpisodeId, EpisodeProgress, ProgressReport } from "../../../../domain/index.ts";
 import type { ProgressRepository } from "../ports/progress-repository.ts";
-import {
-  mergeProgress,
-  mergeProgressAsCompleted,
-  type ProgressMergeIncoming,
-} from "./merge-progress.ts";
+import { mergeProgress, mergeProgressAsCompleted } from "./merge-progress.ts";
+import type { ProgressWriteUseCaseOutput } from "./progress-write-use-case-io.ts";
 
 /**
  * episodeId の既存進捗を 1 件読む。無い時は null。
  */
 export async function loadExistingProgress(
   repository: ProgressRepository,
-  episodeId: string,
+  episodeId: EpisodeId,
 ): Promise<EpisodeProgress | null> {
-  const rows = await repository.getByEpisodeIds([episodeId]);
+  const rows = await repository.getByEpisodeIds({ episodeIds: [episodeId] });
   return rows.get(episodeId) ?? null;
 }
 
@@ -22,12 +19,12 @@ export async function loadExistingProgress(
  */
 export async function persistMergedProgress(
   repository: ProgressRepository,
-  episodeId: string,
+  episodeId: EpisodeId,
   existing: EpisodeProgress | null,
-  incoming: ProgressMergeIncoming,
+  incoming: ProgressReport,
 ): Promise<EpisodeProgress> {
   const merged = mergeProgress(existing, incoming);
-  // todo: C が getProgressWithVersion と upsertProgressIfVersion の CAS 再試行と skew 判定へ置換したら、upsertProgress の呼び出しを消す
+  // todo: C が getProgressWithVersion と insertProgressIfAbsent・replaceProgressIfVersion の CAS 再試行と skew 判定へ置換したら、upsertProgress の呼び出しを消す
   await repository.upsertProgress({ episodeId, ...merged });
   return merged;
 }
@@ -39,18 +36,20 @@ export async function persistMergedProgress(
  */
 export async function persistCompletedProgress(
   repository: ProgressRepository,
-  episodeId: string,
+  episodeId: EpisodeId,
   existing: EpisodeProgress,
-  incoming: ProgressMergeIncoming,
+  incoming: ProgressReport,
 ): Promise<EpisodeProgress> {
   const merged = mergeProgressAsCompleted(existing, incoming);
-  // todo: C が getProgressWithVersion と upsertProgressIfVersion の CAS 再試行と skew 判定へ置換したら、upsertProgress の呼び出しを消す
+  // todo: C が getProgressWithVersion と insertProgressIfAbsent・replaceProgressIfVersion の CAS 再試行と skew 判定へ置換したら、upsertProgress の呼び出しを消す
   await repository.upsertProgress({ episodeId, ...merged });
   return merged;
 }
 
-/** Write 応答は勝ち側 first* だけ（positionSec は載せない）。 */
-export function toProgressWriteResponse(progress: EpisodeProgress): ProgressWriteResponse {
+/** Write の出力は勝ち側 first* だけ（positionSec は載せない）。 */
+export function toProgressWriteUseCaseOutput(
+  progress: EpisodeProgress,
+): ProgressWriteUseCaseOutput {
   return {
     firstPlayedAt: progress.firstPlayedAt,
     firstCompletedAt: progress.firstCompletedAt,

@@ -73,7 +73,7 @@ describe("R2EpisodeRepository on local R2", () => {
       await bucket.put("ep-1.mp3", bytes);
 
       // When: episodeId で音声を取得する
-      const got = await repository.getAudio("ep-1");
+      const got = await repository.getAudio({ episodeId: "ep-1" });
 
       // Then: put した byte 列が Uint8Array でそのまま読み戻せる
       expect(got).toBeInstanceOf(Uint8Array);
@@ -84,7 +84,7 @@ describe("R2EpisodeRepository on local R2", () => {
       // Given: mp3 の無い bucket
 
       // When: 存在しない episodeId で音声を取得する
-      const got = await repository.getAudio("ep-unknown");
+      const got = await repository.getAudio({ episodeId: "ep-unknown" });
 
       // Then: 実 binding の get が返す null が undefined になる
       expect(got).toBeUndefined();

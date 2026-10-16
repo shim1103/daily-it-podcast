@@ -7,7 +7,7 @@ branch: feature/playback-progress-d1-local-peer
 ## 1. Decision
 
 1. DB の schema（migration）には、範囲などの domain 契約（`CHECK`）を入れない。
-2. 静的な範囲は契約（zod）が持つ。時刻は instant として、1970-01-01T00:00:00Z より後、2100-01-01T00:00:00Z より前とする。値の正本は契約の schema である。
+2. 静的な範囲は入口の契約（zod）が検証する。時刻は instant として、1970-01-01T00:00:00Z より後、2100-01-01T00:00:00Z より前とする。範囲の判定と固定幅への変換の正本は、domain の `toUtcInstant` である。契約の schema は zod で文法を検証したあとそれを呼び、範囲外を HTTP の検証失敗に写す（`domain-vocabulary-shared-by-web-and-worker.md`）。
 3. 時刻は 3 種あり、役割を分ける。
    1. `clientAt`: 端末の時計。merge の鍵である。信頼は低い。
    2. `serverAt`: 受信時刻。Clock port で Application に注入する。skew 検査の基準である。
@@ -21,7 +21,7 @@ branch: feature/playback-progress-d1-local-peer
 
 1. `CHECK` は後から変えにくい。SQLite では表の再作成が要る。既存データに範囲外の行があると、挿入し直す migration が失敗しうる。変えにくい層へ範囲を置くと、後で見直す時の代償が大きい。
 2. 契約の schema は純粋であるべきで、現在時刻との比較は呼ぶたびに結果が変わる非決定な判定になる（`design-philosophy.md` §4-4 参照透過性）。時計が要る判定は、時計を持てる Application が持つ。
-3. 静的な範囲を契約に置くのは、固定幅 ISO の前提（拡張年表記を避ける）を入口で守るためである。保存形は `2026-10-01T18-54-16-feature-playback-progress-d1-local-peer.md` の UTC 固定幅に従う。
+3. 静的な範囲を入口で検証するのは、固定幅 ISO の前提（拡張年表記を避ける）を入口で守るためである。判定の正本を domain に置くのは、web と worker が同じ判定を共有でき、保存先から読んだ値の確認（D1 adapter）も同じ関数で行えるからである。保存形は `2026-10-01T18-54-16-feature-playback-progress-d1-local-peer.md` の UTC 固定幅に従う。
 4. 後勝ちの `lastPlayedAt` は遅い `clientAt` が勝つ。遠い未来の `clientAt` を受けると、その行は以後の正当な書込に永久に勝つ。契約の静的範囲では、2100 年より手前の未来を防げない。現在時刻に対する上限は、Application が持つ。
 5. 時刻を 3 種に分けるのは、役割ごとに信頼できる度合いが違うからである。`clientAt` は端末の時計で、ずれうる。`serverAt` は server の時計で、skew の基準に使える。`seq` は時計を使わず、順序と版にだけ使える。`seq` を merge の鍵にしないのは、`seq` が到着順で、操作が起きた順（`clientAt`）と別の問いだからである。
 6. 未来側は、汚染（以降の正しい時刻の書込が負ける）が、最長で上限と同じ時間で自然に解消する。時間が経てば、正しい時刻の書込が `clientAt` で追い越す。上限が被害の上界になる。許容を緩めすぎれば汚染が長引き、締めすぎれば時計の合わない端末の書込を拒む。
@@ -37,3 +37,4 @@ branch: feature/playback-progress-d1-local-peer
 4. **過去側の上限を設けず、未来側のみとする案** — 先勝ちの `first*` が、過去に大きくずれた時計の書込で恒久的に汚染される。未来側と違い、時間が経っても自然には直らない。
 5. **Worker で `Date.now` を直接呼んで skew を判定する案** — 時刻が非決定になり、テストが時計に依る（`design-philosophy.md` §4-4）。Clock を注入すれば、境界値を固定した時刻で検証できる。
 6. **zone 判定や行存在の確認の後に skew を検査する案** — I/O を済ませてから時刻の違反で弾くことになり、不要な読取・原稿取得が走る。時刻の違反が行なし・ゾーン外の失敗に隠れ、原因が呼び出し側へ伝わらない。
+7. **範囲の判定と正規化の正本を契約の schema に置く案**（旧答え） — 判定が contracts に閉じ、D1 の読出しの確認や、web・worker が同じ判定を使う場面で、同じ知識が複製される。契約は入口で検証する責務に留め、正本は web・worker が共有する domain に置く（`domain-vocabulary-shared-by-web-and-worker.md`）。

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { EpisodeProgress } from "../../../../contracts/index.ts";
+import type { EpisodeProgress } from "../../../../domain/index.ts";
 import { mergeProgress, mergeProgressAsCompleted } from "./merge-progress.ts";
+import { utc } from "../../../../test/support/utc-instant.ts";
 
-const EARLIER = "2026-09-22T10:00:00.000Z";
-const LATER = "2026-09-22T11:00:00.000Z";
-const SAME = "2026-09-22T10:30:00.000Z";
+const EARLIER = utc("2026-09-22T10:00:00.000Z");
+const LATER = utc("2026-09-22T11:00:00.000Z");
+const SAME = utc("2026-09-22T10:30:00.000Z");
 
 function progress(overrides: Partial<EpisodeProgress> = {}): EpisodeProgress {
   return {

@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import type { EpisodeId, PositionSec } from "../../../domain/index.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 import type { HashSelectionAdapter } from "../lib/hash-selection-adapter.ts";
 import { buildRequestUrl } from "../utils/build-request-url.ts";
@@ -22,9 +23,9 @@ export type EpisodeListPageViewModel = {
   rows: EpisodeRowViewModel[];
   nowPlaying: NowPlayingViewModel | null;
   pageStatus: PageStatus;
-  toggleSelection(episodeId: string): void;
-  play(episodeId: string, positionSec?: number): void;
-  seek(episodeId: string, positionSec: number): void;
+  toggleSelection(episodeId: EpisodeId): void;
+  play(episodeId: EpisodeId, positionSec?: PositionSec): void;
+  seek(episodeId: EpisodeId, positionSec: PositionSec): void;
   stop(): void;
   retry(): Promise<void>;
   audioElementRef: EpisodePlaybackViewModel["audioElementRef"];
@@ -49,7 +50,7 @@ export function useEpisodeListPage(
   const playback = useEpisodePlayback();
 
   const onHashEpisodeIdChange = useCallback(
-    (episodeId: string | null): void => {
+    (episodeId: EpisodeId | null): void => {
       if (episodeId === null) {
         selection.deselect();
         return;
@@ -66,7 +67,7 @@ export function useEpisodeListPage(
   );
 
   const resolveAudioUrl = useCallback(
-    (episodeId: string): string | null => {
+    (episodeId: EpisodeId): string | null => {
       const audioRef = catalog.episodes.find(
         (episode) => episode.episodeId === episodeId,
       )?.audioRef;
@@ -75,7 +76,7 @@ export function useEpisodeListPage(
     [catalog.episodes, baseUrl],
   );
   const play = useCallback(
-    (episodeId: string, positionSec?: number): void => {
+    (episodeId: EpisodeId, positionSec?: PositionSec): void => {
       const audioUrl = resolveAudioUrl(episodeId);
       if (audioUrl === null) {
         return;
@@ -85,7 +86,7 @@ export function useEpisodeListPage(
     [resolveAudioUrl, playback.play],
   );
   const seek = useCallback(
-    (episodeId: string, positionSec: number): void => {
+    (episodeId: EpisodeId, positionSec: PositionSec): void => {
       const audioUrl = resolveAudioUrl(episodeId);
       if (audioUrl === null) {
         return;

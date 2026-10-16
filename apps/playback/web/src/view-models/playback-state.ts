@@ -1,3 +1,4 @@
+import type { DurationSec, EpisodeId, PositionSec } from "../../../domain/index.ts";
 import type { ApiSuccessData } from "../api/api-result.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 import type { PlaybackApiErrorCode } from "../api/playback-api-error.ts";
@@ -43,11 +44,11 @@ export type PlaybackState =
   | { kind: "idle" }
   | {
       kind: "active";
-      episodeId: string;
+      episodeId: EpisodeId;
       audioRef: string;
       phase: PlaybackPhase;
-      positionSec: number;
-      durationSec: number | null;
+      positionSec: PositionSec;
+      durationSec: DurationSec | null;
     };
 
 /** `PlaybackState` の `active` 枝。再生対象があり位置・長さを必ず持つ。 */

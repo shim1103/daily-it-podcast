@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import "./episode-row.css";
-import { formatDurationMmSs } from "../../utils/format-duration-mm-ss.ts";
+import type { EpisodeId } from "../../../../domain/index.ts";
+import { formatSecAsMmSs } from "../../utils/format-sec-as-mm-ss.ts";
 import { formatEpisodeDate } from "../../utils/format-episode-date.ts";
 import { formatNumberedEpisodeTitle } from "../../utils/format-numbered-episode-title.ts";
 import { formatTopicTitles } from "../../utils/format-topic-titles.ts";
@@ -19,8 +20,8 @@ export type EpisodeRowProps = {
   isSelected: boolean;
   isActivePlayback: boolean;
   isPlaying: boolean;
-  onSelect: (episodeId: string) => void;
-  onPlay: (episodeId: string) => void;
+  onSelect: (episodeId: EpisodeId) => void;
+  onPlay: (episodeId: EpisodeId) => void;
   onStop: () => void;
 };
 
@@ -81,7 +82,7 @@ export function EpisodeRow({
           <LabeledText
             tag="span"
             datasetKey="episodeDurationSec"
-            text={formatDurationMmSs(episode.durationSec)}
+            text={formatSecAsMmSs(episode.durationSec)}
           />
         </span>
       </button>
