@@ -12,7 +12,7 @@ branch: feature/playback-progress-d1-local-peer
    2. merge の結果が既存の行と同じなら、書込を省略する（`seq` を無駄に進めない）。
    3. 行なしの書込（`insertProgressIfAbsent`）は `INSERT … ON CONFLICT DO NOTHING`、行ありの書込（`replaceProgressIfVersion`）は期待した版の行だけを置き換える `UPDATE` とし、どちらも changes=0 を競合として扱う。2 つの面は同じ `written`／`conflict` を返すので、UseCase の再試行の扱いは 1 つである。
 3. adapter は、各面の条件付き 1 文を実行して `written` か `conflict` を返すだけで、再試行しない。どちらの SQL を選ぶかの分岐を持たない。D1 の一時失敗も、従来どおり adapter では再試行せず、browser の retry に任せる（`2026-09-22T19-29-15-feature-playback-progress.md`）。`seq` の採番は adapter の SQL が同じ文の中で行い、UseCase は版を不透明な値として受け渡すだけとする（`seq` の意味は `2026-10-01T23-32-40-feature-playback-progress-d1-local-peer.md`）。
-4. 時刻列は、**契約境界**でUTC固定幅のISO表記へ正規化する。Application の文字列比較は、正規化済みの値を前提とし、adapter は変換しない。pull の更新印は時刻でなく `seq` で、時刻の比較には使わない（`2026-10-01T23-32-40-feature-playback-progress-d1-local-peer.md`）。応答の時刻もUTCの `Z` 表記になる。契約が許す入力の形（offset 付き）は狭めない。範囲の検証は `2026-10-01T23-34-00-feature-playback-progress-d1-local-peer.md` が正。
+4. 時刻列は、**契約境界**でUTC固定幅のISO表記へ正規化する（正規化の関数は domain の `normalizeUtcInstant`、型は `UtcInstant`。`domain-vocabulary-shared-by-web-and-worker.md`）。Application の文字列比較は、正規化済みの値を前提とし、adapter は変換しない。ただし保存先から読んだ時刻は、`isUtcInstant` で正規形か確認し、満たさなければ Infrastructure Error（`D1Error`）とする。これは変換ではなく、未知の値が `UtcInstant` の型になる境界の保証である。pull の更新印は時刻でなく `seq` で、時刻の比較には使わない（`2026-10-01T23-32-40-feature-playback-progress-d1-local-peer.md`）。応答の時刻もUTCの `Z` 表記になる。契約が許す入力の形（offset 付き）は狭めない。範囲の検証は `2026-10-01T23-34-00-feature-playback-progress-d1-local-peer.md` が正。
 
 ## 2. Reason
 
