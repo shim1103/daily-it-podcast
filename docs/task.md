@@ -8,13 +8,13 @@ non-scope: "branch非依存の未完了とOpen questions（→wiki）、完了�
 1. playback/workerの同形の型・写しを削る範囲をshimと決める
     - 調査済み（editなし）。候補は`ProgressMergeIncoming`の再構築3箇所の削除、progress→contract写像の1関数化、`ProgressWriteUseCaseOutput`を`Pick<EpisodeProgress, ...>`へ寄せること
     - `EpisodeManuscript`と`EpisodeItem`の統合は`application.md`§7-2との関係で慎重に扱う。shimの許可待ち
-2. domainの検査を手書きからzodへ寄せるか決める（時刻・`EpisodeId`共通）
-    - 実測（zod 4.4.3）: `z.iso.datetime({offset:true}).refine(範囲).transform(toISOString).brand()`で、手書きの文法・暦・offset検査が全て消える。型は`z.output`で`string & $brand`になり、素の`string`は型errorで弾かれる。`satisfies z.ZodType<Domain, unknown>`も通る。失敗issueに入力値は載らない（custom issueも）
-    - 規範: `selection-terms/criteria.md`第1基準が再発明の回避。zod skillは「schemaを唯一の正とし型は導出」。zodは既にweb・worker・contractsの依存
-    - 案A=現状維持（手書き）、案B=手書き縮小（`toUtcInstant(Date)`）、案C（推奨）=domainがzodだけを許可して依存（`domain-no-npm`をzodのallowlistに変える）
-    - 案Cを選ぶと、`domain/utc-instant.ts`の手書き（約70行）と`isUtcInstant`が、schemaと`safeParse`に置き換わる。`domain-vocabulary-shared-by-web-and-worker.md`の「zodもimportしない」「外部依存ゼロ」とReason 5・Rejected 6を更新する
+2. 時刻の検査をdomainでどう持つか決める（案C=domainがzodに依存、案D=domainはzod非依存で`Date`を受ける）
+    - Opus 5.5の相談結果: 推奨は案D。文法・暦の手書きは、contractsの`z.iso.datetime({offset:true})`に任せれば消える。domainは`toUtcInstant(date: Date)`（範囲と固定幅）と`isUtcInstant`（往復比較）だけにする。最内側をzodに結合させる費用（zod 3→4でbrand・iso・errorのAPIが変わった前例）を払わずに済む
+    - 私の以前の推奨は案C。zod skill §1（schemaを唯一の正とする）に沿うが、差は小さい。決め手は「domainがzodに依存してよいか」
+    - どちらの案でも: 小数を3桁へ切ってから`new Date(v)`に渡す（4桁以上はECMA-262が規定せず、Nodeで切り捨ては実測、workerdは未確認）。D1境界は`+09:00`を受ける変換と別に、正規形の確認（往復比較）が要る
+    - 案Dを選ぶと、`domain/utc-instant.ts`を縮め（文法・暦・offset算術が消える）、`contracts/http.ts`の時刻schemaを`z.iso.datetime({offset:true})`に戻して`toUtcInstant`を呼ぶ。`domain-vocabulary-shared-by-web-and-worker.md`のReason 5・Rejected 6を更新する
 3. `episodeId`を`EpisodeId`にするか決める（cursorの形式も同じ問い）
-    - 案a=別名のみ、案b=`z.string().min(1).brand()`をdomainに置く（`episodeId`を含むfileは非test36・test39、test内literal166箇所）、案c=worker内だけ。案Cを採るなら、非空はzodが保証し`isEpisodeId`は不要
+    - 案a=別名のみ、案b=`z.string().min(1).brand()`をdomainに置く（`episodeId`を含むfileは非test36・test39、test内literal166箇所）、案c=worker内だけ。Opus 5.5の見立て: brandにする根拠（`entities.md`§10-1の『繰り返し破られた』証拠）が無い。範囲外のままか、案aまで
     - `ProgressCursor`は別名のままで、`ProgressVersion`のbrandと不揃い
     - 論点: 「非空」の定義が4箇所に分かれる（contractsの`min(1)`、`manuscript.schema.json`の`minLength`、webのhash adapterの`"" → null`、`episodePath`の`@require`）。正本の候補は、言語横断の`manuscript.schema.json`と、その写しとしてのdomain。`z.toJSONSchema(z.string().min(1))`は`{type:string,minLength:1}`で、`manuscript.schema.json`の`episodeId`と同形（実測）
     - 論点: `episode-layout.md`は`episodeId`を「不透明な対応キー。生成規則はGeneratorに閉じ、Readerはstem一致だけ見る」とする。文字種は未定義なので、domainが言える不変は非空まで
@@ -41,3 +41,6 @@ non-scope: "branch非依存の未完了とOpen questions（→wiki）、完了�
     - `.gitignore`に`.codex`があるのに、`config.toml`だけtrackedのまま。`git rm --cached .codex/config.toml`で外す案
     - 影響: 他のcheckoutではpullでfileが消える。`/std`が再生成する。`18dc12c`と`/std`で増えた1行は、外せば不要になる
     - read-onlyのturnだったので未実行。shimの許可待ち
+10. 相談用sub-agentが作った一時file`apps/playback/.zprobe.mts`を削除する
+    - read-only契約に反してrepo内に作られた（597B、untracked、gitignore対象外）。`rm`はhookに拒否された。shimが実行する
+    - 削除前に`/commit --repo`をしない（`--repo`は未追跡fileも拾う）
