@@ -17,3 +17,11 @@ non-scope: "branch非依存の未完了とOpen questions（→wiki）、完了�
     - 「変換と形式の検証はController」と書いてあるが、Decision `2026-10-01T23-32-40`は「routeのzod。Controllerは数値→文字列の戻しだけ」と言う
 4. epic branch名の確認
     - `origin/feature/playback-progress`と推定。`gh`がTLS errorで取れず未確認
+5. `PROGRESS_WRITE_MAX_ATTEMPTS`と`progressWriteRetryableHttpErrorCodes`をcontractsから出す
+    - codeの使用者はゼロ（コメントのみ）。意図した使用者のVMは、depcruiseの`web-viewmodels-no-components-contracts`でcontractsをimportできない
+    - 置き場の案: 試行回数はweb側（VM）、retry可否の導出は`web/api`。workerのinfra commentは定数名を指さず方針を書く
+6. `EpisodeManuscript`型と`manuscript.schema.json`の食い違い検出を決める
+    - 現状はajv後の`as`でつなぐだけ。案: fixtureをschemaで検証するcontract test（安価）、型の生成（要tool導入と版固定）
+7. 共有語彙の置き場を決める（`worker/src/entities`か、web・worker共有の新dirか）
+    - webは応答schemaをruntimeで使う（`playback-api-client.ts`）ため、語彙の関数がweb bundleに入る
+    - `entities.md`§7「他の内部層をimportしない」との整合が、共有dir案の論点
