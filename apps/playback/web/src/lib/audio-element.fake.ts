@@ -1,4 +1,5 @@
 import { vi } from "vitest";
+import type { PositionSec } from "../../../domain/index.ts";
 import type { AudioLifecyclePhase, AudioStateHandlers } from "./audio-element.ts";
 
 /** 実 `audio-element.ts` の module 形（`importOriginal()` の戻りと `vi.mock` factory の戻りの型）。 */
@@ -64,7 +65,7 @@ export function createFakeAudioElementModule(original: AudioElementModule): Fake
   ) as unknown as SubscribeAudioStateFn;
 
   const seekAudioElement = vi.fn(
-    (el: HTMLAudioElement, positionSec: number, opts: { play: boolean }): Promise<void> => {
+    (el: HTMLAudioElement, positionSec: PositionSec, opts: { play: boolean }): Promise<void> => {
       if (!captureMode) {
         return original.seekAudioElement(el, positionSec, opts);
       }

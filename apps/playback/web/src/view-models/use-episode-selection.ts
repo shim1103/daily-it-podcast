@@ -1,11 +1,12 @@
 import { useCallback, useRef, useState } from "react";
+import type { EpisodeId } from "../../../domain/index.ts";
 import type { EpisodeData, SelectionState } from "./playback-state.ts";
 
 export type EpisodeSelectionViewModel = {
   selection: SelectionState;
-  select(episodeId: string): void;
+  select(episodeId: EpisodeId): void;
   deselect(): void;
-  toggle(episodeId: string): void;
+  toggle(episodeId: EpisodeId): void;
 };
 
 /**
@@ -26,7 +27,7 @@ export function useEpisodeSelection(episodes: readonly EpisodeData[]): EpisodeSe
   const episodesRef = useRef(episodes);
   episodesRef.current = episodes;
 
-  const select = useCallback((episodeId: string): void => {
+  const select = useCallback((episodeId: EpisodeId): void => {
     const episode = episodesRef.current.find((candidate) => candidate.episodeId === episodeId);
     if (episode === undefined) {
       // why: 無効な選択を state に入れない（Decision §1-2）。既存の選択も維持する
@@ -39,7 +40,7 @@ export function useEpisodeSelection(episodes: readonly EpisodeData[]): EpisodeSe
     setSelection({ selected: false });
   }, []);
 
-  const toggle = useCallback((episodeId: string): void => {
+  const toggle = useCallback((episodeId: EpisodeId): void => {
     setSelection((current) => {
       if (current.selected && current.episode.episodeId === episodeId) {
         return { selected: false };

@@ -1,3 +1,4 @@
+import type { PositionSec } from "./position-sec.ts";
 import type { UtcInstant } from "./utc-instant.ts";
 
 /**
@@ -5,7 +6,7 @@ import type { UtcInstant } from "./utc-instant.ts";
  * `firstCompletedAt` だけが未完走で null になる。
  */
 export type EpisodeProgress = {
-  readonly positionSec: number;
+  readonly positionSec: PositionSec;
   readonly firstPlayedAt: UtcInstant;
   readonly firstCompletedAt: UtcInstant | null;
   readonly lastPlayedAt: UtcInstant;

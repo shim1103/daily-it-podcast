@@ -1,8 +1,8 @@
-import type { EpisodeProgress } from "../../../../domain/index.ts";
+import type { EpisodeId, EpisodeProgress } from "../../../../domain/index.ts";
 
 /** pull で返す 1 件。更新があった episode の進捗。 */
 export type ProgressUpdatedEntry = {
-  readonly episodeId: string;
+  readonly episodeId: EpisodeId;
   readonly progress: EpisodeProgress;
 };
 
@@ -19,15 +19,15 @@ export type VersionedProgress = {
 };
 
 /** 進捗 1 行。`episodeId` + 進捗本体。merge せずそのまま永続する。 */
-export type ProgressRow = { readonly episodeId: string } & EpisodeProgress;
+export type ProgressRow = { readonly episodeId: EpisodeId } & EpisodeProgress;
 
 /** 条件付き書込の結果。`conflict` は前提（行なし・期待した版）と行の現在の状態が食い違ったこと。 */
 export type ProgressConditionalWriteResult = "written" | "conflict";
 
-export type GetByEpisodeIdsArgs = { readonly episodeIds: readonly string[] };
-export type GetByEpisodeIdsResult = ReadonlyMap<string, EpisodeProgress>;
+export type GetByEpisodeIdsArgs = { readonly episodeIds: readonly EpisodeId[] };
+export type GetByEpisodeIdsResult = ReadonlyMap<EpisodeId, EpisodeProgress>;
 
-export type GetProgressWithVersionArgs = { readonly episodeId: string };
+export type GetProgressWithVersionArgs = { readonly episodeId: EpisodeId };
 export type GetProgressWithVersionResult = VersionedProgress | null;
 
 export type InsertProgressIfAbsentArgs = { readonly row: ProgressRow };

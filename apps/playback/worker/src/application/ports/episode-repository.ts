@@ -1,3 +1,6 @@
+import type { EpisodeId } from "../../../../domain/index.ts";
+import type { EpisodeAudio } from "../../entities/models/episode-audio.ts";
+
 /**
  * 取得したままの原稿 json 1 件。`stem` は取得元ファイル名の stem（= 期待 episodeId）。
  */
@@ -8,11 +11,11 @@ export type RawManuscriptEntry = {
 
 export type ListManuscriptsResult = RawManuscriptEntry[];
 
-export type GetManuscriptArgs = { readonly episodeId: string };
+export type GetManuscriptArgs = { readonly episodeId: EpisodeId };
 export type GetManuscriptResult = RawManuscriptEntry | undefined;
 
-export type GetAudioArgs = { readonly episodeId: string };
-export type GetAudioResult = Uint8Array | undefined;
+export type GetAudioArgs = { readonly episodeId: EpisodeId };
+export type GetAudioResult = EpisodeAudio | undefined;
 
 /**
  * 所定 object 空間の原稿 json / 音声を「取得したまま返す」Driven Port。schema 検証・stem 一致判定は

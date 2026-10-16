@@ -4,10 +4,11 @@ export default {
     {
       name: "worker-entities-no-outer",
       severity: "error",
-      comment: "Entities は内側のみ。domain とは並立の最内側で、互いに import しない",
+      comment:
+        "Entities は内側のみ。外部依存ゼロの最内側 domain の語彙は型に使ってよい（逆は domain-no-outer が禁じる）",
       from: { path: "^worker/src/entities/" },
       to: {
-        path: "^worker/src/(application|infrastructure|controllers|routes|composition)/|^contracts/|^domain/",
+        path: "^worker/src/(application|infrastructure|controllers|routes|composition)/|^contracts/",
       },
     },
     {

@@ -1,9 +1,11 @@
+import type { EpisodeId } from "../../../../domain/index.ts";
 import { EpisodeContentError } from "../../entities/errors/episode-content-error.ts";
+import type { EpisodeAudio } from "../../entities/models/episode-audio.ts";
 import type { EpisodeRepository } from "../ports/episode-repository.ts";
 
-export type GetAudioUseCaseInput = { readonly episodeId: string };
+export type GetAudioUseCaseInput = { readonly episodeId: EpisodeId };
 
-export type GetAudioUseCaseOutput = Uint8Array;
+export type GetAudioUseCaseOutput = EpisodeAudio;
 
 /**
  * 対象 episodeId の mp3 byte を返す。

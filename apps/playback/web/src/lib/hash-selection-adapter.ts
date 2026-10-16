@@ -1,8 +1,9 @@
+import type { EpisodeId } from "../../../domain/index.ts";
 import { getLocationHash, onLocationHashChange, setLocationHash } from "./location-hash.ts";
 
 export type HashSelectionAdapter = {
-  getEpisodeId(): string | null;
-  setEpisodeId(id: string | null): void;
+  getEpisodeId(): EpisodeId | null;
+  setEpisodeId(id: EpisodeId | null): void;
   subscribe(cb: () => void): () => void;
 };
 
@@ -14,11 +15,11 @@ export type HashSelectionAdapter = {
  */
 export function createHashSelectionAdapter(): HashSelectionAdapter {
   return {
-    getEpisodeId(): string | null {
+    getEpisodeId(): EpisodeId | null {
       const hash = getLocationHash();
       return hash === "" ? null : hash;
     },
-    setEpisodeId(id: string | null): void {
+    setEpisodeId(id: EpisodeId | null): void {
       setLocationHash(id ?? "");
     },
     subscribe(cb: () => void): () => void {

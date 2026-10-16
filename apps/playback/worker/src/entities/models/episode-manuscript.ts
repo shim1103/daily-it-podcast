@@ -1,3 +1,5 @@
+import type { EpisodeId } from "../../../../domain/index.ts";
+
 /** 原稿の話題 1 件。`startSec` は音声内の開始位置（秒）。 */
 export type EpisodeManuscriptTopic = {
   readonly title: string;
@@ -17,7 +19,7 @@ export type EpisodeManuscriptSegment = {
  * 音声の参照（HTTP の path）と進捗は持たない。それらは境界の写しと別の取得で足す。
  */
 export type EpisodeManuscript = {
-  readonly episodeId: string;
+  readonly episodeId: EpisodeId;
   readonly date: string;
   readonly title: string;
   readonly durationSec: number;

@@ -45,9 +45,11 @@ export async function completeProgress(
     throw new ProgressNotFoundError(`進捗行が無い: ${input.episodeId}`);
   }
 
-  const merged = await persistCompletedProgress(progressRepository, input.episodeId, existing, {
-    positionSec: input.positionSec,
-    clientAt: input.clientAt,
-  });
+  const merged = await persistCompletedProgress(
+    progressRepository,
+    input.episodeId,
+    existing,
+    input,
+  );
   return toProgressWriteUseCaseOutput(merged);
 }

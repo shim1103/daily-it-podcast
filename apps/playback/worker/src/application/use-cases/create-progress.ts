@@ -23,9 +23,6 @@ export async function createProgress(
   input: ProgressWriteUseCaseInput,
 ): Promise<ProgressWriteUseCaseOutput> {
   const existing = await loadExistingProgress(repository, input.episodeId);
-  const merged = await persistMergedProgress(repository, input.episodeId, existing, {
-    positionSec: input.positionSec,
-    clientAt: input.clientAt,
-  });
+  const merged = await persistMergedProgress(repository, input.episodeId, existing, input);
   return toProgressWriteUseCaseOutput(merged);
 }

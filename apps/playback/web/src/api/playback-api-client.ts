@@ -1,3 +1,4 @@
+import type { EpisodeId } from "../../../domain/index.ts";
 import {
   ListEpisodesResponseSchema,
   ProgressPullResponseSchema,
@@ -24,15 +25,15 @@ export type PlaybackApiClientDeps = {
 export type PlaybackApiClient = {
   listEpisodes(): Promise<ApiResult<ListEpisodesResponse>>;
   createProgress(
-    episodeId: string,
+    episodeId: EpisodeId,
     body: ProgressWriteRequest,
   ): Promise<ApiResult<ProgressWriteResponse>>;
   updateProgress(
-    episodeId: string,
+    episodeId: EpisodeId,
     body: ProgressWriteRequest,
   ): Promise<ApiResult<ProgressWriteResponse>>;
   completeProgress(
-    episodeId: string,
+    episodeId: EpisodeId,
     body: ProgressWriteRequest,
   ): Promise<ApiResult<ProgressWriteResponse>>;
   pullProgress(query: ProgressPullQuery): Promise<ApiResult<ProgressPullResponse>>;
@@ -56,7 +57,7 @@ export function createPlaybackApiClient(deps: PlaybackApiClientDeps): PlaybackAp
       return resolveApiResult(() => rpc.listEpisodes(), ListEpisodesResponseSchema);
     },
     async createProgress(
-      episodeId: string,
+      episodeId: EpisodeId,
       body: ProgressWriteRequest,
     ): Promise<ApiResult<ProgressWriteResponse>> {
       return resolveApiResult(
@@ -65,7 +66,7 @@ export function createPlaybackApiClient(deps: PlaybackApiClientDeps): PlaybackAp
       );
     },
     async updateProgress(
-      episodeId: string,
+      episodeId: EpisodeId,
       body: ProgressWriteRequest,
     ): Promise<ApiResult<ProgressWriteResponse>> {
       return resolveApiResult(
@@ -74,7 +75,7 @@ export function createPlaybackApiClient(deps: PlaybackApiClientDeps): PlaybackAp
       );
     },
     async completeProgress(
-      episodeId: string,
+      episodeId: EpisodeId,
       body: ProgressWriteRequest,
     ): Promise<ApiResult<ProgressWriteResponse>> {
       return resolveApiResult(

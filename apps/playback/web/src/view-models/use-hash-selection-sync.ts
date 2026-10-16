@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import type { EpisodeId } from "../../../domain/index.ts";
 import {
   type HashSelectionAdapter,
   createHashSelectionAdapter,
@@ -28,7 +29,7 @@ import type { SelectionState } from "./playback-state.ts";
  */
 export function useHashSelectionSync(
   context: { catalogReady: boolean; selection: SelectionState },
-  onHashEpisodeIdChange: (episodeId: string | null) => void,
+  onHashEpisodeIdChange: (episodeId: EpisodeId | null) => void,
   adapter?: HashSelectionAdapter,
 ): void {
   // why: 購読先の identity を固定する
@@ -36,14 +37,14 @@ export function useHashSelectionSync(
   const activeAdapter = adapter ?? fallbackAdapter;
 
   // why: 保留判断を hook 内へ閉じる。catalog 未完了なら undefined（＝同期停止）、完了後は
-  //   selection union から hash の書き込み値（string | null）を決める
-  const selectedEpisodeId: string | null | undefined = !context.catalogReady
+  //   selection union から hash の書き込み値（EpisodeId | null）を決める
+  const selectedEpisodeId: EpisodeId | null | undefined = !context.catalogReady
     ? undefined
     : context.selection.selected
       ? context.selection.episode.episodeId
       : null;
 
-  // why: getEpisodeId は string | null を返し新規オブジェクトを毎回作らないため getSnapshot に直接使える（新規 object を返すと無限 render）
+  // why: getEpisodeId は EpisodeId | null を返し新規オブジェクトを毎回作らないため getSnapshot に直接使える（新規 object を返すと無限 render）
   const currentEpisodeId = useSyncExternalStore(
     activeAdapter.subscribe,
     activeAdapter.getEpisodeId,
@@ -52,7 +53,7 @@ export function useHashSelectionSync(
   // why: 読み取り差分と書き込み差分をこの 1 値で判定する。初期値を null にすることで、catalog
   //   完了後の初回 read effect が既存 hash（非 null）を「差分あり」と見なして 1 回流す（deep-link
   //   復元）。空 hash なら null 同士で流れない。流した後 ref を進めるので書き込み方向は no-op になる
-  const syncedEpisodeIdRef = useRef<string | null>(null);
+  const syncedEpisodeIdRef = useRef<EpisodeId | null>(null);
 
   // why: 読み取り方向。報告値が直近同期値と異なる時だけ onHashEpisodeIdChange へ流す。この effect を
   //   書き込み方向より先に宣言し、両者が同一 commit で発火する時に読み取り→書き込みの順を固定する

@@ -1,4 +1,4 @@
-import type { EpisodeProgress } from "../../../../domain/index.ts";
+import type { EpisodeId, EpisodeProgress } from "../../../../domain/index.ts";
 import type {
   GetByEpisodeIdsArgs,
   GetByEpisodeIdsResult,
@@ -28,7 +28,7 @@ import type {
  * @invariant 保持する行は instance ごとに独立し、プロセスを越えて残らない
  */
 export class InMemoryProgressRepository implements ProgressRepository {
-  private readonly store = new Map<string, VersionedProgress>();
+  private readonly store = new Map<EpisodeId, VersionedProgress>();
   private lastVersion = 0;
 
   constructor(seed: readonly ProgressRow[] = []) {
@@ -38,7 +38,7 @@ export class InMemoryProgressRepository implements ProgressRepository {
   }
 
   async getByEpisodeIds(args: GetByEpisodeIdsArgs): Promise<GetByEpisodeIdsResult> {
-    const progressByEpisodeId = new Map<string, EpisodeProgress>();
+    const progressByEpisodeId = new Map<EpisodeId, EpisodeProgress>();
     for (const episodeId of args.episodeIds) {
       const stored = this.store.get(episodeId);
       if (stored !== undefined) {

@@ -1,10 +1,4 @@
-import type { EpisodeProgress, UtcInstant } from "../../../../domain/index.ts";
-
-/** merge に渡す incoming write（HTTP body と同形の核）。 */
-export type ProgressMergeIncoming = {
-  readonly positionSec: number;
-  readonly clientAt: UtcInstant;
-};
+import type { EpisodeProgress, ProgressReport, UtcInstant } from "../../../../domain/index.ts";
 
 /**
  * 既存進捗行と incoming write を `clientAt` 鍵で merge する純関数（create／update 用）。
@@ -19,7 +13,7 @@ export type ProgressMergeIncoming = {
  */
 export function mergeProgress(
   existing: EpisodeProgress | null,
-  incoming: ProgressMergeIncoming,
+  incoming: ProgressReport,
 ): EpisodeProgress {
   if (existing === null) {
     return {
@@ -42,7 +36,7 @@ export function mergeProgress(
  */
 export function mergeProgressAsCompleted(
   existing: EpisodeProgress,
-  incoming: ProgressMergeIncoming,
+  incoming: ProgressReport,
 ): EpisodeProgress {
   let firstCompletedAt: UtcInstant;
   if (existing.firstCompletedAt === null) {
@@ -58,7 +52,7 @@ export function mergeProgressAsCompleted(
 
 function mergeFields(
   existing: EpisodeProgress,
-  incoming: ProgressMergeIncoming,
+  incoming: ProgressReport,
   firstCompletedAt: UtcInstant | null,
 ): EpisodeProgress {
   // why: 同時刻は既存据え置き。再書込で first* を揺らさない

@@ -1,3 +1,4 @@
+import type { EpisodeId } from "../../../domain/index.ts";
 import type {
   ProgressWriteUseCaseInput,
   ProgressWriteUseCaseOutput,
@@ -15,13 +16,14 @@ import type {
   PullProgressUseCaseOutput,
 } from "../application/use-cases/pull-progress.ts";
 import { EpisodeContentError } from "../entities/errors/episode-content-error.ts";
+import type { EpisodeAudio } from "../entities/models/episode-audio.ts";
 import type { EpisodeManuscript } from "../entities/models/episode-manuscript.ts";
 import { createFakeEpisodeAudioBytes } from "../test/fixtures/audio-bytes.ts";
 import fakeEpisodesJson from "./fake-episodes.json" with { type: "json" };
 import { utc } from "../../../test/support/utc-instant.ts";
 
 type FakeEpisodeRecord = {
-  episodeId: string;
+  episodeId: EpisodeId;
   date: string;
   title: string;
   durationSec: number;
@@ -29,9 +31,9 @@ type FakeEpisodeRecord = {
 };
 
 const fakeEpisodes = fakeEpisodesJson as FakeEpisodeRecord[];
-const fakeAudioCache = new Map<string, Uint8Array>();
+const fakeAudioCache = new Map<EpisodeId, EpisodeAudio>();
 
-function loadFakeEpisodeAudio(episodeId: string): Uint8Array {
+function loadFakeEpisodeAudio(episodeId: EpisodeId): EpisodeAudio {
   const cached = fakeAudioCache.get(episodeId);
   if (cached !== undefined) {
     return cached;
@@ -53,7 +55,7 @@ function toEpisodeWithProgress(record: FakeEpisodeRecord): EpisodeWithProgress {
   };
 }
 
-function findFakeEpisode(episodeId: string): FakeEpisodeRecord {
+function findFakeEpisode(episodeId: EpisodeId): FakeEpisodeRecord {
   const found = fakeEpisodes.find((episode) => episode.episodeId === episodeId);
   if (!found) {
     throw new EpisodeContentError(`JSON エントリが無い: ${episodeId}`);

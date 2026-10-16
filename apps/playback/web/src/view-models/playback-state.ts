@@ -1,3 +1,4 @@
+import type { EpisodeId, PositionSec } from "../../../domain/index.ts";
 import type { ApiSuccessData } from "../api/api-result.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 import type { PlaybackApiErrorCode } from "../api/playback-api-error.ts";
@@ -43,10 +44,10 @@ export type PlaybackState =
   | { kind: "idle" }
   | {
       kind: "active";
-      episodeId: string;
+      episodeId: EpisodeId;
       audioRef: string;
       phase: PlaybackPhase;
-      positionSec: number;
+      positionSec: PositionSec;
       durationSec: number | null;
     };
 

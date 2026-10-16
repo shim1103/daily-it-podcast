@@ -1,9 +1,10 @@
+import type { EpisodeId } from "../../../domain/index.ts";
 import type { HashSelectionAdapter } from "./hash-selection-adapter.ts";
 
 /** `createFakeHashSelectionAdapter` が返す Fake。実 hash の代わりに in-memory で episodeId を保持する。 */
 export type FakeHashSelectionAdapter = HashSelectionAdapter & {
   /** subscribe した listener に通知しつつ episodeId を外部変更に見立てて書き換える。 */
-  externalChange(id: string | null): void;
+  externalChange(id: EpisodeId | null): void;
   /** 現在購読中の listener 数。unmount で subscription が解除されたことの検証に使う。 */
   listenerCount(): number;
 };
@@ -15,9 +16,9 @@ export type FakeHashSelectionAdapter = HashSelectionAdapter & {
  *   保持値を書き換え、subscribe 済み listener をすべて呼ぶ。`subscribe` は解除関数を返す
  */
 export function createFakeHashSelectionAdapter(
-  initialId: string | null = null,
+  initialId: EpisodeId | null = null,
 ): FakeHashSelectionAdapter {
-  let episodeId: string | null = initialId;
+  let episodeId: EpisodeId | null = initialId;
   const listeners = new Set<() => void>();
 
   const notify = (): void => {
@@ -27,10 +28,10 @@ export function createFakeHashSelectionAdapter(
   };
 
   return {
-    getEpisodeId(): string | null {
+    getEpisodeId(): EpisodeId | null {
       return episodeId;
     },
-    setEpisodeId(id: string | null): void {
+    setEpisodeId(id: EpisodeId | null): void {
       episodeId = id;
       notify();
     },
@@ -40,7 +41,7 @@ export function createFakeHashSelectionAdapter(
         listeners.delete(cb);
       };
     },
-    externalChange(id: string | null): void {
+    externalChange(id: EpisodeId | null): void {
       episodeId = id;
       notify();
     },

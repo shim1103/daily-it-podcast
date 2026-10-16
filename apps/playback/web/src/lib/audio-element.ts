@@ -6,6 +6,7 @@
  * ViewModel 層の `PlaybackState["phase"]` は import しない（`lib/` → `view-models/` は依存方向違反、
  * `external-dependencies.md` §5）。
  */
+import type { PositionSec } from "../../../domain/index.ts";
 
 /**
  * `<audio>` の lifecycle event から**直接写せる** phase の語彙。
@@ -28,7 +29,7 @@ export type AudioLifecyclePhase = "playing" | "paused" | "ended" | "error";
  */
 export type AudioStateHandlers = {
   onPhaseChange: (phase: AudioLifecyclePhase) => void;
-  onPositionChange: (positionSec: number) => void;
+  onPositionChange: (positionSec: PositionSec) => void;
   onDurationChange: (durationSec: number) => void;
 };
 
@@ -126,7 +127,7 @@ const HAVE_METADATA = 1;
  *
  * @ensure `el.currentTime` を `positionSec` にしたあと、`seeked` event の発火で解決する Promise を返す。
  */
-function waitForSeekComplete(el: HTMLAudioElement, positionSec: number): Promise<void> {
+function waitForSeekComplete(el: HTMLAudioElement, positionSec: PositionSec): Promise<void> {
   el.currentTime = positionSec;
   return new Promise<void>((resolve) => {
     const onSeeked: EventListener = () => {
@@ -154,7 +155,7 @@ function waitForSeekComplete(el: HTMLAudioElement, positionSec: number): Promise
  */
 export function seekAudioElement(
   el: HTMLAudioElement,
-  positionSec: number,
+  positionSec: PositionSec,
   opts: { play: boolean },
 ): Promise<void> {
   const applySeek = (): Promise<void> => {

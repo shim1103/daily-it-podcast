@@ -1,3 +1,4 @@
+import type { EpisodeId } from "../../../domain/index.ts";
 import type {
   ParsedProgressWriteRequest,
   ProgressWriteResponse,
@@ -13,12 +14,12 @@ export type ProgressWriteUseCase = (
 ) => Promise<ProgressWriteUseCaseOutput>;
 
 export type ProgressWriteController = (
-  episodeId: string,
+  episodeId: EpisodeId,
   body: ParsedProgressWriteRequest,
 ) => Promise<ProgressWriteResponse>;
 
 function toProgressWriteUseCaseInput(
-  episodeId: string,
+  episodeId: EpisodeId,
   body: ParsedProgressWriteRequest,
 ): ProgressWriteUseCaseInput {
   return { episodeId, positionSec: body.positionSec, clientAt: body.clientAt };
@@ -40,7 +41,7 @@ export function createProgressWriteController(
   useCase: ProgressWriteUseCase,
 ): ProgressWriteController {
   return async function progressWriteController(
-    episodeId: string,
+    episodeId: EpisodeId,
     body: ParsedProgressWriteRequest,
   ): Promise<ProgressWriteResponse> {
     try {

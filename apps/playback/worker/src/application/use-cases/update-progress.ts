@@ -27,9 +27,6 @@ export async function updateProgress(
   if (existing === null) {
     throw new ProgressNotFoundError(`進捗行が無い: ${input.episodeId}`);
   }
-  const merged = await persistMergedProgress(repository, input.episodeId, existing, {
-    positionSec: input.positionSec,
-    clientAt: input.clientAt,
-  });
+  const merged = await persistMergedProgress(repository, input.episodeId, existing, input);
   return toProgressWriteUseCaseOutput(merged);
 }

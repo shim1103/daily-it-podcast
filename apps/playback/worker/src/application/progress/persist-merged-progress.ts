@@ -1,10 +1,6 @@
-import type { EpisodeProgress } from "../../../../domain/index.ts";
+import type { EpisodeId, EpisodeProgress, ProgressReport } from "../../../../domain/index.ts";
 import type { ProgressRepository } from "../ports/progress-repository.ts";
-import {
-  mergeProgress,
-  mergeProgressAsCompleted,
-  type ProgressMergeIncoming,
-} from "./merge-progress.ts";
+import { mergeProgress, mergeProgressAsCompleted } from "./merge-progress.ts";
 import type { ProgressWriteUseCaseOutput } from "./progress-write-use-case-io.ts";
 
 /**
@@ -12,7 +8,7 @@ import type { ProgressWriteUseCaseOutput } from "./progress-write-use-case-io.ts
  */
 export async function loadExistingProgress(
   repository: ProgressRepository,
-  episodeId: string,
+  episodeId: EpisodeId,
 ): Promise<EpisodeProgress | null> {
   const rows = await repository.getByEpisodeIds({ episodeIds: [episodeId] });
   return rows.get(episodeId) ?? null;
@@ -23,9 +19,9 @@ export async function loadExistingProgress(
  */
 export async function persistMergedProgress(
   repository: ProgressRepository,
-  episodeId: string,
+  episodeId: EpisodeId,
   existing: EpisodeProgress | null,
-  incoming: ProgressMergeIncoming,
+  incoming: ProgressReport,
 ): Promise<EpisodeProgress> {
   const merged = mergeProgress(existing, incoming);
   // todo: C が getProgressWithVersion と insertProgressIfAbsent・replaceProgressIfVersion の CAS 再試行と skew 判定へ置換したら、upsertProgress の呼び出しを消す
@@ -40,9 +36,9 @@ export async function persistMergedProgress(
  */
 export async function persistCompletedProgress(
   repository: ProgressRepository,
-  episodeId: string,
+  episodeId: EpisodeId,
   existing: EpisodeProgress,
-  incoming: ProgressMergeIncoming,
+  incoming: ProgressReport,
 ): Promise<EpisodeProgress> {
   const merged = mergeProgressAsCompleted(existing, incoming);
   // todo: C が getProgressWithVersion と insertProgressIfAbsent・replaceProgressIfVersion の CAS 再試行と skew 判定へ置換したら、upsertProgress の呼び出しを消す

@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import "./episode-row.css";
+import type { EpisodeId } from "../../../../domain/index.ts";
 import { formatDurationMmSs } from "../../utils/format-duration-mm-ss.ts";
 import { formatEpisodeDate } from "../../utils/format-episode-date.ts";
 import { formatNumberedEpisodeTitle } from "../../utils/format-numbered-episode-title.ts";
@@ -19,8 +20,8 @@ export type EpisodeRowProps = {
   isSelected: boolean;
   isActivePlayback: boolean;
   isPlaying: boolean;
-  onSelect: (episodeId: string) => void;
-  onPlay: (episodeId: string) => void;
+  onSelect: (episodeId: EpisodeId) => void;
+  onPlay: (episodeId: EpisodeId) => void;
   onStop: () => void;
 };
 

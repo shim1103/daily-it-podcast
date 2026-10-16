@@ -1,3 +1,4 @@
+import type { EpisodeId } from "../../../../domain/index.ts";
 import type {
   EpisodeRepository,
   GetAudioArgs,
@@ -7,10 +8,11 @@ import type {
   ListManuscriptsResult,
   RawManuscriptEntry,
 } from "../../application/ports/episode-repository.ts";
+import type { EpisodeAudio } from "../../entities/models/episode-audio.ts";
 
 type StoredEpisode = {
   json: unknown;
-  audio?: Uint8Array;
+  audio?: EpisodeAudio;
 };
 
 /**
@@ -20,9 +22,9 @@ type StoredEpisode = {
  * mp3 欠落の判定はしない。判定は use-case（`application/use-cases/*`）が行う。
  */
 export class InMemoryEpisodeRepository implements EpisodeRepository {
-  private readonly episodes = new Map<string, StoredEpisode>();
+  private readonly episodes = new Map<EpisodeId, StoredEpisode>();
 
-  put(episodeId: string, json: unknown, audio?: Uint8Array): void {
+  put(episodeId: EpisodeId, json: unknown, audio?: EpisodeAudio): void {
     this.episodes.set(episodeId, { json, audio });
   }
 

@@ -1,4 +1,9 @@
-import { type EpisodeProgress, isUtcInstant, type UtcInstant } from "../../../../domain/index.ts";
+import {
+  type EpisodeId,
+  type EpisodeProgress,
+  isUtcInstant,
+  type UtcInstant,
+} from "../../../../domain/index.ts";
 import type {
   GetByEpisodeIdsArgs,
   GetByEpisodeIdsResult,
@@ -185,7 +190,7 @@ export class D1ProgressRepository implements ProgressRepository {
   }
 
   async getByEpisodeIds(args: GetByEpisodeIdsArgs): Promise<GetByEpisodeIdsResult> {
-    const progressByEpisodeId = new Map<string, EpisodeProgress>();
+    const progressByEpisodeId = new Map<EpisodeId, EpisodeProgress>();
     for (const chunk of chunksOf(args.episodeIds, D1_MAX_BOUND_PARAMETERS_PER_QUERY)) {
       const rows = await this.queryAll(selectByEpisodeIdsSql(chunk.length), chunk);
       for (const row of rows) {

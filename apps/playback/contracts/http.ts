@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { type EpisodeProgress, toUtcInstant } from "../domain/index.ts";
+import {
+  type EpisodeId,
+  type EpisodeProgress,
+  type ProgressReport,
+  toUtcInstant,
+} from "../domain/index.ts";
 
 export const playbackHttpErrorCodes = [
   "episode_not_found",
@@ -52,7 +57,8 @@ const progressInstantSchema = z.iso.datetime({ offset: true }).transform((value,
  */
 const progressCursorSchema = z.string().regex(/^(0|[1-9][0-9]{0,14})$/);
 
-const episodeIdSchema = z.string().min(1);
+/** parse 後の形が domain の `EpisodeId` に代入できることを型で結ぶ（食い違えば compile error）。 */
+const episodeIdSchema = z.string().min(1) satisfies z.ZodType<EpisodeId, unknown>;
 const dateSchema = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/);
 const titleSchema = z.string().min(1);
 const durationSecSchema = z.number().min(0);
@@ -129,7 +135,7 @@ export const progressPullPath = "/progress" as const;
  * @require episodeId は空でない
  * @ensure listEpisodesPath の後に path 段が 1 つだけ増える
  */
-export function episodePath(episodeId: string): string {
+export function episodePath(episodeId: EpisodeId): string {
   return `${listEpisodesPath}/${encodeURIComponent(episodeId)}`;
 }
 
@@ -139,7 +145,7 @@ export function episodePath(episodeId: string): string {
  * @require episodeId は空でない
  * @ensure episodePath の後に `audio` 段が 1 つ続く
  */
-export function episodeAudioPath(episodeId: string): string {
+export function episodeAudioPath(episodeId: EpisodeId): string {
   return `${episodePath(episodeId)}/audio`;
 }
 
@@ -149,7 +155,7 @@ export function episodeAudioPath(episodeId: string): string {
  * @require episodeId は空でない
  * @ensure episodePath の後に `progress` 段が 1 つ続く
  */
-export function episodeProgressPath(episodeId: string): string {
+export function episodeProgressPath(episodeId: EpisodeId): string {
   return `${episodePath(episodeId)}/progress`;
 }
 
@@ -159,7 +165,7 @@ export function episodeProgressPath(episodeId: string): string {
  * @require episodeId は空でない
  * @ensure episodeProgressPath の後に `complete` 段が 1 つ続く
  */
-export function episodeProgressCompletePath(episodeId: string): string {
+export function episodeProgressCompletePath(episodeId: EpisodeId): string {
   return `${episodeProgressPath(episodeId)}/complete`;
 }
 
@@ -185,11 +191,12 @@ export const EpisodeIdRequestSchema = z.strictObject({
  * `clientAt` は merge 判定用の client 時刻。形式・範囲・正規化は {@link progressInstantSchema} に従い、
  * 入力は offset 付きでも受け、parse 後は UTC 固定幅になる。
  * 行なし update → 404、重複 create → 冪等 200 の意味は Decision を正とし、ここへ写さない。
+ * parse 後の形が domain の `ProgressReport` に代入できることを型で結ぶ（食い違えば compile error）。
  */
 export const ProgressWriteRequestSchema = z.strictObject({
   positionSec: z.number().min(0),
   clientAt: progressInstantSchema,
-});
+}) satisfies z.ZodType<ProgressReport, unknown>;
 
 /**
  * 進捗 Write 成功応答。勝ち側の first* だけを返す（`positionSec` は載せない）。

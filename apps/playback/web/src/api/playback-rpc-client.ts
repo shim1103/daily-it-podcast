@@ -1,4 +1,5 @@
 import { hc } from "hono/client";
+import type { EpisodeId } from "../../../domain/index.ts";
 import type { ProgressPullQuery, ProgressWriteRequest } from "../../../contracts/index.ts";
 import type { AppType } from "../../../worker/src/routes/app.ts";
 
@@ -11,9 +12,9 @@ export type PlaybackRpcClientDeps = {
 
 export type PlaybackRpcClient = {
   listEpisodes(): Promise<Response>;
-  createProgress(episodeId: string, body: ProgressWriteRequest): Promise<Response>;
-  updateProgress(episodeId: string, body: ProgressWriteRequest): Promise<Response>;
-  completeProgress(episodeId: string, body: ProgressWriteRequest): Promise<Response>;
+  createProgress(episodeId: EpisodeId, body: ProgressWriteRequest): Promise<Response>;
+  updateProgress(episodeId: EpisodeId, body: ProgressWriteRequest): Promise<Response>;
+  completeProgress(episodeId: EpisodeId, body: ProgressWriteRequest): Promise<Response>;
   pullProgress(query: ProgressPullQuery): Promise<Response>;
 };
 
