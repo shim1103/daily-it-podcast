@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { EpisodeId, PositionSec } from "../../../domain/index.ts";
 import {
   deriveEpisodeRows,
   deriveNowPlaying,
@@ -35,10 +36,10 @@ const idlePlayback: PlaybackState = { kind: "idle" };
 
 function activePlayback(
   overrides: Partial<{
-    episodeId: string;
+    episodeId: EpisodeId;
     audioRef: string;
     phase: PlaybackPhase;
-    positionSec: number;
+    positionSec: PositionSec;
     durationSec: number | null;
   }> = {},
 ): PlaybackState {

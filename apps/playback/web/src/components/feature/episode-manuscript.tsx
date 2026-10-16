@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import type { PositionSec } from "../../../../domain/index.ts";
 import { formatDurationMmSs } from "../../utils/format-duration-mm-ss.ts";
 import type { EpisodeData } from "../../view-models/playback-state.ts";
 import { LabeledText } from "../primitive/labeled-text.tsx";
@@ -9,7 +10,7 @@ type Body = EpisodeData["body"];
 
 export type EpisodeManuscriptProps = {
   body: Body;
-  onSeek: (startSec: number) => void;
+  onSeek: (startSec: PositionSec) => void;
 };
 
 /**

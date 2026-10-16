@@ -1,4 +1,4 @@
-import type { EpisodeId } from "../../../domain/index.ts";
+import type { DurationSec, EpisodeId } from "../../../domain/index.ts";
 import type {
   ProgressWriteUseCaseInput,
   ProgressWriteUseCaseOutput,
@@ -26,7 +26,7 @@ type FakeEpisodeRecord = {
   episodeId: EpisodeId;
   date: string;
   title: string;
-  durationSec: number;
+  durationSec: DurationSec;
   body: EpisodeManuscript["body"];
 };
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import type { EpisodeId, PositionSec } from "../../../domain/index.ts";
+import type { DurationSec, EpisodeId, PositionSec } from "../../../domain/index.ts";
 import type { AudioLifecyclePhase } from "../lib/audio-element.ts";
 import {
   pauseAudioElement,
@@ -102,7 +102,7 @@ export function useEpisodePlayback(): EpisodePlaybackViewModel {
   );
 
   const applyDuration = useCallback(
-    (durationSec: number): void => {
+    (durationSec: DurationSec): void => {
       updateActive((state) => ({ ...state, durationSec }));
     },
     [updateActive],

@@ -1,17 +1,17 @@
-import type { EpisodeId } from "../../../../domain/index.ts";
+import type { DurationSec, EpisodeId, PositionSec } from "../../../../domain/index.ts";
 
 /** 原稿の話題 1 件。`startSec` は音声内の開始位置（秒）。 */
 export type EpisodeManuscriptTopic = {
   readonly title: string;
   readonly preface: string;
   readonly detail: string;
-  readonly startSec: number;
+  readonly startSec: PositionSec;
 };
 
 /** 原稿の冒頭・結びの 1 区間。 */
 export type EpisodeManuscriptSegment = {
   readonly text: string;
-  readonly startSec: number;
+  readonly startSec: PositionSec;
 };
 
 /**
@@ -22,7 +22,7 @@ export type EpisodeManuscript = {
   readonly episodeId: EpisodeId;
   readonly date: string;
   readonly title: string;
-  readonly durationSec: number;
+  readonly durationSec: DurationSec;
   readonly body: {
     readonly opening: EpisodeManuscriptSegment;
     readonly topics: readonly EpisodeManuscriptTopic[];

@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import type { PositionSec } from "../../../../domain/index.ts";
 import type { EpisodeData } from "../../view-models/playback-state.ts";
 import { formatDurationMmSs } from "../../utils/format-duration-mm-ss.ts";
 import { formatNumberedTopicTitle } from "../../utils/format-numbered-topic-title.ts";
@@ -10,7 +11,7 @@ type Topic = EpisodeData["body"]["topics"][number];
 export type EpisodeTopicProps = {
   topic: Topic;
   topicIndex: number;
-  onSeek: (startSec: number) => void;
+  onSeek: (startSec: PositionSec) => void;
 };
 
 /**

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { PositionSec } from "../../../domain/index.ts";
 import {
   type AudioLifecyclePhase,
   pauseAudioElement,
@@ -71,12 +72,12 @@ function createFakeAudioElement(): HTMLAudioElement & {
 
 function createStateHandlers(): {
   onPhaseChange: ReturnType<typeof vi.fn<(phase: AudioLifecyclePhase) => void>>;
-  onPositionChange: ReturnType<typeof vi.fn<(positionSec: number) => void>>;
+  onPositionChange: ReturnType<typeof vi.fn<(positionSec: PositionSec) => void>>;
   onDurationChange: ReturnType<typeof vi.fn<(durationSec: number) => void>>;
 } {
   return {
     onPhaseChange: vi.fn<(phase: AudioLifecyclePhase) => void>(),
-    onPositionChange: vi.fn<(positionSec: number) => void>(),
+    onPositionChange: vi.fn<(positionSec: PositionSec) => void>(),
     onDurationChange: vi.fn<(durationSec: number) => void>(),
   };
 }

@@ -1,4 +1,4 @@
-import type { EpisodeId, PositionSec } from "../../../domain/index.ts";
+import type { DurationSec, EpisodeId, PositionSec } from "../../../domain/index.ts";
 import type { ApiSuccessData } from "../api/api-result.ts";
 import type { PlaybackApiClient } from "../api/playback-api-client.ts";
 import type { PlaybackApiErrorCode } from "../api/playback-api-error.ts";
@@ -48,7 +48,7 @@ export type PlaybackState =
       audioRef: string;
       phase: PlaybackPhase;
       positionSec: PositionSec;
-      durationSec: number | null;
+      durationSec: DurationSec | null;
     };
 
 /** `PlaybackState` の `active` 枝。再生対象があり位置・長さを必ず持つ。 */

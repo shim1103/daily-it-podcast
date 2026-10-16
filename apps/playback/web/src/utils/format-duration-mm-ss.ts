@@ -1,3 +1,5 @@
+import type { DurationSec } from "../../../domain/index.ts";
+
 /**
  * durationSec を mm:ss 表示へ変換する。
  *
@@ -5,7 +7,7 @@
  * @ensure ゼロ埋めの mm:ss（単位文字なし）を返す。分は最低 2 桁
  * @invariant 副作用なし。外部依存なし
  */
-export function formatDurationMmSs(durationSec: number): string {
+export function formatDurationMmSs(durationSec: DurationSec): string {
   const totalSec = Math.floor(durationSec);
   const minutes = Math.floor(totalSec / 60);
   const seconds = totalSec % 60;

@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
+  type DurationSec,
   type EpisodeId,
   type EpisodeProgress,
+  type PositionSec,
   type ProgressReport,
   toUtcInstant,
 } from "../domain/index.ts";
@@ -61,23 +63,26 @@ const progressCursorSchema = z.string().regex(/^(0|[1-9][0-9]{0,14})$/);
 const episodeIdSchema = z.string().min(1) satisfies z.ZodType<EpisodeId, unknown>;
 const dateSchema = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/);
 const titleSchema = z.string().min(1);
-const durationSecSchema = z.number().min(0);
+/** parse 後の形が domain の `DurationSec` に代入できることを型で結ぶ（食い違えば compile error）。 */
+const durationSecSchema = z.number().min(0) satisfies z.ZodType<DurationSec, unknown>;
+/** parse 後の形が domain の `PositionSec` に代入できることを型で結ぶ（食い違えば compile error）。原稿の各区間の開始位置（`startSec`）が使う。 */
+const startSecSchema = z.number().min(0) satisfies z.ZodType<PositionSec, unknown>;
 
 const topicSchema = z.strictObject({
   title: titleSchema,
   preface: z.string(),
   detail: z.string(),
-  startSec: z.number().min(0),
+  startSec: startSecSchema,
 });
 
 const openingSchema = z.strictObject({
   text: z.string(),
-  startSec: z.number().min(0),
+  startSec: startSecSchema,
 });
 
 const endingSchema = z.strictObject({
   text: z.string(),
-  startSec: z.number().min(0),
+  startSec: startSecSchema,
 });
 
 const bodySchema = z.strictObject({

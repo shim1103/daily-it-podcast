@@ -6,7 +6,7 @@
  * ViewModel 層の `PlaybackState["phase"]` は import しない（`lib/` → `view-models/` は依存方向違反、
  * `external-dependencies.md` §5）。
  */
-import type { PositionSec } from "../../../domain/index.ts";
+import type { DurationSec, PositionSec } from "../../../domain/index.ts";
 
 /**
  * `<audio>` の lifecycle event から**直接写せる** phase の語彙。
@@ -30,7 +30,7 @@ export type AudioLifecyclePhase = "playing" | "paused" | "ended" | "error";
 export type AudioStateHandlers = {
   onPhaseChange: (phase: AudioLifecyclePhase) => void;
   onPositionChange: (positionSec: PositionSec) => void;
-  onDurationChange: (durationSec: number) => void;
+  onDurationChange: (durationSec: DurationSec) => void;
 };
 
 /**

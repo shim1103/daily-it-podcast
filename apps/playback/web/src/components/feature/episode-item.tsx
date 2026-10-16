@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import "./episode-item.css";
-import type { EpisodeId } from "../../../../domain/index.ts";
+import type { EpisodeId, PositionSec } from "../../../../domain/index.ts";
 import type { EpisodeData } from "../../view-models/playback-state.ts";
 import { EpisodeManuscript } from "./episode-manuscript.tsx";
 import { EpisodeRow } from "./episode-row.tsx";
@@ -15,7 +15,7 @@ export type EpisodeItemProps = {
   onSelect: (episodeId: EpisodeId) => void;
   onPlay: (episodeId: EpisodeId) => void;
   onStop: () => void;
-  onSeek: (startSec: number) => void;
+  onSeek: (startSec: PositionSec) => void;
 };
 
 /**

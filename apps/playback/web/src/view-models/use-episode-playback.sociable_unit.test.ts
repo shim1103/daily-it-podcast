@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { PositionSec } from "../../../domain/index.ts";
 import type { AudioLifecyclePhase, AudioStateHandlers } from "../lib/audio-element.ts";
 import {
   pauseAudioElement,
@@ -30,7 +31,7 @@ const seekAudioElementMock = vi.mocked(seekAudioElement);
  */
 function createSubscribeFake(): {
   emitPhase(phase: AudioLifecyclePhase): void;
-  emitPosition(positionSec: number): void;
+  emitPosition(positionSec: PositionSec): void;
   emitDuration(durationSec: number): void;
   unsubscribeCalls: number;
   subscribeCalls: number;
@@ -48,7 +49,7 @@ function createSubscribeFake(): {
     emitPhase(phase: AudioLifecyclePhase): void {
       state.handlers?.onPhaseChange(phase);
     },
-    emitPosition(positionSec: number): void {
+    emitPosition(positionSec: PositionSec): void {
       state.handlers?.onPositionChange(positionSec);
     },
     emitDuration(durationSec: number): void {

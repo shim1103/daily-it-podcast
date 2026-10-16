@@ -1,4 +1,4 @@
-import type { PositionSec } from "../../../../domain/index.ts";
+import type { DurationSec, PositionSec } from "../../../../domain/index.ts";
 import { PROGRESS_COMPLETE_ZONE_SEC } from "../../entities/constants/progress.ts";
 
 /**
@@ -8,6 +8,6 @@ import { PROGRESS_COMPLETE_ZONE_SEC } from "../../entities/constants/progress.ts
  * @require `positionSec` / `durationSec` は非負。`durationSec` は原稿正本の全長
  * @ensure `positionSec >= durationSec - PROGRESS_COMPLETE_ZONE_SEC` の時だけ true
  */
-export function isInCompleteZone(positionSec: PositionSec, durationSec: number): boolean {
+export function isInCompleteZone(positionSec: PositionSec, durationSec: DurationSec): boolean {
   return positionSec >= durationSec - PROGRESS_COMPLETE_ZONE_SEC;
 }
