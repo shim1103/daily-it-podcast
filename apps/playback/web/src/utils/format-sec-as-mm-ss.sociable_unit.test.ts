@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { formatDurationMmSs } from "./format-duration-mm-ss.ts";
+import { formatSecAsMmSs } from "./format-sec-as-mm-ss.ts";
 
-describe("formatDurationMmSs", () => {
+describe("formatSecAsMmSs", () => {
   it("60 秒を 01:00 にする", () => {
     // Given: 60 秒
     const durationSec = 60;
 
     // When: mm:ss へ整形する
-    const got = formatDurationMmSs(durationSec);
+    const got = formatSecAsMmSs(durationSec);
 
     // Then: ゼロ埋めの mm:ss
     expect(got).toBe("01:00");
@@ -18,7 +18,7 @@ describe("formatDurationMmSs", () => {
     const durationSec = 0;
 
     // When: mm:ss へ整形する
-    const got = formatDurationMmSs(durationSec);
+    const got = formatSecAsMmSs(durationSec);
 
     // Then: ゼロ埋めの mm:ss
     expect(got).toBe("00:00");
@@ -29,7 +29,7 @@ describe("formatDurationMmSs", () => {
     const durationSec = 125;
 
     // When: mm:ss へ整形する
-    const got = formatDurationMmSs(durationSec);
+    const got = formatSecAsMmSs(durationSec);
 
     // Then: ゼロ埋めの mm:ss（単位文字なし）
     expect(got).toBe("02:05");
@@ -40,7 +40,7 @@ describe("formatDurationMmSs", () => {
     const durationSec = 3723;
 
     // When: mm:ss へ整形する
-    const got = formatDurationMmSs(durationSec);
+    const got = formatSecAsMmSs(durationSec);
 
     // Then: 分は 2 桁以上、秒は 2 桁
     expect(got).toBe("62:03");

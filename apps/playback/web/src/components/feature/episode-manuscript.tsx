@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import type { PositionSec } from "../../../../domain/index.ts";
-import { formatDurationMmSs } from "../../utils/format-duration-mm-ss.ts";
+import { formatSecAsMmSs } from "../../utils/format-sec-as-mm-ss.ts";
 import type { EpisodeData } from "../../view-models/playback-state.ts";
 import { LabeledText } from "../primitive/labeled-text.tsx";
 import { EpisodeTopic } from "./episode-topic.tsx";
@@ -35,7 +35,7 @@ export function EpisodeManuscript({ body, onSeek }: EpisodeManuscriptProps): Rea
               onSeek(body.opening.startSec);
             }}
           >
-            {formatDurationMmSs(body.opening.startSec)}
+            {formatSecAsMmSs(body.opening.startSec)}
           </button>
         </div>
         <LabeledText tag="p" datasetKey="manuscriptOpening" text={body.opening.text} />
@@ -54,7 +54,7 @@ export function EpisodeManuscript({ body, onSeek }: EpisodeManuscriptProps): Rea
               onSeek(body.ending.startSec);
             }}
           >
-            {formatDurationMmSs(body.ending.startSec)}
+            {formatSecAsMmSs(body.ending.startSec)}
           </button>
         </div>
         <LabeledText tag="p" datasetKey="manuscriptEnding" text={body.ending.text} />

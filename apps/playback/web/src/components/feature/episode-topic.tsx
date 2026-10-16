@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import type { PositionSec } from "../../../../domain/index.ts";
 import type { EpisodeData } from "../../view-models/playback-state.ts";
-import { formatDurationMmSs } from "../../utils/format-duration-mm-ss.ts";
+import { formatSecAsMmSs } from "../../utils/format-sec-as-mm-ss.ts";
 import { formatNumberedTopicTitle } from "../../utils/format-numbered-topic-title.ts";
 import { LabeledText } from "../primitive/labeled-text.tsx";
 import "./episode-topic.css";
@@ -24,7 +24,7 @@ export type EpisodeTopicProps = {
  */
 export function EpisodeTopic({ topic, topicIndex, onSeek }: EpisodeTopicProps): ReactElement {
   const numberedTitle = formatNumberedTopicTitle(topicIndex, topic.title);
-  const startLabel = formatDurationMmSs(topic.startSec);
+  const startLabel = formatSecAsMmSs(topic.startSec);
 
   return (
     <section className="episode-topic">

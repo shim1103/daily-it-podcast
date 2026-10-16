@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import "./episode-row.css";
 import type { EpisodeId } from "../../../../domain/index.ts";
-import { formatDurationMmSs } from "../../utils/format-duration-mm-ss.ts";
+import { formatSecAsMmSs } from "../../utils/format-sec-as-mm-ss.ts";
 import { formatEpisodeDate } from "../../utils/format-episode-date.ts";
 import { formatNumberedEpisodeTitle } from "../../utils/format-numbered-episode-title.ts";
 import { formatTopicTitles } from "../../utils/format-topic-titles.ts";
@@ -82,7 +82,7 @@ export function EpisodeRow({
           <LabeledText
             tag="span"
             datasetKey="episodeDurationSec"
-            text={formatDurationMmSs(episode.durationSec)}
+            text={formatSecAsMmSs(episode.durationSec)}
           />
         </span>
       </button>
