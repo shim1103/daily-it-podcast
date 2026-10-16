@@ -11,7 +11,12 @@ non-scope: "branch非依存の未完了とOpen questions（→wiki）、完了�
 2. brandの手書き定義をどうするか決める（`UtcInstant`・`ProgressVersion`・`RequestId`の3つが`X & { readonly __brand: "X" }`を各自で書いている）
     - `domain`の実コードは13行。範囲判定（5行）はzodを使っても`.refine`で手書きになる。`z.iso.datetime({precision:3})`は正規形（Z・3桁・実在する暦日）だけを受けるが、範囲は見ない（実測）
     - 案: 現状維持 / 型だけの`Brand<T, Name>`をdomainに置いて3つを揃える（zod不要） / domainがzodに依存して`.brand()`
-3. `episodeId`を`EpisodeId`にするか決める（cursorの形式も同じ問い）
+3. `EpisodeId`と進捗の報告の型を`domain/`へ置く（shim: 「すべてがここがSSoTになる」）
+    - 基準案: 葉の語彙（`EpisodeId`・`UtcInstant`・進捗の報告）は`domain/`、束（`XxxUseCaseInput/Output`・Port の`Args/Result`）はapplicationが葉から合成する。束を`domain/`へ置くと、最内側がPort・UseCaseの形を知る逆向きになる
+    - `episodeId`を`string`で宣言する箇所: application 12・controllers 9・infrastructure 6・entities 1・contracts 4・web 32
+    - 三択で詰まる点: (1)型を`domain/`に置く (2)非空はzodだけが保証 (3)domainはzod非依存。brandにすると3つは同時に成り立たない。別名なら成り立つが、SSoTは名前だけ
+    - `GetAudioUseCaseOutput`は`domain/`へ移さない案（webは音声byteを型として持たない。実測）。`ProgressMergeIncoming`は昇格案（名前は仮、shimと決める）で、`ProgressWriteUseCaseInput`が合成になり、UseCase 3本の再構築が消える
+    - 以前の論点: `EpisodeId`のbrandを案a・b・cのどれにするか、cursorの形式
     - 案a=別名のみ、案b=`z.string().min(1).brand()`をdomainに置く（`episodeId`を含むfileは非test36・test39、test内literal166箇所）、案c=worker内だけ。Opus 5.5の見立て: brandにする根拠（`entities.md`§10-1の『繰り返し破られた』証拠）が無い。範囲外のままか、案aまで。時刻は案Dで完了したので、domainにzodは入れない前提
     - `ProgressCursor`は別名のままで、`ProgressVersion`のbrandと不揃い
     - 論点: 「非空」の定義が4箇所に分かれる（contractsの`min(1)`、`manuscript.schema.json`の`minLength`、webのhash adapterの`"" → null`、`episodePath`の`@require`）。正本の候補は、言語横断の`manuscript.schema.json`と、その写しとしてのdomain。`z.toJSONSchema(z.string().min(1))`は`{type:string,minLength:1}`で、`manuscript.schema.json`の`episodeId`と同形（実測）
