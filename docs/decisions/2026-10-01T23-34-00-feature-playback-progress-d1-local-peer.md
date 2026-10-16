@@ -7,7 +7,7 @@ branch: feature/playback-progress-d1-local-peer
 ## 1. Decision
 
 1. DB の schema（migration）には、範囲などの domain 契約（`CHECK`）を入れない。
-2. 静的な範囲は入口の契約（zod）が検証する。時刻は instant として、1970-01-01T00:00:00Z より後、2100-01-01T00:00:00Z より前とする。範囲の判定と正規化の正本は、domain の `normalizeUtcInstant` である。契約の schema はそれを呼んで HTTP の検証失敗に写す（`domain-vocabulary-shared-by-web-and-worker.md`）。
+2. 静的な範囲は入口の契約（zod）が検証する。時刻は instant として、1970-01-01T00:00:00Z より後、2100-01-01T00:00:00Z より前とする。範囲の判定と固定幅への変換の正本は、domain の `toUtcInstant` である。契約の schema は zod で文法を検証したあとそれを呼び、範囲外を HTTP の検証失敗に写す（`domain-vocabulary-shared-by-web-and-worker.md`）。
 3. 時刻は 3 種あり、役割を分ける。
    1. `clientAt`: 端末の時計。merge の鍵である。信頼は低い。
    2. `serverAt`: 受信時刻。Clock port で Application に注入する。skew 検査の基準である。
