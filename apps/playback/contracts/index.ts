@@ -29,6 +29,7 @@ export {
 } from "./http.ts";
 export type {
   EpisodeItem,
+  EpisodeProgressResponse,
   ErrorResponse,
   EpisodeIdRequest,
   ListEpisodesResponse,

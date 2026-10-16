@@ -8,6 +8,7 @@ import type {
   ListEpisodesUseCaseOutput,
 } from "../application/use-cases/list-episodes.ts";
 import { mapInternalErrorToExternal } from "./map-internal-error.ts";
+import { toEpisodeProgressResponse } from "./to-episode-progress-response.ts";
 
 export type ListEpisodesUseCase = () => Promise<ListEpisodesUseCaseOutput>;
 
@@ -36,15 +37,7 @@ function toEpisodeItem(episode: EpisodeWithProgress): EpisodeItem {
       },
     },
     audioRef: episodeAudioPath(episode.episodeId),
-    progress:
-      episode.progress === null
-        ? null
-        : {
-            positionSec: episode.progress.positionSec,
-            firstPlayedAt: episode.progress.firstPlayedAt,
-            firstCompletedAt: episode.progress.firstCompletedAt,
-            lastPlayedAt: episode.progress.lastPlayedAt,
-          },
+    progress: episode.progress === null ? null : toEpisodeProgressResponse(episode.progress),
   };
 }
 

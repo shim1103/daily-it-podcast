@@ -267,6 +267,8 @@ export const ErrorResponseSchema = z.strictObject({
 });
 
 export type EpisodeItem = z.infer<typeof episodeItemSchema>;
+/** 検証後の形。時刻は `UtcInstant`。 */
+export type EpisodeProgressResponse = z.output<typeof episodeProgressSchema>;
 export type ListEpisodesResponse = z.infer<typeof ListEpisodesResponseSchema>;
 export type EpisodeIdRequest = z.infer<typeof EpisodeIdRequestSchema>;
 /** wire 形（client が送る形）。`clientAt` は offset 付きの文字列でよい。 */

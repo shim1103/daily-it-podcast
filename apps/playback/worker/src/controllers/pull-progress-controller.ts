@@ -4,6 +4,7 @@ import type {
   PullProgressUseCaseOutput,
 } from "../application/use-cases/pull-progress.ts";
 import { mapInternalErrorToExternal } from "./map-internal-error.ts";
+import { toEpisodeProgressResponse } from "./to-episode-progress-response.ts";
 
 export type PullProgressUseCase = (
   input: PullProgressUseCaseInput,
@@ -21,12 +22,7 @@ function toProgressPullResponse(output: PullProgressUseCaseOutput): ProgressPull
   return {
     episodes: output.episodes.map((entry) => ({
       episodeId: entry.episodeId,
-      progress: {
-        positionSec: entry.progress.positionSec,
-        firstPlayedAt: entry.progress.firstPlayedAt,
-        firstCompletedAt: entry.progress.firstCompletedAt,
-        lastPlayedAt: entry.progress.lastPlayedAt,
-      },
+      progress: toEpisodeProgressResponse(entry.progress),
     })),
   };
 }
