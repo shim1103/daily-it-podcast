@@ -34,11 +34,6 @@ non-scope: "branch非依存の未完了とOpen questions（→wiki）、完了�
     - `coding-terms/backend-terms/entities.md`§7（他の内部層をimportしない）と`ring-model.md`§4-7（root直下は層のdirだけ）が、web・worker共有の最内側dir`domain/`を想定していない。本branchは`domain-vocabulary-shared-by-web-and-worker.md`を正とした
     - `defensive-design.md`§2-1（呼ばれ方を仮定せず壊れない）と§2-3（callerの責務と重なる防御は入れない）の文面の衝突を直す
     - `/std`で再反映した後も、上の3箇所の文面は変わっていない（確認済み）
-7. commitの扱いをshimと決める
-    - 本branchに4 commit（`86e7e39`・`9778ce8`・`741414f`・`18dc12c`）を作った。根拠は`AGENTS.md`§4の常設指示で、このsessionでshimが明示したものではない
-    - `18dc12c`（`.codex/config.toml`）はshimの未commit編集を`--repo`で入れた。残すか、`git reset --soft`で戻すかの判断待ち
-    - `/std`の再反映で`.codex/config.toml`にコメント1行が増え、未commitのまま残っている
-    - 時刻の案D（domainを`Date`入力へ縮小、contractsの時刻schemaを`z.iso.datetime`へ、Decision 3件の更新）は未commit。shimが`/commit`を範囲外にしたので、指示を待つ
 8. epic branch名の確認
     - `origin/feature/playback-progress`と推定。`gh`がTLS errorで取れず未確認
 9. `.codex/config.toml`を追跡から外す（shimのqueue）
