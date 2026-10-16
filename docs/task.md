@@ -15,6 +15,9 @@ non-scope: "branch非依存の未完了とOpen questions（→wiki）、完了�
 3. `episodeId`を`EpisodeId`にするか決める（cursorの形式も同じ問い）
     - 案a=別名のみ（意味の明確化、安い）、案b=brand＋非空の入口（`episodeId`を含むfileは非test36・test39、test内literal166箇所）、案c=worker内だけ
     - `ProgressCursor`は別名のままで、`ProgressVersion`のbrandと不揃い
+    - 論点: 「非空」の定義が4箇所に分かれる（contractsの`min(1)`、`manuscript.schema.json`の`minLength`、webのhash adapterの`"" → null`、`episodePath`の`@require`）。正本の候補は、言語横断の`manuscript.schema.json`と、その写しとしてのdomain
+    - 論点: `episode-layout.md`は`episodeId`を「不透明な対応キー。生成規則はGeneratorに閉じ、Readerはstem一致だけ見る」とする。文字種は未定義なので、domainが言える不変は非空まで
+    - 論点: R2 adapterは`${episodeId}.json`のkey組立を無検査で行う。`/`を含むidの扱いは未確認（Honoのparam decodeも未確認）
 4. `PROGRESS_WRITE_MAX_ATTEMPTS`と`progressWriteRetryableHttpErrorCodes`をcontractsから出す
     - codeの使用者はゼロ（コメントのみ）。意図した使用者のVMは、depcruiseの`web-viewmodels-no-components-contracts`でcontractsをimportできない
     - 置き場の案: 試行回数はweb側（VM）、retry可否の導出は`web/api`。workerのinfra commentは定数名を指さず方針を書く
