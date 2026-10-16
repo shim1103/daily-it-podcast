@@ -18,20 +18,6 @@ export const playbackHttpErrorCodes = [
 export type PlaybackHttpErrorCode = (typeof playbackHttpErrorCodes)[number];
 
 /**
- * 進捗 Write（create / update / complete）の最大試行回数（初回含む）。
- * browser の有限 retry 上限。session またぎキューは持たない。
- */
-export const PROGRESS_WRITE_MAX_ATTEMPTS = 3 as const;
-
-/**
- * Write を HTTP 契約 code として再試行してよいもの。
- * validation / not_found は再送しても結果が変わらないので含めない。
- */
-export const progressWriteRetryableHttpErrorCodes = [
-  "unavailable",
-] as const satisfies readonly PlaybackHttpErrorCode[];
-
-/**
  * 進捗の時刻（`clientAt`・`since`・`first*`・`lastPlayedAt`）が共有する schema。
  * 入力の文法は zod の `z.iso.datetime({ offset: true })` が持ち（offset 付きの ISO-8601 だけを受け、
  * 実在しない暦日や offset の範囲外を拒む）、出力は同じ instant の UTC 固定幅（`UtcInstant`）で、

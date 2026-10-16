@@ -24,8 +24,6 @@ export {
   playbackHttpErrorCodes,
   progressPullPath,
   PROGRESS_PULL_ORIGIN_CURSOR,
-  PROGRESS_WRITE_MAX_ATTEMPTS,
-  progressWriteRetryableHttpErrorCodes,
 } from "./http.ts";
 export type {
   EpisodeItem,

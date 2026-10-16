@@ -42,7 +42,7 @@ export type PlaybackApiClient = {
 /**
  * playback worker の HTTP API を叩く client を組み立てる。
  * schema + status + network → ApiResult のみ（path / encode は持たない）。
- * Write の HTTP retry（`PROGRESS_WRITE_MAX_ATTEMPTS`）は呼び出し側（VM）が持つ。本 client は 1 試行。
+ * Write の HTTP retry は呼び出し側（VM）が持つ。本 client は 1 試行。
  *
  * @require deps.baseUrl は worker の origin。末尾の `/` は有無どちらでもよい
  * @require deps.fetch は Fetch API 互換の呼び出し
