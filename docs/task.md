@@ -5,31 +5,19 @@ when_to_use: "feature/playback-progress-versioned-persistenceで作業を再開�
 non-scope: "branch非依存の未完了とOpen questions（→wiki）、完了済みのtask、sessionの経緯（→daily）。"
 ---
 
-1. playback/workerの同形の型・写しを削る範囲をshimと決める
-    - 調査済み（editなし）。候補は`ProgressMergeIncoming`の再構築3箇所の削除、progress→contract写像の1関数化、`ProgressWriteUseCaseOutput`を`Pick<EpisodeProgress, ...>`へ寄せること
-    - `EpisodeManuscript`と`EpisodeItem`の統合は`application.md`§7-2との関係で慎重に扱う。shimの許可待ち
-2. domainの語彙の残りを決める（shim: 「生の基本型はdomainに極力閉じる」）
-    - 適用済み: `EpisodeId`・`PositionSec`・`ClientAt`（別名）、`ProgressReport`（進捗報告）、`EpisodeAudio`（worker の entities）。entities → domain の import を許した
-    - 残り: `durationSec`・`startSec`（原稿の秒）は`number`のまま。`ProgressRow`・`ProgressUpdatedEntry`を昇格するか。`stem`は`string`のまま（file 名）
-    - 残り: web の test 6箇所前後に`episodeId: string`・`positionSec: number`が残る（機械的に置換できる）。`routes/audio-response.ts`と`r2-episode-repository.ts`の`Uint8Array`は、routes が entities を import できないため残した
-3. brandの手書き定義をどうするか決める（`UtcInstant`・`ProgressVersion`・`RequestId`の3つが`X & { readonly __brand: "X" }`を各自で書いている）
-    - `domain`の実コードは13行。範囲判定（5行）はzodを使っても`.refine`で手書きになる。`z.iso.datetime({precision:3})`は正規形（Z・3桁・実在する暦日）だけを受けるが、範囲は見ない（実測）
-    - 案: 現状維持 / 型だけの`Brand<T, Name>`をdomainに置いて3つを揃える（zod不要） / domainがzodに依存して`.brand()`
-4. `PROGRESS_WRITE_MAX_ATTEMPTS`と`progressWriteRetryableHttpErrorCodes`をcontractsから出す
-    - codeの使用者はゼロ（コメントのみ）。意図した使用者のVMは、depcruiseの`web-viewmodels-no-components-contracts`でcontractsをimportできない
-    - 置き場の案: 試行回数はweb側（VM）、retry可否の導出は`web/api`。workerのinfra commentは定数名を指さず方針を書く
-5. `EpisodeManuscript`型と`manuscript.schema.json`の食い違い検出を決める
+1. `EpisodeManuscript`型と`manuscript.schema.json`の食い違い検出を決める
     - 現状はajv後の`as`でつなぐだけ。Goはembedしたschemaで検証し、組立structは手書き。TSは手書き型とHTTPの`episodeItemSchema`が写し（HTTP側は層境界のDecisionで意図的に別）
     - shimの判断: fixtureをschemaで検証するcontract test（案i）は大変なのでやめる
     - 残る案: ii=型の生成（要tool導入と版固定。未導入）、iii=`z.fromJSONSchema`。実測: 検証は動く（空id・余分なfield・負のdurationを拒否）が、出力型は静的に推論されない
     - iiとzodの関係: 生成するのは`EpisodeManuscript`型だけで、zodはHTTP契約とdomainの葉schemaに残る。JSON Schemaの`minLength`は型にならないので、`EpisodeId`のbrandは生成型から出ない（manuscript境界で`episodeIdSchema.parse`する）
-6. skillsを更新する（`agent-standards`側。このsessionでは更新しない指示）
-    - `coding-terms/backend-terms/entities.md`§7（他の内部層をimportしない）と`ring-model.md`§4-7（root直下は層のdirだけ）が、web・worker共有の最内側dir`domain/`を想定していない。本branchは`domain-vocabulary-shared-by-web-and-worker.md`を正とした
-    - `defensive-design.md`§2-1（呼ばれ方を仮定せず壊れない）と§2-3（callerの責務と重なる防御は入れない）の文面の衝突を直す
-    - `/std`で再反映した後も、上の3箇所の文面は変わっていない（確認済み）
-7. epic branch名の確認
+2. epic branch名の確認
     - `origin/feature/playback-progress`と推定。`gh`がTLS errorで取れず未確認
-8. `.codex/config.toml`を追跡から外す（shimのqueue）
-    - `.gitignore`に`.codex`があるのに、`config.toml`だけtrackedのまま。`git rm --cached .codex/config.toml`で外す案
-    - 影響: 他のcheckoutではpullでfileが消える。`/std`が再生成する。`18dc12c`と`/std`で増えた1行は、外せば不要になる
-    - read-onlyのturnだったので未実行。shimの許可待ち
+3. 秒を表示する関数の引数の型を決める
+    - `formatDurationMmSs(durationSec: DurationSec)`が、位置（`startSec`: `PositionSec`）の表示にも使われ、型の意味がずれる。別名なので型は通る
+    - 案: 引数を秒の共通の語にする / 位置用と長さ用に分ける / 名前を見直す
+4. `agent-standards`に入れたskillの編集をcommitする（shim。`agent-standards`の`AGENTS.md`は「`/commit`を勝手に実行しない」）
+    - 編集済み・未commit: `coding-terms/ring-model.md`§4-7、`coding-terms/backend-terms/entities.md`§7、`coding-terms/backend-terms/SKILL.md`§3、`error-terms/defensive-design.md`§1-2・3
+    - 同repoの`skills/2:platform/swift/layout.md`の未commit差分は別の作業のもの（触っていない）
+    - 追加の候補: 「層の入出力の束は、domainの葉と層固有の都合から合成する」の原則を`dto-naming.md`か`application.md`に書く（依頼されたtask 6の範囲外）
+5. Write の retry を実装する時、上限の定数をview-modelへ置く
+    - 上限は初回を含め3試行。Decision `2026-09-22T19-23-39-feature-playback-progress.md`が設計意図の置き場。再試行してよい語彙は`catalogErrorPresentation`の`retryable`を使う
