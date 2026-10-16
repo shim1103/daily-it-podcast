@@ -24,7 +24,9 @@ non-scope: "branch非依存の未完了とOpen questions（→wiki）、完了�
     - 置き場の案: 試行回数はweb側（VM）、retry可否の導出は`web/api`。workerのinfra commentは定数名を指さず方針を書く
 5. `EpisodeManuscript`型と`manuscript.schema.json`の食い違い検出を決める
     - 現状はajv後の`as`でつなぐだけ。Goはembedしたschemaで検証し、組立structは手書き。TSは手書き型とHTTPの`episodeItemSchema`が写し（HTTP側は層境界のDecisionで意図的に別）
-    - 案: fixtureをschemaで検証するcontract test（安価）、型の生成（要tool導入と版固定。未導入）、`z.fromJSONSchema`（zod 4.4.3にある。型は推論されない見込みで未検証）
+    - shimの判断: fixtureをschemaで検証するcontract test（案i）は大変なのでやめる
+    - 残る案: ii=型の生成（要tool導入と版固定。未導入）、iii=`z.fromJSONSchema`。実測: 検証は動く（空id・余分なfield・負のdurationを拒否）が、出力型は静的に推論されない
+    - iiとzodの関係: 生成するのは`EpisodeManuscript`型だけで、zodはHTTP契約とdomainの葉schemaに残る。JSON Schemaの`minLength`は型にならないので、`EpisodeId`のbrandは生成型から出ない（manuscript境界で`episodeIdSchema.parse`する）
 6. skillsを更新する（`agent-standards`側。このsessionでは更新しない指示）
     - `coding-terms/backend-terms/entities.md`§7（他の内部層をimportしない）と`ring-model.md`§4-7（root直下は層のdirだけ）が、web・worker共有の最内側dir`domain/`を想定していない。本branchは`domain-vocabulary-shared-by-web-and-worker.md`を正とした
     - `defensive-design.md`§2-1（呼ばれ方を仮定せず壊れない）と§2-3（callerの責務と重なる防御は入れない）の文面の衝突を直す
