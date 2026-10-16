@@ -8,23 +8,22 @@ import type {
   ListManuscriptsResult,
   RawManuscriptEntry,
 } from "../../application/ports/episode-repository.ts";
-import type { EpisodeAudio } from "../../entities/models/episode-audio.ts";
 
 type StoredEpisode = {
   json: unknown;
-  audio?: EpisodeAudio;
+  audio?: Uint8Array;
 };
 
 /**
  * local development / unit test 用に、原稿 json / mp3 をメモリ上に保持する `EpisodeRepository`。
  *
  * 真の外部境界（ここでは Map への格納・取り出し）だけを担い、schema 適合・stem 一致・不正 JSON・
- * mp3 欠落の判定はしない。判定は use-case（`application/use-cases/*`）が行う。
+ * mp3 欠落と内容の判定はしない。判定は use-case（`application/use-cases/*`）が行う。
  */
 export class InMemoryEpisodeRepository implements EpisodeRepository {
   private readonly episodes = new Map<EpisodeId, StoredEpisode>();
 
-  put(episodeId: EpisodeId, json: unknown, audio?: EpisodeAudio): void {
+  put(episodeId: EpisodeId, json: unknown, audio?: Uint8Array): void {
     this.episodes.set(episodeId, { json, audio });
   }
 

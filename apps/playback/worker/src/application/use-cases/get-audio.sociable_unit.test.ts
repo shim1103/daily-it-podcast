@@ -62,4 +62,30 @@ describe("getAudio", () => {
     await expect(act).rejects.toBeInstanceOf(EpisodeContentError);
     await expect(act).rejects.toThrow(/音声が無い/);
   });
+
+  it("Port が mp3 でない byte を返す時、EpisodeContentError（音声が mp3 でない）", async () => {
+    // Given: 署名の無い byte を返す Fake Port
+    const repository = createFakeRepository({
+      getAudio: async () => new Uint8Array([0x00, 0x01, 0x02]),
+    });
+
+    // When: 音声取得 UseCase を実行する
+    const act = getAudio(repository, { episodeId: "ep-1" });
+
+    // Then: 内容不適合として Domain の実体不備になる
+    await expect(act).rejects.toBeInstanceOf(EpisodeContentError);
+    await expect(act).rejects.toThrow(/音声が mp3 でない/);
+  });
+
+  it("Port が空の byte を返す時、EpisodeContentError（音声が空）", async () => {
+    // Given: 0 byte を返す Fake Port
+    const repository = createFakeRepository({ getAudio: async () => new Uint8Array([]) });
+
+    // When: 音声取得 UseCase を実行する
+    const act = getAudio(repository, { episodeId: "ep-1" });
+
+    // Then: 不在（undefined）とは別の message で内容不適合になる
+    await expect(act).rejects.toBeInstanceOf(EpisodeContentError);
+    await expect(act).rejects.toThrow(/音声が空/);
+  });
 });

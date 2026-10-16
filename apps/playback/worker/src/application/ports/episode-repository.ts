@@ -1,5 +1,4 @@
 import type { EpisodeId } from "../../../../domain/index.ts";
-import type { EpisodeAudio } from "../../entities/models/episode-audio.ts";
 
 /**
  * 取得したままの原稿 json 1 件。`stem` は取得元ファイル名の stem（= 期待 episodeId）。
@@ -15,15 +14,15 @@ export type GetManuscriptArgs = { readonly episodeId: EpisodeId };
 export type GetManuscriptResult = RawManuscriptEntry | undefined;
 
 export type GetAudioArgs = { readonly episodeId: EpisodeId };
-export type GetAudioResult = EpisodeAudio | undefined;
+export type GetAudioResult = Uint8Array | undefined;
 
 /**
  * 所定 object 空間の原稿 json / 音声を「取得したまま返す」Driven Port。schema 検証・stem 一致判定は
  * 一切しない（generator の `port.ItemSource` / `port.EpisodeWriter` の read 方向鏡像）。
  *
  * 実装（R2 / InMemory）は真の外部境界の I/O だけを担う。schema 適合・stem 一致・
- * 不正 JSON・音声欠落の判定は use-case（`application/use-cases/*`）が `application/manuscript` の
- * 純関数を使って行う。
+ * 不正 JSON・音声欠落と内容の判定は use-case（`application/use-cases/*`）が `application/manuscript`・
+ * `application/audio` の純関数を使って行う。
  *
  * @invariant vendor 固有型・storage 固有 id を露出しない
  */
