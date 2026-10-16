@@ -17,6 +17,9 @@ export type EpisodePlaybackViewModel = {
   stop(): void;
 };
 
+// TODO: Write の retry を実装したらこの定数を有効にして使う。初回を含め 3 試行（Decision 2026-09-22T19-23-39-feature-playback-progress.md）。使用者が入るまではコメントアウトで置く
+// export const PROGRESS_WRITE_MAX_ATTEMPTS = 3 as const;
+
 const IDLE: PlaybackState = { kind: "idle" };
 
 /** Adapter の 4 値 phase を ViewModel の判別可能 union へ写す。error 枝だけ失敗理由を持つ。 */
