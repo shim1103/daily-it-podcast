@@ -17,8 +17,11 @@ prev: なし
 3. 過去側上限は 24h・未来側は 300s（5分）。「5分過去＝retry」は現定数では拒否しない。Decision の仮値を変えていない。
 4. MEMORY は空だった（削除対象なし）。
 
+5. PR #234 を `feature/playback-progress` 向けに作成した。初回 CI の `static-and-unit` は biome format（`contracts/http.ts` の union 改行）で落ち、format 修正後に再 push した。
+
 ### Commits
 
 - `911804e`
 - `47cf459`
 - `b0c9c97`
+- （format 修正 commit はこの追記直後）
