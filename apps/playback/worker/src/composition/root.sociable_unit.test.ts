@@ -347,11 +347,13 @@ describe("createPlaybackControllers", () => {
 
     it("rejects_create_as_validation_error_when_clientAt_exceeds_future_skew", async () => {
       // Given: SystemClock を固定し、未来側上限を 1ms 超える clientAt
-      const serverAt = new Date("2026-09-22T12:00:00.000Z");
-      fixSystemTime(serverAt.toISOString());
+      const serverAtInstant = new Date("2026-09-22T12:00:00.000Z");
+      fixSystemTime(serverAtInstant.toISOString());
       const got = createPlaybackControllers({}, inMemoryOptions);
       const overLimit = utc(
-        new Date(serverAt.getTime() + PROGRESS_CLIENT_AT_MAX_FUTURE_SKEW_SEC * 1000 + 1).toISOString(),
+        new Date(
+          serverAtInstant.getTime() + PROGRESS_CLIENT_AT_MAX_FUTURE_SKEW_SEC * 1000 + 1,
+        ).toISOString(),
       );
 
       // When: create Controller を叩く
