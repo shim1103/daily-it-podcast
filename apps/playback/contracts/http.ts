@@ -27,10 +27,7 @@ export type PlaybackHttpErrorCode = (typeof playbackHttpErrorCodes)[number];
  * `precision: -1`（分まで）との union で両方を受ける。
  */
 const progressInstantSchema = z
-  .union([
-    z.iso.datetime({ offset: true }),
-    z.iso.datetime({ offset: true, precision: -1 }),
-  ])
+  .union([z.iso.datetime({ offset: true }), z.iso.datetime({ offset: true, precision: -1 })])
   .transform((value, ctx) => {
     // why: 小数が 4 桁以上の表記は Date Time String Format（ECMA-262）が規定せず、実装依存の恐れがある。3 桁へ切ってから Date に渡す
     const instant = toUtcInstant(new Date(value.replace(/(\.\d{3})\d+/, "$1")));
