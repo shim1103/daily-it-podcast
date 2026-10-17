@@ -23,20 +23,24 @@ export type PlaybackHttpErrorCode = (typeof playbackHttpErrorCodes)[number];
  * 入力の文法は zod の `z.iso.datetime({ offset: true })` が持ち（offset 付きの ISO-8601 だけを受け、
  * 実在しない暦日や offset の範囲外を拒む）、出力は同じ instant の UTC 固定幅（`UtcInstant`）で、
  * 文字列順が時系列順と一致する。固定幅への変換と範囲（1970〜2100）の正本は `domain` の `toUtcInstant`。
+ * 秒省略（`YYYY-MM-DDTHH:mmZ`）は Decision（domain-vocabulary）どおり受理する。zod 既定は秒必須なので、
+ * `precision: -1`（分まで）との union で両方を受ける。
  */
-const progressInstantSchema = z.iso.datetime({ offset: true }).transform((value, ctx) => {
-  // why: 小数が 4 桁以上の表記は Date Time String Format（ECMA-262）が規定せず、実装依存の恐れがある。3 桁へ切ってから Date に渡す
-  const instant = toUtcInstant(new Date(value.replace(/(\.\d{3})\d+/, "$1")));
-  if (instant === undefined) {
-    ctx.issues.push({
-      code: "custom",
-      message: "時刻が範囲（1970-01-01T00:00:00Z より後、2100-01-01T00:00:00Z より前）の外",
-      input: value,
-    });
-    return z.NEVER;
-  }
-  return instant;
-});
+const progressInstantSchema = z
+  .union([z.iso.datetime({ offset: true }), z.iso.datetime({ offset: true, precision: -1 })])
+  .transform((value, ctx) => {
+    // why: 小数が 4 桁以上の表記は Date Time String Format（ECMA-262）が規定せず、実装依存の恐れがある。3 桁へ切ってから Date に渡す
+    const instant = toUtcInstant(new Date(value.replace(/(\.\d{3})\d+/, "$1")));
+    if (instant === undefined) {
+      ctx.issues.push({
+        code: "custom",
+        message: "時刻が範囲（1970-01-01T00:00:00Z より後、2100-01-01T00:00:00Z より前）の外",
+        input: value,
+      });
+      return z.NEVER;
+    }
+    return instant;
+  });
 
 /**
  * 進捗 pull の cursor。10 進の非負整数の文字列（15 桁以下、先頭 0 は `"0"` のみ）。

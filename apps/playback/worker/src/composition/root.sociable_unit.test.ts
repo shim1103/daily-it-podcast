@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { episodeAudioPath } from "../../../contracts/index.ts";
 import { createFakeLocalD1Binding } from "../../../test/support/create-fake-local-d1-binding.ts";
+import { utc } from "../../../test/support/utc-instant.ts";
 import {
   createFakeGetAudioUseCase,
   createFakeListEpisodesUseCase,
@@ -10,6 +11,7 @@ import {
   validProgressWriteUseCaseOutput,
   validPullProgressUseCaseOutput,
 } from "../controllers/fake-use-cases.ts";
+import { PROGRESS_CLIENT_AT_MAX_FUTURE_SKEW_SEC } from "../entities/constants/progress.ts";
 import { D1ProgressRepository } from "../infrastructure/d1/d1-progress-repository.ts";
 import { InMemoryEpisodeRepository } from "../infrastructure/in-memory/in-memory-episode-repository.ts";
 import { InMemoryProgressRepository } from "../infrastructure/in-memory/in-memory-progress-repository.ts";
@@ -24,7 +26,12 @@ import {
   type PlaybackProgressRepositoryMode,
   type PlaybackRepositoryMode,
 } from "./root.ts";
-import { utc } from "../../../test/support/utc-instant.ts";
+
+/** SystemClock 経路の Write と fixture の `clientAt` を揃える。 */
+function fixSystemTime(iso: string): void {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(iso));
+}
 
 const localMode: PlaybackRepositoryMode = "in-memory";
 const r2Mode: PlaybackRepositoryMode = "r2";
@@ -161,6 +168,10 @@ describe("createProgressRepository", () => {
 });
 
 describe("createPlaybackControllers", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   describe("episode 系 Controller は選ばれた EpisodeRepository を通る", () => {
     it("lists_no_episodes_when_mode_is_in_memory_and_episode_repository_is_empty", async () => {
       // Given: override 無し・in-memory mode の空 env（原稿が 1 件も無い EpisodeRepository）
@@ -185,7 +196,8 @@ describe("createPlaybackControllers", () => {
     });
 
     it("rejects_complete_as_not_found_when_mode_is_in_memory_and_episode_repository_has_no_manuscript", async () => {
-      // Given: override 無し・in-memory mode の空 env（原稿が無い EpisodeRepository）
+      // Given: override 無し・in-memory mode の空 env（原稿が無い EpisodeRepository）。SystemClock を fixture に揃える
+      fixSystemTime("2026-09-22T10:05:00.000Z");
       const got = createPlaybackControllers({}, inMemoryOptions);
 
       // When: complete Controller を叩く
@@ -201,7 +213,8 @@ describe("createPlaybackControllers", () => {
 
   describe("progress 系 Controller は選ばれた ProgressRepository を通る", () => {
     it("persists_created_progress_for_pull_when_mode_is_in_memory", async () => {
-      // Given: override 無し・in-memory mode の空 env で組み立てた Controller 一式
+      // Given: override 無し・in-memory mode の空 env。SystemClock を fixture に揃える
+      fixSystemTime("2026-09-22T10:00:00.000Z");
       const got = createPlaybackControllers({}, inMemoryOptions);
 
       // When: 同じ組み立ての中で progress を作成し、作成より前の since で pull する
@@ -228,7 +241,8 @@ describe("createPlaybackControllers", () => {
     });
 
     it("updates_created_progress_when_mode_is_in_memory", async () => {
-      // Given: in-memory mode の Controller 一式と、同じ組み立ての中で作成済みの progress
+      // Given: in-memory mode の Controller 一式。SystemClock を fixture に揃える
+      fixSystemTime("2026-09-22T10:00:00.000Z");
       const got = createPlaybackControllers({}, inMemoryOptions);
       await got.createProgressController("ep-1", {
         positionSec: 12,
@@ -256,7 +270,8 @@ describe("createPlaybackControllers", () => {
     });
 
     it("sends_no_sql_to_d1_when_progress_mode_is_in_memory_even_if_env_has_d1_binding", async () => {
-      // Given: D1 binding を持つ env と進捗 in-memory mode（in-memory は env の中身を見ない）
+      // Given: D1 binding を持つ env と進捗 in-memory mode。SystemClock を fixture に揃える
+      fixSystemTime("2026-10-01T00:00:00.000Z");
       const { database, calls } = await createFakeLocalD1Binding();
       const got = createPlaybackControllers({ EPISODE_PROGRESS: database }, inMemoryOptions);
 
@@ -272,7 +287,8 @@ describe("createPlaybackControllers", () => {
     });
 
     it("persists_progress_via_d1_binding_when_progress_mode_is_d1_and_d1_binding_exists", async () => {
-      // Given: 行の無い D1 binding と、episode r2 ＋ 進捗 d1 の明示 option
+      // Given: 行の無い D1 binding と、episode r2 ＋ 進捗 d1。SystemClock を fixture に揃える
+      fixSystemTime("2026-10-01T00:00:00.000Z");
       const { database, calls } = await createFakeLocalD1Binding();
       const got = createPlaybackControllers(
         { EPISODES: emptyBucket, EPISODE_PROGRESS: database },
@@ -291,7 +307,8 @@ describe("createPlaybackControllers", () => {
     });
 
     it("persists_progress_via_d1_binding_when_episode_mode_is_in_memory_and_progress_mode_is_d1", async () => {
-      // Given: D1 binding だけを持つ env（EPISODES 無し）と、episode in-memory ＋ 進捗 d1 の明示 option
+      // Given: D1 binding だけを持つ env と episode in-memory ＋ 進捗 d1。SystemClock を fixture に揃える
+      fixSystemTime("2026-10-01T00:00:00.000Z");
       const { database, calls } = await createFakeLocalD1Binding();
       const got = createPlaybackControllers(
         { EPISODE_PROGRESS: database },
@@ -309,7 +326,8 @@ describe("createPlaybackControllers", () => {
     });
 
     it("keeps_progress_in_memory_when_episode_mode_is_r2_and_progress_mode_is_in_memory", async () => {
-      // Given: R2 binding だけを持つ env（D1 binding 無し）と、episode r2 ＋ 進捗 in-memory の明示 option
+      // Given: R2 binding だけを持つ env と episode r2 ＋ 進捗 in-memory。SystemClock を fixture に揃える
+      fixSystemTime("2026-09-22T10:00:00.000Z");
       const got = createPlaybackControllers(
         { EPISODES: emptyBucket },
         { mode: r2Mode, progressMode: localProgressMode },
@@ -325,6 +343,27 @@ describe("createPlaybackControllers", () => {
       // Then: episode が r2 でも、進捗は同じ組み立ての in-memory ProgressRepository が保持している
       expect(pull.episodes).toHaveLength(1);
       expect(pull.episodes[0]?.episodeId).toBe("ep-1");
+    });
+
+    it("rejects_create_as_validation_error_when_clientAt_exceeds_future_skew", async () => {
+      // Given: SystemClock を固定し、未来側上限を 1ms 超える clientAt
+      const serverAtInstant = new Date("2026-09-22T12:00:00.000Z");
+      fixSystemTime(serverAtInstant.toISOString());
+      const got = createPlaybackControllers({}, inMemoryOptions);
+      const overLimit = utc(
+        new Date(
+          serverAtInstant.getTime() + PROGRESS_CLIENT_AT_MAX_FUTURE_SKEW_SEC * 1000 + 1,
+        ).toISOString(),
+      );
+
+      // When: create Controller を叩く
+      const act = got.createProgressController("ep-1", {
+        positionSec: 1,
+        clientAt: overLimit,
+      });
+
+      // Then: ProgressRuleError → External ValidationError（HTTP 400 validation_error の写像元）
+      await expect(act).rejects.toMatchObject({ name: "ValidationError" });
     });
   });
 

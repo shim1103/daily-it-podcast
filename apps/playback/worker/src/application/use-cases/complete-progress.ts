@@ -2,8 +2,10 @@ import { EpisodeContentError } from "../../entities/errors/episode-content-error
 import { ProgressNotFoundError } from "../../entities/errors/progress-not-found-error.ts";
 import { ProgressRuleError } from "../../entities/errors/progress-rule-error.ts";
 import { verifyManuscript } from "../manuscript/verify-manuscript.ts";
+import type { Clock } from "../ports/clock.ts";
 import type { EpisodeRepository } from "../ports/episode-repository.ts";
 import type { ProgressRepository } from "../ports/progress-repository.ts";
+import { assertClientAtWithinSkew } from "../progress/assert-client-at-within-skew.ts";
 import { isInCompleteZone } from "../progress/is-in-complete-zone.ts";
 import {
   loadExistingProgress,
@@ -24,12 +26,16 @@ import type {
  *
  * @require input は Controller が契約 schema の検証済み値から作った
  * @ensure ProgressWriteUseCaseOutput（勝ち側 first*）を返す。storage 失敗は Port が Infrastructure Error を throw する
+ * @ensure `clientAt` の skew 超過は原稿取得・repository より前に `ProgressRuleError` を throw する
  */
 export async function completeProgress(
   episodeRepository: EpisodeRepository,
   progressRepository: ProgressRepository,
+  clock: Clock,
   input: ProgressWriteUseCaseInput,
 ): Promise<ProgressWriteUseCaseOutput> {
+  assertClientAtWithinSkew(input.clientAt, clock.now());
+
   const raw = await episodeRepository.getManuscript({ episodeId: input.episodeId });
   if (raw === undefined) {
     throw new EpisodeContentError(`原稿が無い: ${input.episodeId}`);

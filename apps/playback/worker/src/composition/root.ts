@@ -132,7 +132,6 @@ export function createProgressRepository(
  * @ensure env・mode に依らず、システム時計を返す `SystemClock` を返す
  */
 export function createClock(): Clock {
-  // todo: C が Write UseCase へ clock を注入したら、この todo を消す（`createPlaybackControllers` はまだ呼ばない）
   return new SystemClock();
 }
 
@@ -167,6 +166,7 @@ export function createPlaybackControllers(
 
   const selection = createEpisodeRepository(env, options);
   const progressRepository = createProgressRepository(env, options);
+  const clock = createClock();
 
   const { repository } = selection;
   return {
@@ -175,13 +175,13 @@ export function createPlaybackControllers(
     ),
     getAudioController: createGetAudioController((input) => getAudio(repository, input)),
     createProgressController: createProgressWriteController((input) =>
-      createProgress(progressRepository, input),
+      createProgress(progressRepository, clock, input),
     ),
     updateProgressController: createProgressWriteController((input) =>
-      updateProgress(progressRepository, input),
+      updateProgress(progressRepository, clock, input),
     ),
     completeProgressController: createProgressWriteController((input) =>
-      completeProgress(repository, progressRepository, input),
+      completeProgress(repository, progressRepository, clock, input),
     ),
     pullProgressController: createPullProgressController((input) =>
       pullProgress(progressRepository, input),
