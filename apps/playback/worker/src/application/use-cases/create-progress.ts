@@ -1,4 +1,6 @@
+import type { Clock } from "../ports/clock.ts";
 import type { ProgressRepository } from "../ports/progress-repository.ts";
+import { assertClientAtWithinSkew } from "../progress/assert-client-at-within-skew.ts";
 import {
   loadExistingProgress,
   persistMergedProgress,
@@ -17,11 +19,14 @@ import type {
  *
  * @require input は Controller が契約 schema の検証済み値から作った
  * @ensure ProgressWriteUseCaseOutput（勝ち側 first*）を返す。storage 失敗は Port が Infrastructure Error を throw する
+ * @ensure `clientAt` の skew 超過は I/O 前に `ProgressRuleError` を throw する
  */
 export async function createProgress(
   repository: ProgressRepository,
+  clock: Clock,
   input: ProgressWriteUseCaseInput,
 ): Promise<ProgressWriteUseCaseOutput> {
+  assertClientAtWithinSkew(input.clientAt, clock.now());
   const existing = await loadExistingProgress(repository, input.episodeId);
   const merged = await persistMergedProgress(repository, input.episodeId, existing, input);
   return toProgressWriteUseCaseOutput(merged);
